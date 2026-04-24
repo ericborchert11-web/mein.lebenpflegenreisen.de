@@ -243,6 +243,14 @@ async function doRegister() {
   const res = await LPR.register({ email, password, name, role: selectedRole, extra });
   if (!res.ok) { showErr(res.error); return; }
 
+  // Pending: Registrierung wurde eingereicht, aber Freigabe durch Vorstand nötig
+  if (res.pending) {
+    const params = new URLSearchParams({ email: email, name: name, role: selectedRole });
+    window.location.href = 'registrierung-erfolgreich.html?' + params.toString();
+    return;
+  }
+
+  // Fallback: Falls kein Pending-Flag (alte App-Version), direkt weiter
   const target = LPR.roleTarget(selectedRole);
   window.location.href = target + '?welcome=1';
 }

@@ -275,9 +275,17 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
     </p>
   </details>
 
+  <div class="list-section" id="pending-section" style="display:none; border: 2px solid #C8F135; background: #fffef5;">
+    <div class="list-head" style="background: #1A3A2A; color: #C8F135; padding: 14px 18px; border-radius: 8px 8px 0 0;">
+      <h2 style="color: #C8F135; margin: 0;">⏳ Wartende Freigaben</h2>
+      <span class="count" id="pending-count" style="background: #C8F135; color: #1A3A2A; font-weight: 700;">0 offen</span>
+    </div>
+    <div id="pending-list" style="padding: 12px;"></div>
+  </div>
+
   <div class="list-section">
     <div class="list-head">
-      <h2>Mitwirkende</h2>
+      <h2>Freigeschaltete Mitwirkende</h2>
       <span class="count" id="member-count">0 Personen</span>
     </div>
     <div id="member-list"></div>
@@ -456,12 +464,82 @@ function getDefaultProfile() {
 // Mitwirkende laden
 // ═══════════════════════════════════════════════════════
 function loadMembers() {
-  // Mitwirkende aus LPR.KEYS.USERS (vom app.js angelegt durch seedDemoUsers)
   const users = loadJSON(LPR?.KEYS?.USERS || 'lpr-users-v3', []);
-  return users.filter(u => u.role === 'ehrenamt');
+  return users.filter(u => u.role === 'ehrenamt' && (u.status === 'approved' || !u.status));
+}
+
+function loadPending() {
+  const users = loadJSON(LPR?.KEYS?.USERS || 'lpr-users-v3', []);
+  return users.filter(u => u.status === 'pending' || u.status === 'rejected');
+}
+
+function renderPending() {
+  const pending = loadPending();
+  const section = document.getElementById('pending-section');
+  const list = document.getElementById('pending-list');
+  const count = document.getElementById('pending-count');
+  if (!section || !list) return;
+  if (pending.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  count.textContent = pending.length + ' offen';
+  list.innerHTML = pending.map(u => {
+    const isRejected = u.status === 'rejected';
+    const roleLabel = u.role === 'klinik' ? '🏥 Klinik' : '🤝 Ehrenamt';
+    const dateStr = u.registeredAt ? new Date(u.registeredAt).toLocaleDateString('de-DE') : '—';
+    const extraInfo = u.role === 'klinik' && u.extra
+      ? (u.extra.clinic_name || '') + (u.extra.ward ? ' · ' + u.extra.ward : '')
+      : (u.extra && u.extra.phone ? u.extra.phone : '');
+    return `<div class="pending-card" style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <div style="flex: 1 1 280px; min-width: 0;">
+        <div style="font-weight: 700; font-size: 15px; color: #1A3A2A;">${escape(u.name)}</div>
+        <div style="font-size: 13px; color: #666; margin-top: 3px;">${escape(u.email)} · ${roleLabel}</div>
+        ${extraInfo ? `<div style="font-size: 12px; color: #888; margin-top: 2px;">${escape(extraInfo)}</div>` : ''}
+        <div style="font-size: 11px; color: #aaa; margin-top: 4px;">Registriert: ${dateStr}</div>
+        ${isRejected ? `<div style="font-size: 12px; color: #c00; margin-top: 4px;">❌ Abgelehnt${u.rejectedReason ? ': ' + escape(u.rejectedReason) : ''}</div>` : ''}
+      </div>
+      <div style="display: flex; gap: 8px; flex-shrink: 0;">
+        ${!isRejected ? `<button class="btn-approve" data-email="${escape(u.email)}" style="background: #1A3A2A; color: #C8F135; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px;">✓ Freigeben</button>` : ''}
+        ${!isRejected ? `<button class="btn-reject" data-email="${escape(u.email)}" style="background: transparent; color: #c00; border: 1px solid #c00; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Ablehnen</button>` : `<button class="btn-approve" data-email="${escape(u.email)}" style="background: #1A3A2A; color: #C8F135; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px;">✓ Doch freigeben</button>`}
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.btn-approve').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const email = btn.getAttribute('data-email');
+      const suggestedPN = LPR.nextPersonalnummer();
+      const pn = prompt('Personalnummer für ' + email + ' vergeben:', suggestedPN);
+      if (!pn) return;
+      const res = LPR.approveUser(email, { personalnummer: pn });
+      if (res.ok) {
+        showToast('✓ ' + email + ' freigeschaltet als ' + res.user.personalnummer);
+        render();
+      } else {
+        showToast('Fehler: ' + res.error);
+      }
+    });
+  });
+  list.querySelectorAll('.btn-reject').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const email = btn.getAttribute('data-email');
+      const reason = prompt('Grund der Ablehnung (wird dem Nutzer angezeigt):', '');
+      if (reason === null) return;
+      const res = LPR.rejectUser(email, reason);
+      if (res.ok) {
+        showToast('Registrierung abgelehnt: ' + email);
+        render();
+      } else {
+        showToast('Fehler: ' + res.error);
+      }
+    });
+  });
 }
 
 function render() {
+  renderPending();
   const members = loadMembers();
   const profiles = loadJSON(PROFILE_KEY, {});
   document.getElementById('member-count').textContent = `${members.length} Person${members.length === 1 ? '' : 'en'}`;

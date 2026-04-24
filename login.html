@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anmelden · Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Anmelden im Mitgliederbereich als Ehrenamtliche:r oder Klinik.">
+<meta name="robots" content="noindex, follow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.auth-wrap {
+  max-width: 960px; margin: 40px auto;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 24px; padding: 0 24px;
+}
+@media (max-width: 820px) { .auth-wrap { grid-template-columns: 1fr; } }
+
+.auth-card {
+  background: #fff; border-radius: var(--radius);
+  padding: 36px 32px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.auth-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 24px;
+  color: var(--green); margin-bottom: 6px;
+}
+.auth-card .sub { color: var(--muted); font-size: 14px; margin-bottom: 22px; }
+
+.role-picker {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;
+}
+.role-opt {
+  padding: 14px 12px; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white); cursor: pointer;
+  text-align: center; font-family: inherit;
+  transition: all .15s;
+}
+.role-opt:hover { border-color: var(--green); }
+.role-opt.selected { border-color: var(--green); background: var(--lime-soft); }
+.role-opt .icon { font-size: 24px; margin-bottom: 4px; display: block; }
+.role-opt .title { font-weight: 700; color: var(--green-deep); font-size: 14px; }
+.role-opt .desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.info-small {
+  background: var(--lime-soft); border-radius: var(--radius-sm);
+  padding: 14px 16px; font-size: 13px; line-height: 1.55;
+  margin-top: 16px; color: var(--green-deep);
+}
+.info-small strong { font-weight: 700; }
+.info-small a { color: var(--green-deep); font-weight: 700; }
+.info-small code {
+  background: rgba(30,49,39,.1); padding: 1px 5px; border-radius: 3px;
+  font-family: monospace;
+}
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Zum Hauptinhalt</a>
+
+<main id="main">
+<div class="auth-wrap">
+
+  <div class="auth-card">
+    <h2 data-ls="Anmelden">Anmelden</h2>
+    <p class="sub" data-ls="Mit E-Mail und Passwort einloggen.">Sie haben bereits ein Konto? Hier geht's direkt rein.</p>
+
+    <form onsubmit="event.preventDefault(); doLogin();">
+      <div class="field">
+        <label for="li-email">E-Mail <span class="req">*</span></label>
+        <input type="email" id="li-email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="li-password">Passwort <span class="req">*</span></label>
+        <input type="password" id="li-password" autocomplete="current-password" required>
+      </div>
+      <div class="field-error" id="li-error" hidden></div>
+      <button type="submit" class="btn btn-primary btn-block">Anmelden</button>
+    </form>
+
+    <div class="info-small">
+      <strong>🎮 Demo-Zugänge</strong> — Passwort jeweils <code>demo1234</code>:<br>
+      • <strong>margarete@demo.de</strong> (Ehrenamt)<br>
+      • <strong>charite@demo.de</strong> (Klinik)<br>
+      • <strong>vorstand@demo.de</strong> (Admin)<br>
+      <a href="demo.html">→ Demo-Daten laden &amp; Übersicht</a>
+    </div>
+  </div>
+
+  <div class="auth-card">
+    <h2 data-ls="Neu hier?">Neu hier? Konto erstellen</h2>
+    <p class="sub" data-ls="Wählen Sie, wer Sie sind.">In einer Minute registriert. Wählen Sie zuerst Ihre Rolle:</p>
+
+    <div class="role-picker" role="radiogroup" aria-label="Rolle wählen">
+      <button type="button" class="role-opt" data-role="ehrenamt" onclick="pickRole(this)">
+        <span class="icon">🤝</span>
+        <div class="title">Ehrenamt</div>
+        <div class="desc">Reisen &amp; Sitzwachen</div>
+      </button>
+      <button type="button" class="role-opt" data-role="klinik" onclick="pickRole(this)">
+        <span class="icon">🏥</span>
+        <div class="title">Klinik</div>
+        <div class="desc">Sitzwache buchen</div>
+      </button>
+    </div>
+
+    <form onsubmit="event.preventDefault(); doRegister();">
+      <div class="field">
+        <label for="rg-name" id="rg-name-label">Vor- und Nachname <span class="req">*</span></label>
+        <input type="text" id="rg-name" autocomplete="name" minlength="2" required>
+        <div class="field-hint" id="rg-name-hint">Wird in Bestätigungen angezeigt.</div>
+      </div>
+
+      <div id="rg-klinik-fields" hidden>
+        <div class="field">
+          <label for="rg-clinic">Name der Klinik / Einrichtung <span class="req">*</span></label>
+          <input type="text" id="rg-clinic" placeholder="z.B. Charité Campus Mitte">
+        </div>
+        <div class="field">
+          <label for="rg-ward">Station / Abteilung</label>
+          <input type="text" id="rg-ward" placeholder="z.B. Geriatrie 4B">
+        </div>
+        <div class="field">
+          <label for="rg-phone">Telefon <span class="req">*</span></label>
+          <input type="tel" id="rg-phone" autocomplete="tel">
+        </div>
+        <div class="field">
+          <label for="rg-address">Adresse</label>
+          <input type="text" id="rg-address" placeholder="Straße, PLZ, Ort">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="rg-email">E-Mail <span class="req">*</span></label>
+        <input type="email" id="rg-email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="rg-password">Passwort <span class="req">*</span></label>
+        <input type="password" id="rg-password" autocomplete="new-password" minlength="6" required>
+        <div class="field-hint">Mindestens 6 Zeichen.</div>
+      </div>
+
+      <label class="check">
+        <input type="checkbox" id="rg-dsgvo" required>
+        <div class="check-text">Ich habe die <a href="datenschutz.html" target="_blank" style="color:var(--green); font-weight:700;">Datenschutzerklärung</a> gelesen und willige in die Verarbeitung meiner Daten ein.</div>
+      </label>
+
+      <div class="field-error" id="rg-error" hidden></div>
+      <button type="submit" class="btn btn-dark btn-block" id="rg-submit" disabled>Zuerst Rolle wählen</button>
+    </form>
+  </div>
+
+</div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: '' });
+
+// Demo-User automatisch anlegen beim ersten Besuch
+(async function() {
+  try {
+    await LPR.seedDemoUsers();
+  } catch(e) { console.warn('seedDemoUsers:', e); }
+})();
+
+// Bereits eingeloggt?
+(function() {
+  const s = LPR.getSession();
+  if (s) {
+    const target = s.role === 'klinik' ? 'kliniken.html' : 'mein-bereich.html';
+    const note = document.createElement('div');
+    note.style.cssText = 'max-width:960px; margin:20px auto 0; padding:16px; background:#EEF6F0; border:1px solid #9FC0A8; border-radius:14px; text-align:center; font-size:14px;';
+    note.innerHTML = `Sie sind bereits als <strong>${LPR.escape(s.name)}</strong> (${s.role}) angemeldet. <a href="${target}" style="color:var(--green-deep); font-weight:700; margin-left:8px;">→ Zu Ihrem Bereich</a> &nbsp;|&nbsp; <a href="#" onclick="LPR.logout(); location.reload(); return false;" style="color:var(--warn); font-weight:700;">Abmelden</a>`;
+    document.querySelector('main').prepend(note);
+  }
+})();
+
+let selectedRole = null;
+
+function pickRole(btn) {
+  selectedRole = btn.dataset.role;
+  document.querySelectorAll('.role-opt').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('rg-klinik-fields').hidden = selectedRole !== 'klinik';
+  const sub = document.getElementById('rg-submit');
+  sub.disabled = false;
+  sub.textContent = selectedRole === 'klinik' ? 'Klinik-Konto erstellen' : 'Ehrenamt-Konto erstellen';
+  if (selectedRole === 'klinik') {
+    document.getElementById('rg-name-label').innerHTML = 'Ihr Name (Ansprechperson) <span class="req">*</span>';
+    document.getElementById('rg-name-hint').textContent = 'Name der Ansprechperson auf Klinik-Seite.';
+  } else {
+    document.getElementById('rg-name-label').innerHTML = 'Vor- und Nachname <span class="req">*</span>';
+    document.getElementById('rg-name-hint').textContent = 'Wird in Bestätigungen angezeigt.';
+  }
+}
+
+async function doLogin() {
+  const email = document.getElementById('li-email').value.trim();
+  const password = document.getElementById('li-password').value;
+  const errEl = document.getElementById('li-error');
+  errEl.hidden = true;
+  // Sicherstellen dass Demo-User da sind (falls jemand schneller klickt als das Async-Seed)
+  if (email.endsWith('@demo.de')) {
+    try { await LPR.seedDemoUsers(); } catch(e) {}
+  }
+  const res = await LPR.loginWithPassword({ email, password });
+  if (!res.ok) { errEl.textContent = res.error; errEl.hidden = false; return; }
+  const target = res.user.role === 'klinik' ? 'kliniken.html' : 'mein-bereich.html';
+  window.location.href = target;
+}
+
+async function doRegister() {
+  if (!selectedRole) { showErr('Bitte zuerst Rolle wählen.'); return; }
+  const name = document.getElementById('rg-name').value.trim();
+  const email = document.getElementById('rg-email').value.trim();
+  const password = document.getElementById('rg-password').value;
+  const dsgvo = document.getElementById('rg-dsgvo').checked;
+  if (!dsgvo) { showErr('Bitte Datenschutzerklärung bestätigen.'); return; }
+
+  const extra = {};
+  if (selectedRole === 'klinik') {
+    extra.clinic_name = document.getElementById('rg-clinic').value.trim();
+    extra.ward        = document.getElementById('rg-ward').value.trim();
+    extra.phone       = document.getElementById('rg-phone').value.trim();
+    extra.address     = document.getElementById('rg-address').value.trim();
+    if (!extra.clinic_name || extra.clinic_name.length < 3) { showErr('Bitte Klinikname eingeben.'); return; }
+    if (!extra.phone || extra.phone.length < 5) { showErr('Bitte Telefonnummer eingeben.'); return; }
+
+    const clinics = LPR.load(LPR.KEYS.clinics, {});
+    clinics[email.toLowerCase()] = {
+      email: email.toLowerCase(),
+      name: extra.clinic_name, ward: extra.ward,
+      contact: name, phone: extra.phone, address: extra.address,
+      registeredAt: new Date().toISOString()
+    };
+    LPR.save(LPR.KEYS.clinics, clinics);
+  }
+
+  const res = await LPR.register({ email, password, name, role: selectedRole, extra });
+  if (!res.ok) { showErr(res.error); return; }
+
+  const target = selectedRole === 'klinik' ? 'kliniken.html' : 'mein-bereich.html';
+  window.location.href = target + '?welcome=1';
+}
+
+function showErr(msg) {
+  const el = document.getElementById('rg-error');
+  el.textContent = msg;
+  el.hidden = false;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+</script>
+</body>
+</html>

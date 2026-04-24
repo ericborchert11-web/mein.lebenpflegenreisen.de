@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sitzwachen – Verfügbarkeit eintragen · LPR e.V.</title>
+<meta name="description" content="Trage deine Verfügbarkeiten für Früh-, Spät- und Nachtdienste als Sitzwache ein. Kliniken buchen die Dienste direkt.">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green:      #2D4A3A;
+  --green-soft: #3E5C4B;
+  --green-deep: #1E3127;
+  --lime:       #C8F135;
+  --lime-soft:  #E8F7A8;
+  --sand:       #E8E4DC;
+  --white:      #F5F5F0;
+  --text:       #1A241E;
+  --muted:      #6B7771;
+  --border:     #D8D4CC;
+  --warn:       #C85B30;
+  --ok:         #4A7A5A;
+
+  /* Schicht-Farben */
+  --frueh:      #FFD97A;
+  --frueh-bg:   #FFF7DE;
+  --spaet:      #E69661;
+  --spaet-bg:   #FCEADA;
+  --nacht:      #6B7FA8;
+  --nacht-bg:   #E4E8F3;
+
+  --fs-base: 17px;
+  --fs-h1: 40px;
+  --fs-h2: 24px;
+  --fs-h3: 18px;
+  --fs-small: 14px;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 12px rgba(0,0,0,.05);
+  --shadow-lg: 0 6px 24px rgba(0,0,0,.08);
+}
+body.text-l  { --fs-base: 19px; --fs-h1: 44px; --fs-h2: 27px; --fs-h3: 20px; --fs-small: 15px; }
+body.text-xl { --fs-base: 22px; --fs-h1: 50px; --fs-h2: 30px; --fs-h3: 22px; --fs-small: 17px; }
+
+body.contrast {
+  --green: #000; --green-soft: #222; --green-deep: #000;
+  --lime: #FFD900; --lime-soft: #FFF1A8;
+  --sand: #FFF; --white: #FFF;
+  --text: #000; --muted: #333; --border: #000;
+  --frueh: #FFD900; --spaet: #FF6900; --nacht: #000;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  background: var(--sand);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: var(--fs-base);
+  color: var(--text); line-height: 1.6;
+  min-height: 100vh;
+}
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0;
+}
+
+/* A11y */
+.a11y-bar {
+  background: var(--green-deep); color: #fff;
+  padding: 10px 24px;
+  display: flex; justify-content: flex-end;
+  gap: 18px; flex-wrap: wrap;
+  font-size: 14px;
+}
+.a11y-group { display: flex; align-items: center; gap: 8px; }
+.a11y-label { opacity: .75; font-weight: 500; }
+.a11y-btn {
+  background: transparent; color: #fff;
+  border: 1.5px solid rgba(255,255,255,.35);
+  border-radius: 20px; padding: 4px 12px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+  min-height: 32px; min-width: 32px;
+}
+.a11y-btn:hover { border-color: var(--lime); color: var(--lime); }
+.a11y-btn[aria-pressed="true"] {
+  background: var(--lime); color: var(--green-deep);
+  border-color: var(--lime);
+}
+.a11y-btn:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+
+/* Header */
+header {
+  background: var(--green); color: #fff;
+  padding: 20px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; }
+.brand-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 18px; letter-spacing: -0.01em;
+}
+.brand-sub {
+  font-size: 11px; opacity: .65;
+  letter-spacing: .12em; text-transform: uppercase;
+  margin-top: 2px;
+}
+.nav-link {
+  color: #fff; text-decoration: none;
+  font-weight: 500; font-size: 15px;
+  padding: 8px 14px; border-radius: 6px;
+}
+.nav-link:hover { background: rgba(255,255,255,.1); }
+
+/* Hero */
+.hero {
+  background: linear-gradient(135deg, var(--green) 0%, var(--green-soft) 100%);
+  color: #fff; padding: 48px 24px 40px;
+}
+.hero-wrap { max-width: 1200px; margin: 0 auto; }
+.hero-eyebrow {
+  display: inline-block;
+  background: rgba(200, 241, 53, 0.18); color: var(--lime);
+  font-size: 12px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  padding: 6px 14px; border-radius: 20px;
+  margin-bottom: 16px;
+}
+.hero h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: var(--fs-h1);
+  line-height: 1.05; letter-spacing: -0.02em;
+  margin-bottom: 14px;
+}
+.hero p { opacity: .88; max-width: 720px; }
+
+/* Main */
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px 60px;
+}
+
+/* Login */
+.login-card {
+  max-width: 480px; margin: 48px auto;
+  background: #fff; border-radius: var(--radius);
+  padding: 36px 32px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.login-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 26px;
+  color: var(--green); margin-bottom: 8px;
+}
+.login-card p { color: var(--muted); margin-bottom: 22px; font-size: var(--fs-small); }
+
+/* Dashboard toolbar */
+.toolbar {
+  background: #fff; border-radius: var(--radius);
+  padding: 16px 22px; margin-bottom: 20px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 16px; flex-wrap: wrap;
+}
+.user-info .name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 18px;
+  color: var(--green-deep);
+}
+.user-info .email { font-size: 13px; color: var(--muted); }
+
+.month-nav { display: flex; align-items: center; gap: 12px; }
+.month-nav button {
+  background: var(--white); border: 1.5px solid var(--border);
+  padding: 8px 14px; border-radius: 6px; cursor: pointer;
+  font-family: inherit; font-weight: 600; color: var(--green);
+  min-height: 40px; min-width: 40px;
+}
+.month-nav button:hover { border-color: var(--green); }
+.month-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 18px;
+  color: var(--green-deep); min-width: 160px; text-align: center;
+}
+
+/* Legende */
+.legend {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  font-size: 13px; margin-bottom: 16px;
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-box {
+  width: 16px; height: 16px; border-radius: 4px;
+  display: inline-block; border: 1px solid rgba(0,0,0,.12);
+}
+.legend-box.frueh { background: var(--frueh); }
+.legend-box.spaet { background: var(--spaet); }
+.legend-box.nacht { background: var(--nacht); }
+.legend-box.booked { background: repeating-linear-gradient(45deg, var(--ok), var(--ok) 4px, #fff 4px, #fff 8px); border-color: var(--ok); }
+
+/* Calendar */
+.calendar {
+  background: #fff; border-radius: var(--radius);
+  padding: 20px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.cal-head {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 6px; margin-bottom: 6px;
+  font-size: 12px; font-weight: 700;
+  text-transform: uppercase; color: var(--muted);
+  letter-spacing: .08em;
+}
+.cal-head span { text-align: center; padding: 6px 0; }
+
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.cal-day {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 8px 6px;
+  min-height: 110px;
+  display: flex; flex-direction: column;
+  position: relative;
+  transition: border-color .15s, background .15s;
+}
+.cal-day.other-month {
+  opacity: .35;
+  background: transparent;
+}
+.cal-day.today {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1.5px var(--green);
+}
+.cal-day.past {
+  opacity: .5;
+  background: #F5F3ED;
+}
+.cal-day.weekend { background: #FAF8F2; }
+
+.cal-date {
+  font-weight: 700; font-size: 14px;
+  color: var(--green-deep); margin-bottom: 6px;
+}
+.cal-today-badge {
+  font-size: 9px; background: var(--lime); color: var(--green-deep);
+  padding: 1px 5px; border-radius: 3px; margin-left: 4px;
+  letter-spacing: .05em; font-weight: 700; text-transform: uppercase;
+}
+
+.shift-chips {
+  display: flex; flex-direction: column; gap: 3px;
+  font-size: 11px;
+  flex-grow: 1;
+}
+.shift-chip {
+  padding: 3px 6px; border-radius: 4px;
+  font-weight: 600; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 4px; border: 1px solid transparent;
+  transition: filter .1s;
+}
+.shift-chip:hover { filter: brightness(.92); }
+.shift-chip.frueh { background: var(--frueh-bg); color: #6B4B0E; border-color: var(--frueh); }
+.shift-chip.spaet { background: var(--spaet-bg); color: #6D3514; border-color: var(--spaet); }
+.shift-chip.nacht { background: var(--nacht-bg); color: #2F3C5C; border-color: var(--nacht); }
+.shift-chip.booked {
+  background: #D4E8DC; color: var(--green-deep);
+  border-color: var(--ok); font-weight: 700;
+  cursor: pointer;
+  position: relative;
+}
+.shift-chip.booked:hover { filter: brightness(.94); }
+.shift-chip.booked.zone-green {
+  border-left: 4px solid var(--ok);
+}
+.shift-chip.booked.zone-orange {
+  background: #FCEADA; color: #6D3514;
+  border-color: var(--spaet);
+  border-left: 4px solid var(--spaet);
+}
+.shift-chip.booked.zone-red {
+  background: #FDE4DC; color: #8B2818;
+  border-color: #C85B30;
+  border-left: 4px solid #C85B30;
+  animation: pulse-red 2s ease-in-out infinite;
+}
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200, 91, 48, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(200, 91, 48, 0.15); }
+}
+.shift-chip.booked.zone-past {
+  opacity: 0.6; cursor: default;
+  background: #EFEBE4; color: var(--muted);
+  border-color: var(--border);
+}
+.zone-dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  margin-right: 3px; vertical-align: middle;
+}
+.zone-dot.green  { background: var(--ok); }
+.zone-dot.orange { background: var(--spaet); }
+.zone-dot.red    { background: #C85B30; }
+.zone-dot.past   { background: var(--muted); }
+
+/* ───── Absage-Dialog ───── */
+#cancel-dialog {
+  max-width: 560px;
+  border-top: 6px solid var(--ok); /* default = grün */
+}
+#cancel-dialog.zone-orange { border-top-color: var(--spaet); }
+#cancel-dialog.zone-red    { border-top-color: #C85B30; }
+
+.cancel-header {
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.cancel-zone-label {
+  display: inline-block;
+  font-size: 11px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 4px 10px; border-radius: 12px;
+  margin-bottom: 10px;
+}
+#cancel-dialog .cancel-zone-label.zone-green  { background: #D4E8DC; color: var(--green-deep); }
+#cancel-dialog .cancel-zone-label.zone-orange { background: #FCEADA; color: #6D3514; }
+#cancel-dialog .cancel-zone-label.zone-red    { background: #FDE4DC; color: #8B2818; }
+
+.cancel-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 22px; color: var(--green-deep);
+  margin-bottom: 8px;
+}
+.cancel-subtitle {
+  font-size: 14px; color: var(--muted);
+}
+.cancel-body {
+  padding: 22px 28px 8px;
+}
+.cancel-message {
+  background: #F8F5EE; border-radius: var(--radius-sm);
+  padding: 14px 16px; margin-bottom: 20px;
+  font-size: 15px; line-height: 1.55; color: var(--text);
+  border-left: 4px solid var(--border);
+}
+#cancel-dialog.zone-green  .cancel-message { border-left-color: var(--ok); }
+#cancel-dialog.zone-orange .cancel-message { border-left-color: var(--spaet); background: #FEF7EF; }
+#cancel-dialog.zone-red    .cancel-message { border-left-color: #C85B30; background: #FEF0EA; }
+
+.cancel-emergency {
+  background: #FDE4DC; border: 2px solid #C85B30;
+  border-radius: var(--radius-sm);
+  padding: 16px; margin-bottom: 20px;
+}
+.cancel-emergency strong {
+  color: #8B2818; display: block; margin-bottom: 6px; font-size: 15px;
+}
+.cancel-emergency .phone-big {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 24px; font-weight: 800; color: #8B2818;
+  letter-spacing: .02em;
+  display: block; margin-top: 8px;
+}
+
+.cancel-reasons {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-bottom: 18px;
+}
+.cancel-reason-opt {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer; transition: all .15s;
+  font-size: 14px;
+}
+.cancel-reason-opt:hover { border-color: var(--green); background: #F8F5EE; }
+.cancel-reason-opt input { cursor: pointer; accent-color: var(--green); }
+.cancel-reason-opt.checked { border-color: var(--green); background: #E8F0E8; }
+
+.cancel-footer {
+  padding: 18px 28px 24px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; gap: 12px;
+}
+.btn-keep {
+  background: var(--green); color: #fff; border: none;
+  padding: 12px 22px; border-radius: var(--radius-sm);
+  font-family: inherit; font-weight: 700; font-size: 15px;
+  cursor: pointer;
+}
+.btn-keep:hover { background: var(--green-deep); }
+.btn-cancel-confirm {
+  background: #fff; color: var(--muted); border: 2px solid var(--border);
+  padding: 12px 22px; border-radius: var(--radius-sm);
+  font-family: inherit; font-weight: 600; font-size: 14px;
+  cursor: pointer;
+}
+.btn-cancel-confirm:hover { border-color: #C85B30; color: #8B2818; }
+.btn-cancel-confirm:disabled { opacity: .5; cursor: not-allowed; }
+.btn-cancel-confirm.emergency {
+  background: #C85B30; color: #fff; border-color: #C85B30;
+}
+.btn-cancel-confirm.emergency:hover { background: #8B2818; border-color: #8B2818; }
+.btn-cancel-confirm.emergency:disabled { background: #E8A88C; border-color: #E8A88C; color: #fff; }
+
+.double-check {
+  margin-top: 14px; padding: 12px 14px;
+  background: #FEF0EA; border-radius: var(--radius-sm);
+  font-size: 13px; color: #8B2818;
+}
+.double-check label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.shift-chip .clinic {
+  font-size: 10px; opacity: .8;
+  font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100px;
+}
+.chip-remove {
+  font-size: 13px; opacity: .5; line-height: 1; padding: 0 2px;
+  cursor: pointer;
+}
+.chip-remove:hover { opacity: 1; }
+
+.add-btn {
+  margin-top: 4px;
+  background: transparent; border: 1.5px dashed var(--border);
+  border-radius: 4px; padding: 3px 6px;
+  font-family: inherit; font-size: 11px; font-weight: 600;
+  color: var(--muted); cursor: pointer;
+  width: 100%;
+  transition: all .15s;
+}
+.cal-day:hover .add-btn { border-color: var(--green); color: var(--green); }
+.cal-day.past .add-btn, .cal-day.other-month .add-btn { display: none; }
+
+/* Dialog */
+dialog {
+  border: none; border-radius: var(--radius);
+  padding: 0; max-width: 480px; width: calc(100% - 32px);
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  background: #fff;
+}
+dialog::backdrop {
+  background: rgba(20, 40, 30, 0.55);
+  backdrop-filter: blur(3px);
+}
+.dlg-head {
+  padding: 22px 26px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.dlg-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 20px;
+  color: var(--green); line-height: 1.2;
+  margin-bottom: 6px;
+}
+.dlg-sub { font-size: 14px; color: var(--muted); }
+.dlg-body { padding: 20px 26px; }
+.dlg-foot {
+  padding: 16px 26px 22px;
+  display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  background: var(--white);
+}
+
+.shift-option {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; margin-bottom: 8px;
+  background: #fff; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border); cursor: pointer;
+  transition: all .15s;
+}
+.shift-option:hover { border-color: var(--green); transform: translateX(2px); }
+.shift-option input { width: 18px; height: 18px; accent-color: var(--green); }
+.shift-option.already-added { opacity: .4; pointer-events: none; }
+.shift-indicator {
+  width: 8px; height: 32px; border-radius: 3px;
+}
+.shift-indicator.frueh { background: var(--frueh); }
+.shift-indicator.spaet { background: var(--spaet); }
+.shift-indicator.nacht { background: var(--nacht); }
+.shift-label {
+  font-weight: 700; font-size: 15px; color: var(--green-deep);
+}
+.shift-time { font-size: 13px; color: var(--muted); }
+
+.field { margin-bottom: 14px; }
+.field label {
+  display: block; font-weight: 600;
+  font-size: 14px; margin-bottom: 6px;
+}
+.field input, .field textarea, .field select {
+  width: 100%; padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 15px;
+  background: var(--white); min-height: 44px;
+}
+.field input:focus, .field textarea:focus {
+  outline: none; border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(45, 74, 58, 0.15);
+}
+
+/* Buttons */
+.btn {
+  font-family: inherit; font-weight: 700;
+  padding: 11px 20px; border-radius: 8px;
+  border: none; cursor: pointer;
+  font-size: 14px; min-height: 40px;
+  display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none; transition: all .15s;
+}
+.btn:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+.btn-primary { background: var(--green); color: #fff; }
+.btn-primary:hover { background: var(--green-deep); }
+.btn-ghost {
+  background: transparent; color: var(--green);
+  border: 1.5px solid var(--green);
+}
+.btn-ghost:hover { background: var(--green); color: #fff; }
+.btn-danger {
+  background: transparent; color: var(--warn);
+  border: 1.5px solid var(--warn);
+}
+.btn-danger:hover { background: var(--warn); color: #fff; }
+
+/* Stats cards */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px; margin-bottom: 24px;
+}
+.stat-card {
+  background: #fff; border-radius: var(--radius);
+  padding: 16px 20px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.stat-num {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 28px;
+  line-height: 1; margin-bottom: 4px;
+  color: var(--green-deep);
+}
+.stat-label {
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  letter-spacing: .08em; text-transform: uppercase;
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--green-deep); color: #fff;
+  padding: 14px 22px; border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  font-weight: 600; font-size: 14px;
+  opacity: 0; transition: all .25s; z-index: 100;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.warn { background: var(--warn); }
+
+/* Footer */
+footer {
+  background: var(--green-deep); color: rgba(255,255,255,.7);
+  padding: 32px 24px; text-align: center; font-size: 14px;
+  border-top: 4px solid var(--lime);
+}
+footer a { color: var(--lime); text-decoration: none; }
+
+@media (max-width: 800px) {
+  .cal-day { min-height: 80px; padding: 6px; }
+  .cal-date { font-size: 12px; }
+  .shift-chip { font-size: 10px; padding: 2px 4px; }
+  .shift-chip .clinic { max-width: 60px; }
+  .cal-head { font-size: 10px; }
+  main { padding: 20px 12px 40px; }
+  .hero { padding: 32px 16px; }
+  header { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 640px) {
+  .a11y-label { display: none; }
+  .a11y-bar { justify-content: center; padding: 10px 12px; gap: 10px; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .month-nav { justify-content: space-between; }
+}
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+
+<!-- A11y -->
+<div class="a11y-bar" role="region" aria-label="Barrierefreiheit">
+  <div class="a11y-group">
+    <span class="a11y-label">Textgröße:</span>
+    <button class="a11y-btn" data-size="" aria-pressed="true" onclick="setTextSize('')">A</button>
+    <button class="a11y-btn" data-size="l" aria-pressed="false" onclick="setTextSize('l')">A+</button>
+    <button class="a11y-btn" data-size="xl" aria-pressed="false" onclick="setTextSize('xl')">A++</button>
+  </div>
+  <div class="a11y-group">
+    <button class="a11y-btn" id="btn-contrast" aria-pressed="false" onclick="toggleContrast()">◐ Hoher Kontrast</button>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <a href="index.html" class="brand">
+    <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true">
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="10,10 24,24 10,38" stroke="#C8F135" stroke-width="4.5"/>
+        <polyline points="22,10 36,24 22,38" stroke="#C8F135" stroke-width="4.5" opacity="0.42"/>
+      </g>
+    </svg>
+    <div>
+      <div class="brand-name">Leben Pflegen Reisen</div>
+      <div class="brand-sub">e.V. · Sitzwachen</div>
+    </div>
+  </a>
+  <nav>
+    <a href="schichtplaner.html" class="nav-link">Schichtplan</a>
+    <a href="abrechnung.html" class="nav-link">Abrechnung</a>
+    <a href="index.html" class="nav-link">← Zur Website</a>
+  </nav>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-wrap">
+    <div class="hero-eyebrow">Ehrenamtliche · Verfügbarkeit</div>
+    <h1>Dein Sitzwachen-Kalender</h1>
+    <p>
+      Trage ein, wann du verfügbar bist. Kliniken können deine offenen Dienste selbst buchen. Sobald jemand bucht, wird der Dienst grün markiert und du bekommst eine Bestätigung per E-Mail.
+    </p>
+  </div>
+</section>
+
+<main id="main">
+
+  <!-- Login-Prompt (zentrale Login-Seite) -->
+  <div class="login-card" id="login-view" hidden style="max-width:520px; margin:40px auto; background:#fff; border-radius:14px; padding:36px 32px; box-shadow:0 2px 12px rgba(0,0,0,.05); border:1px solid var(--border); text-align:center;">
+    <div style="font-size:44px; margin-bottom:12px;">🔒</div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:var(--green); margin-bottom:10px;">Bitte anmelden</h2>
+    <p style="color:var(--muted); margin-bottom:22px; font-size:14px;" id="login-prompt-text">Dieser Bereich ist nur für angemeldete Mitglieder.</p>
+    <a href="login.html" class="btn btn-primary" style="width:100%; justify-content:center;">Zum Login →</a>
+    <p style="margin-top:14px; font-size:12px; color:var(--muted);">
+      Noch kein Konto? Auf der Login-Seite können Sie sich registrieren.
+    </p>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard-view" hidden>
+
+    <div class="toolbar">
+      <div class="user-info">
+        <div class="name" id="user-name">—</div>
+        <div class="email" id="user-email">—</div>
+      </div>
+      <div class="month-nav">
+        <button onclick="shiftMonth(-1)" aria-label="Vorheriger Monat">←</button>
+        <div class="month-title" id="month-title">—</div>
+        <button onclick="shiftMonth(1)" aria-label="Nächster Monat">→</button>
+      </div>
+      <button class="btn btn-ghost" onclick="doLogout()">Abmelden</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-avail">0</div>
+        <div class="stat-label">Verfügbar (Monat)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-booked" style="color:var(--ok);">0</div>
+        <div class="stat-label">Gebucht (Monat)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-open">0</div>
+        <div class="stat-label">Offen (Monat)</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span class="legend-item"><span class="legend-box frueh"></span> Frühdienst · 06:00–14:00</span>
+      <span class="legend-item"><span class="legend-box spaet"></span> Spätdienst · 14:00–22:00</span>
+      <span class="legend-item"><span class="legend-box nacht"></span> Nachtdienst · 22:00–06:00</span>
+      <span class="legend-item"><span class="legend-box booked"></span> Von Klinik gebucht</span>
+    </div>
+
+    <div class="calendar">
+      <div class="cal-head">
+        <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+
+    <p style="margin-top:20px; font-size:13px; color: var(--muted); max-width: 760px;">
+      <strong>Hinweis:</strong> Sobald eine Klinik einen deiner Dienste bucht, erhältst du eine automatische Bestätigung mit Ort, Patient-Kennung und Klinikkontakt. Die Aufwandsentschädigung (200 € pro 8-Stunden-Dienst laut Vorstandsbeschluss) wird nach dem Dienst im Abrechnungstool beantragt.
+    </p>
+
+  </div>
+</main>
+
+<!-- Dialog: Verfügbarkeit hinzufügen -->
+<dialog id="add-dialog">
+  <div class="dlg-head">
+    <div class="dlg-title" id="add-title">Verfügbarkeit eintragen</div>
+    <div class="dlg-sub" id="add-sub">—</div>
+  </div>
+  <div class="dlg-body">
+    <p style="font-size: 14px; color: var(--muted); margin-bottom: 16px;">Wähle, für welche Schichten du an diesem Tag verfügbar bist:</p>
+
+    <label class="shift-option" id="opt-frueh">
+      <input type="checkbox" id="chk-frueh">
+      <div class="shift-indicator frueh"></div>
+      <div style="flex-grow:1;">
+        <div class="shift-label">Frühdienst</div>
+        <div class="shift-time">06:00 – 14:00 Uhr · 8 Std.</div>
+      </div>
+    </label>
+
+    <label class="shift-option" id="opt-spaet">
+      <input type="checkbox" id="chk-spaet">
+      <div class="shift-indicator spaet"></div>
+      <div style="flex-grow:1;">
+        <div class="shift-label">Spätdienst</div>
+        <div class="shift-time">14:00 – 22:00 Uhr · 8 Std.</div>
+      </div>
+    </label>
+
+    <label class="shift-option" id="opt-nacht">
+      <input type="checkbox" id="chk-nacht">
+      <div class="shift-indicator nacht"></div>
+      <div style="flex-grow:1;">
+        <div class="shift-label">Nachtdienst</div>
+        <div class="shift-time">22:00 – 06:00 Uhr · 8 Std.</div>
+      </div>
+    </label>
+
+    <div class="field" style="margin-top: 16px;">
+      <label for="note">Anmerkung (optional)</label>
+      <textarea id="note" rows="2" placeholder="z.B. nur Charité, nicht vor 7 Uhr..."></textarea>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn btn-ghost" onclick="closeAdd()">Abbrechen</button>
+    <button class="btn btn-primary" onclick="saveAvail()">Speichern</button>
+  </div>
+</dialog>
+
+<!-- ═══════════════ ABSAGE-DIALOG (3-stufig) ═══════════════ -->
+<dialog id="cancel-dialog" aria-labelledby="cancel-title">
+  <div class="cancel-header">
+    <span class="cancel-zone-label" id="cancel-zone-label">Zone</span>
+    <div class="cancel-title" id="cancel-title">Dienst absagen?</div>
+    <div class="cancel-subtitle" id="cancel-subtitle">—</div>
+  </div>
+  <div class="cancel-body">
+    <div class="cancel-message" id="cancel-message">—</div>
+
+    <!-- Notfall-Block (nur bei Zone rot sichtbar) -->
+    <div class="cancel-emergency" id="cancel-emergency" hidden>
+      <strong>⚠ Weniger als 24 Stunden bis Dienstbeginn</strong>
+      Bitte informiere zusätzlich <u>sofort telefonisch</u> die Station:
+      <span class="phone-big" id="cancel-phone">030 – 000 00 00</span>
+    </div>
+
+    <!-- Grund-Auswahl (bei Zone orange + rot) -->
+    <div class="cancel-reasons" id="cancel-reasons" hidden>
+      <label class="cancel-reason-opt">
+        <input type="radio" name="cancel-reason" value="krankheit"> Krankheit / Unwohlsein
+      </label>
+      <label class="cancel-reason-opt">
+        <input type="radio" name="cancel-reason" value="familie"> Familiärer Notfall / Angehörige
+      </label>
+      <label class="cancel-reason-opt" id="reason-unfall">
+        <input type="radio" name="cancel-reason" value="unfall"> Unfall / Höhere Gewalt
+      </label>
+      <label class="cancel-reason-opt" id="reason-arbeit">
+        <input type="radio" name="cancel-reason" value="arbeit"> Beruf / Studium kurzfristig
+      </label>
+      <label class="cancel-reason-opt" id="reason-andere">
+        <input type="radio" name="cancel-reason" value="andere"> Andere kurzfristige Verhinderung
+      </label>
+    </div>
+
+    <!-- Doppel-Check bei Zone rot -->
+    <div class="double-check" id="cancel-doublecheck" hidden>
+      <label>
+        <input type="checkbox" id="cancel-confirm-checkbox">
+        Ich bestätige: Ich kann den Dienst wirklich nicht antreten und werde die Klinik zusätzlich telefonisch informieren.
+      </label>
+    </div>
+  </div>
+  <div class="cancel-footer">
+    <button class="btn-keep" onclick="closeCancel()">Dienst behalten</button>
+    <button class="btn-cancel-confirm" id="btn-cancel-confirm" onclick="confirmCancel()">Absagen</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer>
+  <div>Leben Pflegen Reisen e.V. · Berlin</div>
+  <div style="margin-top:8px; opacity:.6; font-size:12px;">
+    Prototyp · Daten lokal gespeichert
+  </div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STORAGE (shared mit kliniken.html!)
+// ═══════════════════════════════════════════════════════
+const AVAIL_KEY = 'lpr-sitzwachen-avail-v1';   // Verfügbarkeiten aller Ehrenamtler
+const BOOK_KEY  = 'lpr-sitzwachen-book-v1';    // Buchungen von Kliniken
+const CANCEL_KEY = 'lpr-sitzwachen-cancel-v1'; // Absage-Log (für Kliniken sichtbar)
+const USERS_KEY = 'lpr-sitzwachen-users-v1';   // Registrierte Ehrenamtliche
+const PROFILE_KEY = 'lpr-profiles-v1';         // Präferenzen/Profile der Mitwirkenden
+const SESSION_KEY = 'lpr-session-v2';
+const MY_EMAIL_KEY = 'lpr-my-email';
+
+const SHIFTS = {
+  frueh: { label: 'Frühdienst', time: '06:00–14:00', cls: 'frueh', startH: 6 },
+  spaet: { label: 'Spätdienst', time: '14:00–22:00', cls: 'spaet', startH: 14 },
+  nacht: { label: 'Nachtdienst', time: '22:00–06:00', cls: 'nacht', startH: 22 }
+};
+const DAY_MS = 86400000;
+
+// ═══════════════════════════════════════════════════════
+// ABSAGE-ZONEN (3-Stufen-Modell aus Mitwirkungsvereinbarung §3)
+// ═══════════════════════════════════════════════════════
+// Zone 1 (grün):  mehr als 48h vor Dienstbeginn  → einfache Austragung
+// Zone 2 (orange): 24–48h vor Dienstbeginn       → Absage mit Grund
+// Zone 3 (rot):    weniger als 24h vor Dienstbeginn → Notfall-Absage + Klinik anrufen
+function calcZone(key, shift) {
+  const d = keyToDate(key);
+  const startH = SHIFTS[shift].startH;
+  const shiftStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), startH, 0, 0);
+  const now = new Date();
+  const diffH = (shiftStart - now) / 3600000;
+  if (diffH < 0) return 'past';
+  if (diffH < 24) return 'red';
+  if (diffH < 48) return 'orange';
+  return 'green';
+}
+
+function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch(e) { return d; } }
+function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+function escape(s) { const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function keyToDate(k) { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); }
+
+// ═══════════════════════════════════════════════════════
+// SESSION
+// ═══════════════════════════════════════════════════════
+function getSession() {
+  const s = loadJSON(SESSION_KEY, null);
+  if (!s) return null;
+  // Nur Ehrenamt (und Admin zum Testen) dürfen hier rein
+  if (s.role !== 'ehrenamt' && s.role !== 'admin') return null;
+  return s;
+}
+function setSession(s) { saveJSON(SESSION_KEY, s); }
+function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch(e) {} }
+
+function doLogin() { window.location.href = "login.html"; }
+
+function doLogout() { clearSession(); window.location.href = "index.html"; }
+
+// ═══════════════════════════════════════════════════════
+// MONAT-NAVIGATION
+// ═══════════════════════════════════════════════════════
+let currentMonth = new Date();
+currentMonth.setDate(1);
+
+function shiftMonth(delta) {
+  currentMonth.setMonth(currentMonth.getMonth() + delta);
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+// KALENDER RENDERN
+// ═══════════════════════════════════════════════════════
+function render() {
+  const session = getSession();
+  document.getElementById('login-view').hidden = !!session;
+  document.getElementById('dashboard-view').hidden = !session;
+  if (!session) { window.location.href = "login.html"; return; }
+
+  document.getElementById('user-name').textContent = session.name;
+  document.getElementById('user-email').textContent = session.email;
+
+  const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  document.getElementById('month-title').textContent =
+    `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+
+  renderCalendar();
+  renderStats();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('cal-grid');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const session = getSession();
+
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startWeekday = (firstDay.getDay() + 6) % 7; // Mo = 0
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+  const cells = [];
+
+  // Vormonats-Tage
+  for (let i = startWeekday - 1; i >= 0; i--) {
+    const d = new Date(year, month - 1, daysInPrevMonth - i);
+    cells.push({ date: d, otherMonth: true });
+  }
+  // Aktuelle Monats-Tage
+  for (let i = 1; i <= daysInMonth; i++) {
+    cells.push({ date: new Date(year, month, i), otherMonth: false });
+  }
+  // Nächster Monat
+  while (cells.length % 7 !== 0 || cells.length < 35) {
+    const last = cells[cells.length-1].date;
+    cells.push({ date: new Date(last.getTime() + DAY_MS), otherMonth: true });
+    if (cells.length >= 42) break;
+  }
+
+  const avail = loadJSON(AVAIL_KEY, {});
+  const bookings = loadJSON(BOOK_KEY, {});
+
+  grid.innerHTML = cells.map(c => {
+    const d = c.date;
+    const key = dateKey(d);
+    const isToday = d.getTime() === today.getTime();
+    const isPast = d.getTime() < today.getTime();
+    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+    const classes = ['cal-day'];
+    if (c.otherMonth) classes.push('other-month');
+    if (isToday) classes.push('today');
+    if (isPast) classes.push('past');
+    if (isWeekend) classes.push('weekend');
+
+    // Meine Verfügbarkeiten an diesem Tag
+    const myAvail = (avail[session.email]?.[key]) || null;
+
+    // Meine Buchungen an diesem Tag (nur Buchungen für MICH anzeigen)
+    const dayBookings = bookings[key] || {};
+    const myBookingsForDay = {};
+    for (const shift in dayBookings) {
+      if (dayBookings[shift].ehrenamt_email === session.email) {
+        myBookingsForDay[shift] = dayBookings[shift];
+      }
+    }
+
+    let chips = '';
+    for (const shift of ['frueh','spaet','nacht']) {
+      const booked = myBookingsForDay[shift];
+      const availOn = myAvail?.shifts?.includes(shift);
+      if (booked) {
+        const zone = calcZone(key, shift);
+        const zoneClass = `zone-${zone}`;
+        const clickable = zone !== 'past';
+        chips += `<div class="shift-chip booked ${zoneClass}" ${clickable ? `onclick="openCancel(event, '${key}', '${shift}')"` : ''} title="${clickable ? 'Klick zum Absagen' : 'Dienst liegt in der Vergangenheit'}">
+          <span><span class="zone-dot ${zone}"></span>${SHIFTS[shift].label.substring(0,5)} ✓</span>
+          <span class="clinic">${escape(booked.clinic_name.substring(0,15))}</span>
+        </div>`;
+      } else if (availOn) {
+        chips += `<div class="shift-chip ${SHIFTS[shift].cls}" onclick="removeShift(event, '${key}', '${shift}')">
+          <span>${SHIFTS[shift].label.substring(0,5)}</span>
+          <span class="chip-remove" title="Entfernen">×</span>
+        </div>`;
+      }
+    }
+
+    const canAdd = !isPast && !c.otherMonth;
+    const addBtn = canAdd ? `<button class="add-btn" onclick="openAdd('${key}')">+ Eintragen</button>` : '';
+
+    return `<div class="${classes.join(' ')}">
+      <div class="cal-date">${d.getDate()}${isToday ? '<span class="cal-today-badge">Heute</span>' : ''}</div>
+      <div class="shift-chips">${chips}</div>
+      ${addBtn}
+    </div>`;
+  }).join('');
+}
+
+function renderStats() {
+  const session = getSession();
+  const avail = loadJSON(AVAIL_KEY, {});
+  const bookings = loadJSON(BOOK_KEY, {});
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+
+  let availCount = 0, bookedCount = 0;
+  const mine = avail[session.email] || {};
+  for (const key in mine) {
+    const d = keyToDate(key);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      availCount += (mine[key].shifts || []).length;
+    }
+  }
+  for (const key in bookings) {
+    const d = keyToDate(key);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      for (const shift in bookings[key]) {
+        if (bookings[key][shift].ehrenamt_email === session.email) bookedCount++;
+      }
+    }
+  }
+  document.getElementById('stat-avail').textContent = availCount;
+  document.getElementById('stat-booked').textContent = bookedCount;
+  document.getElementById('stat-open').textContent = Math.max(0, availCount - bookedCount);
+}
+
+// ═══════════════════════════════════════════════════════
+// ADD DIALOG
+// ═══════════════════════════════════════════════════════
+let currentAddKey = null;
+
+function openAdd(key) {
+  currentAddKey = key;
+  const d = keyToDate(key);
+  const session = getSession();
+  const avail = loadJSON(AVAIL_KEY, {});
+  const bookings = loadJSON(BOOK_KEY, {});
+  const existing = (avail[session.email]?.[key]?.shifts) || [];
+
+  const dayBookings = bookings[key] || {};
+
+  document.getElementById('add-title').textContent =
+    d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  for (const shift of ['frueh','spaet','nacht']) {
+    const chk = document.getElementById('chk-' + shift);
+    const opt = document.getElementById('opt-' + shift);
+    chk.checked = existing.includes(shift);
+    // Falls bereits gebucht, nicht deaktivierbar
+    const mineBooked = dayBookings[shift]?.ehrenamt_email === session.email;
+    opt.classList.toggle('already-added', mineBooked);
+    if (mineBooked) chk.checked = true;
+  }
+  document.getElementById('note').value = avail[session.email]?.[key]?.note || '';
+
+  document.getElementById('add-dialog').showModal();
+}
+
+function closeAdd() {
+  document.getElementById('add-dialog').close();
+  currentAddKey = null;
+}
+
+function saveAvail() {
+  const session = getSession();
+  const avail = loadJSON(AVAIL_KEY, {});
+  if (!avail[session.email]) avail[session.email] = {};
+
+  const selected = ['frueh','spaet','nacht'].filter(s => document.getElementById('chk-'+s).checked);
+  const note = document.getElementById('note').value.trim();
+
+  if (selected.length === 0) {
+    delete avail[session.email][currentAddKey];
+  } else {
+    avail[session.email][currentAddKey] = {
+      name: session.name,
+      shifts: selected,
+      note,
+      updatedAt: new Date().toISOString()
+    };
+  }
+  saveJSON(AVAIL_KEY, avail);
+  closeAdd();
+  render();
+  showToast(selected.length === 0 ? 'Eintrag entfernt.' : `${selected.length} Schicht${selected.length>1?'en':''} gespeichert.`);
+}
+
+function removeShift(event, key, shift) {
+  event.stopPropagation();
+  if (!confirm(`${SHIFTS[shift].label} am ${keyToDate(key).toLocaleDateString('de-DE')} wirklich entfernen?`)) return;
+  const session = getSession();
+  const avail = loadJSON(AVAIL_KEY, {});
+  if (!avail[session.email]?.[key]) return;
+  avail[session.email][key].shifts = avail[session.email][key].shifts.filter(s => s !== shift);
+  if (avail[session.email][key].shifts.length === 0) delete avail[session.email][key];
+  saveJSON(AVAIL_KEY, avail);
+  render();
+  showToast('Schicht entfernt.');
+}
+
+// ═══════════════════════════════════════════════════════
+// ABSAGE-DIALOG (3-stufig: grün / orange / rot)
+// ═══════════════════════════════════════════════════════
+let cancelContext = null; // { key, shift, zone, booking }
+
+function openCancel(event, key, shift) {
+  event.stopPropagation();
+  const bookings = loadJSON(BOOK_KEY, {});
+  const booking = bookings[key]?.[shift];
+  if (!booking) return;
+  const zone = calcZone(key, shift);
+  if (zone === 'past') return;
+
+  cancelContext = { key, shift, zone, booking };
+
+  const dlg = document.getElementById('cancel-dialog');
+  dlg.className = ''; // reset
+  dlg.classList.add(`zone-${zone}`);
+
+  const d = keyToDate(key);
+  const dateStr = d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long' });
+  const shiftInfo = SHIFTS[shift];
+
+  // Reset UI
+  document.getElementById('cancel-reasons').hidden = true;
+  document.getElementById('cancel-emergency').hidden = true;
+  document.getElementById('cancel-doublecheck').hidden = true;
+  document.querySelectorAll('input[name="cancel-reason"]').forEach(r => r.checked = false);
+  document.getElementById('cancel-confirm-checkbox').checked = false;
+  const btn = document.getElementById('btn-cancel-confirm');
+  btn.classList.remove('emergency');
+  btn.disabled = false;
+
+  // Sichtbarkeit einzelner Gründe je nach Zone
+  document.getElementById('reason-arbeit').style.display = (zone === 'red') ? 'none' : '';
+  document.getElementById('reason-andere').style.display = (zone === 'red') ? 'none' : '';
+
+  const zoneLbl = document.getElementById('cancel-zone-label');
+  zoneLbl.className = 'cancel-zone-label zone-' + zone;
+
+  if (zone === 'green') {
+    zoneLbl.textContent = 'Entspannt · mehr als 48 h Puffer';
+    document.getElementById('cancel-title').textContent = 'Dienst austragen?';
+    document.getElementById('cancel-subtitle').textContent =
+      `${shiftInfo.label} (${shiftInfo.time}) am ${dateStr} – gebucht von ${booking.clinic_name}`;
+    document.getElementById('cancel-message').innerHTML =
+      `Du möchtest diesen Dienst absagen. Das ist völlig in Ordnung — wir informieren die Klinik und kümmern uns um Ersatz.<br><br>
+       <em>Kein Grund erforderlich. Danke, dass du früh Bescheid gibst.</em>`;
+    btn.textContent = 'Ja, austragen';
+  }
+  else if (zone === 'orange') {
+    zoneLbl.textContent = 'Aufmerksam · 24 – 48 h vor Dienstbeginn';
+    document.getElementById('cancel-title').textContent = 'Dienst absagen – bitte mit Hinweis';
+    document.getElementById('cancel-subtitle').textContent =
+      `${shiftInfo.label} (${shiftInfo.time}) am ${dateStr} – gebucht von ${booking.clinic_name}`;
+    document.getElementById('cancel-message').innerHTML =
+      `Die Klinik hat diesen Dienst fest eingeplant. Bitte gib uns einen kurzen Hinweis, damit wir Ersatz finden können.<br><br>
+       <strong>Danke, dass du ehrlich bist – das hilft uns allen.</strong>`;
+    document.getElementById('cancel-reasons').hidden = false;
+    btn.textContent = 'Absage mit Hinweis senden';
+    btn.disabled = true; // erst nach Grund-Auswahl
+  }
+  else if (zone === 'red') {
+    zoneLbl.textContent = 'Notfall · weniger als 24 h';
+    document.getElementById('cancel-title').textContent = 'Notfall-Absage';
+    document.getElementById('cancel-subtitle').textContent =
+      `${shiftInfo.label} (${shiftInfo.time}) am ${dateStr} – gebucht von ${booking.clinic_name}`;
+    document.getElementById('cancel-message').innerHTML =
+      `Dein Dienst beginnt in weniger als 24 Stunden. Wenn du wirklich nicht kannst, ist das okay – aber die Klinik rechnet mit dir. Wir stehen hinter dir.`;
+    document.getElementById('cancel-emergency').hidden = false;
+    document.getElementById('cancel-phone').textContent = booking.clinic_phone || '030 – 000 00 00';
+    document.getElementById('cancel-reasons').hidden = false;
+    document.getElementById('cancel-doublecheck').hidden = false;
+    btn.textContent = 'Notfall-Absage senden';
+    btn.classList.add('emergency');
+    btn.disabled = true;
+  }
+
+  dlg.showModal();
+}
+
+function closeCancel() {
+  document.getElementById('cancel-dialog').close();
+  cancelContext = null;
+}
+
+// Enable/disable des Absage-Buttons basierend auf Eingaben
+document.addEventListener('change', (e) => {
+  if (!cancelContext) return;
+  const { zone } = cancelContext;
+  const btn = document.getElementById('btn-cancel-confirm');
+  if (zone === 'orange') {
+    const chosen = document.querySelector('input[name="cancel-reason"]:checked');
+    btn.disabled = !chosen;
+  }
+  if (zone === 'red') {
+    const chosen = document.querySelector('input[name="cancel-reason"]:checked');
+    const confirmed = document.getElementById('cancel-confirm-checkbox').checked;
+    btn.disabled = !(chosen && confirmed);
+  }
+  // Optische Hervorhebung der Auswahl
+  document.querySelectorAll('.cancel-reason-opt').forEach(opt => {
+    const input = opt.querySelector('input');
+    opt.classList.toggle('checked', input?.checked);
+  });
+});
+
+function confirmCancel() {
+  if (!cancelContext) return;
+  const { key, shift, zone, booking } = cancelContext;
+
+  const reasonInput = document.querySelector('input[name="cancel-reason"]:checked');
+  const reason = reasonInput ? reasonInput.value : null;
+
+  // 1. Buchung entfernen
+  const bookings = loadJSON(BOOK_KEY, {});
+  if (bookings[key]?.[shift]) {
+    delete bookings[key][shift];
+    if (Object.keys(bookings[key]).length === 0) delete bookings[key];
+    saveJSON(BOOK_KEY, bookings);
+  }
+
+  // 2. Absage-Log schreiben (für Klinik sichtbar)
+  const session = getSession();
+  const cancels = loadJSON(CANCEL_KEY, []);
+  cancels.push({
+    id: Date.now(),
+    timestamp: new Date().toISOString(),
+    date_key: key,
+    shift,
+    zone,
+    reason,
+    ehrenamt_email: session.email,
+    ehrenamt_name: session.name,
+    clinic_email: booking.clinic_email,
+    clinic_name: booking.clinic_name,
+    clinic_ward: booking.clinic_ward || '',
+    patient_ref: booking.patient_ref || '',
+    seen_by_clinic: false
+  });
+  saveJSON(CANCEL_KEY, cancels);
+
+  // 3. Verfügbarkeit bleibt eingetragen → andere Ehrenamtliche oder Klinik-Portal zeigt Slot wieder frei
+  // (keine Änderung nötig, da avail separat gespeichert ist und der Dienst nur in BOOK_KEY entfernt wurde)
+
+  // 4. Bestätigung
+  closeCancel();
+
+  const msgs = {
+    green:  'Danke für deine frühe Rückmeldung. Wir informieren die Klinik und suchen Ersatz.',
+    orange: 'Absage gesendet. Die Klinik wurde benachrichtigt. Ruh dich aus – wir freuen uns auf deinen nächsten Dienst!',
+    red:    'Absage gesendet. Bitte rufe JETZT die Klinik direkt an: ' + (booking.clinic_phone || 'siehe Buchung')
+  };
+  showToast(msgs[zone], zone === 'red' ? 'warn' : 'ok');
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+// A11Y + Toast
+// ═══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type==='warn'?' warn':'');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function setTextSize(size) {
+  document.body.classList.remove('text-l', 'text-xl');
+  if (size) document.body.classList.add('text-' + size);
+  document.querySelectorAll('.a11y-btn[data-size]').forEach(b => {
+    b.setAttribute('aria-pressed', b.dataset.size === size ? 'true' : 'false');
+  });
+  try { localStorage.setItem('lpr-text-size', size); } catch(e) {}
+}
+function toggleContrast() {
+  const on = document.body.classList.toggle('contrast');
+  document.getElementById('btn-contrast').setAttribute('aria-pressed', on ? 'true' : 'false');
+  try { localStorage.setItem('lpr-contrast', on ? '1' : '0'); } catch(e) {}
+}
+
+try {
+  const size = localStorage.getItem('lpr-text-size');
+  if (size) setTextSize(size);
+  if (localStorage.getItem('lpr-contrast') === '1') toggleContrast();
+} catch(e) {}
+
+// Auto-Reload bei Storage-Änderungen (wenn kliniken.html in anderem Tab bucht)
+window.addEventListener('storage', e => {
+  if (e.key === BOOK_KEY) render();
+});
+
+render();
+// Auto-Refresh alle 15s (falls andere Tabs gleichzeitig offen)
+setInterval(() => { if (getSession()) render(); }, 15000);
+</script>
+</body>
+</html>

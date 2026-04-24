@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schulung · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.schulung-wrap { max-width: 1200px; margin: 32px auto 60px; padding: 0 20px; }
+
+.schulung-head {
+  background: #fff; border-radius: var(--radius);
+  padding: 24px 28px; margin-bottom: 20px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  border-top: 4px solid var(--lime);
+}
+.schulung-head h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 26px; color: var(--green);
+  letter-spacing: -.02em; margin-bottom: 8px;
+}
+.schulung-head p {
+  color: var(--muted); font-size: 15px; line-height: 1.55;
+  margin-bottom: 14px;
+}
+
+.schulung-meta {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 13px; color: var(--muted);
+}
+.schulung-meta .meta-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  background: var(--lime-soft);
+  color: var(--green);
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+.iframe-box {
+  background: #fff; border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  padding: 8px;
+  margin-bottom: 20px;
+  position: relative;
+}
+.iframe-box iframe {
+  width: 100%;
+  height: 900px;
+  border: 0;
+  border-radius: calc(var(--radius) - 8px);
+  display: block;
+}
+
+.status-box {
+  background: #fff; border-radius: var(--radius);
+  padding: 20px 24px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  display: flex; justify-content: space-between;
+  align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.status-text {
+  font-size: 14px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 200px;
+}
+.status-text strong { color: var(--green); }
+
+.status-btn {
+  background: var(--green); color: #fff;
+  padding: 12px 22px; border-radius: var(--radius-sm);
+  border: none; cursor: pointer;
+  font-family: inherit; font-weight: 700;
+  font-size: 14px;
+}
+.status-btn:hover { background: var(--green-deep); }
+.status-btn.done {
+  background: var(--ok);
+}
+.status-btn.done::before {
+  content: '✓ ';
+}
+
+.back-link {
+  display: inline-block;
+  margin-top: 20px;
+  color: var(--muted);
+  text-decoration: underline;
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .iframe-box iframe { height: 700px; }
+}
+</style>
+</head>
+<body>
+
+<main id="main">
+<div class="schulung-wrap">
+
+  <div class="schulung-head">
+    <h1>📚 Schulung: Psychiatrische Einzelbetreuung</h1>
+    <p>Unsere vollständige Einführungsschulung für Sitzwachen und Begleitung. 5 Module, 24 Lektionen, mit Abschlussprüfung und Zertifikat.</p>
+    <div class="schulung-meta">
+      <span class="meta-item">⏱ ca. 2 Stunden</span>
+      <span class="meta-item">📖 24 Lektionen</span>
+      <span class="meta-item">🎓 Zertifikat bei Abschluss</span>
+      <span class="meta-item">🤝 Von SF Private Krankenpflege</span>
+    </div>
+  </div>
+
+  <div class="iframe-box">
+    <iframe
+      src="https://ericborchert11-web.github.io/einfuehrung/"
+      title="LPR Schulungsportal — Psychiatrische Einzelbetreuung"
+      loading="lazy"
+      allow="fullscreen">
+    </iframe>
+  </div>
+
+  <div class="status-box">
+    <div class="status-text" id="status-text">
+      <strong>Dein Fortschritt:</strong> Wenn du die Schulung durchgearbeitet und das Zertifikat heruntergeladen hast, markiere sie hier als abgeschlossen.
+    </div>
+    <button id="mark-btn" class="status-btn" onclick="toggleCompleted()">Als abgeschlossen markieren</button>
+  </div>
+
+  <a href="mein-bereich.html" class="back-link">← Zurück zu „Mein Bereich"</a>
+
+</div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: '' });
+
+const SCHULUNG_KEY = 'lpr-schulung-completed';
+
+function loadStatus() {
+  try {
+    const session = JSON.parse(localStorage.getItem('lpr-session-v2'));
+    if (!session) return null;
+    const data = JSON.parse(localStorage.getItem(SCHULUNG_KEY) || '{}');
+    return data[session.email] || null;
+  } catch(e) { return null; }
+}
+
+function saveStatus(completed) {
+  try {
+    const session = JSON.parse(localStorage.getItem('lpr-session-v2'));
+    if (!session) return;
+    const data = JSON.parse(localStorage.getItem(SCHULUNG_KEY) || '{}');
+    if (completed) {
+      data[session.email] = { completedAt: new Date().toISOString() };
+    } else {
+      delete data[session.email];
+    }
+    localStorage.setItem(SCHULUNG_KEY, JSON.stringify(data));
+  } catch(e) {}
+}
+
+function render() {
+  const status = loadStatus();
+  const btn = document.getElementById('mark-btn');
+  const txt = document.getElementById('status-text');
+  if (status?.completedAt) {
+    const date = new Date(status.completedAt).toLocaleDateString('de-DE');
+    txt.innerHTML = `<strong>✓ Abgeschlossen</strong> am ${date}`;
+    btn.textContent = 'Als nicht abgeschlossen markieren';
+    btn.classList.remove('done');
+  } else {
+    txt.innerHTML = `<strong>Dein Fortschritt:</strong> Wenn du die Schulung durchgearbeitet und das Zertifikat heruntergeladen hast, markiere sie hier als abgeschlossen.`;
+    btn.textContent = 'Als abgeschlossen markieren';
+    btn.classList.remove('done');
+  }
+}
+
+function toggleCompleted() {
+  const current = loadStatus();
+  saveStatus(!current?.completedAt);
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meine Präferenzen · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.pref-wrap { max-width: 780px; margin: 40px auto 60px; padding: 0 24px; }
+.pref-header {
+  background: #fff; border-radius: var(--radius);
+  padding: 24px 28px; margin-bottom: 20px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  border-top: 4px solid var(--lime);
+}
+.pref-header h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 26px; color: var(--green-deep);
+  letter-spacing: -.02em; margin-bottom: 6px;
+}
+.pref-header .sub { color: var(--muted); font-size: 14px; line-height: 1.55; }
+
+.info-box {
+  background: #F4F8F2; border: 1.5px solid #B5D4B5;
+  border-radius: var(--radius);
+  padding: 14px 18px; margin-bottom: 20px;
+  font-size: 13.5px; line-height: 1.6;
+}
+.info-box strong { color: var(--green-deep); }
+
+.qual-section {
+  background: #fff; border-radius: var(--radius);
+  padding: 20px 22px; margin-bottom: 16px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+}
+.qual-section.readonly { background: #FAFAF5; border-left: 4px solid var(--green); }
+
+.qual-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px; flex-wrap: wrap; gap: 8px;
+}
+.qual-head h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 16px; color: var(--green-deep); font-weight: 800;
+}
+.type-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 9px; border-radius: 8px;
+}
+.type-label.hard { background: #D4E8DC; color: var(--green-deep); }
+.type-label.soft { background: #FFF4E4; color: #8B6218; }
+.qual-head .hint { font-size: 12.5px; color: var(--muted); width: 100%; line-height: 1.5; margin-top: 4px; }
+
+.qual-list {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;
+}
+.qual-item {
+  padding: 8px 14px; border-radius: 999px;
+  background: #E8F0E8; color: var(--green-deep);
+  font-size: 13.5px; font-weight: 600;
+}
+.qual-item.missing { background: #F0ECE4; color: var(--muted); opacity: 0.7; }
+
+.pref-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px;
+  margin-top: 12px;
+}
+.pref-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
+  border: 2px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 13px; cursor: pointer; user-select: none;
+  transition: all .15s; background: #fff;
+}
+.pref-chip:hover { border-color: var(--green); }
+.pref-chip.checked { border-color: var(--green); background: #E8F0E8; }
+.pref-chip input { accent-color: var(--green); margin: 0; }
+
+.clinics-list {
+  display: flex; flex-direction: column; gap: 6px; margin-top: 12px;
+}
+.clinic-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: #FAFAF5;
+  font-size: 13px; gap: 10px; flex-wrap: wrap;
+}
+.clinic-row-name { font-weight: 600; flex: 1; min-width: 140px; }
+.clinic-row-actions { display: flex; gap: 6px; }
+.clinic-btn {
+  font-size: 11.5px; font-weight: 700;
+  padding: 5px 11px; border-radius: 6px;
+  border: 1.5px solid transparent; cursor: pointer;
+  font-family: inherit; background: #fff;
+}
+.clinic-btn.ok { color: var(--ok); border-color: var(--ok); }
+.clinic-btn.ok.active { background: var(--ok); color: #fff; }
+.clinic-btn.neutral { color: var(--muted); border-color: var(--border); }
+.clinic-btn.neutral.active { background: var(--muted); color: #fff; border-color: var(--muted); }
+.clinic-btn.no { color: #8B2818; border-color: #C85B30; }
+.clinic-btn.no.active { background: #C85B30; color: #fff; }
+
+.save-bar {
+  position: sticky; bottom: 16px;
+  background: #fff; border-radius: var(--radius);
+  padding: 14px 22px; margin-top: 20px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.12); border: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 14px;
+}
+.save-bar-text { font-size: 13px; color: var(--muted); }
+.save-bar button {
+  background: var(--green); color: #fff; border: none;
+  padding: 11px 22px; border-radius: var(--radius-sm);
+  font-family: inherit; font-weight: 700; font-size: 14px;
+  cursor: pointer;
+}
+
+.toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--green-deep); color: #fff;
+  padding: 12px 22px; border-radius: 10px;
+  font-weight: 600; font-size: 14px;
+  opacity: 0; transition: all .25s;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  z-index: 9999;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<main id="main">
+<div class="pref-wrap">
+
+  <div class="pref-header">
+    <h1>Meine Präferenzen</h1>
+    <div class="sub">Deine Vorlieben helfen uns, dir passende Einsätze vorzuschlagen. Du kannst jederzeit „alle Dienste anzeigen" wählen — nichts hier verpflichtet dich.</div>
+  </div>
+
+  <div class="info-box">
+    <strong>Wie das hier funktioniert:</strong> Harte Präferenzen (Qualifikationen) legt der Vorstand mit dir gemeinsam fest. Weiche Präferenzen (Schichten, Kliniken, Anfahrt) bestimmst du selbst — du kannst sie jederzeit ändern. Die Klinik sieht deine Präferenzen nie.
+  </div>
+
+  <!-- HART (readonly) -->
+  <div class="qual-section readonly">
+    <div class="qual-head">
+      <h2>Meine Qualifikationen</h2>
+      <span class="type-label hard">Vom Vorstand gepflegt</span>
+      <div class="hint">Diese Angaben werden mit dir gemeinsam im persönlichen Gespräch gesetzt und dokumentieren absolvierte Schulungen und Zulassungen. Wenn du etwas ergänzen möchtest, sprich den Vorstand an.</div>
+    </div>
+    <div class="qual-list" id="qual-list-display"></div>
+  </div>
+
+  <div class="qual-section readonly">
+    <div class="qual-head">
+      <h2>Meine Tätigkeiten</h2>
+      <span class="type-label hard">Vom Vorstand gepflegt</span>
+      <div class="hint">Welche Arten von Einsätzen du laut Absprache mit dem Vorstand übernimmst.</div>
+    </div>
+    <div class="qual-list" id="activity-list-display"></div>
+  </div>
+
+  <!-- WEICH (editierbar) -->
+  <div class="qual-section">
+    <div class="qual-head">
+      <h2>Bevorzugte Schichten</h2>
+      <span class="type-label soft">Kannst du jederzeit ändern</span>
+      <div class="hint">Welche Schichten du üblicherweise machst. Nicht-bevorzugte Schichten werden nicht ausgeblendet — sie werden nur gedimmt angezeigt, damit du sie im Notfall trotzdem annehmen kannst.</div>
+    </div>
+    <div class="pref-grid" id="shifts-edit"></div>
+  </div>
+
+  <div class="qual-section">
+    <div class="qual-head">
+      <h2>Kliniken</h2>
+      <span class="type-label soft">Kannst du jederzeit ändern</span>
+      <div class="hint">Markiere, welche Kliniken du bevorzugst oder lieber nicht anfährst. „Nicht bevorzugt" heißt <em>nicht</em> „verboten" — im Notfall bekommst du trotzdem einen Hinweis.</div>
+    </div>
+    <div class="clinics-list" id="clinics-edit"></div>
+  </div>
+
+  <div class="qual-section">
+    <div class="qual-head">
+      <h2>Anfahrt</h2>
+      <span class="type-label soft">Kannst du jederzeit ändern</span>
+      <div class="hint">Deine Wohnort-PLZ hilft uns, die Entfernung zu den Kliniken zu berechnen (Luftlinie, keine externe API). Du siehst dann direkt, wie weit ein Einsatz von dir entfernt ist.</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px;">
+      <div>
+        <label for="pref-plz" style="font-size: 12.5px; font-weight: 600; color: var(--green-deep); display:block; margin-bottom: 6px;">Wohnort-PLZ</label>
+        <input type="text" id="pref-plz" placeholder="z.B. 10115" maxlength="5"
+          style="width: 100%; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; font-family: inherit; font-size: 13.5px;">
+      </div>
+      <div>
+        <label for="pref-maxkm" style="font-size: 12.5px; font-weight: 600; color: var(--green-deep); display:block; margin-bottom: 6px;">Max. Anfahrt (Luftlinie)</label>
+        <select id="pref-maxkm" style="width: 100%; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; font-family: inherit; font-size: 13.5px; background: #fff;">
+          <option value="">kein Limit</option>
+          <option value="5">bis 5 km</option>
+          <option value="10">bis 10 km</option>
+          <option value="15">bis 15 km</option>
+          <option value="20">bis 20 km</option>
+          <option value="30">bis 30 km</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="save-bar">
+    <div class="save-bar-text">Änderungen werden erst mit „Speichern" übernommen.</div>
+    <button onclick="savePrefs()">Meine Präferenzen speichern</button>
+  </div>
+
+  <div style="text-align: center; margin-top: 20px;">
+    <a href="mein-bereich.html" style="color: var(--muted); text-decoration: underline; font-size: 13px;">← Zurück zum Mitgliederbereich</a>
+  </div>
+
+</div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: '' });
+
+const PROFILE_KEY = 'lpr-profiles-v1';
+const SESSION_KEY = 'lpr-session-v2';
+
+const QUALIFICATIONS = [
+  { id: 'sitzwache-schulung', label: 'Sitzwachen-Schulung', emoji: '🎓' },
+  { id: 'reise-schulung',     label: 'Reiseleitungs-Schulung', emoji: '🧳' },
+  { id: 'fuehrungszeugnis',   label: 'Erw. Führungszeugnis', emoji: '📄' },
+  { id: 'erste-hilfe',        label: 'Erste-Hilfe-Kurs', emoji: '🩹' },
+  { id: 'demenz-schulung',    label: 'Demenz-Schulung', emoji: '💭' }
+];
+
+const ACTIVITY_TYPES = [
+  { id: 'sitzwachen', label: 'Sitzwachen', emoji: '🪑' },
+  { id: 'reisen',     label: 'Reisebegleitung', emoji: '🧳' },
+  { id: 'teilhabe',   label: 'Soziale Teilhabe', emoji: '🤝' }
+];
+
+const SHIFT_TYPES = [
+  { id: 'frueh', label: 'Frühdienst',  emoji: '🌅' },
+  { id: 'spaet', label: 'Spätdienst',  emoji: '🌆' },
+  { id: 'nacht', label: 'Nachtdienst', emoji: '🌙' }
+];
+
+const CLINICS = [
+  { id: 'charite-mitte', name: 'Charité Campus Mitte', plz: '10117' },
+  { id: 'charite-virchow', name: 'Charité Virchow-Klinikum', plz: '13353' },
+  { id: 'vivantes-friedrichshain', name: 'Vivantes Friedrichshain', plz: '10249' },
+  { id: 'vivantes-neukoelln', name: 'Vivantes Neukölln', plz: '12351' },
+  { id: 'hedwig', name: 'St. Hedwig-Krankenhaus', plz: '10115' },
+  { id: 'helios-buch', name: 'Helios Klinikum Buch', plz: '13125' }
+];
+
+function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch(e) { return d; } }
+function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+function escape(s) { const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+
+function getSession() {
+  const s = loadJSON(SESSION_KEY, null);
+  if (!s) { window.location.href = 'login.html'; return null; }
+  return s;
+}
+
+function render() {
+  const session = getSession();
+  if (!session) return;
+  const profiles = loadJSON(PROFILE_KEY, {});
+  const p = profiles[session.email] || {};
+
+  // Qualifikationen: Alle anzeigen, vorhandene grün, fehlende gedimmt
+  document.getElementById('qual-list-display').innerHTML = QUALIFICATIONS.map(q => {
+    const has = (p.qualifications || []).includes(q.id);
+    return `<span class="qual-item ${has ? '' : 'missing'}">${q.emoji} ${escape(q.label)} ${has ? '✓' : ''}</span>`;
+  }).join('');
+
+  document.getElementById('activity-list-display').innerHTML = ACTIVITY_TYPES.length
+    ? ACTIVITY_TYPES.map(t => {
+        const has = (p.activityTypes || []).includes(t.id);
+        return `<span class="qual-item ${has ? '' : 'missing'}">${t.emoji} ${escape(t.label)} ${has ? '✓' : ''}</span>`;
+      }).join('')
+    : '<span style="color:var(--muted);">Noch nichts festgelegt — sprich mit dem Vorstand.</span>';
+
+  // Schichten (editierbar)
+  document.getElementById('shifts-edit').innerHTML = SHIFT_TYPES.map(s => {
+    const checked = (p.preferredShifts || ['frueh','spaet','nacht']).includes(s.id);
+    return `<label class="pref-chip ${checked ? 'checked' : ''}">
+      <input type="checkbox" data-shift="${s.id}" ${checked ? 'checked' : ''}>
+      <span>${s.emoji} ${s.label}</span>
+    </label>`;
+  }).join('');
+
+  // Kliniken (editierbar)
+  document.getElementById('clinics-edit').innerHTML = CLINICS.map(c => {
+    const pref = (p.clinicPrefs || {})[c.id] || 'neutral';
+    return `<div class="clinic-row">
+      <div class="clinic-row-name">${escape(c.name)} <span style="color:var(--muted); font-size:11px; font-weight:400;">· ${c.plz}</span></div>
+      <div class="clinic-row-actions">
+        <button type="button" class="clinic-btn ok ${pref === 'pref' ? 'active' : ''}" onclick="setClinic('${c.id}','pref')">💚 bevorzugt</button>
+        <button type="button" class="clinic-btn neutral ${pref === 'neutral' ? 'active' : ''}" onclick="setClinic('${c.id}','neutral')">neutral</button>
+        <button type="button" class="clinic-btn no ${pref === 'avoid' ? 'active' : ''}" onclick="setClinic('${c.id}','avoid')">nicht bevorzugt</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('pref-plz').value = p.plz || '';
+  document.getElementById('pref-maxkm').value = p.maxKm || '';
+
+  document.querySelectorAll('[data-shift]').forEach(cb => {
+    cb.addEventListener('change', e => e.target.closest('.pref-chip').classList.toggle('checked', e.target.checked));
+  });
+}
+
+function setClinic(clinicId, value) {
+  const session = getSession();
+  if (!session) return;
+  const profiles = loadJSON(PROFILE_KEY, {});
+  const p = profiles[session.email] || {};
+  p.clinicPrefs = p.clinicPrefs || {};
+  p.clinicPrefs[clinicId] = value;
+  profiles[session.email] = p;
+  saveJSON(PROFILE_KEY, profiles);
+  render();
+}
+
+function savePrefs() {
+  const session = getSession();
+  if (!session) return;
+  const profiles = loadJSON(PROFILE_KEY, {});
+  const p = profiles[session.email] || {};
+
+  p.preferredShifts = [...document.querySelectorAll('[data-shift]:checked')].map(cb => cb.dataset.shift);
+  p.plz = document.getElementById('pref-plz').value.trim();
+  p.maxKm = document.getElementById('pref-maxkm').value;
+
+  profiles[session.email] = p;
+  saveJSON(PROFILE_KEY, profiles);
+
+  showToast('✓ Deine Präferenzen sind gespeichert.');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+render();
+</script>
+</body>
+</html>

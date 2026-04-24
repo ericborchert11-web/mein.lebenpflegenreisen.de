@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Abrechnung – Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Aufwandsentschädigung für ehrenamtliche Reisebegleitung beantragen. Rechtssicher nach § 3 Nr. 26 EStG.">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green:      #2D4A3A;
+  --green-soft: #3E5C4B;
+  --green-deep: #1E3127;
+  --lime:       #C8F135;
+  --lime-soft:  #E8F7A8;
+  --sand:       #E8E4DC;
+  --white:      #F5F5F0;
+  --text:       #1A241E;
+  --muted:      #6B7771;
+  --border:     #D8D4CC;
+  --warn:       #C85B30;
+  --ok:         #4A7A5A;
+
+  --fs-base: 17px;
+  --fs-h1: 42px;
+  --fs-h2: 24px;
+  --fs-h3: 18px;
+  --fs-small: 14px;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 12px rgba(0,0,0,.05);
+  --shadow-lg: 0 6px 24px rgba(0,0,0,.08);
+}
+
+body.text-l  { --fs-base: 19px; --fs-h1: 46px; --fs-h2: 27px; --fs-h3: 20px; --fs-small: 15px; }
+body.text-xl { --fs-base: 22px; --fs-h1: 52px; --fs-h2: 30px; --fs-h3: 22px; --fs-small: 17px; }
+
+body.contrast {
+  --green: #000; --green-soft: #222; --green-deep: #000;
+  --lime: #FFD900; --lime-soft: #FFF1A8;
+  --sand: #FFF; --white: #FFF;
+  --text: #000; --muted: #333; --border: #000;
+  --warn: #B32400; --ok: #006400;
+}
+body.contrast .card, body.contrast .a11y-bar, body.contrast .hero,
+body.contrast header, body.contrast .info-box { border: 2px solid #000; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--sand);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: var(--fs-base);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0;
+}
+
+/* A11y Bar */
+.a11y-bar {
+  background: var(--green-deep); color: #fff;
+  padding: 10px 24px;
+  display: flex; justify-content: flex-end;
+  gap: 18px; flex-wrap: wrap;
+  font-size: 14px;
+}
+.a11y-group { display: flex; align-items: center; gap: 8px; }
+.a11y-label { opacity: .75; font-weight: 500; }
+.a11y-btn {
+  background: transparent; color: #fff;
+  border: 1.5px solid rgba(255,255,255,.35);
+  border-radius: 20px; padding: 4px 12px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+  min-height: 32px; min-width: 32px;
+}
+.a11y-btn:hover { border-color: var(--lime); color: var(--lime); }
+.a11y-btn[aria-pressed="true"] {
+  background: var(--lime); color: var(--green-deep);
+  border-color: var(--lime);
+}
+.a11y-btn:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+
+/* Header */
+header {
+  background: var(--green); color: #fff;
+  padding: 20px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; }
+.brand-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 18px;
+  letter-spacing: -0.01em; line-height: 1.1;
+}
+.brand-sub {
+  font-size: 11px; opacity: .65;
+  letter-spacing: .12em; text-transform: uppercase;
+  margin-top: 2px;
+}
+.nav-link {
+  color: #fff; text-decoration: none;
+  font-weight: 500; font-size: 15px;
+  padding: 8px 14px; border-radius: 6px;
+  transition: background .15s;
+}
+.nav-link:hover { background: rgba(255,255,255,.1); }
+
+/* Hero */
+.hero {
+  background: linear-gradient(135deg, var(--green) 0%, var(--green-soft) 100%);
+  color: #fff; padding: 48px 24px 40px;
+}
+.hero-wrap { max-width: 1100px; margin: 0 auto; }
+.hero-eyebrow {
+  display: inline-block;
+  background: rgba(200, 241, 53, 0.18);
+  color: var(--lime);
+  font-size: 12px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  padding: 6px 14px; border-radius: 20px;
+  margin-bottom: 16px;
+}
+.hero h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: var(--fs-h1);
+  line-height: 1.05; letter-spacing: -0.02em;
+  margin-bottom: 14px;
+}
+.hero p { opacity: .88; max-width: 720px; }
+
+/* Main */
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 24px 60px;
+}
+
+.section-label {
+  margin: 0 0 20px;
+}
+.section-label h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: var(--fs-h2);
+  color: var(--green); letter-spacing: -0.01em;
+}
+.section-label p { color: var(--muted); margin-top: 6px; font-size: var(--fs-small); }
+
+/* ══════════ LOGIN ══════════ */
+.login-card {
+  max-width: 480px; margin: 48px auto;
+  background: #fff; border-radius: var(--radius);
+  padding: 36px 32px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.login-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 26px;
+  color: var(--green); margin-bottom: 8px;
+}
+.login-card p { color: var(--muted); margin-bottom: 22px; font-size: var(--fs-small); }
+
+/* ══════════ DASHBOARD ══════════ */
+.dash-header {
+  background: #fff; border-radius: var(--radius);
+  padding: 24px 28px; margin-bottom: 24px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 20px; align-items: center;
+}
+.dash-user-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 20px;
+  color: var(--green-deep);
+}
+.dash-user-email { font-size: 13px; color: var(--muted); }
+
+/* Freibetrag-Tracker */
+.budget {
+  margin-top: 22px; padding-top: 22px;
+  border-top: 1px dashed var(--border);
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;
+}
+.budget-cell {
+  text-align: center;
+}
+.budget-num {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 32px;
+  color: var(--green-deep); line-height: 1;
+  margin-bottom: 4px;
+}
+.budget-num.warn { color: var(--warn); }
+.budget-label {
+  font-size: 12px; color: var(--muted);
+  letter-spacing: .08em; text-transform: uppercase;
+  font-weight: 600;
+}
+
+.bar-track {
+  grid-column: 1 / -1;
+  height: 10px; background: var(--border);
+  border-radius: 6px; overflow: hidden;
+  margin-top: 8px;
+}
+.bar-fill {
+  height: 100%; background: linear-gradient(90deg, var(--lime), var(--green));
+  border-radius: 6px; transition: width .4s;
+}
+.bar-fill.warn { background: linear-gradient(90deg, #E8B840, var(--warn)); }
+
+/* ══════════ TRIPS LIST ══════════ */
+.trip-card {
+  background: #fff; border-radius: var(--radius);
+  padding: 22px 26px; margin-bottom: 14px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 20px; align-items: center;
+}
+.trip-card.done { opacity: .7; }
+.trip-info-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 17px;
+  color: var(--green-deep); margin-bottom: 4px;
+}
+.trip-info-meta {
+  font-size: 13px; color: var(--muted);
+  display: flex; flex-wrap: wrap; gap: 4px 16px;
+}
+.trip-info-meta strong { color: var(--text); font-weight: 600; }
+.trip-amount {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 22px;
+  color: var(--green);
+}
+.trip-state {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 4px 10px; border-radius: 10px;
+  display: inline-block;
+}
+.state-done    { background: #E8F0EB; color: var(--ok); }
+.state-pending { background: #FFF3DE; color: #8E6112; }
+.state-paid    { background: var(--lime-soft); color: var(--green-deep); }
+
+/* ══════════ BUTTONS ══════════ */
+.btn {
+  font-family: inherit; font-weight: 700;
+  padding: 12px 22px; border-radius: 8px;
+  border: none; cursor: pointer;
+  font-size: 15px; letter-spacing: .01em;
+  min-height: 44px;
+  transition: transform .1s, box-shadow .15s;
+  display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none;
+}
+.btn:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--green); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--green-deep); box-shadow: var(--shadow-lg); }
+.btn-lime { background: var(--lime); color: var(--green-deep); }
+.btn-lime:hover:not(:disabled) { background: #B8E028; }
+.btn-ghost {
+  background: transparent; color: var(--green);
+  border: 1.5px solid var(--green);
+}
+.btn-ghost:hover:not(:disabled) { background: var(--green); color: #fff; }
+
+/* ══════════ DIALOG ══════════ */
+dialog {
+  border: none; border-radius: var(--radius);
+  padding: 0; max-width: 620px; width: calc(100% - 32px);
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  background: #fff; max-height: 94vh;
+}
+dialog::backdrop {
+  background: rgba(20, 40, 30, 0.55);
+  backdrop-filter: blur(3px);
+}
+.dlg-head {
+  padding: 22px 26px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.dlg-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 22px;
+  color: var(--green); line-height: 1.2;
+  margin-bottom: 6px;
+}
+.dlg-sub { font-size: 14px; color: var(--muted); }
+.dlg-body { padding: 20px 26px; max-height: 60vh; overflow-y: auto; }
+.dlg-foot {
+  padding: 16px 26px 22px;
+  display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  background: var(--white);
+}
+
+/* Form */
+.field { margin-bottom: 18px; }
+.field label {
+  display: block; font-weight: 600;
+  font-size: 14px; margin-bottom: 6px;
+  color: var(--text);
+}
+.field input[type="text"], .field input[type="email"], .field input[type="tel"],
+.field input[type="date"], .field textarea, .field select {
+  width: 100%; padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 15px;
+  background: var(--white);
+  min-height: 44px;
+}
+.field input:focus, .field textarea:focus, .field select:focus {
+  outline: none; border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(45, 74, 58, 0.15);
+}
+.field-hint {
+  font-size: 13px; color: var(--muted);
+  margin-top: 4px; line-height: 1.5;
+}
+
+.check {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px 14px; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--white);
+  margin-bottom: 10px; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.check:hover { border-color: var(--green); }
+.check input { margin-top: 3px; flex-shrink: 0; width: 18px; height: 18px; accent-color: var(--green); }
+.check-text { font-size: 14px; line-height: 1.5; }
+.check-text strong { color: var(--green-deep); }
+.check.required-not-checked { border-color: var(--warn); background: #FFF4EE; }
+
+/* Calculation box */
+.calc-box {
+  background: var(--lime-soft);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px; margin: 14px 0;
+  border: 1.5px solid var(--lime);
+}
+.calc-row {
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 12px; font-size: 14px;
+  padding: 4px 0;
+}
+.calc-row.total {
+  border-top: 1.5px solid var(--green);
+  padding-top: 10px; margin-top: 8px;
+  font-size: 17px; font-weight: 700;
+  color: var(--green-deep);
+}
+
+/* Info boxes */
+.info-box {
+  background: #FFF9EC; border: 1px solid #E8C968;
+  border-radius: var(--radius-sm);
+  padding: 14px 18px; margin: 16px 0;
+  font-size: 14px; line-height: 1.55;
+}
+.info-box.green {
+  background: #EEF6F0; border-color: #9FC0A8;
+}
+.info-box strong { color: var(--green-deep); }
+
+/* Legal footer on beleg */
+.legal-note {
+  font-size: 11px; color: var(--muted);
+  line-height: 1.5; margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--white);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border);
+}
+
+/* ═════════ BELEG (Auszahlungsbeleg – druckfertig) ═════════ */
+.beleg-wrap {
+  max-width: 760px; margin: 20px auto;
+  background: #fff; padding: 48px 56px;
+  box-shadow: var(--shadow-lg); border-radius: var(--radius);
+}
+.beleg-head {
+  border-bottom: 2px solid var(--green);
+  padding-bottom: 16px; margin-bottom: 24px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+}
+.beleg-logo-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 20px;
+  color: var(--green-deep);
+}
+.beleg-logo-sub { font-size: 11px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
+.beleg-nr {
+  font-family: monospace; font-size: 13px;
+  color: var(--muted); text-align: right;
+}
+.beleg-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 28px;
+  color: var(--green-deep); margin-bottom: 6px;
+  letter-spacing: -0.015em;
+}
+.beleg-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+.beleg-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 24px 32px;
+  margin: 24px 0;
+}
+.beleg-block h4 {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 8px;
+}
+.beleg-block p { line-height: 1.55; font-size: 15px; }
+
+.beleg-table {
+  width: 100%; border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 14px;
+}
+.beleg-table th, .beleg-table td {
+  padding: 10px 12px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.beleg-table th {
+  background: var(--white); color: var(--green-deep);
+  font-weight: 700; font-size: 12px;
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.beleg-table tr:last-child td { border-bottom: none; }
+.beleg-table td.num, .beleg-table th.num { text-align: right; font-family: monospace; }
+.beleg-total-row {
+  background: var(--lime-soft); font-weight: 800; font-size: 16px;
+  color: var(--green-deep);
+}
+
+.beleg-declaration {
+  background: var(--white); border-radius: var(--radius-sm);
+  padding: 18px 22px; margin-top: 24px;
+  border: 1.5px solid var(--border);
+  font-size: 13px; line-height: 1.65;
+}
+.beleg-declaration h4 {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--green); margin-bottom: 10px;
+}
+.beleg-declaration ul { margin: 0 0 0 18px; padding: 0; }
+.beleg-declaration li { margin-bottom: 4px; }
+
+.beleg-signatures {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 40px; margin-top: 36px;
+}
+.beleg-sig-block {
+  border-top: 1px solid var(--text);
+  padding-top: 8px;
+  font-size: 12px; color: var(--muted);
+}
+.beleg-sig-block .confirmed {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; color: var(--green-deep);
+  font-size: 14px; margin-bottom: 2px;
+}
+
+.beleg-footer {
+  margin-top: 32px; padding-top: 16px;
+  border-top: 1px dashed var(--border);
+  font-size: 11px; color: var(--muted); line-height: 1.6;
+}
+
+.toolbar {
+  max-width: 760px; margin: 16px auto;
+  display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--green-deep); color: #fff;
+  padding: 14px 22px; border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  font-weight: 600; font-size: 14px;
+  opacity: 0; transition: all .25s;
+  z-index: 100;
+  max-width: calc(100vw - 32px);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.warn { background: var(--warn); }
+
+/* Footer */
+footer {
+  background: var(--green-deep); color: rgba(255,255,255,.7);
+  padding: 32px 24px;
+  text-align: center; font-size: 14px;
+  border-top: 4px solid var(--lime);
+}
+footer a { color: var(--lime); text-decoration: none; }
+
+/* Empty state */
+.empty {
+  text-align: center; padding: 48px 24px;
+  color: var(--muted);
+}
+.empty-icon { font-size: 48px; margin-bottom: 12px; opacity: .5; }
+
+/* Responsive */
+@media (max-width: 640px) {
+  header { flex-direction: column; align-items: flex-start; }
+  .a11y-bar { justify-content: center; padding: 10px 12px; gap: 10px; }
+  .a11y-label { display: none; }
+  main { padding: 20px 16px 40px; }
+  .hero { padding: 36px 16px; }
+  .dash-header { grid-template-columns: 1fr; }
+  .trip-card { grid-template-columns: 1fr; }
+  .trip-card .btn { width: 100%; justify-content: center; }
+  .budget { grid-template-columns: 1fr; gap: 16px; }
+  .beleg-wrap { padding: 28px 20px; }
+  .beleg-grid { grid-template-columns: 1fr; gap: 18px; }
+  .beleg-signatures { grid-template-columns: 1fr; }
+  .beleg-head { flex-direction: column; gap: 12px; }
+  .beleg-nr { text-align: left; }
+}
+
+/* Print: Only show the beleg, clean */
+@media print {
+  .a11y-bar, header, .hero, footer, .toolbar, main > *:not(#beleg-container) { display: none !important; }
+  #beleg-container { display: block !important; }
+  .beleg-wrap {
+    box-shadow: none; border: none;
+    padding: 0; margin: 0; max-width: 100%;
+  }
+  body { background: #fff; padding: 0; }
+  @page { size: A4; margin: 20mm; }
+}
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+
+<!-- ════════════ A11Y BAR ════════════ -->
+<div class="a11y-bar" role="region" aria-label="Barrierefreiheits-Einstellungen">
+  <div class="a11y-group">
+    <span class="a11y-label">Textgröße:</span>
+    <button class="a11y-btn" data-size="" aria-pressed="true" onclick="setTextSize('')">A</button>
+    <button class="a11y-btn" data-size="l" aria-pressed="false" onclick="setTextSize('l')">A+</button>
+    <button class="a11y-btn" data-size="xl" aria-pressed="false" onclick="setTextSize('xl')">A++</button>
+  </div>
+  <div class="a11y-group">
+    <button class="a11y-btn" id="btn-contrast" aria-pressed="false" onclick="toggleContrast()">◐ Hoher Kontrast</button>
+  </div>
+</div>
+
+<!-- ════════════ HEADER ════════════ -->
+<header>
+  <a href="index.html" class="brand" aria-label="Zur Startseite">
+    <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" width="40" height="40" aria-hidden="true">
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="10,10 24,24 10,38" stroke="#C8F135" stroke-width="4.5" opacity="1"/>
+        <polyline points="22,10 36,24 22,38" stroke="#C8F135" stroke-width="4.5" opacity="0.42"/>
+      </g>
+    </svg>
+    <div>
+      <div class="brand-name">Leben Pflegen Reisen</div>
+      <div class="brand-sub">e.V. · Abrechnung</div>
+    </div>
+  </a>
+  <nav>
+    <a href="schichtplaner.html" class="nav-link">Schichtplan</a>
+    <a href="index.html" class="nav-link">← Zur Website</a>
+  </nav>
+</header>
+
+<!-- ════════════ HERO ════════════ -->
+<section class="hero">
+  <div class="hero-wrap">
+    <div class="hero-eyebrow">Aufwandsentschädigung · § 3 Nr. 26 EStG</div>
+    <h1>Deine Abrechnung</h1>
+    <p>
+      Reiche deinen Antrag auf Aufwandsentschädigung für abgeschlossene Reisebegleitungen ein. Die Berechnung folgt dem Vorstandsbeschluss vom 15. April 2026: 150 € je Reisetag (Anreise- und Abreisetag als halbe Tage). Die Zahlung ist als Übungsleiterpauschale steuer- und sozialversicherungsfrei bis 3.300 € pro Jahr.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════ MAIN ════════════ -->
+<main id="main">
+
+  <!-- Login-Prompt (zentrale Login-Seite) -->
+  <div class="login-card" id="login-view" hidden style="max-width:520px; margin:40px auto; background:#fff; border-radius:14px; padding:36px 32px; box-shadow:0 2px 12px rgba(0,0,0,.05); border:1px solid var(--border); text-align:center;">
+    <div style="font-size:44px; margin-bottom:12px;">🔒</div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:var(--green); margin-bottom:10px;">Bitte anmelden</h2>
+    <p style="color:var(--muted); margin-bottom:22px; font-size:14px;" id="login-prompt-text">Dieser Bereich ist nur für angemeldete Mitglieder.</p>
+    <a href="login.html" class="btn btn-primary" style="width:100%; justify-content:center;">Zum Login →</a>
+    <p style="margin-top:14px; font-size:12px; color:var(--muted);">
+      Noch kein Konto? Auf der Login-Seite können Sie sich registrieren.
+    </p>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard-view" hidden>
+
+    <!-- User / Freibetrag -->
+    <div class="dash-header">
+      <div>
+        <div class="dash-user-name" id="user-name">—</div>
+        <div class="dash-user-email" id="user-email">—</div>
+      </div>
+      <div>
+        <button class="btn btn-ghost" onclick="doLogout()">Abmelden</button>
+      </div>
+      <div class="budget">
+        <div class="budget-cell">
+          <div class="budget-num" id="budget-used">0 €</div>
+          <div class="budget-label">Dieses Jahr ausgezahlt</div>
+        </div>
+        <div class="budget-cell">
+          <div class="budget-num" id="budget-pending" style="color: var(--muted);">0 €</div>
+          <div class="budget-label">Offene Anträge</div>
+        </div>
+        <div class="budget-cell">
+          <div class="budget-num" id="budget-left" style="color: var(--ok);">3.300 €</div>
+          <div class="budget-label">Verbleibender Freibetrag</div>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="budget-bar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hinweise -->
+    <div class="info-box" id="budget-warning" hidden>
+      <strong>⚠️ Achtung:</strong> Du näherst dich dem jährlichen Freibetrag von 3.300 € (§ 3 Nr. 26 EStG). Darüber hinausgehende Beträge wären steuer- und ggf. sozialversicherungspflichtig. Bitte sprich vor weiteren Einsätzen mit dem Vorstand.
+    </div>
+
+    <!-- Abzurechnende Reisen -->
+    <div class="section-label">
+      <h2>Abzurechnen</h2>
+      <p>Nur abgeschlossene Reisen, an denen du als Ehrenamtliche:r teilgenommen hast.</p>
+    </div>
+    <div id="open-trips"></div>
+
+    <!-- Bereits eingereicht -->
+    <div class="section-label" style="margin-top:40px;">
+      <h2>Meine Anträge</h2>
+      <p>Alle bereits eingereichten Abrechnungen mit Status.</p>
+    </div>
+    <div id="submitted-claims"></div>
+
+  </div>
+
+  <!-- Beleg-Ansicht -->
+  <div id="beleg-container" hidden>
+    <div class="toolbar">
+      <button class="btn btn-ghost" onclick="backToDashboard()">← Zurück zur Übersicht</button>
+      <button class="btn btn-lime" onclick="window.print()">🖨️ Als PDF drucken / speichern</button>
+    </div>
+    <div class="beleg-wrap" id="beleg-content">
+      <!-- wird gefüllt -->
+    </div>
+  </div>
+
+</main>
+
+<!-- ════════════ DIALOG: Antrag ════════════ -->
+<dialog id="claim-dialog" aria-labelledby="cd-title">
+  <div class="dlg-head">
+    <div class="dlg-title" id="cd-title">Antrag auf Aufwandsentschädigung</div>
+    <div class="dlg-sub" id="cd-sub">—</div>
+  </div>
+  <div class="dlg-body">
+
+    <div class="info-box green">
+      <strong>Wichtig:</strong> Die Aufwandsentschädigung ist <em>kein Gehalt und kein Lohn</em>, sondern eine steuerfreie Pauschale nach <strong>§ 3 Nr. 26 EStG (Übungsleiterpauschale)</strong> bis 3.300 € pro Person und Kalenderjahr. Sie bleibt sozialversicherungsfrei.
+    </div>
+
+    <div class="field">
+      <label>Tätigkeit</label>
+      <input type="text" id="cd-activity" readonly>
+      <div class="field-hint">Reisebegleitung im Rahmen der gemeinnützigen Vereinstätigkeit (pflegerisch-betreuend)</div>
+    </div>
+
+    <div class="field">
+      <label>Zeitraum</label>
+      <input type="text" id="cd-period" readonly>
+    </div>
+
+    <div class="calc-box">
+      <div style="font-weight:700; color: var(--green-deep); margin-bottom: 8px;">Berechnung</div>
+      <div class="calc-row"><span>Anreisetag (halber Tag)</span><span>0,5 × 150 € = <strong>75,00 €</strong></span></div>
+      <div class="calc-row" id="cd-mid-row"><span>Volltage</span><span id="cd-mid-calc">—</span></div>
+      <div class="calc-row"><span>Abreisetag (halber Tag)</span><span>0,5 × 150 € = <strong>75,00 €</strong></span></div>
+      <div class="calc-row total"><span>Gesamt</span><span id="cd-total">—</span></div>
+    </div>
+
+    <div class="field">
+      <label for="cd-iban">IBAN (Auszahlung)</label>
+      <input type="text" id="cd-iban" placeholder="DE__ ____ ____ ____ ____ __" autocomplete="off">
+      <div class="field-hint">Die Auszahlung erfolgt ausschließlich auf dein eigenes Konto.</div>
+    </div>
+
+    <div class="field">
+      <label for="cd-note">Anmerkungen (optional)</label>
+      <textarea id="cd-note" rows="2" placeholder="z.B. Krankheit während Reisetag 3..."></textarea>
+    </div>
+
+    <div class="section-label" style="margin-top:20px;">
+      <h2 style="font-size:16px;">Rechtliche Erklärungen</h2>
+      <p>Bitte bestätige alle Punkte — sie sind für die Steuerfreiheit der Zahlung erforderlich.</p>
+    </div>
+
+    <label class="check">
+      <input type="checkbox" class="cd-req" id="cd-chk-correct">
+      <div class="check-text">Ich bestätige, dass die oben angegebenen <strong>Zeiten und Angaben wahrheitsgemäß</strong> sind und die Tätigkeit im Rahmen der Vereinsreise tatsächlich so erbracht wurde.</div>
+    </label>
+
+    <label class="check">
+      <input type="checkbox" class="cd-req" id="cd-chk-nebenberuflich">
+      <div class="check-text">Ich erkläre, dass ich diese Tätigkeit <strong>nebenberuflich</strong> ausübe — sie beansprucht nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit (ca. 13,3 Std./Woche).</div>
+    </label>
+
+    <label class="check">
+      <input type="checkbox" class="cd-req" id="cd-chk-nicht-doppelt">
+      <div class="check-text">Ich bestätige, dass ich die <strong>Übungsleiterpauschale (3.300 €/Jahr, § 3 Nr. 26 EStG)</strong> im laufenden Kalenderjahr nicht bereits anderweitig in einer Höhe in Anspruch genommen habe, die zusammen mit dieser Zahlung den Freibetrag übersteigt.</div>
+    </label>
+
+    <label class="check">
+      <input type="checkbox" class="cd-req" id="cd-chk-datenschutz">
+      <div class="check-text">Mir ist bekannt, dass der Verein die Angaben zur <strong>Buchführung und für Prüfungen durch das Finanzamt</strong> 10 Jahre lang aufbewahren muss (DSGVO Art. 6 Abs. 1 lit. c i.V.m. § 147 AO).</div>
+    </label>
+
+    <div class="info-box" style="margin-top:16px;">
+      <strong>Hinweis:</strong> Nach Prüfung durch den Vorstand erhältst du eine Bestätigung per E-Mail. Die Überweisung erfolgt in der Regel innerhalb von 14 Tagen auf das oben angegebene Konto. Dein Auszahlungsbeleg steht dir direkt nach dem Einreichen zum Download zur Verfügung.
+    </div>
+
+  </div>
+  <div class="dlg-foot">
+    <button class="btn btn-ghost" onclick="closeDialog()">Abbrechen</button>
+    <button class="btn btn-primary" id="cd-submit-btn" onclick="submitClaim()">Antrag einreichen</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- ════════════ FOOTER ════════════ -->
+<footer>
+  <div>Leben Pflegen Reisen e.V. · Berlin</div>
+  <div style="margin-top:8px; opacity:.6; font-size:12px;">
+    Prototyp – Daten werden lokal im Browser gespeichert
+  </div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// KONFIGURATION
+// ═══════════════════════════════════════════════════════
+const TAGESSATZ = 150;   // Euro pro Volltag (Vorstandsbeschluss)
+const JAHRESFREIBETRAG = 3300; // Übungsleiterpauschale § 3 Nr. 26 EStG ab 2026
+const BESCHLUSS_DATUM = '15. April 2026';
+
+// Demo: Vereinsdaten (später aus CMS/Settings)
+const VEREIN = {
+  name: 'Leben Pflegen Reisen e.V.',
+  adresse: 'Berlin',
+  vertretung: 'Vorstand'
+};
+
+// ═══════════════════════════════════════════════════════
+// STORAGE KEYS (geteilt mit Schichtplaner)
+// ═══════════════════════════════════════════════════════
+const SIGNUP_KEY = 'lpr-schichtplan-v1';
+const CLAIMS_KEY = 'lpr-claims-v1';
+const SESSION_KEY = 'lpr-session-v2';
+const MY_EMAIL_KEY = 'lpr-my-email';
+
+// Demo: Reisen (muss mit Schichtplaner synchron sein – später aus shared API)
+const TRIPS = [
+  { id: 'trip-001', title: 'Oberhof – Thüringer Wald', location: 'Oberhof, Thüringen',
+    start: '2026-05-25', end: '2026-05-31', partner: 'AWO' },
+  { id: 'trip-002', title: 'Ostsee – Strand und Meer', location: 'Ostsee',
+    start: '2026-06-08', end: '2026-06-14', partner: 'AWO' },
+  { id: 'trip-003', title: 'Bayerischer Wald – Natur & Ruhe', location: 'Bodenmais, Bayern',
+    start: '2026-07-04', end: '2026-07-10' },
+  { id: 'trip-004', title: 'Städtetrip Dresden', location: 'Dresden, Sachsen',
+    start: '2026-09-12', end: '2026-09-15' },
+  // Eine bereits abgeschlossene Demo-Reise für Testzwecke (damit Abrechnung funktioniert):
+  { id: 'demo-past', title: 'Harz – Bad Harzburg (Demo, abgeschlossen)', location: 'Bad Harzburg, Niedersachsen',
+    start: '2026-03-10', end: '2026-03-15' }
+];
+
+// ═══════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════
+function loadJSON(key, def) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch(e) { return def; }
+}
+function saveJSON(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+}
+function escape(str) {
+  const div = document.createElement('div'); div.textContent = str ?? ''; return div.innerHTML;
+}
+function formatEUR(cents) {
+  return new Intl.NumberFormat('de-DE', { style:'currency', currency:'EUR' }).format(cents);
+}
+function formatDateRange(start, end) {
+  const s = new Date(start).toLocaleDateString('de-DE', { day:'2-digit', month:'short' });
+  const e = new Date(end).toLocaleDateString('de-DE', { day:'2-digit', month:'short', year:'numeric' });
+  return `${s} – ${e}`;
+}
+function countDays(start, end) {
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  return Math.round(ms / 86400000) + 1;
+}
+function calcAmount(start, end) {
+  const days = countDays(start, end);
+  if (days <= 1) return TAGESSATZ; // 1 Tag: beide Halbtage = 1 Volltag
+  const mid = days - 2; // volle Mitteltage
+  return TAGESSATZ * 1 + TAGESSATZ * mid; // 0,5 + mid*1 + 0,5 = mid + 1
+}
+function calcBreakdown(start, end) {
+  const days = countDays(start, end);
+  const mid = Math.max(0, days - 2);
+  return {
+    days, mid,
+    half: TAGESSATZ * 0.5,
+    midAmount: mid * TAGESSATZ,
+    total: calcAmount(start, end)
+  };
+}
+function getCurrentYear() { return new Date().getFullYear(); }
+
+// ═══════════════════════════════════════════════════════
+// SESSION
+// ═══════════════════════════════════════════════════════
+function getSession() {
+  const s = loadJSON(SESSION_KEY, null);
+  if (!s) return null;
+  if (s.role !== 'ehrenamt' && s.role !== 'admin') return null;
+  return s;
+}
+function setSession(email, name) {
+  saveJSON(SESSION_KEY, { email: email.toLowerCase(), name, loginAt: new Date().toISOString() });
+  try { localStorage.setItem(MY_EMAIL_KEY, email.toLowerCase()); } catch(e) {}
+}
+function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch(e) {} }
+
+function doLogin() { window.location.href = "login.html"; }
+
+function doLogout() { clearSession(); window.location.href = "index.html"; }
+
+// ═══════════════════════════════════════════════════════
+// CLAIMS
+// ═══════════════════════════════════════════════════════
+function getMyClaims() {
+  const session = getSession(); if (!session) return [];
+  return loadJSON(CLAIMS_KEY, []).filter(c => c.email === session.email);
+}
+function saveClaim(claim) {
+  const claims = loadJSON(CLAIMS_KEY, []);
+  claims.push(claim);
+  saveJSON(CLAIMS_KEY, claims);
+}
+
+function hasClaimFor(tripId) {
+  return getMyClaims().some(c => c.tripId === tripId);
+}
+
+function getMyTrips() {
+  // Reisen finden, bei denen der User als Teilnehmer (nicht Warteliste) eingetragen ist
+  // und die in der Vergangenheit liegen
+  const session = getSession(); if (!session) return [];
+  const signups = loadJSON(SIGNUP_KEY, {});
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const myTrips = [];
+  for (const trip of TRIPS) {
+    const entries = signups[trip.id] || [];
+    const idx = entries.findIndex(e => e.email === session.email);
+    // demo-past: wenn Demo-Reise existiert und der User noch nicht eingetragen, trotzdem anzeigen
+    const isDemoPast = trip.id === 'demo-past';
+    if (idx < 0 && !isDemoPast) continue;
+    if (!isDemoPast && idx >= 4) continue; // auf Warteliste
+    if (new Date(trip.end) > today) continue; // noch nicht abgeschlossen
+    myTrips.push(trip);
+  }
+  return myTrips;
+}
+
+// Yearly budget
+function getYearlySums() {
+  const year = getCurrentYear();
+  const claims = getMyClaims().filter(c => new Date(c.start).getFullYear() === year);
+  let paid = 0, pending = 0;
+  for (const c of claims) {
+    if (c.status === 'paid') paid += c.amount;
+    else pending += c.amount;
+  }
+  return { paid, pending, total: paid + pending, left: Math.max(0, JAHRESFREIBETRAG - (paid + pending)) };
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function render() {
+  const session = getSession();
+  document.getElementById('login-view').hidden = !!session;
+  document.getElementById('dashboard-view').hidden = !session;
+  document.getElementById('beleg-container').hidden = true;
+  if (!session) { window.location.href = "login.html"; return; }
+
+  // User info
+  document.getElementById('user-name').textContent = session.name;
+  document.getElementById('user-email').textContent = session.email;
+
+  // Budget
+  const sums = getYearlySums();
+  document.getElementById('budget-used').textContent = formatEUR(sums.paid);
+  document.getElementById('budget-pending').textContent = formatEUR(sums.pending);
+  document.getElementById('budget-left').textContent = formatEUR(sums.left);
+  const pct = Math.min(100, (sums.total / JAHRESFREIBETRAG) * 100);
+  const bar = document.getElementById('budget-bar');
+  bar.style.width = pct + '%';
+  bar.classList.toggle('warn', pct > 75);
+  document.getElementById('budget-left').classList.toggle('warn', sums.left < 300);
+  document.getElementById('budget-warning').hidden = pct < 80;
+
+  // Open trips
+  const myTrips = getMyTrips();
+  const openTrips = myTrips.filter(t => !hasClaimFor(t.id));
+  const openEl = document.getElementById('open-trips');
+  if (openTrips.length === 0) {
+    openEl.innerHTML = `<div class="empty">
+      <div class="empty-icon">📋</div>
+      <p>Aktuell keine abgeschlossenen Reisen zum Abrechnen.</p>
+      <p style="font-size:13px; margin-top:6px;">Nach Rückkehr von einer Reise erscheint sie hier automatisch.</p>
+    </div>`;
+  } else {
+    openEl.innerHTML = openTrips.map(t => {
+      const b = calcBreakdown(t.start, t.end);
+      return `<div class="trip-card">
+        <div>
+          <div class="trip-info-title">${escape(t.title)}</div>
+          <div class="trip-info-meta">
+            <span>📍 ${escape(t.location)}</span>
+            <span>📅 ${formatDateRange(t.start, t.end)}</span>
+            <span><strong>${b.days} Tage</strong></span>
+            ${t.partner ? `<span>🤝 mit ${escape(t.partner)}</span>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div class="trip-amount">${formatEUR(b.total)}</div>
+          <button class="btn btn-primary" style="margin-top:8px;" onclick="openClaim('${t.id}')">
+            Abrechnen →
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Submitted claims
+  const claims = getMyClaims().sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+  const subEl = document.getElementById('submitted-claims');
+  if (claims.length === 0) {
+    subEl.innerHTML = `<div class="empty">
+      <div class="empty-icon">📄</div>
+      <p>Noch keine Anträge eingereicht.</p>
+    </div>`;
+  } else {
+    subEl.innerHTML = claims.map(c => {
+      const stateLabel = c.status === 'paid' ? 'Ausgezahlt'
+                      : c.status === 'approved' ? 'Genehmigt' : 'Eingereicht';
+      const stateClass = c.status === 'paid' ? 'state-paid'
+                      : c.status === 'approved' ? 'state-done' : 'state-pending';
+      return `<div class="trip-card">
+        <div>
+          <div class="trip-info-title">${escape(c.tripTitle)}</div>
+          <div class="trip-info-meta">
+            <span>📅 ${formatDateRange(c.start, c.end)}</span>
+            <span>Beleg-Nr: <strong>${escape(c.belegNr)}</strong></span>
+            <span>Eingereicht: ${new Date(c.submittedAt).toLocaleDateString('de-DE')}</span>
+          </div>
+          <div style="margin-top:8px;">
+            <span class="trip-state ${stateClass}">${stateLabel}</span>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div class="trip-amount">${formatEUR(c.amount)}</div>
+          <button class="btn btn-ghost" style="margin-top:8px;" onclick="showBeleg('${c.belegNr}')">
+            Beleg ansehen
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// CLAIM DIALOG
+// ═══════════════════════════════════════════════════════
+let currentTripId = null;
+
+function openClaim(tripId) {
+  currentTripId = tripId;
+  const trip = TRIPS.find(t => t.id === tripId);
+  const b = calcBreakdown(trip.start, trip.end);
+
+  document.getElementById('cd-sub').textContent = `${trip.title} · ${formatDateRange(trip.start, trip.end)}`;
+  document.getElementById('cd-activity').value = 'Ehrenamtliche Reisebegleitung (pflegerisch-betreuend)';
+  document.getElementById('cd-period').value = `${formatDateRange(trip.start, trip.end)} · ${b.days} Tage in ${trip.location}`;
+  document.getElementById('cd-total').innerHTML = `<strong>${formatEUR(b.total)}</strong>`;
+
+  const midRow = document.getElementById('cd-mid-row');
+  const midCalc = document.getElementById('cd-mid-calc');
+  if (b.mid > 0) {
+    midRow.style.display = '';
+    midCalc.innerHTML = `${b.mid} × 150 € = <strong>${formatEUR(b.midAmount)}</strong>`;
+  } else {
+    midRow.style.display = 'none';
+  }
+
+  // Reset form
+  document.getElementById('cd-iban').value = '';
+  document.getElementById('cd-note').value = '';
+  document.querySelectorAll('.cd-req').forEach(c => { c.checked = false; });
+  document.querySelectorAll('.check').forEach(c => c.classList.remove('required-not-checked'));
+
+  document.getElementById('claim-dialog').showModal();
+}
+
+function closeDialog() {
+  document.getElementById('claim-dialog').close();
+  currentTripId = null;
+}
+
+function validateIBAN(iban) {
+  const clean = iban.replace(/\s/g, '').toUpperCase();
+  if (!/^DE\d{20}$/.test(clean)) return false;
+  return true;
+}
+
+function submitClaim() {
+  const iban = document.getElementById('cd-iban').value.trim();
+  if (!validateIBAN(iban)) {
+    showToast('Bitte eine gültige deutsche IBAN eingeben (DE + 20 Ziffern).', 'warn');
+    document.getElementById('cd-iban').focus();
+    return;
+  }
+
+  // Alle Checkboxen müssen an sein
+  let allChecked = true;
+  document.querySelectorAll('.cd-req').forEach(c => {
+    const wrap = c.closest('.check');
+    if (!c.checked) { wrap.classList.add('required-not-checked'); allChecked = false; }
+    else wrap.classList.remove('required-not-checked');
+  });
+  if (!allChecked) {
+    showToast('Bitte alle Erklärungen bestätigen.', 'warn');
+    return;
+  }
+
+  const session = getSession();
+  const trip = TRIPS.find(t => t.id === currentTripId);
+  const b = calcBreakdown(trip.start, trip.end);
+  const sums = getYearlySums();
+
+  // Freibetrags-Warnung (aber nicht blockieren — das entscheidet der Vorstand)
+  if (sums.total + b.total > JAHRESFREIBETRAG) {
+    if (!confirm(
+      `Achtung: Mit diesem Antrag würdest du den Jahresfreibetrag von ${formatEUR(JAHRESFREIBETRAG)} überschreiten.\n\n` +
+      `Bisher: ${formatEUR(sums.total)}\nDieser Antrag: ${formatEUR(b.total)}\nÜberschreitung: ${formatEUR(sums.total + b.total - JAHRESFREIBETRAG)}\n\n` +
+      `Ab dem Überschreitungsbetrag sind Steuer- und Sozialversicherungspflicht möglich. Möchtest du trotzdem einreichen?`
+    )) return;
+  }
+
+  const belegNr = `LPR-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+  const claim = {
+    belegNr,
+    email: session.email,
+    name: session.name,
+    tripId: trip.id,
+    tripTitle: trip.title,
+    location: trip.location,
+    partner: trip.partner || null,
+    start: trip.start,
+    end: trip.end,
+    days: b.days,
+    midDays: b.mid,
+    halfDayAmount: b.half,
+    midAmount: b.midAmount,
+    amount: b.total,
+    iban: iban.replace(/\s/g, '').toUpperCase(),
+    note: document.getElementById('cd-note').value.trim(),
+    submittedAt: new Date().toISOString(),
+    status: 'submitted', // submitted → approved → paid
+    declarations: {
+      correct: true,
+      nebenberuflich: true,
+      nichtDoppelt: true,
+      datenschutz: true
+    },
+    beschluss: BESCHLUSS_DATUM
+  };
+  saveClaim(claim);
+  closeDialog();
+  render();
+  showToast('Antrag eingereicht. Beleg-Nr: ' + belegNr);
+  // Direkt den Beleg anzeigen
+  setTimeout(() => showBeleg(belegNr), 600);
+}
+
+// ═══════════════════════════════════════════════════════
+// BELEG
+// ═══════════════════════════════════════════════════════
+function showBeleg(belegNr) {
+  const claim = loadJSON(CLAIMS_KEY, []).find(c => c.belegNr === belegNr);
+  if (!claim) return;
+
+  const html = `
+    <div class="beleg-head">
+      <div>
+        <div class="beleg-logo-name">${escape(VEREIN.name)}</div>
+        <div class="beleg-logo-sub">${escape(VEREIN.adresse)}</div>
+      </div>
+      <div class="beleg-nr">
+        Beleg-Nr. <strong>${escape(claim.belegNr)}</strong><br>
+        Ausgestellt am ${new Date(claim.submittedAt).toLocaleDateString('de-DE')}
+      </div>
+    </div>
+
+    <div class="beleg-title">Aufwandsentschädigung</div>
+    <div class="beleg-subtitle">
+      Übungsleiterpauschale gemäß § 3 Nr. 26 EStG &middot; steuer- und sozialversicherungsfrei
+    </div>
+
+    <div class="beleg-grid">
+      <div class="beleg-block">
+        <h4>Empfänger:in</h4>
+        <p>
+          <strong>${escape(claim.name)}</strong><br>
+          ${escape(claim.email)}<br>
+          IBAN: <span style="font-family:monospace;">${escape(formatIBAN(claim.iban))}</span>
+        </p>
+      </div>
+      <div class="beleg-block">
+        <h4>Auszahlender Verein</h4>
+        <p>
+          <strong>${escape(VEREIN.name)}</strong><br>
+          ${escape(VEREIN.adresse)}<br>
+          Vertreten durch den Vorstand<br>
+          (Gemeinnütziger Verein i.S.d. § 52 AO)
+        </p>
+      </div>
+      <div class="beleg-block">
+        <h4>Tätigkeit</h4>
+        <p>
+          Ehrenamtliche Reisebegleitung<br>
+          <span style="color: var(--muted); font-size: 13px;">
+            pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins
+          </span>
+        </p>
+      </div>
+      <div class="beleg-block">
+        <h4>Zeitraum &amp; Ort</h4>
+        <p>
+          <strong>${formatDateRange(claim.start, claim.end)}</strong><br>
+          ${escape(claim.location)}<br>
+          ${claim.partner ? `<span style="color: var(--muted); font-size: 13px;">Kooperation mit ${escape(claim.partner)}</span>` : ''}
+        </p>
+      </div>
+    </div>
+
+    <table class="beleg-table">
+      <thead>
+        <tr><th>Position</th><th class="num">Anzahl</th><th class="num">Satz</th><th class="num">Betrag</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Anreisetag (halber Tag)</td>
+          <td class="num">0,5</td>
+          <td class="num">150,00 €</td>
+          <td class="num">75,00 €</td>
+        </tr>
+        ${claim.midDays > 0 ? `<tr>
+          <td>Volltage (Reisetage)</td>
+          <td class="num">${claim.midDays}</td>
+          <td class="num">150,00 €</td>
+          <td class="num">${formatEUR(claim.midAmount)}</td>
+        </tr>` : ''}
+        <tr>
+          <td>Abreisetag (halber Tag)</td>
+          <td class="num">0,5</td>
+          <td class="num">150,00 €</td>
+          <td class="num">75,00 €</td>
+        </tr>
+        <tr class="beleg-total-row">
+          <td colspan="3">Summe Aufwandsentschädigung</td>
+          <td class="num">${formatEUR(claim.amount)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="beleg-declaration">
+      <h4>Erklärungen der/des Ehrenamtlichen</h4>
+      <ul>
+        <li>Die angegebenen Zeiten und Tätigkeiten wurden tatsächlich und in der genannten Form erbracht.</li>
+        <li>Die Tätigkeit wird nebenberuflich ausgeübt (nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit).</li>
+        <li>Die Übungsleiterpauschale nach § 3 Nr. 26 EStG wurde im laufenden Kalenderjahr nicht anderweitig so in Anspruch genommen, dass der Jahresfreibetrag von 3.300 € zusammen mit dieser Zahlung überschritten wird.</li>
+        <li>Der/die Ehrenamtliche wurde über die Verarbeitung und zehnjährige Aufbewahrung der Angaben gemäß § 147 AO informiert (Art. 6 Abs. 1 lit. c DSGVO).</li>
+      </ul>
+      ${claim.note ? `<p style="margin-top:10px;"><strong>Anmerkung der/des Ehrenamtlichen:</strong> ${escape(claim.note)}</p>` : ''}
+    </div>
+
+    <div class="beleg-signatures">
+      <div class="beleg-sig-block">
+        <div class="confirmed">✓ Digital bestätigt</div>
+        <div>${escape(claim.name)} · ${new Date(claim.submittedAt).toLocaleString('de-DE')}</div>
+        <div style="margin-top:6px; font-size:11px;">Eingereicht via Vereinsportal. Die elektronische Bestätigung ersetzt im Sinne des Vorstandsbeschlusses die händische Unterschrift.</div>
+      </div>
+      <div class="beleg-sig-block">
+        <div style="color: var(--muted);">Ort, Datum – Unterschrift Vorstand</div>
+        <div style="margin-top:6px; font-size:11px;">Wird bei Genehmigung durch den Vorstand ergänzt. Die Zahlung erfolgt nach Prüfung auf das oben genannte Konto.</div>
+      </div>
+    </div>
+
+    <div class="beleg-footer">
+      <strong>Rechtsgrundlagen:</strong> § 3 Nr. 26 EStG (Übungsleiterpauschale) · Satzung des ${escape(VEREIN.name)} · Vorstandsbeschluss vom ${escape(claim.beschluss)} zur Höhe der Aufwandsentschädigung (150 € je Reisetag, Anreise- und Abreisetag jeweils halber Tag). Diese Zahlung ist ausdrücklich <strong>kein Arbeitslohn</strong>, sondern eine steuer- und sozialversicherungsfreie Aufwandsentschädigung. Eine Anmeldung bei der Minijob-Zentrale ist bis zur Freibetragsgrenze nicht erforderlich.
+    </div>
+  `;
+
+  document.getElementById('beleg-content').innerHTML = html;
+  document.getElementById('dashboard-view').hidden = true;
+  document.getElementById('beleg-container').hidden = false;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function formatIBAN(iban) {
+  return iban.replace(/(.{4})/g, '$1 ').trim();
+}
+
+function backToDashboard() {
+  document.getElementById('beleg-container').hidden = true;
+  document.getElementById('dashboard-view').hidden = false;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type === 'warn' ? ' warn' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4500);
+}
+
+// ═══════════════════════════════════════════════════════
+// A11Y
+// ═══════════════════════════════════════════════════════
+function setTextSize(size) {
+  document.body.classList.remove('text-l', 'text-xl');
+  if (size) document.body.classList.add('text-' + size);
+  document.querySelectorAll('.a11y-btn[data-size]').forEach(b => {
+    b.setAttribute('aria-pressed', b.dataset.size === size ? 'true' : 'false');
+  });
+  try { localStorage.setItem('lpr-text-size', size); } catch(e) {}
+}
+function toggleContrast() {
+  const on = document.body.classList.toggle('contrast');
+  document.getElementById('btn-contrast').setAttribute('aria-pressed', on ? 'true' : 'false');
+  try { localStorage.setItem('lpr-contrast', on ? '1' : '0'); } catch(e) {}
+}
+
+// Load A11y settings
+try {
+  const size = localStorage.getItem('lpr-text-size');
+  if (size) setTextSize(size);
+  if (localStorage.getItem('lpr-contrast') === '1') toggleContrast();
+} catch(e) {}
+
+// ESC schließt Dialog
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const dlg = document.getElementById('claim-dialog');
+    if (dlg.open) closeDialog();
+  }
+});
+
+// Initial
+render();
+</script>
+</body>
+</html>

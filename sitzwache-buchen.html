@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sitzwachen für Kliniken buchen · Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Online-Buchung von ehrenamtlichen Sitzwachen in Berliner Kliniken. Früh-, Spät- und Nachtschicht, 8 Stunden, mit Sofortbestätigung.">
+<meta name="keywords" content="Sitzwache buchen, Klinik Sitzwache Berlin, 1:1 Betreuung Krankenhaus, Nachtwache Berlin, postoperative Begleitung">
+<link rel="canonical" href="https://www.lebenpflegenreisen.de/sitzwache-buchen.html">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.hero-sw {
+  background: linear-gradient(135deg, var(--green-deep) 0%, var(--green) 100%);
+  color: #fff; padding: 64px 0 48px;
+  position: relative; overflow: hidden;
+}
+.hero-sw::before {
+  content:''; position:absolute; left:-120px; bottom:-120px;
+  width:360px; height:360px; background:var(--lime); opacity:.08;
+  border-radius:50%; filter:blur(40px);
+}
+.hero-sw .wrap { position: relative; z-index: 1; }
+.hero-sw h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: var(--fs-h1);
+  line-height: 1.05; letter-spacing: -0.025em;
+  margin-bottom: 16px; max-width: 820px;
+}
+.hero-sw h1 em { font-style: normal; color: var(--lime); }
+.hero-sw p { max-width: 640px; font-size: calc(var(--fs-base) + 2px); opacity: .94; line-height: 1.55; margin-bottom: 26px; }
+
+.shifts-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 18px; margin-top: 8px;
+}
+@media (max-width: 820px) { .shifts-grid { grid-template-columns: 1fr; } }
+.shift-card {
+  background: #fff; border-radius: var(--radius);
+  padding: 26px 28px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  border-top: 5px solid var(--frueh);
+}
+.shift-card.spaet { border-top-color: var(--spaet); }
+.shift-card.nacht { border-top-color: var(--nacht); }
+.shift-card .s-icon {
+  width: 50px; height: 50px; border-radius: 12px;
+  background: var(--frueh-bg); color: #7A5E00;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; margin-bottom: 14px;
+}
+.shift-card.spaet .s-icon { background: var(--spaet-bg); color: #7A3E00; }
+.shift-card.nacht .s-icon { background: var(--nacht-bg); color: #2E3E60; }
+.shift-card h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 19px;
+  color: var(--green-deep); margin-bottom: 4px;
+}
+.shift-card .time {
+  font-size: 13px; color: var(--muted); font-weight: 600;
+  letter-spacing: .05em; margin-bottom: 10px;
+}
+.shift-card p { color: var(--muted); font-size: 14px; line-height: 1.55; }
+
+.cases-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 18px;
+}
+.case-card {
+  background: #fff; border-radius: var(--radius);
+  padding: 22px 24px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--green);
+}
+.case-card h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 16px;
+  color: var(--green-deep); margin-bottom: 6px;
+}
+.case-card p { color: var(--muted); font-size: 14px; line-height: 1.55; }
+
+.pricing-box {
+  background: var(--lime-soft);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  border: 1px solid var(--lime);
+  text-align: center;
+  max-width: 720px; margin: 0 auto;
+}
+.pricing-box .big {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 48px;
+  color: var(--green-deep); line-height: 1;
+  letter-spacing: -0.02em; margin-bottom: 6px;
+}
+.pricing-box .unit {
+  font-size: 14px; color: var(--green); font-weight: 600;
+  margin-bottom: 12px;
+}
+.pricing-box p { color: var(--green-deep); font-size: 14px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Zum Hauptinhalt</a>
+
+<section class="hero-sw">
+  <div class="wrap">
+    <h1>Entlastung fürs Pflegepersonal. <em>Würde</em> für Patient:innen.</h1>
+    <p>Geschulte Ehrenamtliche übernehmen Sitzwachen in Ihrer Klinik. Online buchen, verbindliche Sofortbestätigung per PDF. Drei Schichten à 8 Stunden, 24/7 möglich.</p>
+    <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+      <a href="login.html" class="btn btn-primary btn-xl">Klinik-Konto erstellen →</a>
+      <a href="#leistung" class="btn btn-ghost-light">Mehr erfahren</a>
+    </div>
+  </div>
+</section>
+
+<main id="main">
+
+<section class="page" id="leistung">
+  <div class="wrap">
+    <div class="sec-eyebrow">Unser Service</div>
+    <h2 class="sec-title">Drei Schichten. Ein zuverlässiges System.</h2>
+
+    <div class="shifts-grid">
+      <div class="shift-card">
+        <div class="s-icon">☀️</div>
+        <h3>Frühdienst</h3>
+        <div class="time">06:00 – 14:00</div>
+        <p>Morgenroutine, Unterstützung bei der Visite, Orientierungshilfe. Entlastung für das Pflegepersonal in der intensivsten Tagesphase.</p>
+      </div>
+      <div class="shift-card spaet">
+        <div class="s-icon">🌆</div>
+        <h3>Spätdienst</h3>
+        <div class="time">14:00 – 22:00</div>
+        <p>Besuchszeit-Begleitung, Abendroutine, ruhige Präsenz am Krankenbett. Gerade bei unruhigen Patient:innen sehr entlastend.</p>
+      </div>
+      <div class="shift-card nacht">
+        <div class="s-icon">🌙</div>
+        <h3>Nachtdienst</h3>
+        <div class="time">22:00 – 06:00</div>
+        <p>Nachtwache bei Desorientierung, Unruhe oder Sturzgefahr. Klassisch: 1:1-Begleitung, damit Pflegepersonal andere Patient:innen versorgen kann.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="page" style="background: var(--white);">
+  <div class="wrap">
+    <div class="sec-eyebrow">Typische Anlässe</div>
+    <h2 class="sec-title">Wann eine Sitzwache sinnvoll ist</h2>
+
+    <div class="cases-grid">
+      <div class="case-card">
+        <h3>Nächtliche Unruhe &amp; Desorientierung</h3>
+        <p>Bei demenziellen Patient:innen, postoperativem Delir oder akuter Verwirrtheit. Ruhige Präsenz verhindert Stürze und schafft Orientierung.</p>
+      </div>
+      <div class="case-card">
+        <h3>Postoperative Begleitung</h3>
+        <p>In den ersten Stunden nach einer OP. Überwachung, Beruhigung, Unterstützung bei der Rekonvaleszenz.</p>
+      </div>
+      <div class="case-card">
+        <h3>Sterbebegleitung</h3>
+        <p>Niemand soll allein sterben. Unsere Ehrenamtlichen sind für die palliative Begleitung geschult und halten die Hand.</p>
+      </div>
+      <div class="case-card">
+        <h3>Sturzgefahr &amp; Fixierung vermeiden</h3>
+        <p>1:1-Betreuung als humane Alternative zu mechanischen Fixierungen oder Bettgittern.</p>
+      </div>
+      <div class="case-card">
+        <h3>Sprachliche Begleitung</h3>
+        <p>Unsere Ehrenamtlichen sprechen teils Türkisch, Russisch, Arabisch, Polnisch. Für Patient:innen, die sich auf Deutsch nicht gut ausdrücken können.</p>
+      </div>
+      <div class="case-card">
+        <h3>Entlastung bei hohem Pflegeaufwand</h3>
+        <p>Wenn eine Patient:in viel Aufmerksamkeit braucht und andere deshalb zu kurz kommen. Sitzwachen entlasten Ihr Team spürbar.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <div class="wrap">
+    <div class="sec-eyebrow">Konditionen</div>
+    <h2 class="sec-title" style="text-align:center; margin: 0 auto 20px;">Transparent &amp; fair</h2>
+
+    <div class="pricing-box">
+      <div class="big">200 €</div>
+      <div class="unit">SPENDENEMPFEHLUNG PRO 8-STUNDEN-SCHICHT</div>
+      <p>Als gemeinnütziger Verein arbeiten wir mit einer Spendenempfehlung. 200 € pro Schicht decken unsere Kosten (Schulung, Versicherung, Koordination) und die Aufwandsentschädigung der Ehrenamtlichen. Zuwendungsbestätigung wird ausgestellt.</p>
+    </div>
+
+    <div style="max-width: 720px; margin: 28px auto 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+      <div class="info-box green" style="margin: 0;">
+        <strong>✓ Sofortbestätigung</strong><br>
+        <span style="font-size: 13px;">Buchung mit Sofortbestätigung per PDF und E-Mail</span>
+      </div>
+      <div class="info-box green" style="margin: 0;">
+        <strong>✓ Abrechnung monatlich</strong><br>
+        <span style="font-size: 13px;">Sammelrechnung am Monatsende, zahlbar in 14 Tagen</span>
+      </div>
+      <div class="info-box green" style="margin: 0;">
+        <strong>✓ Stornierbar bis 24 h vorher</strong><br>
+        <span style="font-size: 13px;">Kostenlose Stornierung bis 24 h vor Schichtbeginn</span>
+      </div>
+      <div class="info-box green" style="margin: 0;">
+        <strong>✓ Datenschutz-konform</strong><br>
+        <span style="font-size: 13px;">Patient:innen-Identifikation anonymisiert (nur Zimmer)</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="page" style="background: var(--white);">
+  <div class="wrap" style="text-align: center; max-width: 640px;">
+    <div class="sec-eyebrow" style="text-align: center;">Loslegen</div>
+    <h2 class="sec-title" style="margin: 0 auto 16px;">In 5 Minuten gebucht</h2>
+    <p class="sec-lead" style="margin: 0 auto 28px;">
+      Klinik-Konto erstellen, verfügbare Schichten auswählen, mit zwei Klicks buchen. Sofortbestätigung als PDF.
+    </p>
+    <a href="login.html" class="btn btn-primary btn-xl">Klinik-Konto erstellen →</a>
+    <p style="margin-top: 14px; font-size: 13px; color: var(--muted);">
+      Schon registriert? <a href="login.html" style="color: var(--green); font-weight: 700;">Direkt einloggen →</a>
+    </p>
+  </div>
+</section>
+
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>LPR_Layout.init({ page: 'sw-buchen' });</script>
+</body>
+</html>

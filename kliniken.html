@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sitzwache buchen · Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Als Klinik verbindlich eine Sitzwache für Früh-, Spät- oder Nachtdienst buchen. Direkte Bestätigung.">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green:      #2D4A3A;
+  --green-soft: #3E5C4B;
+  --green-deep: #1E3127;
+  --lime:       #C8F135;
+  --lime-soft:  #E8F7A8;
+  --sand:       #E8E4DC;
+  --white:      #F5F5F0;
+  --text:       #1A241E;
+  --muted:      #6B7771;
+  --border:     #D8D4CC;
+  --warn:       #C85B30;
+  --ok:         #4A7A5A;
+
+  --frueh:      #FFD97A;
+  --frueh-bg:   #FFF7DE;
+  --spaet:      #E69661;
+  --spaet-bg:   #FCEADA;
+  --nacht:      #6B7FA8;
+  --nacht-bg:   #E4E8F3;
+
+  --fs-base: 17px;
+  --fs-h1: 40px;
+  --fs-h2: 24px;
+  --fs-h3: 18px;
+  --fs-small: 14px;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 12px rgba(0,0,0,.05);
+  --shadow-lg: 0 6px 24px rgba(0,0,0,.08);
+}
+body.text-l  { --fs-base: 19px; --fs-h1: 44px; --fs-h2: 27px; --fs-h3: 20px; --fs-small: 15px; }
+body.text-xl { --fs-base: 22px; --fs-h1: 50px; --fs-h2: 30px; --fs-h3: 22px; --fs-small: 17px; }
+
+body.contrast {
+  --green: #000; --green-soft: #222; --green-deep: #000;
+  --lime: #FFD900; --sand: #FFF; --white: #FFF;
+  --text: #000; --muted: #333; --border: #000;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  background: var(--sand);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: var(--fs-base);
+  color: var(--text); line-height: 1.6;
+  min-height: 100vh;
+}
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+.a11y-bar {
+  background: var(--green-deep); color: #fff;
+  padding: 10px 24px;
+  display: flex; justify-content: flex-end;
+  gap: 18px; flex-wrap: wrap; font-size: 14px;
+}
+.a11y-group { display: flex; align-items: center; gap: 8px; }
+.a11y-label { opacity: .75; font-weight: 500; }
+.a11y-btn {
+  background: transparent; color: #fff;
+  border: 1.5px solid rgba(255,255,255,.35);
+  border-radius: 20px; padding: 4px 12px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; min-height: 32px; min-width: 32px;
+}
+.a11y-btn:hover { border-color: var(--lime); color: var(--lime); }
+.a11y-btn[aria-pressed="true"] { background: var(--lime); color: var(--green-deep); border-color: var(--lime); }
+
+header {
+  background: var(--green); color: #fff;
+  padding: 20px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; }
+.brand-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 18px; letter-spacing: -0.01em;
+}
+.brand-sub { font-size: 11px; opacity: .65; letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+.nav-link { color: #fff; text-decoration: none; font-weight: 500; font-size: 15px; padding: 8px 14px; border-radius: 6px; }
+.nav-link:hover { background: rgba(255,255,255,.1); }
+
+.hero {
+  background: linear-gradient(135deg, var(--green) 0%, var(--green-soft) 100%);
+  color: #fff; padding: 48px 24px 40px;
+}
+.hero-wrap { max-width: 1100px; margin: 0 auto; }
+.hero-eyebrow {
+  display: inline-block;
+  background: rgba(200, 241, 53, 0.18); color: var(--lime);
+  font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  padding: 6px 14px; border-radius: 20px; margin-bottom: 16px;
+}
+.hero h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: var(--fs-h1);
+  line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 14px;
+}
+.hero p { opacity: .88; max-width: 720px; }
+
+main { max-width: 1100px; margin: 0 auto; padding: 32px 24px 60px; }
+
+/* Registration */
+.reg-card {
+  max-width: 540px; margin: 48px auto;
+  background: #fff; border-radius: var(--radius);
+  padding: 36px 32px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.reg-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 24px; color: var(--green); margin-bottom: 8px;
+}
+.reg-card p { color: var(--muted); font-size: var(--fs-small); margin-bottom: 20px; }
+
+.field { margin-bottom: 14px; }
+.field label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.field label .req { color: var(--warn); }
+.field input, .field textarea, .field select {
+  width: 100%; padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 15px;
+  background: var(--white); min-height: 44px;
+}
+.field input:focus, .field textarea:focus, .field select:focus {
+  outline: none; border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(45, 74, 58, 0.15);
+}
+.field-hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+.check {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px 14px; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--white);
+  margin-bottom: 10px; cursor: pointer;
+}
+.check:hover { border-color: var(--green); }
+.check input { margin-top: 3px; flex-shrink: 0; width: 18px; height: 18px; accent-color: var(--green); }
+.check-text { font-size: 14px; line-height: 1.5; }
+.check-text strong { color: var(--green-deep); }
+.check.required-not-checked { border-color: var(--warn); background: #FFF4EE; }
+
+/* Toolbar */
+.toolbar {
+  background: #fff; border-radius: var(--radius);
+  padding: 16px 22px; margin-bottom: 20px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 16px; flex-wrap: wrap;
+}
+.clinic-info .name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 18px; color: var(--green-deep);
+}
+.clinic-info .meta { font-size: 13px; color: var(--muted); }
+
+/* Filters */
+.filters {
+  background: #fff; border-radius: var(--radius);
+  padding: 20px 22px; margin-bottom: 20px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px; align-items: end;
+}
+.filter-shifts { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-chip {
+  padding: 7px 14px; border-radius: 20px;
+  border: 1.5px solid var(--border); background: var(--white);
+  cursor: pointer; font-weight: 600; font-size: 13px;
+  min-height: 36px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.filter-chip:hover { border-color: var(--green); }
+.filter-chip.active.frueh { background: var(--frueh-bg); border-color: var(--frueh); color: #6B4B0E; }
+.filter-chip.active.spaet { background: var(--spaet-bg); border-color: var(--spaet); color: #6D3514; }
+.filter-chip.active.nacht { background: var(--nacht-bg); border-color: var(--nacht); color: #2F3C5C; }
+
+/* Shift list */
+.shift-list { display: flex; flex-direction: column; gap: 12px; }
+.shift-card {
+  background: #fff; border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  padding: 18px 22px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 18px; align-items: center;
+}
+.shift-card.frueh { border-left: 6px solid var(--frueh); }
+.shift-card.spaet { border-left: 6px solid var(--spaet); }
+.shift-card.nacht { border-left: 6px solid var(--nacht); }
+
+.shift-date {
+  text-align: center; min-width: 80px;
+}
+.shift-date .weekday { font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; font-weight: 700; }
+.shift-date .day {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 32px; color: var(--green-deep); line-height: 1;
+}
+.shift-date .month { font-size: 12px; color: var(--muted); }
+
+.shift-main { min-width: 0; }
+.shift-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 17px; color: var(--green-deep); margin-bottom: 4px;
+}
+.shift-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 14px;
+  font-size: 13px; color: var(--muted);
+}
+.shift-meta strong { color: var(--text); font-weight: 600; }
+.shift-time-badge {
+  display: inline-block;
+  padding: 2px 10px; border-radius: 12px;
+  font-size: 12px; font-weight: 700;
+}
+.shift-time-badge.frueh { background: var(--frueh-bg); color: #6B4B0E; border: 1px solid var(--frueh); }
+.shift-time-badge.spaet { background: var(--spaet-bg); color: #6D3514; border: 1px solid var(--spaet); }
+.shift-time-badge.nacht { background: var(--nacht-bg); color: #2F3C5C; border: 1px solid var(--nacht); }
+
+.shift-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.shift-price { font-size: 13px; color: var(--muted); }
+.shift-price strong { color: var(--green-deep); font-size: 16px; font-family: 'Bricolage Grotesque', sans-serif; }
+
+.empty {
+  text-align: center; padding: 64px 24px;
+  color: var(--muted); background: #fff;
+  border-radius: var(--radius); border: 1px solid var(--border);
+}
+.empty-icon { font-size: 48px; margin-bottom: 12px; opacity: .5; }
+
+/* Section header */
+.section-head {
+  margin-bottom: 14px;
+  display: flex; justify-content: space-between; align-items: baseline;
+  flex-wrap: wrap; gap: 10px;
+}
+.section-head h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: var(--fs-h2); color: var(--green);
+}
+.section-head .count { font-size: 14px; color: var(--muted); }
+
+/* My bookings */
+.mine-card {
+  background: var(--lime-soft);
+  border-radius: var(--radius);
+  padding: 20px 22px; margin-bottom: 28px;
+  border: 1.5px solid var(--lime);
+}
+.mine-card h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 18px; color: var(--green-deep); margin-bottom: 10px;
+}
+.mine-entry {
+  background: #fff; border-radius: var(--radius-sm);
+  padding: 12px 16px; margin-bottom: 8px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 14px; align-items: center; font-size: 14px;
+}
+.mine-entry-title { font-weight: 700; color: var(--green-deep); }
+.mine-entry-meta { font-size: 12px; color: var(--muted); }
+
+/* Buttons */
+.btn {
+  font-family: inherit; font-weight: 700;
+  padding: 11px 20px; border-radius: 8px;
+  border: none; cursor: pointer;
+  font-size: 14px; min-height: 40px;
+  display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none; transition: all .15s;
+}
+.btn:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--green); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--green-deep); }
+.btn-lime { background: var(--lime); color: var(--green-deep); }
+.btn-lime:hover { background: #B8E028; }
+.btn-ghost {
+  background: transparent; color: var(--green);
+  border: 1.5px solid var(--green);
+}
+.btn-ghost:hover { background: var(--green); color: #fff; }
+.btn-danger {
+  background: transparent; color: var(--warn);
+  border: 1.5px solid var(--warn);
+}
+.btn-danger:hover { background: var(--warn); color: #fff; }
+
+/* Dialog */
+dialog {
+  border: none; border-radius: var(--radius);
+  padding: 0; max-width: 540px; width: calc(100% - 32px);
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  background: #fff; max-height: 94vh;
+}
+dialog::backdrop { background: rgba(20, 40, 30, 0.55); backdrop-filter: blur(3px); }
+.dlg-head { padding: 22px 26px 14px; border-bottom: 1px solid var(--border); }
+.dlg-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 20px; color: var(--green); margin-bottom: 6px;
+}
+.dlg-sub { font-size: 14px; color: var(--muted); }
+.dlg-body { padding: 20px 26px; max-height: 60vh; overflow-y: auto; }
+.dlg-foot {
+  padding: 16px 26px 22px;
+  display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
+  border-top: 1px solid var(--border); background: var(--white);
+}
+
+.info-box {
+  background: #FFF9EC; border: 1px solid #E8C968;
+  border-radius: var(--radius-sm);
+  padding: 14px 18px; margin: 16px 0;
+  font-size: 14px; line-height: 1.55;
+}
+.info-box.green { background: #EEF6F0; border-color: #9FC0A8; }
+.info-box strong { color: var(--green-deep); }
+
+.summary-box {
+  background: var(--lime-soft); border: 1.5px solid var(--lime);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px; margin: 12px 0;
+}
+.summary-row {
+  display: flex; justify-content: space-between; padding: 3px 0;
+  font-size: 14px;
+}
+.summary-row.total {
+  border-top: 1px solid var(--green); margin-top: 8px; padding-top: 10px;
+  font-weight: 800; font-size: 16px; color: var(--green-deep);
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--green-deep); color: #fff;
+  padding: 14px 22px; border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  font-weight: 600; font-size: 14px;
+  opacity: 0; transition: all .25s; z-index: 100;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.warn { background: var(--warn); }
+
+/* Bestätigungsbeleg */
+.conf-wrap {
+  max-width: 720px; margin: 20px auto;
+  background: #fff; padding: 44px 48px;
+  box-shadow: var(--shadow-lg); border-radius: var(--radius);
+}
+.conf-head {
+  border-bottom: 2px solid var(--green);
+  padding-bottom: 16px; margin-bottom: 22px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  flex-wrap: wrap; gap: 12px;
+}
+.conf-logo-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 20px; color: var(--green-deep);
+}
+.conf-logo-sub { font-size: 11px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
+.conf-nr { font-family: monospace; font-size: 13px; color: var(--muted); text-align: right; }
+.conf-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 26px;
+  color: var(--green-deep); margin-bottom: 4px;
+}
+.conf-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 22px; }
+
+.conf-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 20px 28px; margin: 22px 0;
+}
+.conf-block h4 {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 8px;
+}
+.conf-block p { line-height: 1.55; font-size: 15px; }
+
+.conf-details {
+  background: var(--white); border-radius: var(--radius-sm);
+  padding: 18px 22px; margin: 22px 0;
+  border: 1.5px solid var(--border);
+}
+.conf-row {
+  display: grid; grid-template-columns: 160px 1fr;
+  gap: 12px; padding: 6px 0; font-size: 14px;
+}
+.conf-row dt { color: var(--muted); }
+.conf-row dd { color: var(--text); font-weight: 600; }
+
+.conf-footer {
+  margin-top: 24px; padding-top: 16px;
+  border-top: 1px dashed var(--border);
+  font-size: 11px; color: var(--muted); line-height: 1.6;
+}
+
+.conf-actions {
+  max-width: 720px; margin: 16px auto;
+  display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
+}
+
+footer {
+  background: var(--green-deep); color: rgba(255,255,255,.7);
+  padding: 32px 24px; text-align: center; font-size: 14px;
+  border-top: 4px solid var(--lime);
+}
+footer a { color: var(--lime); text-decoration: none; }
+
+@media (max-width: 700px) {
+  .shift-card { grid-template-columns: 1fr; gap: 10px; text-align: left; }
+  .shift-date { display: flex; align-items: baseline; gap: 8px; }
+  .shift-actions { align-items: flex-start; flex-direction: row; }
+  .conf-grid { grid-template-columns: 1fr; }
+  .conf-row { grid-template-columns: 1fr; gap: 2px; }
+  .conf-wrap { padding: 28px 20px; }
+  .filters { grid-template-columns: 1fr; }
+  header { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 640px) {
+  .a11y-label { display: none; }
+  .a11y-bar { justify-content: center; padding: 10px 12px; gap: 10px; }
+  main { padding: 20px 14px 40px; }
+  .hero { padding: 32px 16px; }
+}
+
+@media print {
+  .a11y-bar, header, .hero, .conf-actions, footer, main > *:not(#conf-container) { display: none !important; }
+  #conf-container { display: block !important; }
+  .conf-wrap { box-shadow: none; border: none; padding: 0; max-width: 100%; }
+  body { background: #fff; }
+  @page { size: A4; margin: 20mm; }
+}
+
+/* ═══════════ MATCH-BADGES & DIMMED CARDS ═══════════ */
+.match-badge {
+  display: inline-block;
+  font-size: 10.5px; font-weight: 700;
+  padding: 2px 8px; border-radius: 8px;
+  margin-left: 4px; vertical-align: middle;
+  letter-spacing: .02em;
+}
+.match-badge.pos   { background: #D4E8DC; color: var(--green-deep); }
+.match-badge.soft  { background: #FFF4E4; color: #8B6218; border: 1px solid #E8C988; }
+.match-badge.hard  { background: #FDE4DC; color: #8B2818; }
+
+.shift-card-dimmed {
+  opacity: 0.55;
+  background: #FAF8F2 !important;
+  border-left-color: #D0C8B8 !important;
+}
+.shift-card-dimmed:hover { opacity: 0.85; }
+.shift-card-dimmed .btn-primary {
+  background: #fff; color: #8B2818; border: 1.5px solid #C85B30;
+}
+.shift-card-dimmed .btn-primary:hover { background: #FDE4DC; }
+
+/* ═══════════ ABSAGE-BANNER ═══════════ */
+.cancel-banner {
+  background: #FDE4DC; border: 2px solid #C85B30;
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  margin-bottom: 24px;
+  display: flex; gap: 16px; align-items: flex-start;
+}
+.cancel-banner.zone-orange { background: #FCEADA; border-color: var(--spaet); }
+.cancel-banner.zone-green  { background: #E8F0E8; border-color: var(--ok); }
+.cancel-banner-icon {
+  font-size: 28px; line-height: 1;
+  flex-shrink: 0; padding-top: 2px;
+}
+.cancel-banner-body { flex: 1; }
+.cancel-banner-head {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 16px; font-weight: 800; color: #8B2818;
+  margin-bottom: 4px;
+}
+.cancel-banner.zone-orange .cancel-banner-head { color: #6D3514; }
+.cancel-banner.zone-green  .cancel-banner-head { color: var(--green-deep); }
+.cancel-banner-sub {
+  font-size: 14px; color: var(--text); line-height: 1.5;
+}
+.cancel-banner-sub strong { color: #8B2818; }
+.cancel-banner-actions {
+  display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;
+}
+.cancel-banner-btn {
+  background: #fff; border: 1.5px solid #C85B30; color: #8B2818;
+  padding: 8px 16px; border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer;
+}
+.cancel-banner-btn:hover { background: #FDE4DC; }
+.cancel-banner-btn.primary {
+  background: #C85B30; color: #fff;
+}
+.cancel-banner-btn.primary:hover { background: #8B2818; }
+.cancel-banner-dismiss {
+  background: transparent; border: none; color: var(--muted);
+  font-size: 20px; line-height: 1; cursor: pointer;
+  padding: 0 8px; align-self: flex-start;
+}
+.cancel-banner-dismiss:hover { color: var(--text); }
+.cancel-history {
+  margin-top: 24px; padding: 16px 20px;
+  background: #F8F5EE; border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.cancel-history-head {
+  font-size: 12px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 12px;
+}
+.cancel-history-entry {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 8px 0; border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.cancel-history-entry:first-of-type { border-top: none; }
+.cancel-history-when { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+
+<div class="a11y-bar" role="region" aria-label="Barrierefreiheit">
+  <div class="a11y-group">
+    <span class="a11y-label">Textgröße:</span>
+    <button class="a11y-btn" data-size="" aria-pressed="true" onclick="setTextSize('')">A</button>
+    <button class="a11y-btn" data-size="l" aria-pressed="false" onclick="setTextSize('l')">A+</button>
+    <button class="a11y-btn" data-size="xl" aria-pressed="false" onclick="setTextSize('xl')">A++</button>
+  </div>
+  <div class="a11y-group">
+    <button class="a11y-btn" id="btn-contrast" aria-pressed="false" onclick="toggleContrast()">◐ Hoher Kontrast</button>
+  </div>
+</div>
+
+<header>
+  <a href="index.html" class="brand">
+    <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true">
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="10,10 24,24 10,38" stroke="#C8F135" stroke-width="4.5"/>
+        <polyline points="22,10 36,24 22,38" stroke="#C8F135" stroke-width="4.5" opacity="0.42"/>
+      </g>
+    </svg>
+    <div>
+      <div class="brand-name">Leben Pflegen Reisen</div>
+      <div class="brand-sub">e.V. · Sitzwache buchen</div>
+    </div>
+  </a>
+  <nav>
+    <a href="index.html" class="nav-link">← Zur Website</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="hero-wrap">
+    <div class="hero-eyebrow">Für Kliniken &amp; Pflegeeinrichtungen</div>
+    <h1>Sitzwache verbindlich buchen</h1>
+    <p>
+      Geschulte Ehrenamtliche begleiten Patient:innen in Ausnahmesituationen — rund um die Uhr. Wählen Sie Datum und Schicht, buchen Sie direkt. Sie erhalten sofort eine verbindliche Buchungsbestätigung per E-Mail und als PDF.
+    </p>
+  </div>
+</section>
+
+<main id="main">
+
+  <!-- Login-Prompt (zentrale Login-Seite) -->
+  <div class="reg-card" id="login-view" hidden style="max-width:520px; margin:40px auto; background:#fff; border-radius:14px; padding:36px 32px; box-shadow:0 2px 12px rgba(0,0,0,.05); border:1px solid var(--border); text-align:center;">
+    <div style="font-size:44px; margin-bottom:12px;">🏥</div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:var(--green); margin-bottom:10px;">Klinik-Anmeldung</h2>
+    <p style="color:var(--muted); margin-bottom:22px; font-size:14px;">Dieser Buchungsbereich ist nur für registrierte Kliniken und Einrichtungen.</p>
+    <a href="login.html" class="btn btn-primary" style="width:100%; justify-content:center;">Zum Login →</a>
+    <p style="margin-top:14px; font-size:12px; color:var(--muted);">
+      Noch keine Klinik registriert? Auf der Login-Seite „Klinik" auswählen und Konto erstellen.
+    </p>
+  </div>
+
+
+  <!-- Dashboard (verfügbare Schichten) -->
+  <div id="dashboard-view" hidden>
+
+    <div class="toolbar">
+      <div class="clinic-info">
+        <div class="name" id="clinic-name">—</div>
+        <div class="meta" id="clinic-meta">—</div>
+      </div>
+      <button class="btn btn-ghost" onclick="doLogout()">Abmelden</button>
+    </div>
+
+    <!-- Absage-Banner (dynamisch gefüllt) -->
+    <div id="cancel-banners"></div>
+
+    <!-- Bereits gebuchte -->
+    <div id="mine-wrap" hidden>
+      <div class="mine-card">
+        <h3>✓ Ihre aktiven Buchungen</h3>
+        <div id="mine-list"></div>
+      </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="filters">
+      <div class="field" style="margin-bottom:0;">
+        <label for="f-from">Ab Datum</label>
+        <input type="date" id="f-from" onchange="render()">
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="f-to">Bis Datum</label>
+        <input type="date" id="f-to" onchange="render()">
+      </div>
+      <div>
+        <label style="display:block; font-weight:600; font-size:14px; margin-bottom:6px;">Schichtart</label>
+        <div class="filter-shifts">
+          <button class="filter-chip frueh active" data-shift="frueh" onclick="toggleShiftFilter(this)">Früh</button>
+          <button class="filter-chip spaet active" data-shift="spaet" onclick="toggleShiftFilter(this)">Spät</button>
+          <button class="filter-chip nacht active" data-shift="nacht" onclick="toggleShiftFilter(this)">Nacht</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2>Verfügbare Sitzwachen</h2>
+      <div class="count" id="avail-count">—</div>
+    </div>
+
+    <div id="shift-list"></div>
+
+  </div>
+
+  <!-- Bestätigungsbeleg -->
+  <div id="conf-container" hidden>
+    <div class="conf-actions">
+      <button class="btn btn-ghost" onclick="backToDashboard()">← Zurück</button>
+      <button class="btn btn-lime" onclick="window.print()">🖨️ Als PDF drucken / speichern</button>
+    </div>
+    <div class="conf-wrap" id="conf-content"></div>
+  </div>
+
+</main>
+
+<!-- Dialog: Buchung -->
+<dialog id="book-dialog">
+  <div class="dlg-head">
+    <div class="dlg-title" id="bd-title">Sitzwache verbindlich buchen</div>
+    <div class="dlg-sub" id="bd-sub">—</div>
+  </div>
+  <div class="dlg-body">
+
+    <div class="info-box green">
+      <strong>Sie buchen eine ehrenamtliche Sitzwache.</strong> Die Begleitung leistet <em>keine pflegerischen Handlungen</em>, sondern ausschließlich Anwesenheit, Ansprache und Gesellschaft. Medikamentengabe, Lagerung und medizinische Entscheidungen bleiben beim Klinikpersonal.
+    </div>
+
+    <dl class="conf-row" style="padding: 0; display:grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size:14px; margin-bottom: 14px;">
+      <dt style="color: var(--muted);">Ehrenamtliche:r</dt><dd style="font-weight:600;" id="bd-name">—</dd>
+      <dt style="color: var(--muted);">Datum</dt><dd style="font-weight:600;" id="bd-date">—</dd>
+      <dt style="color: var(--muted);">Schicht</dt><dd style="font-weight:600;" id="bd-shift">—</dd>
+      <dt style="color: var(--muted);">Hinweis</dt><dd id="bd-note">—</dd>
+    </dl>
+
+    <div class="field">
+      <label for="b-patient">Patient:innen-Kennung (anonymisiert) <span style="color:var(--warn);">*</span></label>
+      <input type="text" id="b-patient" placeholder="z.B. Zimmer 4B-17 oder interne Kennung">
+      <div class="field-hint">Bitte <strong>keine Klarnamen oder Diagnosen</strong> — Datenschutz (Art. 9 DSGVO).</div>
+    </div>
+
+    <div class="field">
+      <label for="b-special">Besondere Hinweise zur Begleitung (optional)</label>
+      <textarea id="b-special" rows="2" placeholder="z.B. demenziell verwirrt, spricht nur Türkisch, Hörgerät links..."></textarea>
+      <div class="field-hint">Nur Informationen, die für die <em>Begleitung</em> nötig sind. Keine medizinischen Details.</div>
+    </div>
+
+    <div class="summary-box">
+      <div class="summary-row"><span>Dienst</span><span id="bd-sum-type">—</span></div>
+      <div class="summary-row"><span>Dauer</span><span>8 Stunden</span></div>
+      <div class="summary-row"><span>Spendenempfehlung</span><span>200,00 €</span></div>
+      <div class="summary-row total"><span>Verbindlich buchen</span><span>200,00 €</span></div>
+    </div>
+
+    <p style="font-size: 12px; color: var(--muted); margin-bottom: 14px;">
+      Die „Spendenempfehlung" dient der Kostendeckung für Aufwandsentschädigung der ehrenamtlichen Person (Übungsleiterpauschale § 3 Nr. 26 EStG), Versicherung und Koordination. Als gemeinnütziger Verein stellen wir auf Wunsch eine Zuwendungsbestätigung aus.
+    </p>
+
+    <label class="check">
+      <input type="checkbox" class="b-req" id="b-chk-binding">
+      <div class="check-text">Ich buche <strong>verbindlich</strong> im Namen der oben angegebenen Klinik/Einrichtung und bin dazu bevollmächtigt.</div>
+    </label>
+
+    <label class="check">
+      <input type="checkbox" class="b-req" id="b-chk-dsgvo">
+      <div class="check-text">Ich habe zur Kenntnis genommen, dass für die Weitergabe patientenbezogener Informationen eine Rechtsgrundlage (§ 22 BlnKHG / Einwilligung) vorliegen muss. Die Kennung ist anonymisiert (keine Klarnamen, keine Diagnosen).</div>
+    </label>
+
+    <label class="check">
+      <input type="checkbox" class="b-req" id="b-chk-scope">
+      <div class="check-text">Mir ist bekannt, dass Ehrenamtliche <strong>keine pflegerischen oder medizinischen Tätigkeiten</strong> ausüben. Notrufe, Medikamentengabe und medizinische Entscheidungen erfolgen ausschließlich durch Klinikpersonal.</div>
+    </label>
+
+    <label class="check">
+      <input type="checkbox" class="b-req" id="b-chk-cancel">
+      <div class="check-text">Stornierungen sind bis 24h vor Dienstbeginn kostenfrei möglich. Danach fällt die volle Spendenempfehlung an (Ausfallentschädigung für die ehrenamtliche Person).</div>
+    </label>
+
+  </div>
+  <div class="dlg-foot">
+    <button class="btn btn-ghost" onclick="closeBook()">Abbrechen</button>
+    <button class="btn btn-primary" onclick="submitBooking()">✓ Verbindlich buchen</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer>
+  <div>Leben Pflegen Reisen e.V. · Berlin · <a href="index.html">Zur Website</a></div>
+  <div style="margin-top:8px; opacity:.6; font-size:12px;">Sitzwachen-Koordination · Rückfragen: sitzwachen@lebenpflegenreisen.de</div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STORAGE (shared mit sitzwachen.html)
+// ═══════════════════════════════════════════════════════
+const AVAIL_KEY = 'lpr-sitzwachen-avail-v1';
+const BOOK_KEY  = 'lpr-sitzwachen-book-v1';
+const CANCEL_KEY = 'lpr-sitzwachen-cancel-v1';
+const PROFILE_KEY = 'lpr-profiles-v1';
+const CLINIC_KEY = 'lpr-sitzwachen-clinics-v1';
+const SESSION_KEY = 'lpr-session-v2';
+
+const SHIFTS = {
+  frueh: { label: 'Frühdienst', time: '06:00–14:00' },
+  spaet: { label: 'Spätdienst', time: '14:00–22:00' },
+  nacht: { label: 'Nachtdienst', time: '22:00–06:00' }
+};
+
+const shiftFilter = new Set(['frueh','spaet','nacht']);
+
+function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch(e) { return d; } }
+function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+function escape(s) { const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+function dateKey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function keyToDate(k) { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); }
+
+// ═══════════════════════════════════════════════════════
+// SESSION
+// ═══════════════════════════════════════════════════════
+function getSession() {
+  const core = loadJSON(SESSION_KEY, null);
+  if (!core) return null;
+  // Nur Klinik-Rolle darf hier rein
+  if (core.role !== 'klinik') return null;
+  // Klinik-Daten aus User-Extras + Clinic-Registry laden und in Session-Objekt mischen
+  const users = loadJSON('lpr-users-v2', {});
+  const clinics = loadJSON(CLINIC_KEY, {});
+  const u = users[core.email] || {};
+  const c = clinics[core.email] || {};
+  const ex = u.extra || {};
+  return {
+    email: core.email,
+    role: core.role,
+    // Name der Klinik (nicht der Person!)
+    name: c.name || ex.clinic_name || core.name,
+    ward: c.ward || ex.ward || '',
+    contact: c.contact || core.name,
+    phone: c.phone || ex.phone || '',
+    address: c.address || ex.address || '',
+    loginAt: core.loginAt
+  };
+}
+function setSession(s) { saveJSON(SESSION_KEY, s); }
+function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch(e) {} }
+
+function doLogin() { window.location.href = "login.html"; }
+
+function doLogout() { clearSession(); window.location.href = "index.html"; }
+
+// ═══════════════════════════════════════════════════════
+// FILTER
+// ═══════════════════════════════════════════════════════
+function toggleShiftFilter(btn) {
+  const shift = btn.dataset.shift;
+  if (shiftFilter.has(shift)) { shiftFilter.delete(shift); btn.classList.remove('active'); }
+  else { shiftFilter.add(shift); btn.classList.add('active'); }
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function initDefaultDates() {
+  const today = new Date();
+  const in60 = new Date(today.getTime() + 60 * 86400000);
+  document.getElementById('f-from').value = dateKey(today);
+  document.getElementById('f-to').value = dateKey(in60);
+}
+
+function render() {
+  const session = getSession();
+  document.getElementById('login-view').hidden = !!session;
+  document.getElementById('dashboard-view').hidden = !session;
+  document.getElementById('conf-container').hidden = true;
+  if (!session) { window.location.href = "login.html"; return; }
+
+  document.getElementById('clinic-name').textContent = session.name + (session.ward ? ` · ${session.ward}` : '');
+  document.getElementById('clinic-meta').textContent = `${session.contact} · ${session.phone} · ${session.email}`;
+
+  renderCancelBanners();
+  renderMine();
+  renderAvailable();
+}
+
+function renderCancelBanners() {
+  const session = getSession();
+  const cancels = loadJSON(CANCEL_KEY, []);
+  const wrap = document.getElementById('cancel-banners');
+  if (!wrap) return;
+
+  // Nur Absagen für diese Klinik, die noch nicht bestätigt wurden
+  const mine = cancels.filter(c => c.clinic_email === session.email && !c.seen_by_clinic);
+  if (mine.length === 0) {
+    wrap.innerHTML = '';
+    renderCancelHistory();
+    return;
+  }
+
+  // Nach Dringlichkeit sortieren: rot > orange > grün
+  const weight = { red: 0, orange: 1, green: 2 };
+  mine.sort((a, b) => weight[a.zone] - weight[b.zone]);
+
+  const reasonLbl = {
+    krankheit: 'Krankheit',
+    familie: 'Familiärer Notfall',
+    unfall: 'Unfall / Höhere Gewalt',
+    arbeit: 'Beruf / Studium',
+    andere: 'Andere Verhinderung'
+  };
+
+  wrap.innerHTML = mine.map(c => {
+    const d = keyToDate(c.date_key);
+    const dateStr = d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long' });
+    const shiftInfo = SHIFTS[c.shift];
+    const when = new Date(c.timestamp).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+
+    const icons = { red: '🚨', orange: '⚠️', green: 'ℹ️' };
+    const heads = {
+      red: 'NOTFALL-ABSAGE – weniger als 24 h vor Dienstbeginn',
+      orange: 'Kurzfristige Absage – bitte Alternative prüfen',
+      green: 'Frühzeitige Absage – Verein sucht Ersatz'
+    };
+    const texts = {
+      red: `<strong>${escape(c.ehrenamt_name)}</strong> kann den Dienst nicht antreten. Bitte organisieren Sie <strong>sofort</strong> eine Alternative (eigenes Personal, Betreuung durch Angehörige).`,
+      orange: `<strong>${escape(c.ehrenamt_name)}</strong> hat abgesagt. Der Verein sucht Ersatz, kann diesen aber nicht garantieren. Bitte prüfen Sie bereits jetzt interne Alternativen.`,
+      green: `<strong>${escape(c.ehrenamt_name)}</strong> hat rechtzeitig abgesagt. Der Verein sucht Ersatz. Wir informieren Sie, sobald eine neue Person zusagt.`
+    };
+    const grundText = c.reason ? ` · Grund: ${reasonLbl[c.reason] || c.reason}` : '';
+
+    return `<div class="cancel-banner zone-${c.zone}">
+      <div class="cancel-banner-icon">${icons[c.zone]}</div>
+      <div class="cancel-banner-body">
+        <div class="cancel-banner-head">${heads[c.zone]}</div>
+        <div class="cancel-banner-sub">
+          ${texts[c.zone]}<br>
+          <small>${shiftInfo.label} (${shiftInfo.time}) am ${dateStr}${grundText} · Eingegangen ${when}</small>
+        </div>
+        <div class="cancel-banner-actions">
+          <button class="cancel-banner-btn primary" onclick="acknowledgeCancel(${c.id})">Zur Kenntnis genommen</button>
+          <button class="cancel-banner-btn" onclick="rebookSlot('${c.date_key}','${c.shift}')">Neuen Ehrenamtlichen buchen</button>
+        </div>
+      </div>
+      <button class="cancel-banner-dismiss" onclick="acknowledgeCancel(${c.id})" title="Ausblenden">×</button>
+    </div>`;
+  }).join('');
+
+  renderCancelHistory();
+}
+
+function renderCancelHistory() {
+  const session = getSession();
+  const cancels = loadJSON(CANCEL_KEY, []);
+  const wrap = document.getElementById('cancel-banners');
+  if (!wrap) return;
+
+  const history = cancels
+    .filter(c => c.clinic_email === session.email && c.seen_by_clinic)
+    .slice(-5)
+    .reverse();
+
+  if (history.length === 0) return;
+
+  const reasonLbl = {
+    krankheit: 'Krankheit', familie: 'Familiärer Notfall',
+    unfall: 'Unfall', arbeit: 'Beruf/Studium', andere: 'Andere'
+  };
+
+  const html = `<div class="cancel-history">
+    <div class="cancel-history-head">Frühere Absagen (letzte 5)</div>
+    ${history.map(c => {
+      const d = keyToDate(c.date_key);
+      const dateStr = d.toLocaleDateString('de-DE', { day:'2-digit', month:'short' });
+      const when = new Date(c.timestamp).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit' });
+      return `<div class="cancel-history-entry">
+        <span>${escape(c.ehrenamt_name)} · ${SHIFTS[c.shift].label} am ${dateStr}${c.reason ? ` · ${reasonLbl[c.reason] || c.reason}` : ''}</span>
+        <span class="cancel-history-when">${when}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  wrap.insertAdjacentHTML('beforeend', html);
+}
+
+function acknowledgeCancel(cancelId) {
+  const cancels = loadJSON(CANCEL_KEY, []);
+  const c = cancels.find(x => x.id === cancelId);
+  if (c) { c.seen_by_clinic = true; saveJSON(CANCEL_KEY, cancels); render(); }
+}
+
+function rebookSlot(dateKey, shift) {
+  // Springt zum Slot-Bereich und blendet Absage-Notiz aus
+  const cancels = loadJSON(CANCEL_KEY, []);
+  cancels.filter(c => c.date_key === dateKey && c.shift === shift).forEach(c => c.seen_by_clinic = true);
+  saveJSON(CANCEL_KEY, cancels);
+  document.getElementById('f-from').value = dateKey;
+  const d = keyToDate(dateKey);
+  const in7 = new Date(d); in7.setDate(in7.getDate() + 7);
+  document.getElementById('f-to').value = `${in7.getFullYear()}-${String(in7.getMonth()+1).padStart(2,'0')}-${String(in7.getDate()).padStart(2,'0')}`;
+  render();
+  document.querySelector('.filters')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showToast('Offene Slots für den Zeitraum werden angezeigt.');
+}
+
+function renderMine() {
+  const session = getSession();
+  const bookings = loadJSON(BOOK_KEY, {});
+  const today = new Date(); today.setHours(0,0,0,0);
+  const mine = [];
+  for (const date in bookings) {
+    for (const shift in bookings[date]) {
+      const b = bookings[date][shift];
+      if (b.clinic_email === session.email && keyToDate(date) >= today) {
+        mine.push({ ...b, date, shift });
+      }
+    }
+  }
+  mine.sort((a,b) => a.date.localeCompare(b.date));
+
+  const wrap = document.getElementById('mine-wrap');
+  if (mine.length === 0) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+
+  document.getElementById('mine-list').innerHTML = mine.map(b => {
+    const d = keyToDate(b.date);
+    return `<div class="mine-entry">
+      <div>
+        <div class="mine-entry-title">${d.toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'short' })} · ${SHIFTS[b.shift].label}</div>
+        <div class="mine-entry-meta">${escape(b.ehrenamt_name)} · ${SHIFTS[b.shift].time} · Beleg ${escape(b.confirmNr)}</div>
+      </div>
+      <button class="btn btn-ghost" onclick="showConfirm('${b.confirmNr}')">Beleg</button>
+      <button class="btn btn-danger" onclick="cancelBooking('${b.date}','${b.shift}')">Stornieren</button>
+    </div>`;
+  }).join('');
+}
+
+function renderAvailable() {
+  const from = document.getElementById('f-from').value;
+  const to = document.getElementById('f-to').value;
+  if (!from || !to) return;
+
+  const session = getSession();
+  const avail = loadJSON(AVAIL_KEY, {});
+  const bookings = loadJSON(BOOK_KEY, {});
+  const profiles = loadJSON(PROFILE_KEY, {});
+  const today = new Date(); today.setHours(0,0,0,0);
+  const fromDate = keyToDate(from);
+  const toDate = keyToDate(to);
+
+  // Aktuelle Klinik für Matching identifizieren
+  // (vereinfacht: Klinik-E-Mail-Prefix als clinic-id – z.B. charite@demo.de → "charite")
+  // Später: richtige Klinik-ID im Session-Objekt halten
+  const clinicId = guessClinicIdFromSession(session);
+
+  // Alle verfügbaren Schichten zusammentragen, mit Match-Score
+  const allAvail = [];
+  for (const email in avail) {
+    const userAvail = avail[email];
+    const profile = profiles[email] || null;
+    for (const date in userAvail) {
+      const d = keyToDate(date);
+      if (d < today || d < fromDate || d > toDate) continue;
+      const entry = userAvail[date];
+      for (const shift of entry.shifts || []) {
+        if (!shiftFilter.has(shift)) continue;
+        if (bookings[date]?.[shift]) continue;
+
+        // Matching berechnen (nur wenn Profil existiert)
+        const match = matchProfileForShift(profile, {
+          shift, clinicId, activityType: 'sitzwachen'
+        });
+
+        // HART ausgeschlossen: Person sieht Klinik-Angebot sowieso nicht auf ihrer Seite,
+        // aber aus Klinik-Sicht müssen wir sie im „Nicht-Match"-Bereich zeigen,
+        // damit die Klinik versteht, dass diese Person in der Datenbank existiert,
+        // aber nicht passt. Wir filtern hier NICHT raus, sondern sortieren:
+        allAvail.push({
+          date, shift,
+          ehrenamt_email: email,
+          ehrenamt_name: entry.name,
+          note: entry.note || '',
+          matchScore: match.score,
+          matchFlags: match.flags,
+          matchHard: match.hardFail
+        });
+      }
+    }
+  }
+
+  // Sortieren: erst passende (höchster Score), dann unpassende; innerhalb: Datum/Schicht
+  allAvail.sort((a,b) => {
+    if (a.matchHard !== b.matchHard) return a.matchHard ? 1 : -1;
+    if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+    return a.date.localeCompare(b.date) || (['frueh','spaet','nacht'].indexOf(a.shift) - ['frueh','spaet','nacht'].indexOf(b.shift));
+  });
+
+  const matchingCount = allAvail.filter(a => !a.matchHard).length;
+  const totalCount = allAvail.length;
+
+  document.getElementById('avail-count').textContent =
+    matchingCount === totalCount
+      ? `${totalCount} Schicht${totalCount!==1?'en':''} gefunden`
+      : `${matchingCount} passende · ${totalCount - matchingCount} nicht passend von ${totalCount}`;
+
+  const list = document.getElementById('shift-list');
+  if (allAvail.length === 0) {
+    list.innerHTML = `<div class="empty">
+      <div class="empty-icon">🔍</div>
+      <div style="font-weight:600;">Keine passenden Schichten gefunden</div>
+      <p style="margin-top:8px; font-size:14px;">Versuchen Sie einen anderen Zeitraum oder weitere Schichtarten.</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = allAvail.map(a => {
+    const d = keyToDate(a.date);
+    const shift = SHIFTS[a.shift];
+    const dimmedClass = a.matchHard ? 'shift-card-dimmed' : '';
+    const matchBadges = renderMatchBadges(a.matchFlags, a.matchHard);
+
+    return `<div class="shift-card ${a.shift} ${dimmedClass}">
+      <div class="shift-date">
+        <div class="weekday">${d.toLocaleDateString('de-DE', { weekday:'short' })}</div>
+        <div class="day">${d.getDate()}</div>
+        <div class="month">${d.toLocaleDateString('de-DE', { month:'short', year:'2-digit' })}</div>
+      </div>
+      <div class="shift-main">
+        <div class="shift-title">${escape(a.ehrenamt_name)} ${matchBadges}</div>
+        <div class="shift-meta">
+          <span class="shift-time-badge ${a.shift}">${shift.label}</span>
+          <span>🕐 ${shift.time}</span>
+          <span><strong>8 Std.</strong></span>
+          ${a.note ? `<span>💬 ${escape(a.note)}</span>` : ''}
+        </div>
+      </div>
+      <div class="shift-actions">
+        <div class="shift-price"><strong>200 €</strong> Spendenempfehlung</div>
+        <button class="btn btn-primary" onclick="openBook('${a.date}','${a.shift}','${a.ehrenamt_email}')">
+          ${a.matchHard ? 'Trotzdem anfragen' : 'Verbindlich buchen →'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Präferenz-Matching ───────────────────────────────────
+function guessClinicIdFromSession(session) {
+  if (!session?.email) return null;
+  const prefix = session.email.split('@')[0];
+  const map = {
+    'charite': 'charite-mitte',
+    'hedwig': 'hedwig',
+    'vivantes': 'vivantes-friedrichshain'
+  };
+  return map[prefix] || null;
+}
+
+function matchProfileForShift(profile, ctx) {
+  // Kein Profil = neutral (passt immer, score 0)
+  if (!profile) return { score: 0, flags: [], hardFail: false };
+
+  const flags = [];
+  let score = 0;
+  let hardFail = false;
+
+  // HART: Tätigkeitsart zugelassen?
+  const types = profile.activityTypes || [];
+  if (types.length > 0 && !types.includes(ctx.activityType)) {
+    flags.push({ type: 'hard', label: 'Macht keine ' + ctx.activityType });
+    hardFail = true;
+  }
+
+  // HART: Qualifikation? (für Sitzwachen z.B. sitzwache-schulung)
+  const quals = profile.qualifications || [];
+  if (ctx.activityType === 'sitzwachen' && quals.length > 0 && !quals.includes('sitzwache-schulung')) {
+    flags.push({ type: 'hard', label: 'Keine Sitzwachen-Schulung' });
+    hardFail = true;
+  }
+
+  // WEICH: Schicht-Präferenz
+  const shifts = profile.preferredShifts || ['frueh','spaet','nacht'];
+  if (!shifts.includes(ctx.shift)) {
+    flags.push({ type: 'soft', label: ctx.shift === 'nacht' ? 'Bevorzugt keine Nacht' : 'Andere Schicht bevorzugt' });
+    score -= 1;
+  } else {
+    score += 1;
+  }
+
+  // WEICH: Klinik-Präferenz
+  if (ctx.clinicId && profile.clinicPrefs) {
+    const p = profile.clinicPrefs[ctx.clinicId];
+    if (p === 'pref') {
+      flags.push({ type: 'pos', label: '💚 bevorzugte Klinik' });
+      score += 2;
+    } else if (p === 'avoid') {
+      flags.push({ type: 'soft', label: 'Klinik wird nicht bevorzugt' });
+      score -= 2;
+    }
+  }
+
+  return { score, flags, hardFail };
+}
+
+function renderMatchBadges(flags, hardFail) {
+  if (!flags || flags.length === 0) return '';
+  return flags.map(f => {
+    const cls = f.type === 'pos' ? 'match-badge pos'
+              : f.type === 'hard' ? 'match-badge hard'
+              : 'match-badge soft';
+    return `<span class="${cls}">${escape(f.label)}</span>`;
+  }).join(' ');
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOKING
+// ═══════════════════════════════════════════════════════
+let currentBook = null;
+
+function openBook(date, shift, ehrenamtEmail) {
+  const avail = loadJSON(AVAIL_KEY, {});
+  const entry = avail[ehrenamtEmail]?.[date];
+  if (!entry) { showToast('Schicht nicht mehr verfügbar.', 'warn'); render(); return; }
+
+  currentBook = { date, shift, ehrenamtEmail, ehrenamtName: entry.name, note: entry.note || '' };
+
+  const d = keyToDate(date);
+  document.getElementById('bd-title').textContent = 'Sitzwache buchen';
+  document.getElementById('bd-sub').textContent =
+    `${d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long', year:'numeric' })} · ${SHIFTS[shift].label}`;
+  document.getElementById('bd-name').textContent = entry.name;
+  document.getElementById('bd-date').textContent = d.toLocaleDateString('de-DE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+  document.getElementById('bd-shift').textContent = `${SHIFTS[shift].label} · ${SHIFTS[shift].time}`;
+  document.getElementById('bd-note').textContent = entry.note || '—';
+  document.getElementById('bd-sum-type').textContent = SHIFTS[shift].label;
+
+  document.getElementById('b-patient').value = '';
+  document.getElementById('b-special').value = '';
+  document.querySelectorAll('.b-req').forEach(c => { c.checked = false; c.closest('.check').classList.remove('required-not-checked'); });
+
+  document.getElementById('book-dialog').showModal();
+}
+
+function closeBook() {
+  document.getElementById('book-dialog').close();
+  currentBook = null;
+}
+
+function submitBooking() {
+  const patient = document.getElementById('b-patient').value.trim();
+  const special = document.getElementById('b-special').value.trim();
+
+  if (!patient || patient.length < 2) {
+    showToast('Bitte Patient:innen-Kennung eingeben.', 'warn');
+    document.getElementById('b-patient').focus(); return;
+  }
+
+  let allChecked = true;
+  document.querySelectorAll('.b-req').forEach(c => {
+    const wrap = c.closest('.check');
+    if (!c.checked) { wrap.classList.add('required-not-checked'); allChecked = false; }
+    else wrap.classList.remove('required-not-checked');
+  });
+  if (!allChecked) { showToast('Bitte alle Erklärungen bestätigen.', 'warn'); return; }
+
+  // Nochmal prüfen dass Schicht nicht zwischenzeitlich gebucht wurde
+  const bookings = loadJSON(BOOK_KEY, {});
+  if (bookings[currentBook.date]?.[currentBook.shift]) {
+    showToast('Diese Schicht wurde gerade anderweitig gebucht.', 'warn');
+    closeBook(); render(); return;
+  }
+
+  const session = getSession();
+  const confirmNr = `LPR-SW-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+
+  const booking = {
+    confirmNr,
+    date: currentBook.date,
+    shift: currentBook.shift,
+    ehrenamt_email: currentBook.ehrenamtEmail,
+    ehrenamt_name: currentBook.ehrenamtName,
+    clinic_email: session.email,
+    clinic_name: session.name,
+    clinic_ward: session.ward,
+    clinic_contact: session.contact,
+    clinic_phone: session.phone,
+    clinic_address: session.address,
+    patient_ref: patient,
+    special_notes: special,
+    amount: 200,
+    bookedAt: new Date().toISOString(),
+    status: 'confirmed',
+    declarations: { binding: true, dsgvo: true, scope: true, cancel: true }
+  };
+
+  if (!bookings[currentBook.date]) bookings[currentBook.date] = {};
+  bookings[currentBook.date][currentBook.shift] = booking;
+  saveJSON(BOOK_KEY, bookings);
+
+  closeBook();
+  showToast(`Buchung bestätigt: ${confirmNr}`);
+  setTimeout(() => showConfirm(confirmNr), 500);
+}
+
+function cancelBooking(date, shift) {
+  const bookings = loadJSON(BOOK_KEY, {});
+  const b = bookings[date]?.[shift];
+  if (!b) return;
+  const d = keyToDate(date);
+  const hoursUntil = (d.getTime() - Date.now()) / 3600000;
+  const late = hoursUntil < 24;
+  const msg = late
+    ? `⚠️ Stornierung unter 24h vor Dienstbeginn! Es fällt die volle Spendenempfehlung (200 €) als Ausfallentschädigung an.\n\nTrotzdem stornieren?`
+    : `Buchung für ${d.toLocaleDateString('de-DE')} (${SHIFTS[shift].label}) stornieren?`;
+  if (!confirm(msg)) return;
+
+  delete bookings[date][shift];
+  if (Object.keys(bookings[date]).length === 0) delete bookings[date];
+  saveJSON(BOOK_KEY, bookings);
+  render();
+  showToast(late ? 'Storniert. Rechnung über 200 € folgt.' : 'Storniert.');
+}
+
+// ═══════════════════════════════════════════════════════
+// BESTÄTIGUNGSBELEG
+// ═══════════════════════════════════════════════════════
+function showConfirm(confirmNr) {
+  const bookings = loadJSON(BOOK_KEY, {});
+  let b = null;
+  for (const date in bookings) {
+    for (const shift in bookings[date]) {
+      if (bookings[date][shift].confirmNr === confirmNr) { b = bookings[date][shift]; break; }
+    }
+    if (b) break;
+  }
+  if (!b) { showToast('Beleg nicht gefunden.', 'warn'); return; }
+
+  const d = keyToDate(b.date);
+  const html = `
+    <div class="conf-head">
+      <div>
+        <div class="conf-logo-name">Leben Pflegen Reisen e.V.</div>
+        <div class="conf-logo-sub">Berlin · Sitzwachen-Koordination</div>
+      </div>
+      <div class="conf-nr">
+        Buchungs-Nr. <strong>${escape(b.confirmNr)}</strong><br>
+        Gebucht am ${new Date(b.bookedAt).toLocaleString('de-DE')}
+      </div>
+    </div>
+
+    <div class="conf-title">Buchungsbestätigung</div>
+    <div class="conf-subtitle">Ehrenamtliche Sitzwache · verbindlich bestätigt</div>
+
+    <div class="conf-grid">
+      <div class="conf-block">
+        <h4>Buchende Einrichtung</h4>
+        <p>
+          <strong>${escape(b.clinic_name)}</strong>${b.clinic_ward ? ` · ${escape(b.clinic_ward)}` : ''}<br>
+          ${escape(b.clinic_contact)}<br>
+          ${escape(b.clinic_phone)}<br>
+          ${escape(b.clinic_email)}
+        </p>
+      </div>
+      <div class="conf-block">
+        <h4>Eingesetzte ehrenamtliche Person</h4>
+        <p>
+          <strong>${escape(b.ehrenamt_name)}</strong><br>
+          <span style="color: var(--muted); font-size: 13px;">Kontakt wird 24h vor Dienstbeginn ausgetauscht</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="conf-details">
+      <dl style="display:grid; gap:2px;">
+        <div class="conf-row"><dt>Datum</dt><dd>${d.toLocaleDateString('de-DE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}</dd></div>
+        <div class="conf-row"><dt>Schicht</dt><dd>${SHIFTS[b.shift].label} · ${SHIFTS[b.shift].time} Uhr</dd></div>
+        <div class="conf-row"><dt>Dauer</dt><dd>8 Stunden</dd></div>
+        <div class="conf-row"><dt>Patient:innen-Kennung</dt><dd>${escape(b.patient_ref)}</dd></div>
+        ${b.special_notes ? `<div class="conf-row"><dt>Hinweise</dt><dd>${escape(b.special_notes)}</dd></div>` : ''}
+        <div class="conf-row"><dt>Spendenempfehlung</dt><dd><strong>200,00 €</strong> (Kostendeckung gemäß Vorstandsbeschluss)</dd></div>
+      </dl>
+    </div>
+
+    <div style="background: #FFF9EC; border: 1px solid #E8C968; border-radius: var(--radius-sm); padding: 14px 18px; margin: 20px 0; font-size: 13px; line-height: 1.6;">
+      <strong>Leistungsumfang — Sitzwache:</strong> Anwesenheit, Beobachtung, Ansprache und Gesellschaft für Patient:innen in Ausnahmesituationen (z.B. nächtliche Unruhe, postoperative Begleitung, Sterbebegleitung). <strong>Keine pflegerischen oder medizinischen Tätigkeiten.</strong> Notrufe, Medikamentengabe und medizinische Entscheidungen liegen ausschließlich beim Klinikpersonal. Die Ehrenamtlichen sind über den Verein haftpflicht- und unfallversichert.
+    </div>
+
+    <div style="background: #EEF6F0; border: 1px solid #9FC0A8; border-radius: var(--radius-sm); padding: 14px 18px; margin: 16px 0; font-size: 13px; line-height: 1.6;">
+      <strong>Stornierungsbedingungen:</strong> Bis <strong>24 Stunden vor Dienstbeginn</strong> kostenfrei stornierbar über diesen Account oder per E-Mail an sitzwachen@lebenpflegenreisen.de. Bei kurzfristigeren Absagen fällt die volle Spendenempfehlung als Ausfallentschädigung für die ehrenamtliche Person an.
+    </div>
+
+    <div class="conf-footer">
+      <strong>Rechnungsstellung:</strong> Die Spendenempfehlung wird nach Durchführung des Dienstes per Rechnung vom Verein gestellt. Auf Wunsch stellen wir zusätzlich eine Zuwendungsbestätigung (Spendenquittung) aus (gemeinnütziger Verein i.S.d. § 52 AO, Freistellungsbescheid beim Finanzamt Berlin folgt nach Gründungsabschluss).<br><br>
+      <strong>Datenschutz:</strong> Die übermittelte Patient:innen-Kennung wird ausschließlich zur Diensterbringung und Buchhaltung verarbeitet (Art. 6 Abs. 1 lit. b DSGVO) und 10 Jahre aufbewahrt (§ 147 AO). Die Weitergabe patientenbezogener Informationen darf nur auf rechtmäßiger Grundlage (§ 22 BlnKHG / Einwilligung) erfolgen — dies liegt in der Verantwortung der buchenden Einrichtung.<br><br>
+      <strong>Leben Pflegen Reisen e.V.</strong> · Berlin · Vertreten durch den Vorstand<br>
+      sitzwachen@lebenpflegenreisen.de · www.lebenpflegenreisen.de
+    </div>
+  `;
+  document.getElementById('conf-content').innerHTML = html;
+  document.getElementById('dashboard-view').hidden = true;
+  document.getElementById('conf-container').hidden = false;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function backToDashboard() {
+  document.getElementById('conf-container').hidden = true;
+  document.getElementById('dashboard-view').hidden = false;
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ═══════════════════════════════════════════════════════
+// TOAST + A11Y
+// ═══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type==='warn'?' warn':'');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function setTextSize(size) {
+  document.body.classList.remove('text-l', 'text-xl');
+  if (size) document.body.classList.add('text-' + size);
+  document.querySelectorAll('.a11y-btn[data-size]').forEach(b => {
+    b.setAttribute('aria-pressed', b.dataset.size === size ? 'true' : 'false');
+  });
+  try { localStorage.setItem('lpr-text-size', size); } catch(e) {}
+}
+function toggleContrast() {
+  const on = document.body.classList.toggle('contrast');
+  document.getElementById('btn-contrast').setAttribute('aria-pressed', on ? 'true' : 'false');
+  try { localStorage.setItem('lpr-contrast', on ? '1' : '0'); } catch(e) {}
+}
+try {
+  const size = localStorage.getItem('lpr-text-size');
+  if (size) setTextSize(size);
+  if (localStorage.getItem('lpr-contrast') === '1') toggleContrast();
+} catch(e) {}
+
+// Escape schließt Dialog
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const dlg = document.getElementById('book-dialog');
+    if (dlg.open) closeBook();
+  }
+});
+
+// Live-Update bei Storage-Änderungen in anderen Tabs
+window.addEventListener('storage', e => {
+  if (e.key === AVAIL_KEY || e.key === BOOK_KEY || e.key === CANCEL_KEY) render();
+});
+
+initDefaultDates();
+render();
+</script>
+</body>
+</html>

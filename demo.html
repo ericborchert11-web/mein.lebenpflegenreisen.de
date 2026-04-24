@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo-Konten &amp; Test · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.demo-wrap { max-width: 920px; margin: 40px auto 60px; padding: 0 24px; }
+.demo-intro {
+  background: #FFF9EC; border: 1.5px solid #E8C968;
+  border-radius: var(--radius);
+  padding: 20px 24px; margin-bottom: 32px;
+}
+.demo-intro h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 28px;
+  color: var(--green-deep); margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+.demo-intro p { color: var(--text); font-size: 15px; line-height: 1.6; }
+.demo-intro strong { color: var(--green-deep); }
+
+.account-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.account-card {
+  background: #fff; border-radius: var(--radius);
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+  padding: 22px 24px;
+}
+.account-card.role-klinik { border-top: 4px solid var(--green); }
+.account-card.role-ehrenamt { border-top: 4px solid var(--lime); }
+.account-card.role-admin { border-top: 4px solid var(--warn); }
+.account-role {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--green); margin-bottom: 6px;
+}
+.role-klinik .account-role { color: var(--green); }
+.role-admin .account-role { color: var(--warn); }
+.account-card h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 18px;
+  color: var(--green-deep); margin-bottom: 10px;
+}
+.cred-row {
+  display: flex; justify-content: space-between;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.cred-row:last-of-type { border-bottom: none; }
+.cred-label { color: var(--muted); font-weight: 600; }
+.cred-value { font-family: monospace; color: var(--green-deep); font-weight: 700; }
+.account-actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+.action-box {
+  background: #fff; border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  padding: 26px 30px; margin-top: 24px;
+}
+.action-box h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 22px;
+  color: var(--green-deep); margin-bottom: 10px;
+}
+.action-box p { color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 16px; }
+.action-box .btns { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.action-box.danger {
+  background: #FFF4EE; border-color: #F5C4B0;
+}
+.action-box.danger h2 { color: var(--warn); }
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Zum Hauptinhalt</a>
+
+<main id="main">
+<div class="demo-wrap">
+
+  <div class="demo-intro">
+    <h1>🎮 Demo-Modus</h1>
+    <p>
+      Diese Anwendung ist ein <strong>Prototyp</strong>. Alle Daten werden nur lokal in Ihrem Browser (<code>localStorage</code>) gespeichert — <strong>nichts</strong> wird an einen Server gesendet. Wenn Sie den Browser wechseln oder den Verlauf löschen, sind die Daten weg. Bei der späteren Umstellung auf WordPress werden echte Nutzer- und Datenbankverbindungen eingerichtet.
+    </p>
+  </div>
+
+  <div style="margin-bottom: 14px;">
+    <div class="sec-eyebrow">Test-Zugänge</div>
+    <h2 class="sec-title" style="font-size: 22px; margin-bottom: 6px;">Sechs Demo-Konten zum Ausprobieren</h2>
+    <p style="color: var(--muted); margin-bottom: 22px;">Klicken Sie zuerst auf „Demo-Daten laden" unten, dann können Sie sich mit einem der Konten einloggen. Alle haben das Passwort <code style="background: var(--lime-soft); padding: 2px 6px; border-radius: 3px;">demo1234</code>.</p>
+  </div>
+
+  <div class="account-grid">
+
+    <div class="account-card role-ehrenamt">
+      <div class="account-role">Ehrenamt</div>
+      <h3>Margarete Müller</h3>
+      <div class="cred-row"><span class="cred-label">E-Mail:</span><span class="cred-value">margarete@demo.de</span></div>
+      <div class="cred-row"><span class="cred-label">Passwort:</span><span class="cred-value">demo1234</span></div>
+      <div class="cred-row"><span class="cred-label">Hat:</span><span class="cred-value" style="font-family:inherit; font-weight:500;">3 Schichten, 1 Reise</span></div>
+    </div>
+
+    <div class="account-card role-ehrenamt">
+      <div class="account-role">Ehrenamt</div>
+      <h3>Hans Schulz</h3>
+      <div class="cred-row"><span class="cred-label">E-Mail:</span><span class="cred-value">hans@demo.de</span></div>
+      <div class="cred-row"><span class="cred-label">Passwort:</span><span class="cred-value">demo1234</span></div>
+      <div class="cred-row"><span class="cred-label">Hat:</span><span class="cred-value" style="font-family:inherit; font-weight:500;">2 Schichten</span></div>
+    </div>
+
+    <div class="account-card role-ehrenamt">
+      <div class="account-role">Ehrenamt</div>
+      <h3>Fatma Yilmaz</h3>
+      <div class="cred-row"><span class="cred-label">E-Mail:</span><span class="cred-value">fatma@demo.de</span></div>
+      <div class="cred-row"><span class="cred-label">Passwort:</span><span class="cred-value">demo1234</span></div>
+      <div class="cred-row"><span class="cred-label">Hat:</span><span class="cred-value" style="font-family:inherit; font-weight:500;">Türkisch-Sprechend</span></div>
+    </div>
+
+    <div class="account-card role-klinik">
+      <div class="account-role">Klinik</div>
+      <h3>Charité Campus Mitte</h3>
+      <div class="cred-row"><span class="cred-label">E-Mail:</span><span class="cred-value">charite@demo.de</span></div>
+      <div class="cred-row"><span class="cred-label">Passwort:</span><span class="cred-value">demo1234</span></div>
+      <div class="cred-row"><span class="cred-label">Station:</span><span class="cred-value" style="font-family:inherit; font-weight:500;">Geriatrie 4B</span></div>
+    </div>
+
+    <div class="account-card role-klinik">
+      <div class="account-role">Klinik</div>
+      <h3>St. Hedwig-Krankenhaus</h3>
+      <div class="cred-row"><span class="cred-label">E-Mail:</span><span class="cred-value">hedwig@demo.de</span></div>
+      <div class="cred-row"><span class="cred-label">Passwort:</span><span class="cred-value">demo1234</span></div>
+      <div class="cred-row"><span class="cred-label">Station:</span><span class="cred-value" style="font-family:inherit; font-weight:500;">Innere 2</span></div>
+    </div>
+
+    <div class="account-card role-admin">
+      <div class="account-role">Vorstand · Admin</div>
+      <h3>Eric (Vorstand)</h3>
+      <div class="cred-row"><span class="cred-label">E-Mail:</span><span class="cred-value">vorstand@demo.de</span></div>
+      <div class="cred-row"><span class="cred-label">Passwort:</span><span class="cred-value">demo1234</span></div>
+      <div class="cred-row"><span class="cred-label">Rolle:</span><span class="cred-value" style="font-family:inherit; font-weight:500;">Übersicht</span></div>
+    </div>
+
+  </div>
+
+  <div class="action-box" style="margin-top: 28px;">
+    <h2>🎬 Demo-Daten laden</h2>
+    <p>Lädt alle sechs Demo-Konten mit Passwörtern und Beispiel-Daten: drei Ehrenamtliche mit Verfügbarkeiten, zwei Kliniken, eine bestätigte Sitzwachen-Buchung, eine abgerechnete Reise. Damit können Sie alle Flows durchklicken.</p>
+    <div class="btns">
+      <button onclick="loadData()" class="btn btn-primary">Demo-Daten jetzt laden</button>
+      <a href="login.html" class="btn btn-ghost">Zum Login →</a>
+    </div>
+  </div>
+
+  <div class="action-box" style="margin-top: 28px; background:#FFF4EE; border-color:#F5C4B0;">
+    <h2>👥 Mitwirkende verwalten</h2>
+    <p>Admin-Bereich: Für jede/n Mitwirkende/n ein Profil mit Qualifikationen, Tätigkeits-Präferenzen, bevorzugte Kliniken, Wohnort-PLZ für Entfernungsberechnung usw. anlegen. Beeinflusst, welche Dienste die Person auf ihrer Sitzwachen-Seite sieht.</p>
+    <div class="btns">
+      <a href="admin-mitwirkende.html" class="btn btn-primary" style="text-decoration: none;">→ Zum Profil-Manager</a>
+    </div>
+  </div>
+
+  <div class="action-box" style="margin-top: 28px; background:#F4F8F2; border-color:#B5D4B5;">
+    <h2>🧪 Absage-Flow testen (3 Zonen)</h2>
+    <p>Legt für <strong>margarete@demo.de</strong> drei gebuchte Dienste in drei Zeitzonen an: 
+      einen in &gt;48h (grün · entspannt), einen in 24–48h (orange · aufmerksam), einen in &lt;24h (rot · Notfall).
+      Anschließend als Margarete einloggen → Sitzwachen → auf gebuchte Chips klicken, um den gestaffelten Absage-Dialog zu sehen.
+      Als <strong>charite@demo.de</strong> sieht man anschließend die Absage-Benachrichtigungen.</p>
+    <div class="btns">
+      <button onclick="seedCancelDemo()" class="btn btn-primary">3 Test-Buchungen anlegen</button>
+    </div>
+  </div>
+
+  <div class="action-box danger">
+    <h2>⚠ Alles zurücksetzen</h2>
+    <p>Löscht <strong>alle</strong> lokalen Daten im Browser — Konten, Buchungen, Verfügbarkeiten, Abrechnungen. Die Anwendung ist dann wie frisch installiert. Nur diesen Browser betroffen.</p>
+    <div class="btns">
+      <button onclick="resetAll()" class="btn btn-danger">Alle Daten löschen</button>
+    </div>
+  </div>
+
+  <div style="margin-top: 32px; padding: 20px 24px; background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); color: var(--muted); font-size: 14px; line-height: 1.6;">
+    <strong style="color: var(--green-deep);">💡 Typische Test-Flows:</strong>
+    <ol style="margin: 10px 0 0 20px;">
+      <li>Als <strong>margarete@demo.de</strong> einloggen → Mitgliederbereich → Sitzwachen-Kalender → Verfügbarkeit eintragen</li>
+      <li>Ausloggen, als <strong>charite@demo.de</strong> einloggen → Schicht buchen → PDF-Bestätigung</li>
+      <li>Ausloggen, als <strong>margarete@demo.de</strong> einloggen → Abrechnung → neuer Beleg nach Einsatz</li>
+      <li>Als <strong>vorstand@demo.de</strong> → alle Daten einsehen</li>
+    </ol>
+  </div>
+
+</div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: '' });
+
+async function loadData() {
+  if (!confirm('Demo-Daten jetzt laden? Das überschreibt vorhandene Prototyp-Daten.')) return;
+  // seedDemoUsers nutzt korrekte Passwörter
+  await LPR.seedDemoUsers();
+  // Reste (signups, bookings) aus loadDemoData
+  await LPR.loadDemoData();
+  // loadDemoData macht schon reload
+}
+
+async function seedCancelDemo() {
+  // Stellt sicher, dass Demo-Konten existieren
+  await LPR.seedDemoUsers();
+
+  const AVAIL_KEY = 'lpr-sitzwachen-avail-v1';
+  const BOOK_KEY  = 'lpr-sitzwachen-book-v1';
+  const CANCEL_KEY = 'lpr-sitzwachen-cancel-v1';
+
+  function dateKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  const now = new Date();
+
+  // Zone GRÜN: in ~3 Tagen, Frühdienst (>48h Puffer garantiert)
+  const dGreen = new Date(now); dGreen.setDate(dGreen.getDate() + 3);
+  // Zone ORANGE: morgen, Frühdienst (24-48h)
+  const dOrange = new Date(now); dOrange.setDate(dOrange.getDate() + 1);
+  // Zone ROT: heute bzw. morgen früh, so dass zum Dienstbeginn <24h liegen
+  const dRed = new Date(now);
+  // Frühdienst startet 06:00 — wir wählen so, dass <24h bleiben
+  // Wenn jetzt vor 06:00 → heute, sonst morgen
+  if (now.getHours() >= 6) dRed.setDate(dRed.getDate() + 1);
+
+  const slots = [
+    { date: dateKey(dGreen),  shift: 'frueh', note: 'GRÜNE Zone (>48h)' },
+    { date: dateKey(dOrange), shift: 'frueh', note: 'ORANGE Zone (24-48h)' },
+    { date: dateKey(dRed),    shift: 'frueh', note: 'ROTE Zone (<24h)' }
+  ];
+
+  // Verfügbarkeiten für Margarete eintragen
+  const avail = JSON.parse(localStorage.getItem(AVAIL_KEY) || '{}');
+  if (!avail['margarete@demo.de']) avail['margarete@demo.de'] = {};
+  slots.forEach(s => {
+    avail['margarete@demo.de'][s.date] = {
+      name: 'Margarete Schmidt',
+      shifts: [s.shift],
+      note: s.note
+    };
+  });
+  localStorage.setItem(AVAIL_KEY, JSON.stringify(avail));
+
+  // Buchungen durch Charité
+  const bookings = JSON.parse(localStorage.getItem(BOOK_KEY) || '{}');
+  slots.forEach(s => {
+    if (!bookings[s.date]) bookings[s.date] = {};
+    bookings[s.date][s.shift] = {
+      confirmNr: `LPR-SW-${new Date().getFullYear()}-TEST${Math.floor(Math.random()*900+100)}`,
+      date: s.date,
+      shift: s.shift,
+      ehrenamt_email: 'margarete@demo.de',
+      ehrenamt_name: 'Margarete Schmidt',
+      clinic_email: 'charite@demo.de',
+      clinic_name: 'Charité Berlin',
+      clinic_ward: 'Station 3B · Neurologie',
+      clinic_contact: 'Dr. Anne Keller',
+      clinic_phone: '030 – 450 560 100',
+      clinic_address: 'Charitéplatz 1, 10117 Berlin',
+      patient_ref: 'Patient H.M. (3B-07)',
+      special_notes: 'Testbuchung für Absage-Flow-Demo',
+      amount: 200,
+      bookedAt: new Date().toISOString(),
+      status: 'confirmed'
+    };
+  });
+  localStorage.setItem(BOOK_KEY, JSON.stringify(bookings));
+
+  // Alte Test-Absagen von früheren Demo-Läufen wegräumen
+  localStorage.setItem(CANCEL_KEY, JSON.stringify([]));
+
+  alert('✓ 3 Test-Buchungen für Margarete angelegt:\n\n' +
+    `• GRÜN:  ${new Date(dGreen).toLocaleDateString('de-DE')} Frühdienst\n` +
+    `• ORANGE: ${new Date(dOrange).toLocaleDateString('de-DE')} Frühdienst\n` +
+    `• ROT:   ${new Date(dRed).toLocaleDateString('de-DE')} Frühdienst\n\n` +
+    'Jetzt als margarete@demo.de einloggen → Sitzwachen → auf gebuchte Chips klicken.');
+}
+
+function resetAll() {
+  if (!confirm('Wirklich ALLE Daten löschen? (Nur dieser Browser)')) return;
+  if (!confirm('Sind Sie sicher? Diese Aktion kann nicht rückgängig gemacht werden.')) return;
+  // Alle LPR-Keys löschen
+  Object.values(LPR.KEYS).forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+  ['lpr-family-requests-v1','lpr-my-email','lpr-text-size','lpr-contrast','lpr-ls'].forEach(k => {
+    try { localStorage.removeItem(k); } catch(e) {}
+  });
+  alert('Alle Daten gelöscht.');
+  window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>

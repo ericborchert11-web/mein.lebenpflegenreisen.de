@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test-Bereich · Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Interaktiver Test-Bereich von Leben Pflegen Reisen e.V. — Prototyp zum Ausprobieren.">
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1A3A2A 0%, #2D5940 100%);
+  color: #F5F5F0;
+  padding: 40px 20px;
+  position: relative;
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: absolute;
+  right: -200px; top: -200px;
+  width: 600px; height: 600px;
+  background: #C8F135; opacity: .08;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+}
+.wrap { max-width: 880px; margin: 0 auto; position: relative; z-index: 1; }
+
+.logo-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 56px;
+}
+.logo-chevrons svg { display: block; }
+.logo-text {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 18px;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.logo-sub {
+  font-family: 'Instrument Sans', sans-serif;
+  font-weight: 500; font-size: 10px;
+  letter-spacing: .12em;
+  color: rgba(245, 245, 240, 0.55);
+  text-transform: uppercase;
+}
+
+.warn-banner {
+  background: rgba(200, 241, 53, 0.16);
+  border: 1px solid rgba(200, 241, 53, 0.4);
+  border-radius: 12px;
+  padding: 14px 20px;
+  margin-bottom: 36px;
+  font-size: 14px;
+  line-height: 1.55;
+  display: flex; gap: 12px;
+  align-items: flex-start;
+}
+.warn-banner .icon { font-size: 22px; flex-shrink: 0; }
+.warn-banner strong { color: #C8F135; }
+
+h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: clamp(36px, 5vw, 56px);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin-bottom: 20px;
+}
+h1 em { font-style: normal; color: #C8F135; }
+
+.lead {
+  font-size: 18px;
+  line-height: 1.6;
+  color: rgba(245, 245, 240, 0.88);
+  margin-bottom: 40px;
+  max-width: 680px;
+}
+
+.section-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  margin-bottom: 16px;
+  margin-top: 44px;
+}
+
+.step-list {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(245, 245, 240, 0.12);
+  border-radius: 14px;
+  padding: 28px 32px;
+  margin-bottom: 32px;
+}
+.step-list ol {
+  margin: 0;
+  padding-left: 22px;
+}
+.step-list li {
+  margin-bottom: 12px;
+  line-height: 1.6;
+  font-size: 15.5px;
+}
+.step-list li::marker {
+  color: #C8F135;
+  font-weight: 700;
+}
+.step-list li strong { color: #C8F135; }
+
+.cta-row {
+  display: flex; gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+.btn-lime {
+  background: #C8F135; color: #1A3A2A;
+  padding: 16px 30px;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 16px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  cursor: pointer;
+  transition: transform .1s, box-shadow .2s;
+  font-family: inherit;
+}
+.btn-lime:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(200, 241, 53, 0.3);
+}
+.btn-ghost-w {
+  background: transparent;
+  color: #F5F5F0;
+  padding: 16px 28px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(245, 245, 240, 0.4);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: border-color .2s, color .2s;
+  font-family: inherit;
+}
+.btn-ghost-w:hover {
+  border-color: #C8F135;
+  color: #C8F135;
+}
+
+.feedback-box {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(245, 245, 240, 0.12);
+  border-radius: 14px;
+  padding: 24px 28px;
+  margin-top: 36px;
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+.feedback-box h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: #C8F135;
+}
+
+.meta-row {
+  display: flex; gap: 28px;
+  flex-wrap: wrap;
+  margin-top: 44px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(245, 245, 240, 0.12);
+  font-size: 13px;
+  color: rgba(245, 245, 240, 0.55);
+}
+.meta-row a {
+  color: rgba(245, 245, 240, 0.75);
+  text-decoration: underline;
+}
+.meta-row a:hover { color: #C8F135; }
+
+@media (max-width: 640px) {
+  body { padding: 24px 16px; }
+  .step-list { padding: 22px 20px; }
+  .cta-row { flex-direction: column; }
+  .btn-lime, .btn-ghost-w { width: 100%; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- Logo -->
+  <div class="logo-row">
+    <div class="logo-chevrons">
+      <svg width="44" height="44" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="14" fill="#1A3A2A" stroke="rgba(200,241,53,0.4)" stroke-width="1"/>
+        <polyline points="14,14 34,32 14,50" fill="none" stroke="#C8F135" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="30,14 50,32 30,50" fill="none" stroke="#C8F135" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.42"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text">Leben Pflegen Reisen</div>
+      <div class="logo-sub">E.V. · Berlin · Test-Bereich</div>
+    </div>
+  </div>
+
+  <!-- Prototyp-Hinweis -->
+  <div class="warn-banner">
+    <span class="icon">🧪</span>
+    <div>
+      <strong>Das ist ein Prototyp zum Testen.</strong><br>
+      Alle Daten bleiben nur in deinem Browser — nichts wird an einen Server gesendet. 
+      Wenn du den Browser oder das Gerät wechselst, sind die Daten weg. Das ist so gewollt.
+    </div>
+  </div>
+
+  <!-- Headline -->
+  <h1>Willkommen im <em>Test-Bereich</em>.</h1>
+  <p class="lead">
+    Hier kannst du durchklicken, wie sich der Mitwirkenden-Bereich, die Reise-Anmeldung
+    und das Schulungsportal von <strong>Leben Pflegen Reisen e.V.</strong> anfühlen.
+    Wir sammeln dein Feedback, um die App für echte Nutzer:innen zu verbessern.
+  </p>
+
+  <!-- So testest du -->
+  <h2 class="section-title">So gehst du vor</h2>
+  <div class="step-list">
+    <ol>
+      <li><strong>Klicke auf „Starten"</strong> — du landest auf einer Seite, wo du einmalig auf „Zurücksetzen & Demo-Daten laden" klickst. Das legt Testdaten an.</li>
+      <li><strong>Wähle einen Demo-Zugang</strong> (Margarete = Ehrenamtliche, Charité = Klinik, Vorstand = Admin) oder lege einen eigenen Account an.</li>
+      <li><strong>Klick dich durch</strong> — Reise-Anmeldung, Präferenzen, Schulung, Dispo-Übersicht. Alles, was dich interessiert.</li>
+      <li><strong>Gib Feedback</strong> — was war klar, wo hast du gestockt, was würdest du anders machen? Schreib uns einfach per WhatsApp oder E-Mail.</li>
+    </ol>
+  </div>
+
+  <!-- Call-to-Action -->
+  <div class="cta-row">
+    <a href="start.html" class="btn-lime">Jetzt starten →</a>
+    <a href="login.html" class="btn-ghost-w">Direkt zum Login</a>
+  </div>
+
+  <!-- Feedback-Kanal -->
+  <div class="feedback-box">
+    <h3>Dein Feedback ist Gold wert</h3>
+    <p>Es gibt kein „richtig" oder „falsch" — wir wollen wissen, wo du stockst, was du intuitiv verstehst und was dich stört. Schreib Eric einfach per WhatsApp oder an <a href="mailto:kontakt@ericborchert.de" style="color:#C8F135;">kontakt@ericborchert.de</a> — ein paar Sätze reichen.</p>
+  </div>
+
+  <!-- Meta -->
+  <div class="meta-row">
+    <span>Prototyp-Version vom 23.04.2026</span>
+    <a href="https://lebenpflegenreisen.de">← Zur Haupt-Website</a>
+    <a href="https://ericborchert11-web.github.io/einfuehrung/" target="_blank">Schulungsportal direkt öffnen</a>
+  </div>
+
+</div>
+
+</body>
+</html>

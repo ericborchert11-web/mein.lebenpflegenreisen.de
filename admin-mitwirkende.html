@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mitwirkende verwalten · Admin · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.admin-wrap { max-width: 1100px; margin: 40px auto 60px; padding: 0 24px; }
+
+.admin-header {
+  background: #fff; border-radius: var(--radius);
+  padding: 24px 28px; margin-bottom: 24px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  border-top: 4px solid var(--warn);
+}
+.admin-header h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 28px;
+  color: var(--green-deep); letter-spacing: -.02em;
+}
+.admin-header .sub { color: var(--muted); font-size: 14px; margin-top: 6px; }
+
+.law-notice {
+  background: #F4F8F2; border: 1.5px solid #B5D4B5;
+  border-radius: var(--radius);
+  padding: 16px 20px; margin-bottom: 24px;
+  font-size: 13.5px; line-height: 1.6;
+}
+.law-notice strong { color: var(--green-deep); }
+.law-notice summary { cursor: pointer; font-weight: 700; color: var(--green-deep); }
+.law-notice[open] summary { margin-bottom: 10px; }
+
+.list-section {
+  background: #fff; border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  overflow: hidden; margin-bottom: 20px;
+}
+.list-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border); background: #FAF8F2;
+}
+.list-head h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 18px; color: var(--green-deep);
+}
+.list-head .count {
+  background: var(--lime-soft); color: var(--green-deep);
+  padding: 3px 10px; border-radius: 10px;
+  font-size: 12px; font-weight: 700;
+}
+
+.member-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .15s;
+}
+.member-row:last-child { border-bottom: none; }
+.member-row:hover { background: #FAFAF5; }
+
+.member-name {
+  font-weight: 700; color: var(--green-deep); font-size: 15px;
+  margin-bottom: 3px;
+}
+.member-meta {
+  font-size: 12.5px; color: var(--muted);
+}
+.member-badges {
+  display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px;
+}
+.mbadge {
+  font-size: 10.5px; font-weight: 600; padding: 2px 7px;
+  border-radius: 8px; letter-spacing: .02em;
+}
+.mbadge.hard { background: #D4E8DC; color: var(--green-deep); }
+.mbadge.soft { background: #FFF4E4; color: #8B6218; border: 1px solid #E8C988; }
+.mbadge.block { background: #FDE4DC; color: #8B2818; }
+
+.member-action {
+  background: var(--green); color: #fff; border: none;
+  padding: 8px 16px; border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+}
+.member-action:hover { background: var(--green-deep); }
+
+/* ═══════════ Dialog ═══════════ */
+dialog#profile-dialog {
+  border: none; border-radius: var(--radius);
+  padding: 0; max-width: 680px; width: calc(100% - 32px);
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  background: #fff; max-height: 92vh;
+}
+dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
+
+.pd-head {
+  padding: 20px 26px;
+  background: var(--green-deep); color: #fff;
+  border-bottom: 4px solid var(--lime);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.pd-title { font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 800; }
+.pd-subtitle { font-size: 12px; opacity: .7; margin-top: 2px; }
+.pd-close {
+  background: transparent; border: none; color: #fff;
+  font-size: 22px; cursor: pointer;
+  padding: 4px 10px; border-radius: 6px;
+}
+.pd-close:hover { background: rgba(255,255,255,.15); }
+
+.pd-body {
+  padding: 24px 26px; overflow-y: auto;
+  max-height: calc(92vh - 170px);
+}
+
+.pd-section {
+  margin-bottom: 24px; padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.pd-section:last-child { border-bottom: none; margin-bottom: 0; }
+
+.pd-section-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+}
+.pd-section h4 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 14px; color: var(--green-deep); font-weight: 800;
+  letter-spacing: .02em;
+}
+.pd-section .type-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 2px 8px; border-radius: 8px;
+}
+.type-label.hard { background: #D4E8DC; color: var(--green-deep); }
+.type-label.soft { background: #FFF4E4; color: #8B6218; }
+.pd-section .hint {
+  font-size: 12.5px; color: var(--muted); margin-bottom: 12px; line-height: 1.55;
+}
+
+.pref-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px;
+}
+.pref-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
+  border: 2px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 13px; cursor: pointer; user-select: none;
+  transition: all .15s; background: #fff;
+}
+.pref-chip:hover { border-color: var(--green); }
+.pref-chip.checked { border-color: var(--green); background: #E8F0E8; }
+.pref-chip input { cursor: pointer; accent-color: var(--green); margin: 0; }
+
+.pref-input-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+.pref-input-row label {
+  font-size: 12.5px; font-weight: 600; color: var(--green-deep);
+  margin-bottom: 6px; display: block;
+}
+.pref-input-row input, .pref-input-row select {
+  width: 100%;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 12px; font-family: inherit; font-size: 13.5px;
+  background: #fff;
+}
+.pref-input-row input:focus, .pref-input-row select:focus {
+  outline: none; border-color: var(--green);
+}
+
+.pref-textarea {
+  width: 100%; min-height: 70px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 12px; font-family: inherit; font-size: 13.5px;
+  resize: vertical;
+}
+.pref-textarea:focus { outline: none; border-color: var(--green); }
+
+.clinics-list {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.clinic-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: #FAFAF5;
+  font-size: 13px;
+}
+.clinic-row-name { font-weight: 600; }
+.clinic-row-actions {
+  display: flex; gap: 6px;
+}
+.clinic-btn {
+  font-size: 11.5px; font-weight: 700;
+  padding: 4px 10px; border-radius: 6px;
+  border: 1.5px solid transparent; cursor: pointer;
+  font-family: inherit;
+}
+.clinic-btn.ok { background: #fff; color: var(--ok); border-color: var(--ok); }
+.clinic-btn.ok.active { background: var(--ok); color: #fff; }
+.clinic-btn.neutral { background: #fff; color: var(--muted); border-color: var(--border); }
+.clinic-btn.neutral.active { background: var(--muted); color: #fff; border-color: var(--muted); }
+.clinic-btn.no { background: #fff; color: #8B2818; border-color: #C85B30; }
+.clinic-btn.no.active { background: #C85B30; color: #fff; }
+
+.pd-foot {
+  padding: 16px 26px;
+  border-top: 1px solid var(--border);
+  background: #FAF8F2;
+  display: flex; justify-content: space-between; gap: 12px;
+}
+.pd-save {
+  background: var(--green); color: #fff; border: none;
+  padding: 11px 22px; border-radius: var(--radius-sm);
+  font-family: inherit; font-weight: 700; font-size: 14px;
+  cursor: pointer;
+}
+.pd-save:hover { background: var(--green-deep); }
+.pd-cancel {
+  background: transparent; border: 1.5px solid var(--border);
+  color: var(--muted);
+  padding: 11px 22px; border-radius: var(--radius-sm);
+  font-family: inherit; font-weight: 600; font-size: 13.5px;
+  cursor: pointer;
+}
+
+.toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--green-deep); color: #fff;
+  padding: 12px 22px; border-radius: 10px;
+  font-weight: 600; font-size: 14px;
+  opacity: 0; transition: all .25s;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  z-index: 9999;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Zum Hauptinhalt</a>
+
+<main id="main">
+<div class="admin-wrap">
+
+  <div class="admin-header">
+    <h1>👥 Mitwirkende & Präferenzen</h1>
+    <div class="sub">Admin-Bereich · Pflege der Mitwirkenden-Profile mit Einsatz-Präferenzen und Qualifikationen</div>
+  </div>
+
+  <details class="law-notice">
+    <summary>ℹ Wichtig: Rechtlicher Rahmen beim Anlegen von Präferenzen</summary>
+    <p style="margin-top: 10px;">
+      Die Präferenzen sind ein <strong>freiwilliger Service</strong> des Vereins, der Mitwirkenden dabei hilft, für sie relevante Dienste zu finden.
+      Der Verein ist den Mitwirkenden gegenüber <strong>nicht weisungsbefugt</strong> (§ 1 der Mitwirkungsvereinbarung).
+    </p>
+    <p style="margin-top: 8px;">
+      <strong>Daraus folgt:</strong>
+    </p>
+    <ul style="margin: 8px 0 8px 20px;">
+      <li><strong>Harte Präferenzen</strong> sind nur Tatsachen/Qualifikationen (z.B. „hat Sitzwachen-Schulung absolviert"). Diese werden in Absprache mit der Person dokumentiert.</li>
+      <li><strong>Weiche Präferenzen</strong> sind persönliche Vorlieben. Jede:r Mitwirkende kann sie jederzeit selbst ändern.</li>
+      <li>Die Präferenzen sind ein Vorschlag-Filter, kein Verbot. Mitwirkende können immer auch „alle Dienste anzeigen" wählen.</li>
+      <li>Kliniken sehen die Präferenzen nie — nur, wer verfügbar ist.</li>
+      <li>Keine Sanktionen bei Abweichungen (kein Ranking, keine Zuverlässigkeits-Scores).</li>
+    </ul>
+    <p style="margin-top: 10px; font-size: 12px; color: var(--muted);">
+      DSGVO: Rechtsgrundlage Art. 6 Abs. 1 lit. b (Vertragserfüllung Mitwirkungsvereinbarung). Keine Weitergabe an Dritte.
+    </p>
+  </details>
+
+  <div class="list-section">
+    <div class="list-head">
+      <h2>Mitwirkende</h2>
+      <span class="count" id="member-count">0 Personen</span>
+    </div>
+    <div id="member-list"></div>
+  </div>
+
+  <div style="text-align: center; margin-top: 16px;">
+    <a href="demo.html" style="color: var(--muted); text-decoration: underline; font-size: 13px;">← Zurück zur Demo-Übersicht</a>
+  </div>
+
+</div>
+</main>
+
+<!-- Profil-Dialog -->
+<dialog id="profile-dialog">
+  <div class="pd-head">
+    <div>
+      <div class="pd-title" id="pd-title">Profil bearbeiten</div>
+      <div class="pd-subtitle" id="pd-subtitle">—</div>
+    </div>
+    <button class="pd-close" onclick="closeProfile()" aria-label="Schließen">✕</button>
+  </div>
+
+  <div class="pd-body">
+
+    <!-- HARTE PRÄFERENZEN: Qualifikationen -->
+    <div class="pd-section">
+      <div class="pd-section-head">
+        <h4>Qualifikationen & Zulassungen</h4>
+        <span class="type-label hard">Hart · Admin</span>
+      </div>
+      <div class="hint">
+        Was hat die Person absolviert oder als Bedingung mitgebracht? Diese Angaben werden in Absprache mit der Person gesetzt.
+        Ohne diese Zulassungen sind die entsprechenden Dienste für die Person nicht sichtbar.
+      </div>
+      <div class="pref-grid" id="pref-qual"></div>
+    </div>
+
+    <!-- HARTE PRÄFERENZEN: Angebots-Typen -->
+    <div class="pd-section">
+      <div class="pd-section-head">
+        <h4>Art der Tätigkeit</h4>
+        <span class="type-label hard">Hart · Admin</span>
+      </div>
+      <div class="hint">
+        Welche Arten von Einsätzen möchte die Person grundsätzlich machen? Wird gemeinsam festgelegt und kann vom Mitwirkenden selbst geändert werden.
+      </div>
+      <div class="pref-grid" id="pref-types"></div>
+    </div>
+
+    <!-- WEICHE PRÄFERENZEN: Schichten -->
+    <div class="pd-section">
+      <div class="pd-section-head">
+        <h4>Bevorzugte Schichten</h4>
+        <span class="type-label soft">Weich · Wunsch</span>
+      </div>
+      <div class="hint">
+        Weiche Vorliebe. Nicht-bevorzugte Schichten werden gedimmt angezeigt, aber bleiben annehmbar (z.B. im Notfall).
+      </div>
+      <div class="pref-grid" id="pref-shifts"></div>
+    </div>
+
+    <!-- WEICHE PRÄFERENZEN: Kliniken -->
+    <div class="pd-section">
+      <div class="pd-section-head">
+        <h4>Kliniken</h4>
+        <span class="type-label soft">Weich · Wunsch</span>
+      </div>
+      <div class="hint">
+        Für jede Klinik: Präferiert (wird bevorzugt angezeigt), Neutral (normal), oder Ausgeschlossen (wird gedimmt mit Notfall-Hinweis).
+      </div>
+      <div class="clinics-list" id="pref-clinics"></div>
+    </div>
+
+    <!-- WEICHE PRÄFERENZEN: Persönliche Rahmen -->
+    <div class="pd-section">
+      <div class="pd-section-head">
+        <h4>Persönlicher Rahmen</h4>
+        <span class="type-label soft">Weich · Wunsch</span>
+      </div>
+      <div class="hint">
+        Allgemeine Rahmenbedingungen der Person für die Dienst-Planung.
+      </div>
+      <div class="pref-input-row">
+        <div>
+          <label for="pref-plz">Wohnort-PLZ (für Entfernung)</label>
+          <input type="text" id="pref-plz" placeholder="z.B. 10115" maxlength="5" pattern="[0-9]{5}">
+        </div>
+        <div>
+          <label for="pref-maxkm">Max. Anfahrt (Luftlinie)</label>
+          <select id="pref-maxkm">
+            <option value="">kein Limit</option>
+            <option value="5">bis 5 km</option>
+            <option value="10">bis 10 km</option>
+            <option value="15">bis 15 km</option>
+            <option value="20">bis 20 km</option>
+            <option value="30">bis 30 km</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top: 12px;">
+        <label for="pref-languages" style="font-size: 12.5px; font-weight: 600; color: var(--green-deep); display:block; margin-bottom: 6px;">Sprachen</label>
+        <input type="text" id="pref-languages" placeholder="Deutsch, Türkisch, Polnisch …" class="pref-textarea" style="min-height:auto;">
+      </div>
+      <div style="margin-top: 12px;">
+        <label for="pref-notes" style="font-size: 12.5px; font-weight: 600; color: var(--green-deep); display:block; margin-bottom: 6px;">Anmerkungen (nur für Admin & Person selbst sichtbar)</label>
+        <textarea id="pref-notes" class="pref-textarea" placeholder="z.B. 'Hat eigenes Auto', 'braucht Beleuchtung bei Nachtschichten'..."></textarea>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="pd-foot">
+    <button class="pd-cancel" onclick="closeProfile()">Abbrechen</button>
+    <button class="pd-save" onclick="saveProfile()">Profil speichern</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: '', chatbot: false });
+
+const PROFILE_KEY = 'lpr-profiles-v1';
+
+// Stammdaten
+const QUALIFICATIONS = [
+  { id: 'sitzwache-schulung', label: 'Sitzwachen-Schulung', emoji: '🎓' },
+  { id: 'reise-schulung',     label: 'Reiseleitungs-Schulung', emoji: '🧳' },
+  { id: 'fuehrungszeugnis',   label: 'Erw. Führungszeugnis', emoji: '📄' },
+  { id: 'erste-hilfe',        label: 'Erste-Hilfe-Kurs', emoji: '🩹' },
+  { id: 'demenz-schulung',    label: 'Demenz-Schulung', emoji: '💭' }
+];
+
+const ACTIVITY_TYPES = [
+  { id: 'sitzwachen', label: 'Sitzwachen', emoji: '🪑' },
+  { id: 'reisen',     label: 'Reisebegleitung', emoji: '🧳' },
+  { id: 'teilhabe',   label: 'Soziale Teilhabe', emoji: '🤝' }
+];
+
+const SHIFT_TYPES = [
+  { id: 'frueh', label: 'Frühdienst',  emoji: '🌅' },
+  { id: 'spaet', label: 'Spätdienst',  emoji: '🌆' },
+  { id: 'nacht', label: 'Nachtdienst', emoji: '🌙' }
+];
+
+// Beispiel-Kliniken (später aus echter Klinik-Liste)
+const CLINICS = [
+  { id: 'charite-mitte',        name: 'Charité Campus Mitte',        plz: '10117' },
+  { id: 'charite-virchow',      name: 'Charité Virchow-Klinikum',    plz: '13353' },
+  { id: 'vivantes-friedrichshain', name: 'Vivantes Friedrichshain',  plz: '10249' },
+  { id: 'vivantes-neukoelln',   name: 'Vivantes Neukölln',           plz: '12351' },
+  { id: 'hedwig',               name: 'St. Hedwig-Krankenhaus',      plz: '10115' },
+  { id: 'helios-buch',          name: 'Helios Klinikum Buch',        plz: '13125' }
+];
+
+function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch(e) { return d; } }
+function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+function escape(s) { const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+
+function getDefaultProfile() {
+  return {
+    qualifications: [],
+    activityTypes: [],
+    preferredShifts: ['frueh','spaet','nacht'],
+    clinicPrefs: {}, // { clinicId: 'pref'|'neutral'|'avoid' }
+    plz: '',
+    maxKm: '',
+    languages: '',
+    notes: ''
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+// Mitwirkende laden
+// ═══════════════════════════════════════════════════════
+function loadMembers() {
+  // Mitwirkende aus LPR.KEYS.USERS (vom app.js angelegt durch seedDemoUsers)
+  const users = loadJSON(LPR?.KEYS?.USERS || 'lpr-users-v3', []);
+  return users.filter(u => u.role === 'ehrenamt');
+}
+
+function render() {
+  const members = loadMembers();
+  const profiles = loadJSON(PROFILE_KEY, {});
+  document.getElementById('member-count').textContent = `${members.length} Person${members.length === 1 ? '' : 'en'}`;
+
+  const box = document.getElementById('member-list');
+  if (members.length === 0) {
+    box.innerHTML = `<div style="padding: 40px 22px; text-align: center; color: var(--muted);">
+      Keine Mitwirkenden gefunden.<br>
+      <a href="demo.html" style="color: var(--green); font-weight: 700;">→ Demo-Daten zuerst laden</a>
+    </div>`;
+    return;
+  }
+
+  box.innerHTML = members.map(m => {
+    const p = profiles[m.email] || getDefaultProfile();
+    const qualCount = (p.qualifications || []).length;
+    const typeCount = (p.activityTypes || []).length;
+    const clinicPrefs = Object.values(p.clinicPrefs || {});
+    const avoidCount = clinicPrefs.filter(v => v === 'avoid').length;
+    const prefCount = clinicPrefs.filter(v => v === 'pref').length;
+
+    const badges = [];
+    if (qualCount > 0) badges.push(`<span class="mbadge hard">${qualCount} Qual.</span>`);
+    if (typeCount > 0) badges.push(`<span class="mbadge hard">${typeCount} Tätigkeiten</span>`);
+    if (prefCount > 0) badges.push(`<span class="mbadge soft">${prefCount}× bevorzugt</span>`);
+    if (avoidCount > 0) badges.push(`<span class="mbadge block">${avoidCount}× ausgeschl.</span>`);
+    if (p.plz) badges.push(`<span class="mbadge soft">PLZ ${escape(p.plz)}</span>`);
+    if (badges.length === 0) badges.push(`<span class="mbadge" style="background:#F0ECE4; color:var(--muted);">Noch kein Profil</span>`);
+
+    return `<div class="member-row" onclick="openProfile('${escape(m.email)}')">
+      <div>
+        <div class="member-name">${escape(m.name)}</div>
+        <div class="member-meta">${escape(m.email)}</div>
+        <div class="member-badges">${badges.join('')}</div>
+      </div>
+      <button class="member-action" onclick="event.stopPropagation(); openProfile('${escape(m.email)}')">Profil bearbeiten →</button>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// Profil-Dialog
+// ═══════════════════════════════════════════════════════
+let currentEmail = null;
+
+function openProfile(email) {
+  const members = loadMembers();
+  const m = members.find(u => u.email === email);
+  if (!m) return;
+  currentEmail = email;
+  const profiles = loadJSON(PROFILE_KEY, {});
+  const p = profiles[email] || getDefaultProfile();
+
+  document.getElementById('pd-title').textContent = m.name;
+  document.getElementById('pd-subtitle').textContent = m.email;
+
+  // Qualifikationen
+  document.getElementById('pref-qual').innerHTML = QUALIFICATIONS.map(q => {
+    const checked = (p.qualifications || []).includes(q.id);
+    return `<label class="pref-chip ${checked ? 'checked' : ''}">
+      <input type="checkbox" data-qual="${q.id}" ${checked ? 'checked' : ''}>
+      <span>${q.emoji} ${q.label}</span>
+    </label>`;
+  }).join('');
+
+  // Activity Types
+  document.getElementById('pref-types').innerHTML = ACTIVITY_TYPES.map(t => {
+    const checked = (p.activityTypes || []).includes(t.id);
+    return `<label class="pref-chip ${checked ? 'checked' : ''}">
+      <input type="checkbox" data-type="${t.id}" ${checked ? 'checked' : ''}>
+      <span>${t.emoji} ${t.label}</span>
+    </label>`;
+  }).join('');
+
+  // Shifts
+  document.getElementById('pref-shifts').innerHTML = SHIFT_TYPES.map(s => {
+    const checked = (p.preferredShifts || []).includes(s.id);
+    return `<label class="pref-chip ${checked ? 'checked' : ''}">
+      <input type="checkbox" data-shift="${s.id}" ${checked ? 'checked' : ''}>
+      <span>${s.emoji} ${s.label}</span>
+    </label>`;
+  }).join('');
+
+  // Clinics
+  document.getElementById('pref-clinics').innerHTML = CLINICS.map(c => {
+    const pref = (p.clinicPrefs || {})[c.id] || 'neutral';
+    return `<div class="clinic-row">
+      <div class="clinic-row-name">${escape(c.name)}<br><span style="color:var(--muted); font-size:11px; font-weight:400;">PLZ ${c.plz}</span></div>
+      <div class="clinic-row-actions">
+        <button type="button" class="clinic-btn ok ${pref === 'pref' ? 'active' : ''}" onclick="setClinicPref('${c.id}','pref')">Bevorzugt</button>
+        <button type="button" class="clinic-btn neutral ${pref === 'neutral' ? 'active' : ''}" onclick="setClinicPref('${c.id}','neutral')">Neutral</button>
+        <button type="button" class="clinic-btn no ${pref === 'avoid' ? 'active' : ''}" onclick="setClinicPref('${c.id}','avoid')">Nicht bevorzugt</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('pref-plz').value = p.plz || '';
+  document.getElementById('pref-maxkm').value = p.maxKm || '';
+  document.getElementById('pref-languages').value = p.languages || '';
+  document.getElementById('pref-notes').value = p.notes || '';
+
+  // Event: Klicks auf Chips visuell umsetzen
+  document.querySelectorAll('.pref-chip input').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      e.target.closest('.pref-chip').classList.toggle('checked', e.target.checked);
+    });
+  });
+
+  document.getElementById('profile-dialog').showModal();
+}
+
+function setClinicPref(clinicId, value) {
+  if (!currentEmail) return;
+  const profiles = loadJSON(PROFILE_KEY, {});
+  const p = profiles[currentEmail] || getDefaultProfile();
+  p.clinicPrefs = p.clinicPrefs || {};
+  p.clinicPrefs[clinicId] = value;
+  profiles[currentEmail] = p;
+  saveJSON(PROFILE_KEY, profiles);
+  // Nur die Buttons für diese eine Klinik neu zeichnen
+  const row = [...document.querySelectorAll('.clinic-row')].find(r =>
+    r.innerHTML.includes(`setClinicPref('${clinicId}'`));
+  if (row) {
+    ['pref','neutral','avoid'].forEach(k => {
+      const btn = row.querySelector(`.clinic-btn.${k === 'pref' ? 'ok' : k === 'neutral' ? 'neutral' : 'no'}`);
+      if (btn) btn.classList.toggle('active', k === value);
+    });
+  }
+}
+
+function closeProfile() {
+  document.getElementById('profile-dialog').close();
+  currentEmail = null;
+}
+
+function saveProfile() {
+  if (!currentEmail) return;
+  const profiles = loadJSON(PROFILE_KEY, {});
+  const p = profiles[currentEmail] || getDefaultProfile();
+
+  p.qualifications = [...document.querySelectorAll('[data-qual]:checked')].map(cb => cb.dataset.qual);
+  p.activityTypes = [...document.querySelectorAll('[data-type]:checked')].map(cb => cb.dataset.type);
+  p.preferredShifts = [...document.querySelectorAll('[data-shift]:checked')].map(cb => cb.dataset.shift);
+  p.plz = document.getElementById('pref-plz').value.trim();
+  p.maxKm = document.getElementById('pref-maxkm').value;
+  p.languages = document.getElementById('pref-languages').value.trim();
+  p.notes = document.getElementById('pref-notes').value.trim();
+
+  profiles[currentEmail] = p;
+  saveJSON(PROFILE_KEY, profiles);
+
+  closeProfile();
+  render();
+  showToast('✓ Profil gespeichert');
+}
+
+// ═══════════════════════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// Auth-Check: Nur Admin
+function authCheck() {
+  const session = loadJSON('lpr-session-v2', null);
+  if (!session || session.role !== 'admin') {
+    document.querySelector('.admin-wrap').innerHTML = `
+      <div class="admin-header">
+        <h1>🔒 Admin-Bereich</h1>
+        <div class="sub">Bitte als Vorstand/Admin einloggen.</div>
+        <div style="margin-top: 16px;">
+          <a href="login.html" class="member-action" style="display: inline-block; text-decoration: none;">Zum Login →</a>
+        </div>
+      </div>`;
+    return false;
+  }
+  return true;
+}
+
+if (authCheck()) render();
+</script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mein Profil · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, follow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.profile-wrap { max-width: 720px; margin: 40px auto 60px; padding: 0 24px; }
+.profile-card {
+  background: #fff; border-radius: var(--radius);
+  padding: 32px 36px; box-shadow: var(--shadow);
+  border: 1px solid var(--border); margin-bottom: 20px;
+}
+.profile-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 22px;
+  color: var(--green-deep); margin-bottom: 6px;
+}
+.profile-card .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+.danger-zone {
+  background: #FFF4EE; border: 1px solid #F5C4B0;
+  border-radius: var(--radius); padding: 24px 28px;
+}
+.danger-zone h2 { color: var(--warn); }
+.danger-zone .sub { color: #8A4A30; }
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Zum Hauptinhalt</a>
+
+<main id="main">
+
+<div id="guard" style="text-align:center; padding: 80px 24px;" hidden>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-size:24px; color:var(--green); margin-bottom:12px;">Bitte anmelden</h2>
+  <a href="login.html" class="btn btn-primary">Zum Login →</a>
+</div>
+
+<div id="profile-content" hidden>
+<div class="profile-wrap">
+
+  <div style="margin-bottom: 20px;">
+    <a href="mein-bereich.html" style="color: var(--green); font-weight: 700; text-decoration: none; font-size: 14px;">← Zurück zum Bereich</a>
+  </div>
+
+  <div class="profile-card">
+    <h2>Persönliche Daten</h2>
+    <p class="sub">Ihre Angaben für Bestätigungen und Abrechnungen.</p>
+    <form onsubmit="event.preventDefault(); saveProfile();">
+      <div class="field">
+        <label for="pf-name">Vor- und Nachname <span class="req">*</span></label>
+        <input type="text" id="pf-name" required minlength="2">
+      </div>
+      <div class="field">
+        <label for="pf-email">E-Mail</label>
+        <input type="email" id="pf-email" disabled style="background: #F0EEE8; color: var(--muted);">
+        <div class="field-hint">Die E-Mail ist Ihr Login und kann derzeit nicht geändert werden.</div>
+      </div>
+      <div class="field">
+        <label for="pf-phone">Telefon</label>
+        <input type="tel" id="pf-phone">
+      </div>
+      <div id="klinik-fields" hidden>
+        <div class="field">
+          <label for="pf-clinic">Klinik / Einrichtung</label>
+          <input type="text" id="pf-clinic">
+        </div>
+        <div class="field">
+          <label for="pf-ward">Station / Abteilung</label>
+          <input type="text" id="pf-ward">
+        </div>
+        <div class="field">
+          <label for="pf-address">Adresse</label>
+          <input type="text" id="pf-address">
+        </div>
+      </div>
+      <div class="field-error" id="pf-error" hidden></div>
+      <button type="submit" class="btn btn-primary">Änderungen speichern</button>
+    </form>
+  </div>
+
+  <div class="profile-card">
+    <h2>Passwort ändern</h2>
+    <p class="sub">Aus Sicherheitsgründen bitten wir Sie, zuerst Ihr aktuelles Passwort einzugeben.</p>
+    <form onsubmit="event.preventDefault(); changePw();">
+      <div class="field">
+        <label for="pw-old">Aktuelles Passwort <span class="req">*</span></label>
+        <input type="password" id="pw-old" autocomplete="current-password" required>
+      </div>
+      <div class="field">
+        <label for="pw-new">Neues Passwort <span class="req">*</span></label>
+        <input type="password" id="pw-new" autocomplete="new-password" minlength="6" required>
+        <div class="field-hint">Mindestens 6 Zeichen.</div>
+      </div>
+      <div class="field">
+        <label for="pw-confirm">Neues Passwort bestätigen <span class="req">*</span></label>
+        <input type="password" id="pw-confirm" autocomplete="new-password" minlength="6" required>
+      </div>
+      <div class="field-error" id="pw-error" hidden></div>
+      <button type="submit" class="btn btn-dark">Passwort ändern</button>
+    </form>
+  </div>
+
+  <div class="profile-card danger-zone">
+    <h2>Konto löschen</h2>
+    <p class="sub">Ihr Konto und alle Daten werden unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    <button onclick="deleteAccount()" class="btn btn-danger">Konto unwiderruflich löschen</button>
+  </div>
+
+</div>
+</div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: '' });
+
+const session = LPR.getSession();
+const user = LPR.getUser(session?.email || '');
+if (!session || !user) {
+  document.getElementById('guard').hidden = false;
+} else {
+  document.getElementById('profile-content').hidden = false;
+  document.getElementById('pf-name').value = user.name || '';
+  document.getElementById('pf-email').value = user.email;
+  document.getElementById('pf-phone').value = user.extra?.phone || '';
+
+  if (user.role === 'klinik') {
+    document.getElementById('klinik-fields').hidden = false;
+    document.getElementById('pf-clinic').value = user.extra?.clinic_name || '';
+    document.getElementById('pf-ward').value = user.extra?.ward || '';
+    document.getElementById('pf-address').value = user.extra?.address || '';
+  }
+}
+
+async function saveProfile() {
+  const name = document.getElementById('pf-name').value.trim();
+  const phone = document.getElementById('pf-phone').value.trim();
+  const err = document.getElementById('pf-error');
+  err.hidden = true;
+  if (name.length < 2) { err.textContent = 'Bitte gültigen Namen eingeben.'; err.hidden = false; return; }
+
+  const users = LPR.load(LPR.KEYS.users, {});
+  users[session.email].name = name;
+  users[session.email].extra = users[session.email].extra || {};
+  users[session.email].extra.phone = phone;
+
+  if (user.role === 'klinik') {
+    users[session.email].extra.clinic_name = document.getElementById('pf-clinic').value.trim();
+    users[session.email].extra.ward = document.getElementById('pf-ward').value.trim();
+    users[session.email].extra.address = document.getElementById('pf-address').value.trim();
+
+    // auch in clinics-Registry updaten
+    const clinics = LPR.load(LPR.KEYS.clinics, {});
+    if (clinics[session.email]) {
+      clinics[session.email].name = users[session.email].extra.clinic_name;
+      clinics[session.email].ward = users[session.email].extra.ward;
+      clinics[session.email].address = users[session.email].extra.address;
+      clinics[session.email].contact = name;
+      clinics[session.email].phone = phone;
+      LPR.save(LPR.KEYS.clinics, clinics);
+    }
+  }
+  LPR.save(LPR.KEYS.users, users);
+  // Session aktualisieren
+  const s = LPR.getSession();
+  s.name = name;
+  LPR.save(LPR.KEYS.session, s);
+  LPR.showToast('✓ Profil gespeichert');
+}
+
+async function changePw() {
+  const oldPw = document.getElementById('pw-old').value;
+  const newPw = document.getElementById('pw-new').value;
+  const confirm = document.getElementById('pw-confirm').value;
+  const err = document.getElementById('pw-error');
+  err.hidden = true;
+
+  if (newPw !== confirm) { err.textContent = 'Die neuen Passwörter stimmen nicht überein.'; err.hidden = false; return; }
+  if (newPw.length < 6) { err.textContent = 'Neues Passwort muss mindestens 6 Zeichen haben.'; err.hidden = false; return; }
+
+  // Altes PW prüfen
+  const verify = await LPR.loginWithPassword({ email: session.email, password: oldPw });
+  if (!verify.ok) { err.textContent = 'Aktuelles Passwort ist falsch.'; err.hidden = false; return; }
+
+  const ok = await LPR.changePassword(session.email, newPw);
+  if (ok) {
+    document.getElementById('pw-old').value = '';
+    document.getElementById('pw-new').value = '';
+    document.getElementById('pw-confirm').value = '';
+    LPR.showToast('✓ Passwort geändert');
+  } else {
+    err.textContent = 'Fehler beim Ändern.'; err.hidden = false;
+  }
+}
+
+function deleteAccount() {
+  if (!confirm('Wirklich Ihr Konto löschen? Alle Ihre Daten werden unwiderruflich entfernt. Diese Aktion kann NICHT rückgängig gemacht werden.')) return;
+  if (!confirm('Sind Sie WIRKLICH sicher? Ihre gesamte Historie, Buchungen und Abrechnungen werden gelöscht.')) return;
+
+  const users = LPR.load(LPR.KEYS.users, {});
+  delete users[session.email];
+  LPR.save(LPR.KEYS.users, users);
+
+  // Verfügbarkeiten
+  const avail = LPR.load(LPR.KEYS.availability, {});
+  delete avail[session.email];
+  LPR.save(LPR.KEYS.availability, avail);
+
+  // Klinik-Registry
+  const clinics = LPR.load(LPR.KEYS.clinics, {});
+  delete clinics[session.email];
+  LPR.save(LPR.KEYS.clinics, clinics);
+
+  LPR.logout();
+  alert('Ihr Konto wurde gelöscht.');
+  window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>

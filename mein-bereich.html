@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mein Bereich · Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Mitgliederbereich für Ehrenamtliche.">
+<meta name="robots" content="noindex, follow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.hub-hero {
+  background: linear-gradient(135deg, var(--green) 0%, var(--green-soft) 100%);
+  color: #fff; padding: 44px 0;
+}
+.hub-hero .greeting {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 34px; line-height: 1.1;
+  letter-spacing: -0.02em; margin-bottom: 8px;
+}
+.hub-hero .sub { opacity: .85; font-size: 16px; }
+.hub-hero .role-badge {
+  display: inline-block; background: rgba(200,241,53,.18);
+  color: var(--lime); padding: 4px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.welcome-banner {
+  background: var(--lime-soft); border: 2px solid var(--lime);
+  border-radius: var(--radius);
+  padding: 18px 24px; margin: 24px 0;
+  display: flex; gap: 14px; align-items: center;
+}
+.welcome-banner .icon { font-size: 32px; flex-shrink: 0; }
+.welcome-banner h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 18px;
+  color: var(--green-deep); margin-bottom: 2px;
+}
+.welcome-banner p { font-size: 14px; color: var(--text); }
+.welcome-banner button {
+  background: transparent; border: none;
+  color: var(--green-deep); opacity: .5;
+  font-size: 20px; cursor: pointer;
+  margin-left: auto; padding: 4px 10px;
+}
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px; margin-bottom: 28px;
+}
+.stat-card {
+  background: #fff; border-radius: var(--radius);
+  padding: 18px 20px; border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.stat-card .num {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 30px;
+  color: var(--green-deep); line-height: 1; margin-bottom: 4px;
+}
+.stat-card .num.accent { color: var(--green); }
+.stat-card .num.warn-col { color: var(--warn); }
+.stat-card .lbl {
+  font-size: 13px; color: var(--muted);
+  font-weight: 600; letter-spacing: .02em;
+}
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px; margin-bottom: 36px;
+}
+.tile {
+  background: #fff; border-radius: var(--radius);
+  padding: 28px 26px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  text-decoration: none; color: var(--text);
+  display: flex; flex-direction: column;
+  transition: transform .2s, box-shadow .2s;
+  min-height: 210px;
+}
+.tile:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.tile .tile-icon {
+  width: 54px; height: 54px; border-radius: 14px;
+  background: var(--lime-soft); color: var(--green-deep);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; margin-bottom: 16px;
+}
+.tile h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 20px;
+  color: var(--green-deep); margin-bottom: 8px; line-height: 1.2;
+}
+.tile p {
+  color: var(--muted); font-size: 14px;
+  line-height: 1.5; flex-grow: 1; margin-bottom: 14px;
+}
+.tile .arrow {
+  color: var(--green); font-weight: 700; font-size: 15px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tile:hover .arrow { gap: 10px; transition: gap .15s; }
+.tile-danger .tile-icon { background: #F5DED4; color: var(--warn); }
+.tile-danger .arrow { color: var(--warn); }
+.quick-help {
+  background: #fff; border-radius: var(--radius);
+  padding: 26px 30px; box-shadow: var(--shadow);
+  border: 1px solid var(--border); margin-top: 20px;
+}
+.quick-help h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 18px;
+  color: var(--green-deep); margin-bottom: 10px;
+}
+.quick-help p { color: var(--muted); font-size: 14px; margin-bottom: 14px; }
+.quick-help .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Zum Hauptinhalt</a>
+
+<div class="a11y-bar" role="region" aria-label="Barrierefreiheit">
+  <div class="a11y-left">
+    <span class="demo-badge">DEMO</span>
+    <a href="demo.html" class="a11y-btn" style="border-color:rgba(200,241,53,.5); text-decoration:none;">⚙ Demo</a>
+  </div>
+  <div class="a11y-right">
+    <div class="a11y-group">
+      <span class="a11y-label">Text:</span>
+      <button class="a11y-btn" data-size="" aria-pressed="true" onclick="LPR.setTextSize('')">A</button>
+      <button class="a11y-btn" data-size="l" aria-pressed="false" onclick="LPR.setTextSize('l')">A+</button>
+      <button class="a11y-btn" data-size="xl" aria-pressed="false" onclick="LPR.setTextSize('xl')">A++</button>
+    </div>
+    <div class="a11y-group">
+      <button class="a11y-btn" id="btn-contrast" aria-pressed="false" onclick="LPR.toggleContrast()">◐ Kontrast</button>
+      <button class="a11y-btn" id="btn-ls" aria-pressed="false" onclick="LPR.toggleLS()">✎ Leichte Sprache</button>
+    </div>
+  </div>
+</div>
+
+<header class="site">
+  <div class="wrap header-row">
+    <a href="index.html" class="brand">
+      <svg viewBox="0 0 48 48" width="38" height="38" aria-hidden="true">
+        <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="10,10 24,24 10,38" stroke="#C8F135" stroke-width="4.5"/>
+          <polyline points="22,10 36,24 22,38" stroke="#C8F135" stroke-width="4.5" opacity="0.42"/>
+        </g>
+      </svg>
+      <div>
+        <div class="brand-name">Leben <em>Pflegen</em> Reisen</div>
+        <div class="brand-sub">Mein Bereich</div>
+      </div>
+    </a>
+    <nav><ul>
+      <li><a href="index.html">Start</a></li>
+      <li><a href="profil.html">Profil</a></li>
+      <li><a href="#" onclick="doLogout(); return false;">Abmelden</a></li>
+    </ul></nav>
+  </div>
+</header>
+
+<main id="main">
+
+<div id="guard" style="text-align:center; padding: 80px 24px;" hidden>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-size:24px; color:var(--green); margin-bottom:12px;">Bitte anmelden</h2>
+  <p style="color: var(--muted); margin-bottom: 20px;">Dieser Bereich ist nur für eingeloggte Ehrenamtliche.</p>
+  <a href="login.html" class="btn btn-primary">Zum Login →</a>
+</div>
+
+<div id="hub-content" hidden>
+  <section class="hub-hero">
+    <div class="wrap">
+      <span class="role-badge" id="role-badge">Ehrenamt</span>
+      <div class="greeting" id="greeting">Hallo!</div>
+      <div class="sub" data-ls="Schön, dass du da bist.">Schön, dass du wieder da bist. Unten findest du alles, was du brauchst.</div>
+    </div>
+  </section>
+
+  <div class="wrap" style="padding: 32px 24px 60px;">
+
+    <div class="welcome-banner" id="welcome" hidden>
+      <div class="icon">🎉</div>
+      <div>
+        <h3 data-ls="Willkommen!">Willkommen im Verein!</h3>
+        <p data-ls="Du bist jetzt angemeldet. Du kannst dich für Reisen eintragen und sagen, wann du für Sitz-Wachen Zeit hast.">Du bist jetzt Mitglied im geschützten Bereich. Trag dich unten für Reisen ein, sag uns, wann du für Sitzwachen Zeit hast, oder schau alles erst in Ruhe an.</p>
+      </div>
+      <button onclick="this.closest('.welcome-banner').remove()" aria-label="Schließen">×</button>
+    </div>
+
+    <div class="stats-row" id="stats"></div>
+
+    <h2 class="sec-title" style="font-size: 24px; margin-bottom: 20px;" data-ls="Was willst du tun?">Was möchtest du tun?<span class="ls-tag">Einfache Sprache</span></h2>
+
+    <div class="tile-grid">
+      <a href="schichtplaner.html" class="tile">
+        <div class="tile-icon">✈️</div>
+        <h3 data-ls="Reise mitmachen">Reisen &amp; Eintragen</h3>
+        <p data-ls="Du kannst dich für eine Reise eintragen.">Alle geplanten Reisen ansehen und dich mit einem Klick für eine Begleitung eintragen.</p>
+        <span class="arrow">Zum Reise-Kalender →</span>
+      </a>
+
+      <a href="sitzwachen.html" class="tile">
+        <div class="tile-icon">🏥</div>
+        <h3 data-ls="Sitz-Wachen">Sitzwachen-Kalender</h3>
+        <p data-ls="Sag uns, wann du Sitz-Wache machen kannst.">Sag uns, an welchen Tagen und in welchen Schichten du verfügbar bist. Kliniken buchen dich direkt.</p>
+        <span class="arrow">Zum Kalender →</span>
+      </a>
+
+      <a href="abrechnung.html" class="tile">
+        <div class="tile-icon">💰</div>
+        <h3 data-ls="Geld abrechnen">Abrechnung &amp; Beleg</h3>
+        <p data-ls="Nach der Reise kannst du Geld abrechnen.">Nach Einsätzen kannst du deine Aufwandsentschädigung beantragen und den Beleg als PDF bekommen.</p>
+        <span class="arrow">Zur Abrechnung →</span>
+      </a>
+
+      <a href="profil.html" class="tile">
+        <div class="tile-icon">👤</div>
+        <h3 data-ls="Mein Profil">Mein Profil</h3>
+        <p data-ls="Name, E-Mail, Telefon ändern.">Deine Kontaktdaten und Einstellungen. Passwort ändern, Konto löschen.</p>
+        <span class="arrow">Profil bearbeiten →</span>
+      </a>
+
+      <a href="meine-praeferenzen.html" class="tile">
+        <div class="tile-icon">🎯</div>
+        <h3 data-ls="Meine Wünsche">Meine Präferenzen</h3>
+        <p data-ls="Welche Schichten und Kliniken passen zu dir?">Deine bevorzugten Schichten und Kliniken, Wohnort-PLZ für die Entfernungsberechnung.</p>
+        <span class="arrow">Präferenzen ansehen →</span>
+      </a>
+
+      <a href="schulung.html" class="tile">
+        <div class="tile-icon">🎓</div>
+        <h3 data-ls="Schulung">Schulungsportal</h3>
+        <p data-ls="Hier lernst du, was du wissen musst.">Die Online-Schulung mit allen Modulen für Sitzwache und Begleitung. Zertifikat zum Ausdrucken.</p>
+        <span class="arrow">Zur Schulung →</span>
+      </a>
+
+      <a href="#" onclick="doLogout(); return false;" class="tile tile-danger">
+        <div class="tile-icon">🚪</div>
+        <h3 data-ls="Abmelden">Abmelden</h3>
+        <p data-ls="Dich vom Konto abmelden.">Sicher abmelden. Deine Daten bleiben gespeichert, beim nächsten Mal einfach wieder einloggen.</p>
+        <span class="arrow">Jetzt abmelden →</span>
+      </a>
+    </div>
+
+    <div class="quick-help">
+      <h3 data-ls="Brauchst du Hilfe?">Hilfe &amp; Kontakt</h3>
+      <p data-ls="Wir helfen dir gern.">Du kommst nicht weiter? Wir helfen gerne. Ruf uns an oder schreib eine E-Mail.</p>
+      <div class="actions">
+        <a href="tel:+4930000000" class="btn btn-ghost">☎ 030 / 000 000 00</a>
+        <a href="mailto:info@lebenpflegenreisen.de" class="btn btn-ghost">✉ info@lebenpflegenreisen.de</a>
+      </div>
+    </div>
+  </div>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="footer-bottom" style="border-top:none; padding-top:0;">
+      <div>© 2026 Leben Pflegen Reisen e.V. · Berlin</div>
+      <div><a href="impressum.html" style="color:var(--lime);">Impressum</a> · <a href="datenschutz.html" style="color:var(--lime);">Datenschutz</a> · <a href="barrierefreiheit.html" style="color:var(--lime);">Barrierefreiheit</a></div>
+    </div>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+<script>
+const session = LPR.getSession();
+if (!session || (session.role !== 'ehrenamt' && session.role !== 'admin')) {
+  document.getElementById('guard').hidden = false;
+} else {
+  document.getElementById('hub-content').hidden = false;
+  document.getElementById('role-badge').textContent = session.role === 'admin' ? 'Vorstand · Admin' : 'Ehrenamt';
+  const hour = new Date().getHours();
+  const tod = hour < 11 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend';
+  document.getElementById('greeting').textContent = `${tod}, ${session.name.split(' ')[0]}!`;
+  if (location.search.includes('welcome=1')) document.getElementById('welcome').hidden = false;
+  renderStats();
+}
+
+function renderStats() {
+  const s = LPR.getSession();
+  const avail = LPR.load(LPR.KEYS.availability, {});
+  const bookings = LPR.load(LPR.KEYS.bookings, {});
+  const signups = LPR.load(LPR.KEYS.signups, {});
+  const claims = (LPR.load(LPR.KEYS.claims, []) || []).filter(c => c.email === s.email);
+
+  const now = new Date();
+  const month = now.getMonth(), year = now.getFullYear();
+  let availCount = 0, bookedCount = 0;
+  const myAvail = avail[s.email] || {};
+  for (const k in myAvail) {
+    const d = new Date(k);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      availCount += (myAvail[k].shifts || []).length;
+    }
+  }
+  for (const k in bookings) {
+    const d = new Date(k);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      for (const sh in bookings[k]) {
+        if (bookings[k][sh].ehrenamt_email === s.email) bookedCount++;
+      }
+    }
+  }
+  let tripCount = 0;
+  for (const tripId in signups) {
+    if ((signups[tripId] || []).find(e => e.email === s.email)) tripCount++;
+  }
+  const yearClaims = claims.filter(c => new Date(c.submittedAt).getFullYear() === year);
+  const usedAmount = yearClaims.reduce((sum, c) => sum + (c.amount || 0), 0);
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card"><div class="num">${availCount}</div><div class="lbl">Verfügbarkeit (Monat)</div></div>
+    <div class="stat-card"><div class="num accent">${bookedCount}</div><div class="lbl">Gebuchte Dienste</div></div>
+    <div class="stat-card"><div class="num">${tripCount}</div><div class="lbl">Reisen eingetragen</div></div>
+    <div class="stat-card"><div class="num ${usedAmount > 2800 ? 'warn-col' : 'accent'}">${LPR.formatEUR(usedAmount)}</div><div class="lbl">Pauschale ${year}</div></div>
+  `;
+}
+
+function doLogout() {
+  if (!confirm('Möchtest du dich wirklich abmelden?')) return;
+  LPR.logout();
+  window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>

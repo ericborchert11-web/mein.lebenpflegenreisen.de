@@ -100,7 +100,7 @@ a { color: var(--green); }
 </div>
 
 <header>
-  <a href="index.html" class="brand">
+  <a href="#" id="brand-link" class="brand">
     <svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true">
       <g fill="none" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="10,10 24,24 10,38" stroke="#C8F135" stroke-width="4.5"/>
@@ -112,7 +112,7 @@ a { color: var(--green); }
       <div class="brand-sub">e.V. · Berlin</div>
     </div>
   </a>
-  <a href="index.html" class="nav-link">← Zur Startseite</a>
+  <a href="#" id="back-link" class="nav-link">← Zurück</a>
 </header>
 
 <main>
@@ -190,12 +190,25 @@ a { color: var(--green); }
 <footer>
   <div style="margin-bottom: 8px;">© 2026 Leben Pflegen Reisen e.V. · Berlin</div>
   <div>
-    <a href="index.html">Startseite</a> ·
+    <a href="#" id="footer-home">Mein Bereich</a> ·
     <a href="https://lebenpflegenreisen.de/impressum" target="_blank" rel="noopener">Impressum</a> ·
     <a href="https://lebenpflegenreisen.de/datenschutz" target="_blank" rel="noopener">Datenschutz</a>
   </div>
 </footer>
 
 <script src="app.js"></script>
+<script>
+// Dynamische Back-Navigation: Je nachdem ob eingeloggt oder nicht
+(function() {
+  const session = LPR.getSession ? LPR.getSession() : null;
+  const target = session
+    ? (LPR.roleTarget ? LPR.roleTarget(session.role) : 'mein-bereich.html')
+    : 'index.html';
+  ['brand-link', 'back-link', 'footer-home'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.href = target;
+  });
+})();
+</script>
 </body>
 </html>

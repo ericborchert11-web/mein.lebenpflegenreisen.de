@@ -45,18 +45,57 @@
   function renderHeader(currentPage) {
     const session = LPR.getSession ? LPR.getSession() : null;
     const c = (p) => currentPage === p ? 'current' : '';
-    let userArea;
+
+    // Logo-Ziel: Eingeloggte → ihr Hub, sonst Startseite
+    const logoHref = session
+      ? (LPR.roleTarget ? LPR.roleTarget(session.role) : 'mein-bereich.html')
+      : 'index.html';
+
+    // Untertitel je nach Kontext
+    const subTitle = session
+      ? (session.role === 'klinik' ? 'Klinik-Portal' :
+         session.role === 'admin'  ? 'Admin-Bereich' :
+                                     'Mein Bereich')
+      : 'e.V. · Berlin';
+
+    // Navigation: Eingeloggt = App-Menü; Ausgeloggt = nur Login-Link
+    let navItems = '';
     if (session) {
-      const hubLink = LPR.roleTarget ? LPR.roleTarget(session.role) : (session.role === 'klinik' ? 'kliniken.html' : 'mein-bereich.html');
-      userArea = `<a href="${hubLink}" style="background:rgba(200,241,53,0.15); color:var(--lime); font-weight:700;">${escapeHtml(session.name.split(' ')[0])} →</a>`;
+      if (session.role === 'ehrenamt') {
+        navItems = `
+          <li><a href="mein-bereich.html" class="${c('mein-bereich')}">Mein Bereich</a></li>
+          <li><a href="schichtplaner.html" class="${c('schichtplaner')}">Reisen</a></li>
+          <li><a href="meine-praeferenzen.html" class="${c('praeferenzen')}">Präferenzen</a></li>
+          <li><a href="profil.html" class="${c('profil')}">Profil</a></li>
+          <li><a href="#" onclick="LPR.logout(); location.href='index.html'; return false;" style="color:var(--warn);">Abmelden</a></li>
+        `;
+      } else if (session.role === 'klinik') {
+        navItems = `
+          <li><a href="kliniken.html" class="${c('kliniken')}">Klinik-Portal</a></li>
+          <li><a href="sitzwachen.html" class="${c('sitzwachen')}">Sitzwachen</a></li>
+          <li><a href="sitzwache-buchen.html" class="${c('sw-buchen')}">Neue Buchung</a></li>
+          <li><a href="#" onclick="LPR.logout(); location.href='index.html'; return false;" style="color:var(--warn);">Abmelden</a></li>
+        `;
+      } else if (session.role === 'admin') {
+        navItems = `
+          <li><a href="admin-mitwirkende.html" class="${c('admin')}">Mitwirkende</a></li>
+          <li><a href="schichtplaner.html" class="${c('schichtplaner')}">Reisen</a></li>
+          <li><a href="sitzwachen.html" class="${c('sitzwachen')}">Sitzwachen</a></li>
+          <li><a href="#" onclick="LPR.logout(); location.href='index.html'; return false;" style="color:var(--warn);">Abmelden</a></li>
+        `;
+      }
     } else {
-      userArea = `<a href="login.html">Anmelden</a>`;
+      navItems = `
+        <li><a href="https://lebenpflegenreisen.de" target="_blank" rel="noopener" style="opacity:.8;">Zur Website ↗</a></li>
+        <li><a href="login.html" class="btn btn-primary" style="padding:8px 18px;">Anmelden</a></li>
+      `;
     }
+
     const header = document.createElement('header');
     header.className = 'site';
     header.innerHTML = `
       <div class="wrap header-row">
-        <a href="index.html" class="brand" aria-label="Startseite">
+        <a href="${logoHref}" class="brand" aria-label="Zum Hauptbereich">
           <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true">
             <g fill="none" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="10,10 24,24 10,38" stroke="#C8F135" stroke-width="4.5"/>
@@ -65,29 +104,25 @@
           </svg>
           <div>
             <div class="brand-name">Leben <em>Pflegen</em> Reisen</div>
-            <div class="brand-sub">e.V. · Berlin</div>
+            <div class="brand-sub">${escapeHtml(subTitle)}</div>
           </div>
         </a>
         <nav aria-label="Hauptnavigation">
           <button class="menu-btn" onclick="document.querySelector('header.site nav ul').classList.toggle('open')" aria-label="Menü">☰</button>
-          <ul>
-            <li><a href="index.html" class="${c('home')}">Start</a></li>
-            <li><a href="reisen.html" class="${c('reisen')}">Reisen</a></li>
-            <li><a href="sitzwache-buchen.html" class="${c('sw-buchen')}">Sitzwachen</a></li>
-            <li><a href="ehrenamt.html" class="${c('ehrenamt')}">Ehrenamt</a></li>
-            <li><a href="spenden.html" class="${c('spenden')}">Spenden</a></li>
-            <li>${userArea}</li>
-          </ul>
+          <ul>${navItems}</ul>
         </nav>
       </div>
     `;
-    document.querySelector('.a11y-bar').insertAdjacentElement('afterend', header);
+    const anchor = document.querySelector('.a11y-bar');
+    if (anchor) anchor.insertAdjacentElement('afterend', header);
+    else document.body.insertBefore(header, document.body.firstChild);
     header.querySelectorAll('nav ul a').forEach(a => {
       a.addEventListener('click', () => header.querySelector('nav ul').classList.remove('open'));
     });
   }
 
   function renderFooter() {
+    const session = LPR.getSession ? LPR.getSession() : null;
     const footer = document.createElement('footer');
     footer.className = 'site';
     footer.innerHTML = `
@@ -109,29 +144,33 @@
             <p style="font-size:14px; line-height:1.6;">Gemeinnütziger Verein für Reisebegleitung, Sitzwachen und soziale Teilhabe in Berlin.</p>
           </div>
           <div class="footer-col">
-            <h4>Angebote</h4>
+            <h4>Hauptwebsite</h4>
             <ul>
-              <li><a href="reisen.html">Begleitete Reisen</a></li>
-              <li><a href="sitzwache-buchen.html">Sitzwachen buchen</a></li>
-              <li><a href="ehrenamt.html">Ehrenamt</a></li>
-              <li><a href="spenden.html">Spenden</a></li>
+              <li><a href="https://lebenpflegenreisen.de" target="_blank" rel="noopener">Startseite ↗</a></li>
+              <li><a href="https://lebenpflegenreisen.de/reisen" target="_blank" rel="noopener">Begleitete Reisen ↗</a></li>
+              <li><a href="https://lebenpflegenreisen.de/sitzwachen" target="_blank" rel="noopener">Sitzwachen ↗</a></li>
+              <li><a href="https://lebenpflegenreisen.de/ehrenamt" target="_blank" rel="noopener">Ehrenamt ↗</a></li>
             </ul>
           </div>
           <div class="footer-col">
-            <h4>Mitgliederbereich</h4>
+            <h4>Mein Konto</h4>
             <ul>
-              <li><a href="login.html">Anmelden</a></li>
-              <li><a href="mein-bereich.html">Mein Bereich</a></li>
-              <li><a href="schichtplaner.html">Reise-Plan</a></li>
-              <li><a href="abrechnung.html">Abrechnung</a></li>
+              ${session ? `
+                <li><a href="${LPR.roleTarget ? LPR.roleTarget(session.role) : 'mein-bereich.html'}">Mein Bereich</a></li>
+                <li><a href="profil.html">Profil</a></li>
+                <li><a href="#" onclick="LPR.logout(); location.href='index.html'; return false;">Abmelden</a></li>
+              ` : `
+                <li><a href="login.html">Anmelden</a></li>
+                <li><a href="login.html">Konto erstellen</a></li>
+              `}
+              <li><a href="barrierefreiheit.html">Barrierefreiheit</a></li>
             </ul>
           </div>
           <div class="footer-col">
             <h4>Rechtliches</h4>
             <ul>
-              <li><a href="impressum.html">Impressum</a></li>
-              <li><a href="datenschutz.html">Datenschutz</a></li>
-              <li><a href="barrierefreiheit.html">Barrierefreiheit</a></li>
+              <li><a href="https://lebenpflegenreisen.de/impressum" target="_blank" rel="noopener">Impressum ↗</a></li>
+              <li><a href="https://lebenpflegenreisen.de/datenschutz" target="_blank" rel="noopener">Datenschutz ↗</a></li>
             </ul>
           </div>
         </div>

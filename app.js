@@ -367,6 +367,13 @@
 
   document.addEventListener('DOMContentLoaded', applyA11ySettings);
 
+  // Zentraler Helper: Wohin soll ein User nach Login geleitet werden?
+  function roleTarget(role) {
+    if (role === 'klinik') return 'kliniken.html';
+    if (role === 'admin')  return 'admin-mitwirkende.html';
+    return 'mein-bereich.html';
+  }
+
   global.LPR = {
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,
@@ -375,7 +382,8 @@
     getUser, updateUserProfile,
     register, loginWithPassword, changePassword, requireRole, seedDemoUsers,
     setTextSize, toggleContrast, toggleLS,
-    showToast, loadDemoData, clearAllData
+    showToast, loadDemoData, clearAllData,
+    roleTarget
   };
   global.setTextSize = setTextSize;
   global.toggleContrast = toggleContrast;

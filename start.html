@@ -95,8 +95,7 @@ async function loginAs(email) {
     step('Login fehlgeschlagen: ' + res.error + ' — erst "Zurücksetzen" klicken!', 'err');
     return;
   }
-  const target = res.user.role === 'klinik' ? 'kliniken.html' : 'mein-bereich.html';
-  window.location.href = target;
+  window.location.href = LPR.roleTarget(res.user.role);
 }
 </script>
 </body>

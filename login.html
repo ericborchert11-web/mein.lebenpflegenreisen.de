@@ -171,7 +171,7 @@ LPR_Layout.init({ page: '' });
 (function() {
   const s = LPR.getSession();
   if (s) {
-    const target = s.role === 'klinik' ? 'kliniken.html' : 'mein-bereich.html';
+    const target = LPR.roleTarget(s.role);
     const note = document.createElement('div');
     note.style.cssText = 'max-width:960px; margin:20px auto 0; padding:16px; background:#EEF6F0; border:1px solid #9FC0A8; border-radius:14px; text-align:center; font-size:14px;';
     note.innerHTML = `Sie sind bereits als <strong>${LPR.escape(s.name)}</strong> (${s.role}) angemeldet. <a href="${target}" style="color:var(--green-deep); font-weight:700; margin-left:8px;">→ Zu Ihrem Bereich</a> &nbsp;|&nbsp; <a href="#" onclick="LPR.logout(); location.reload(); return false;" style="color:var(--warn); font-weight:700;">Abmelden</a>`;
@@ -209,7 +209,7 @@ async function doLogin() {
   }
   const res = await LPR.loginWithPassword({ email, password });
   if (!res.ok) { errEl.textContent = res.error; errEl.hidden = false; return; }
-  const target = res.user.role === 'klinik' ? 'kliniken.html' : 'mein-bereich.html';
+  const target = LPR.roleTarget(res.user.role);
   window.location.href = target;
 }
 
@@ -243,7 +243,7 @@ async function doRegister() {
   const res = await LPR.register({ email, password, name, role: selectedRole, extra });
   if (!res.ok) { showErr(res.error); return; }
 
-  const target = selectedRole === 'klinik' ? 'kliniken.html' : 'mein-bereich.html';
+  const target = LPR.roleTarget(selectedRole);
   window.location.href = target + '?welcome=1';
 }
 

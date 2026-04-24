@@ -47,7 +47,7 @@
     const c = (p) => currentPage === p ? 'current' : '';
     let userArea;
     if (session) {
-      const hubLink = session.role === 'klinik' ? 'kliniken.html' : 'mein-bereich.html';
+      const hubLink = LPR.roleTarget ? LPR.roleTarget(session.role) : (session.role === 'klinik' ? 'kliniken.html' : 'mein-bereich.html');
       userArea = `<a href="${hubLink}" style="background:rgba(200,241,53,0.15); color:var(--lime); font-weight:700;">${escapeHtml(session.name.split(' ')[0])} →</a>`;
     } else {
       userArea = `<a href="login.html">Anmelden</a>`;

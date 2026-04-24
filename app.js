@@ -15,7 +15,7 @@
     clinicSession:'lpr-sw-clinic-session-v1',
     users:        'lpr-users-v2',
     claims:       'lpr-claims-v1',
-    textSize:     'lpr-text-size',
+   textSize:     'lpr-text-size',
     contrast:     'lpr-contrast',
     ls:           'lpr-ls'
   };

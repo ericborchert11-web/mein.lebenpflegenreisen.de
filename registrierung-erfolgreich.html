@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registrierung eingereicht · Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Ihre Registrierung wurde erfolgreich eingereicht. Der Vorstand prüft Ihre Anfrage.">
+<meta name="robots" content="noindex, follow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.conf-wrap {
+  max-width: 640px; margin: 56px auto; padding: 0 24px;
+}
+.conf-card {
+  background: #fff; border-radius: var(--radius);
+  padding: 48px 40px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.conf-icon {
+  width: 72px; height: 72px;
+  background: #C8F135; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 38px; margin-bottom: 22px;
+}
+.conf-card h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 28px; line-height: 1.2;
+  color: var(--green-deep); margin: 0 0 16px;
+}
+.conf-card .subtitle {
+  color: var(--muted); font-size: 15px;
+  margin: 0 0 28px; line-height: 1.55;
+}
+.conf-steps {
+  background: #F5F5F0; border-radius: var(--radius-sm);
+  padding: 20px 24px; margin: 24px 0;
+  text-align: left;
+}
+.conf-steps h3 {
+  font-size: 13px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--green-deep); margin: 0 0 12px;
+}
+.conf-steps ol {
+  margin: 0; padding-left: 22px;
+  font-size: 14px; line-height: 1.7;
+  color: #333;
+}
+.conf-steps ol li { margin-bottom: 6px; }
+.conf-meta {
+  background: #f9f9f5; border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px; margin: 20px 0;
+  text-align: left;
+  font-size: 13px; color: #555;
+}
+.conf-meta strong { color: var(--green-deep); }
+.conf-actions {
+  display: flex; gap: 12px; justify-content: center;
+  margin-top: 28px; flex-wrap: wrap;
+}
+.btn {
+  padding: 12px 22px; border-radius: var(--radius-sm);
+  font-weight: 700; font-size: 14px;
+  cursor: pointer; text-decoration: none;
+  display: inline-block; transition: all 0.15s;
+  border: none; font-family: inherit;
+}
+.btn-dark {
+  background: var(--green-deep); color: #fff;
+}
+.btn-dark:hover { background: #0f2419; }
+.btn-ghost {
+  background: transparent; color: var(--green-deep);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover { background: var(--lime-soft); }
+.conf-contact {
+  margin-top: 24px; padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--muted);
+}
+.conf-contact a { color: var(--green-deep); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="conf-wrap">
+  <div class="conf-card">
+    <div class="conf-icon">✓</div>
+    <h1>Registrierung erfolgreich eingereicht</h1>
+    <p class="subtitle">
+      Vielen Dank für Ihr Interesse, Teil von Leben Pflegen Reisen e.V. zu werden.
+      Ihre Anfrage ist bei uns eingegangen.
+    </p>
+
+    <div class="conf-meta" id="conf-meta">
+      <div><strong>Name:</strong> <span id="meta-name">—</span></div>
+      <div><strong>E-Mail:</strong> <span id="meta-email">—</span></div>
+      <div><strong>Rolle:</strong> <span id="meta-role">—</span></div>
+    </div>
+
+    <div class="conf-steps">
+      <h3>So geht es weiter</h3>
+      <ol>
+        <li>Der Vorstand prüft Ihre Registrierung innerhalb von <strong>1–2 Werktagen</strong>.</li>
+        <li>Sie erhalten eine <strong>E-Mail-Benachrichtigung</strong> sobald Ihr Konto freigeschaltet ist.</li>
+        <li>Nach der Freischaltung können Sie sich ganz normal mit Ihrer E-Mail und Ihrem Passwort anmelden.</li>
+        <li>Für Ehrenamtliche wird mit der Freigabe eine <strong>Personalnummer</strong> vergeben.</li>
+      </ol>
+    </div>
+
+    <div class="conf-actions">
+      <a href="index.html" class="btn btn-ghost">Zur Startseite</a>
+      <a href="login.html" class="btn btn-dark">Zum Login</a>
+    </div>
+
+    <div class="conf-contact">
+      Fragen? Schreiben Sie an <a href="mailto:vorstand@lebenpflegenreisen.de">vorstand@lebenpflegenreisen.de</a>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: 'registrierung' });
+
+// Query-Parameter anzeigen
+(function() {
+  const params = new URLSearchParams(location.search);
+  const name = params.get('name');
+  const email = params.get('email');
+  const role = params.get('role');
+  if (name) document.getElementById('meta-name').textContent = name;
+  if (email) document.getElementById('meta-email').textContent = email;
+  if (role) {
+    const labels = { ehrenamt: '🤝 Ehrenamtliche:r', klinik: '🏥 Klinik' };
+    document.getElementById('meta-role').textContent = labels[role] || role;
+  }
+  if (!name && !email) {
+    document.getElementById('conf-meta').style.display = 'none';
+  }
+})();
+</script>
+</body>
+</html>

@@ -464,13 +464,17 @@ function getDefaultProfile() {
 // Mitwirkende laden
 // ═══════════════════════════════════════════════════════
 function loadMembers() {
-  const users = loadJSON(LPR?.KEYS?.USERS || 'lpr-users-v3', []);
-  return users.filter(u => u.role === 'ehrenamt' && (u.status === 'approved' || !u.status));
+  const key = LPR?.KEYS?.users || 'lpr-users-v2';
+  const users = loadJSON(key, {});
+  const arr = Array.isArray(users) ? users : Object.values(users);
+  return arr.filter(u => u.role === 'ehrenamt' && (u.status === 'approved' || !u.status));
 }
 
 function loadPending() {
-  const users = loadJSON(LPR?.KEYS?.USERS || 'lpr-users-v3', []);
-  return users.filter(u => u.status === 'pending' || u.status === 'rejected');
+  const key = LPR?.KEYS?.users || 'lpr-users-v2';
+  const users = loadJSON(key, {});
+  const arr = Array.isArray(users) ? users : Object.values(users);
+  return arr.filter(u => u.status === 'pending' || u.status === 'rejected');
 }
 
 function renderPending() {

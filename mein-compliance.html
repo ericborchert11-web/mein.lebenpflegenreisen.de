@@ -154,8 +154,11 @@
   </div>
 
   <div class="cp-notice">
-    <strong>Hinweis zum Prototyp:</strong> Aktuell werden nur Dateinamen und Gültigkeitsdaten gespeichert, keine tatsächlichen Uploads.
-    Die vollständige Dokumenten-Upload-Funktion folgt in der nächsten Version. Bitte bringen Sie die Unterlagen zur nächsten persönlichen Besprechung mit oder senden Sie sie an <a href="mailto:vorstand@lebenpflegenreisen.de">vorstand@lebenpflegenreisen.de</a>.
+    <strong>So funktioniert die Einreichung:</strong>
+    Sie senden Ihre Dokumente per E-Mail an
+    <a href="mailto:vorstand@lebenpflegenreisen.de">vorstand@lebenpflegenreisen.de</a>.
+    Der Vorstand prüft die Unterlagen und schaltet sie hier frei. Den Status Ihrer Dokumente sehen Sie immer aktuell auf dieser Seite.
+    <strong>Wichtig:</strong> Solange nicht alle fünf Dokumente freigegeben sind, können Sie noch keine Einsätze übernehmen.
   </div>
 
   <div class="cp-list" id="cp-list"></div>
@@ -168,77 +171,81 @@
 <script>
 LPR_Layout.init({ page: 'compliance' });
 
-// Auth-Check
-(function() {
+const ITEMS = [
+  {
+    id: 'fuehrungszeugnis',
+    title: '🛡 Erweitertes Führungszeugnis',
+    desc: 'Führungszeugnis nach §30a BZRG. Für Mitarbeit mit schutzbedürftigen Personen erforderlich.',
+    validity: '3 Jahre ab Ausstellung',
+    method: 'mail'
+  },
+  {
+    id: 'ifsg43',
+    title: '🦠 Belehrung nach §43 IfSG',
+    desc: 'Infektionsschutzgesetz-Belehrung des Gesundheitsamts. Für Einsätze im Krankenhaus erforderlich.',
+    validity: 'unbegrenzt',
+    method: 'mail'
+  },
+  {
+    id: 'erste_hilfe',
+    title: '🚑 Erste-Hilfe-Kurs',
+    desc: 'Teilnahmebescheinigung eines Erste-Hilfe-Kurses (mind. 9 UE). Auffrischung empfohlen alle 2 Jahre.',
+    validity: '2 Jahre',
+    method: 'mail'
+  },
+  {
+    id: 'dsgvo',
+    title: '🔒 Datenschutz-Verpflichtung',
+    desc: 'Erklärung zur Verpflichtung auf den Datenschutz nach Art. 28 DSGVO. Einmalig zu unterschreiben.',
+    validity: 'einmalig',
+    method: 'template',
+    templateUrl: '/dokumente/lpr-dsgvo-verpflichtung.pdf'
+  },
+  {
+    id: 'schweigepflicht',
+    title: '🤫 Schweigepflichterklärung',
+    desc: 'Erklärung zur Wahrung der Schweigepflicht gegenüber den von uns begleiteten Menschen.',
+    validity: 'einmalig',
+    method: 'template',
+    templateUrl: '/dokumente/lpr-schweigepflicht.pdf'
+  }
+];
+
+const VORSTAND_EMAIL = 'vorstand@lebenpflegenreisen.de';
+
+(async function authCheck() {
+  if (window.LPR && typeof LPR.refreshSessionCache === 'function') {
+    try { await LPR.refreshSessionCache(); } catch(e) {}
+  }
   const session = LPR.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
   if (session.role !== 'ehrenamt') {
     document.body.innerHTML = '<div style="max-width:600px; margin:80px auto; padding:40px; text-align:center; font-family:system-ui;"><h1 style="color:#1A3A2A;">Nur für Ehrenamtliche</h1><p>Diese Seite ist nur für ehrenamtliche Mitwirkende relevant.</p><a href="mein-bereich.html" style="color:#1A3A2A;">Zurück zum Mein Bereich</a></div>';
     return;
   }
+  await render();
 })();
-
-const COMPLIANCE_KEY = 'lpr-compliance-v1';
-
-const ITEMS = [
-  {
-    id: 'fuehrungszeugnis',
-    title: '🛡 Erweitertes Führungszeugnis',
-    desc: 'Führungszeugnis nach §30a BZRG (erweitertes Führungszeugnis). Für Mitarbeit mit schutzbedürftigen Personen erforderlich. Gültigkeit: 3 Jahre ab Ausstellung.',
-    validMonths: 36,
-    type: 'upload'
-  },
-  {
-    id: 'ifsg_43',
-    title: '🦠 Belehrung nach §43 IfSG',
-    desc: 'Infektionsschutzgesetz-Belehrung des Gesundheitsamts. Für Einsätze im Krankenhaus oder bei der Essensausgabe relevant. Keine Ablauffrist, aber Änderungen müssen gemeldet werden.',
-    validMonths: null,
-    type: 'upload'
-  },
-  {
-    id: 'erste_hilfe',
-    title: '🚑 Erste-Hilfe-Kurs',
-    desc: 'Teilnahmebescheinigung eines Erste-Hilfe-Kurses (mind. 9 UE). Der Verein übernimmt die Kosten. Empfohlene Auffrischung: alle 2 Jahre.',
-    validMonths: 24,
-    type: 'upload'
-  },
-  {
-    id: 'dsgvo',
-    title: '🔒 Datenschutz-Verpflichtung',
-    desc: 'Erklärung zur Verpflichtung auf den Datenschutz nach Art. 28 DSGVO. Muss einmalig unterschrieben werden.',
-    type: 'sign'
-  },
-  {
-    id: 'schweigepflicht',
-    title: '🤫 Schweigepflichterklärung',
-    desc: 'Erklärung zur Wahrung der Schweigepflicht gegenüber schutzbedürftigen Personen und ihren Angehörigen.',
-    type: 'sign'
-  }
-];
-
-function loadCompliance() {
-  try { return JSON.parse(localStorage.getItem(COMPLIANCE_KEY)) || {}; }
-  catch(e) { return {}; }
-}
-function saveCompliance(data) {
-  localStorage.setItem(COMPLIANCE_KEY, JSON.stringify(data));
-}
-function getUserCompliance() {
-  const session = LPR.getSession();
-  if (!session) return {};
-  const all = loadCompliance();
-  return all[session.email] || {};
-}
-function setUserCompliance(data) {
-  const session = LPR.getSession();
-  if (!session) return;
-  const all = loadCompliance();
-  all[session.email] = data;
-  saveCompliance(all);
-}
 
 function escapeHTML(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+function statusLabel(status) {
+  return {
+    missing: 'Fehlt',
+    submitted: 'Eingereicht – wird geprüft',
+    approved: 'Freigegeben',
+    expired: 'Abgelaufen'
+  }[status] || status;
+}
+
+function statusClass(status) {
+  return {
+    missing: 'missing',
+    submitted: 'uploaded',
+    approved: 'approved',
+    expired: 'expired'
+  }[status] || 'missing';
 }
 
 function daysUntil(dateStr) {
@@ -247,141 +254,87 @@ function daysUntil(dateStr) {
   return Math.floor((d - new Date()) / (1000*60*60*24));
 }
 
-function getStatus(item, entry) {
-  if (!entry) return 'missing';
-  if (item.type === 'sign') {
-    return entry.signedAt ? 'approved' : 'missing';
+function effectiveStatus(record) {
+  if (!record) return 'missing';
+  if (record.status === 'approved' && record.valid_until) {
+    const days = daysUntil(record.valid_until);
+    if (days !== null && days < 0) return 'expired';
   }
-  if (!entry.filename) return 'missing';
-  if (entry.validUntil) {
-    const days = daysUntil(entry.validUntil);
-    if (days < 0) return 'expired';
-  }
-  return 'uploaded';
+  return record.status || 'missing';
 }
 
-function statusLabel(status) {
-  return {
-    missing: 'Fehlt',
-    uploaded: 'Eingereicht',
-    approved: 'Unterschrieben',
-    expired: 'Abgelaufen'
-  }[status] || status;
+function buildMailtoLink(item, session) {
+  const subject = `[LPR] Einreichung: ${item.title.replace(/^[^\s]+\s/, '')}`;
+  const body = [
+    `Sehr geehrter Vorstand,`,
+    ``,
+    `anbei reiche ich folgendes Dokument ein:`,
+    ``,
+    `Dokument: ${item.title.replace(/^[^\s]+\s/, '')}`,
+    `Mein Name: ${session.name || ''}`,
+    `Meine E-Mail: ${session.email || ''}`,
+    ``,
+    `(Bitte das Dokument als PDF an diese E-Mail anhängen.)`,
+    ``,
+    `Mit freundlichen Grüßen`,
+    session.name || ''
+  ].join('\n');
+  return `mailto:${VORSTAND_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-function render() {
-  const data = getUserCompliance();
+async function render() {
   const list = document.getElementById('cp-list');
+  list.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--muted);">Lade Ihre Unterlagen…</div>';
+  const session = LPR.getSession();
+  const result = await LPR.getMyCompliance();
+  if (!result.ok) {
+    list.innerHTML = '<div style="padding: 40px; text-align: center; color: #c00;">Fehler beim Laden: ' + escapeHTML(result.error) + '</div>';
+    return;
+  }
+  const byType = {};
+  for (const r of result.records) byType[r.document_type] = r;
   let completed = 0;
-
   list.innerHTML = ITEMS.map(item => {
-    const entry = data[item.id];
-    const status = getStatus(item, entry);
-    if (status === 'uploaded' || status === 'approved') completed++;
-
-    let controls = '';
-    let meta = '';
-
-    if (item.type === 'sign') {
-      const isSigned = entry && entry.signedAt;
-      meta = isSigned
-        ? '<div class="cp-meta"><div><strong>Unterschrieben am:</strong> ' + new Date(entry.signedAt).toLocaleDateString('de-DE') + '</div></div>'
+    const record = byType[item.id];
+    const status = effectiveStatus(record);
+    if (status === 'approved') completed++;
+    const meta = record && (record.submitted_at || record.approved_at || record.valid_until)
+      ? `<div class="cp-meta">
+          ${record.submitted_at ? `<div><strong>Eingereicht:</strong> ${new Date(record.submitted_at).toLocaleDateString('de-DE')}</div>` : ''}
+          ${record.approved_at ? `<div><strong>Freigegeben:</strong> ${new Date(record.approved_at).toLocaleDateString('de-DE')}</div>` : ''}
+          ${record.valid_until ? `<div><strong>Gültig bis:</strong> ${new Date(record.valid_until).toLocaleDateString('de-DE')}${daysUntil(record.valid_until) !== null && daysUntil(record.valid_until) >= 0 ? ' (noch ' + daysUntil(record.valid_until) + ' Tage)' : ''}</div>` : ''}
+        </div>`
+      : '';
+    let actions = '';
+    if (status === 'missing' || status === 'expired') {
+      const mailto = buildMailtoLink(item, session);
+      const templateBtn = item.method === 'template' && item.templateUrl
+        ? `<a href="${escapeHTML(item.templateUrl)}" class="cp-btn cp-btn-clear" download>Vorlage herunterladen</a>`
         : '';
-      controls = `<div class="cp-sign">
-        <label>
-          <input type="checkbox" data-sign="${item.id}" ${isSigned ? 'checked disabled' : ''}>
-          <span>Ich erkläre hiermit, die Verpflichtung nach "${escapeHTML(item.title.replace(/^[^\s]+\s/, ''))}" gelesen und akzeptiert zu haben. Mit dem Setzen des Hakens wird die Erklärung digital unterzeichnet (Zeitstempel wird gespeichert).</span>
-        </label>
+      actions = `<div class="cp-controls">
+        ${templateBtn}
+        <a href="${mailto}" class="cp-btn cp-btn-save">📧 Per E-Mail einreichen</a>
       </div>`;
-    } else {
-      const filename = entry?.filename || '';
-      const validUntil = entry?.validUntil || '';
-      const daysLeft = validUntil ? daysUntil(validUntil) : null;
-      meta = entry && entry.filename
-        ? `<div class="cp-meta">
-            <div><strong>Datei:</strong> ${escapeHTML(entry.filename)}</div>
-            <div><strong>Eingereicht:</strong> ${entry.uploadedAt ? new Date(entry.uploadedAt).toLocaleDateString('de-DE') : '—'}</div>
-            ${validUntil ? `<div><strong>Gültig bis:</strong> ${new Date(validUntil).toLocaleDateString('de-DE')}${daysLeft !== null ? ' (' + (daysLeft >= 0 ? 'noch ' + daysLeft + ' Tage' : 'abgelaufen') + ')' : ''}</div>` : ''}
-          </div>`
-        : '';
-      controls = `<div class="cp-controls">
-        <input type="text" class="cp-filename-input" data-file="${item.id}" placeholder="Dateiname (z.B. fzeugnis_2026.pdf)" value="${escapeHTML(filename)}">
-        ${item.validMonths ? `<input type="date" class="cp-date-input" data-date="${item.id}" value="${escapeHTML(validUntil)}" title="Gültig bis">` : ''}
-        <button class="cp-btn cp-btn-save" data-save="${item.id}">Speichern</button>
-        ${entry && entry.filename ? `<button class="cp-btn cp-btn-clear" data-clear="${item.id}">Entfernen</button>` : ''}
+    } else if (status === 'submitted') {
+      actions = `<div class="cp-meta" style="background: #fffbe5; color: #8a6d00; border: 1px solid #f2d060;">
+        Vielen Dank! Der Vorstand prüft Ihre Einreichung. Sie werden per E-Mail benachrichtigt, sobald freigegeben.
       </div>`;
     }
-
     return `<div class="cp-card">
       <div class="cp-card-head">
         <h2>${item.title}</h2>
-        <span class="cp-badge ${status}">${statusLabel(status)}</span>
+        <span class="cp-badge ${statusClass(status)}">${statusLabel(status)}</span>
       </div>
-      <p>${escapeHTML(item.desc)}</p>
+      <p>${escapeHTML(item.desc)} <span style="color: #888;">Gültigkeit: ${escapeHTML(item.validity)}.</span></p>
       ${meta}
-      ${controls}
+      ${actions}
     </div>`;
   }).join('');
-
-  // Progress
   const pct = Math.round((completed / ITEMS.length) * 100);
   document.getElementById('cp-percent').textContent = pct + ' %';
   document.getElementById('cp-count').textContent = completed + ' / ' + ITEMS.length;
   document.getElementById('cp-fill').style.width = pct + '%';
-
-  // Event Handler
-  list.querySelectorAll('[data-save]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-save');
-      const fileInput = list.querySelector('[data-file="' + id + '"]');
-      const dateInput = list.querySelector('[data-date="' + id + '"]');
-      const filename = fileInput.value.trim();
-      if (!filename) { toast('Bitte Dateinamen eingeben.'); return; }
-      const data = getUserCompliance();
-      const item = ITEMS.find(i => i.id === id);
-      data[id] = {
-        filename: filename,
-        uploadedAt: new Date().toISOString(),
-        validUntil: dateInput ? dateInput.value : null
-      };
-      setUserCompliance(data);
-      toast('✓ Gespeichert');
-      render();
-    });
-  });
-  list.querySelectorAll('[data-clear]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-clear');
-      if (!confirm('Eintrag wirklich entfernen?')) return;
-      const data = getUserCompliance();
-      delete data[id];
-      setUserCompliance(data);
-      toast('Eintrag entfernt');
-      render();
-    });
-  });
-  list.querySelectorAll('[data-sign]').forEach(cb => {
-    cb.addEventListener('change', () => {
-      if (!cb.checked) return;
-      const id = cb.getAttribute('data-sign');
-      const data = getUserCompliance();
-      data[id] = { signedAt: new Date().toISOString() };
-      setUserCompliance(data);
-      toast('✓ Unterschrieben');
-      render();
-    });
-  });
 }
-
-function toast(msg) {
-  const t = document.getElementById('cp-toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
-}
-
-document.addEventListener('DOMContentLoaded', render);
-if (document.readyState !== 'loading') render();
 </script>
 </body>
 </html>

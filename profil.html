@@ -20,12 +20,13 @@
   color: var(--green-deep); margin-bottom: 6px;
 }
 .profile-card .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
-.danger-zone {
-  background: #FFF4EE; border: 1px solid #F5C4B0;
-  border-radius: var(--radius); padding: 24px 28px;
+.contact-card {
+  background: #F4F8F2; border: 1.5px solid #B5D4B5;
+  border-radius: var(--radius); padding: 18px 22px;
+  font-size: 14px; line-height: 1.55;
 }
-.danger-zone h2 { color: var(--warn); }
-.danger-zone .sub { color: #8A4A30; }
+.contact-card strong { color: var(--green-deep); }
+.contact-card a { color: var(--green-deep); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -50,34 +51,20 @@
     <p class="sub">Ihre Angaben für Bestätigungen und Abrechnungen.</p>
     <form onsubmit="event.preventDefault(); saveProfile();">
       <div class="field">
-        <label for="pf-name">Vor- und Nachname <span class="req">*</span></label>
+        <label for="pf-name">Name</label>
         <input type="text" id="pf-name" required minlength="2">
       </div>
       <div class="field">
         <label for="pf-email">E-Mail</label>
         <input type="email" id="pf-email" disabled style="background: #F0EEE8; color: var(--muted);">
-        <div class="field-hint">Die E-Mail ist Ihr Login und kann derzeit nicht geändert werden.</div>
+        <div class="field-hint">Die E-Mail ist Ihr Login. Um sie zu ändern, kontaktieren Sie bitte <a href="mailto:vorstand@lebenpflegenreisen.de" style="color:var(--green-deep); font-weight:600;">vorstand@lebenpflegenreisen.de</a>.</div>
       </div>
       <div class="field">
         <label for="pf-phone">Telefon</label>
-        <input type="tel" id="pf-phone">
-      </div>
-      <div id="klinik-fields" hidden>
-        <div class="field">
-          <label for="pf-clinic">Klinik / Einrichtung</label>
-          <input type="text" id="pf-clinic">
-        </div>
-        <div class="field">
-          <label for="pf-ward">Station / Abteilung</label>
-          <input type="text" id="pf-ward">
-        </div>
-        <div class="field">
-          <label for="pf-address">Adresse</label>
-          <input type="text" id="pf-address">
-        </div>
+        <input type="tel" id="pf-phone" placeholder="z.B. +49 30 12345678">
       </div>
       <div class="field-error" id="pf-error" hidden></div>
-      <button type="submit" class="btn btn-primary">Änderungen speichern</button>
+      <button type="submit" class="btn btn-primary" id="pf-save-btn">Änderungen speichern</button>
     </form>
   </div>
 
@@ -91,134 +78,148 @@
       </div>
       <div class="field">
         <label for="pw-new">Neues Passwort <span class="req">*</span></label>
-        <input type="password" id="pw-new" autocomplete="new-password" minlength="6" required>
-        <div class="field-hint">Mindestens 6 Zeichen.</div>
+        <input type="password" id="pw-new" autocomplete="new-password" minlength="8" required>
+        <div class="field-hint">Mindestens 8 Zeichen.</div>
       </div>
       <div class="field">
         <label for="pw-confirm">Neues Passwort bestätigen <span class="req">*</span></label>
-        <input type="password" id="pw-confirm" autocomplete="new-password" minlength="6" required>
+        <input type="password" id="pw-confirm" autocomplete="new-password" minlength="8" required>
       </div>
       <div class="field-error" id="pw-error" hidden></div>
-      <button type="submit" class="btn btn-dark">Passwort ändern</button>
+      <button type="submit" class="btn btn-dark" id="pw-save-btn">Passwort ändern</button>
     </form>
   </div>
 
-  <div class="profile-card danger-zone">
-    <h2>Konto löschen</h2>
-    <p class="sub">Ihr Konto und alle Daten werden unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.</p>
-    <button onclick="deleteAccount()" class="btn btn-danger">Konto unwiderruflich löschen</button>
+  <div class="profile-card contact-card">
+    <h2 style="font-size: 18px; margin-bottom: 8px;">Konto löschen</h2>
+    <p style="margin-bottom: 6px;">
+      Sie haben das Recht, die Löschung Ihrer personenbezogenen Daten zu verlangen
+      (Art. 17 DSGVO). Aus rechtlichen Gründen — etwa wegen laufender Abrechnungen
+      oder gesetzlicher Aufbewahrungsfristen — prüfen wir jede Löschanfrage einzeln.
+    </p>
+    <p style="margin-bottom: 6px;">
+      <strong>So geht's:</strong> Schreiben Sie uns eine kurze E-Mail an
+      <a href="mailto:vorstand@lebenpflegenreisen.de?subject=Konto-L%C3%B6schung">vorstand@lebenpflegenreisen.de</a>.
+      Wir bestätigen den Eingang und kümmern uns innerhalb von 14 Tagen um die
+      Löschung bzw. die rechtssichere Sperrung Ihres Kontos.
+    </p>
   </div>
 
 </div>
 </div>
 </main>
 
+<script src="supabase-client.js"></script>
 <script src="app.js"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: '' });
 
-const session = LPR.getSession();
-const user = LPR.getUser(session?.email || '');
-if (!session || !user) {
-  document.getElementById('guard').hidden = false;
-} else {
+async function loadProfile() {
+  if (window.LPR && typeof LPR.refreshSessionCache === 'function') {
+    try { await LPR.refreshSessionCache(); } catch(e) {}
+  }
+  const session = LPR.getSession();
+  if (!session) {
+    document.getElementById('guard').hidden = false;
+    return;
+  }
   document.getElementById('profile-content').hidden = false;
-  document.getElementById('pf-name').value = user.name || '';
-  document.getElementById('pf-email').value = user.email;
-  document.getElementById('pf-phone').value = user.extra?.phone || '';
 
-  if (user.role === 'klinik') {
-    document.getElementById('klinik-fields').hidden = false;
-    document.getElementById('pf-clinic').value = user.extra?.clinic_name || '';
-    document.getElementById('pf-ward').value = user.extra?.ward || '';
-    document.getElementById('pf-address').value = user.extra?.address || '';
+  try {
+    const { data, error } = await window.LPRSupabase
+      .from('profiles')
+      .select('full_name, email, phone')
+      .eq('id', session.id)
+      .single();
+    if (error) throw error;
+    document.getElementById('pf-name').value  = data.full_name || '';
+    document.getElementById('pf-email').value = data.email || session.email || '';
+    document.getElementById('pf-phone').value = data.phone || '';
+  } catch(e) {
+    document.getElementById('pf-name').value  = session.name || '';
+    document.getElementById('pf-email').value = session.email || '';
+    document.getElementById('pf-phone').value = '';
+    console.warn('Profil-Load Fehler:', e);
   }
 }
 
 async function saveProfile() {
-  const name = document.getElementById('pf-name').value.trim();
+  const session = LPR.getSession();
+  if (!session) return;
+  const name  = document.getElementById('pf-name').value.trim();
   const phone = document.getElementById('pf-phone').value.trim();
-  const err = document.getElementById('pf-error');
+  const err   = document.getElementById('pf-error');
+  const btn   = document.getElementById('pf-save-btn');
   err.hidden = true;
-  if (name.length < 2) { err.textContent = 'Bitte gültigen Namen eingeben.'; err.hidden = false; return; }
-
-  const users = LPR.load(LPR.KEYS.users, {});
-  users[session.email].name = name;
-  users[session.email].extra = users[session.email].extra || {};
-  users[session.email].extra.phone = phone;
-
-  if (user.role === 'klinik') {
-    users[session.email].extra.clinic_name = document.getElementById('pf-clinic').value.trim();
-    users[session.email].extra.ward = document.getElementById('pf-ward').value.trim();
-    users[session.email].extra.address = document.getElementById('pf-address').value.trim();
-
-    // auch in clinics-Registry updaten
-    const clinics = LPR.load(LPR.KEYS.clinics, {});
-    if (clinics[session.email]) {
-      clinics[session.email].name = users[session.email].extra.clinic_name;
-      clinics[session.email].ward = users[session.email].extra.ward;
-      clinics[session.email].address = users[session.email].extra.address;
-      clinics[session.email].contact = name;
-      clinics[session.email].phone = phone;
-      LPR.save(LPR.KEYS.clinics, clinics);
-    }
+  if (name.length < 2) {
+    err.textContent = 'Bitte gültigen Namen eingeben.'; err.hidden = false; return;
   }
-  LPR.save(LPR.KEYS.users, users);
-  // Session aktualisieren
-  const s = LPR.getSession();
-  s.name = name;
-  LPR.save(LPR.KEYS.session, s);
-  LPR.showToast('✓ Profil gespeichert');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = '…';
+  try {
+    const { error } = await window.LPRSupabase
+      .from('profiles')
+      .update({ full_name: name, phone: phone || null })
+      .eq('id', session.id);
+    if (error) throw error;
+    if (typeof LPR.refreshSessionCache === 'function') {
+      await LPR.refreshSessionCache();
+    }
+    LPR.showToast('✓ Profil gespeichert');
+  } catch(e) {
+    err.textContent = 'Fehler beim Speichern: ' + (e.message || 'unbekannt');
+    err.hidden = false;
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
 }
 
 async function changePw() {
-  const oldPw = document.getElementById('pw-old').value;
-  const newPw = document.getElementById('pw-new').value;
+  const session = LPR.getSession();
+  if (!session) return;
+  const oldPw   = document.getElementById('pw-old').value;
+  const newPw   = document.getElementById('pw-new').value;
   const confirm = document.getElementById('pw-confirm').value;
-  const err = document.getElementById('pw-error');
+  const err     = document.getElementById('pw-error');
+  const btn     = document.getElementById('pw-save-btn');
   err.hidden = true;
 
-  if (newPw !== confirm) { err.textContent = 'Die neuen Passwörter stimmen nicht überein.'; err.hidden = false; return; }
-  if (newPw.length < 6) { err.textContent = 'Neues Passwort muss mindestens 6 Zeichen haben.'; err.hidden = false; return; }
+  if (newPw !== confirm) {
+    err.textContent = 'Die neuen Passwörter stimmen nicht überein.';
+    err.hidden = false; return;
+  }
+  if (newPw.length < 8) {
+    err.textContent = 'Neues Passwort muss mindestens 8 Zeichen haben.';
+    err.hidden = false; return;
+  }
+  if (newPw === oldPw) {
+    err.textContent = 'Das neue Passwort muss sich vom alten unterscheiden.';
+    err.hidden = false; return;
+  }
 
-  // Altes PW prüfen
-  const verify = await LPR.loginWithPassword({ email: session.email, password: oldPw });
-  if (!verify.ok) { err.textContent = 'Aktuelles Passwort ist falsch.'; err.hidden = false; return; }
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = '…';
+  try {
+    const verify = await LPR.loginWithPassword({ email: session.email, password: oldPw });
+    if (!verify.ok) {
+      err.textContent = 'Aktuelles Passwort ist falsch.';
+      err.hidden = false; return;
+    }
+    const { error } = await window.LPRSupabase.auth.updateUser({ password: newPw });
+    if (error) throw error;
 
-  const ok = await LPR.changePassword(session.email, newPw);
-  if (ok) {
-    document.getElementById('pw-old').value = '';
-    document.getElementById('pw-new').value = '';
+    document.getElementById('pw-old').value     = '';
+    document.getElementById('pw-new').value     = '';
     document.getElementById('pw-confirm').value = '';
     LPR.showToast('✓ Passwort geändert');
-  } else {
-    err.textContent = 'Fehler beim Ändern.'; err.hidden = false;
+  } catch(e) {
+    err.textContent = 'Fehler beim Ändern: ' + (e.message || 'unbekannt');
+    err.hidden = false;
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
   }
 }
 
-function deleteAccount() {
-  if (!confirm('Wirklich Ihr Konto löschen? Alle Ihre Daten werden unwiderruflich entfernt. Diese Aktion kann NICHT rückgängig gemacht werden.')) return;
-  if (!confirm('Sind Sie WIRKLICH sicher? Ihre gesamte Historie, Buchungen und Abrechnungen werden gelöscht.')) return;
-
-  const users = LPR.load(LPR.KEYS.users, {});
-  delete users[session.email];
-  LPR.save(LPR.KEYS.users, users);
-
-  // Verfügbarkeiten
-  const avail = LPR.load(LPR.KEYS.availability, {});
-  delete avail[session.email];
-  LPR.save(LPR.KEYS.availability, avail);
-
-  // Klinik-Registry
-  const clinics = LPR.load(LPR.KEYS.clinics, {});
-  delete clinics[session.email];
-  LPR.save(LPR.KEYS.clinics, clinics);
-
-  LPR.logout();
-  alert('Ihr Konto wurde gelöscht.');
-  window.location.href = 'index.html';
-}
+loadProfile();
 </script>
 </body>
 </html>

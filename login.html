@@ -79,14 +79,6 @@
       <div class="field-error" id="li-error" hidden></div>
       <button type="submit" class="btn btn-primary btn-block">Anmelden</button>
     </form>
-
-    <div class="info-small">
-      <strong>🎮 Demo-Zugänge</strong> — Passwort jeweils <code>demo1234</code>:<br>
-      • <strong>margarete@demo.de</strong> (Ehrenamt)<br>
-      • <strong>charite@demo.de</strong> (Klinik)<br>
-      • <strong>vorstand@demo.de</strong> (Admin)<br>
-      <a href="demo.html">→ Demo-Daten laden &amp; Übersicht</a>
-    </div>
   </div>
 
   <div class="auth-card">
@@ -160,13 +152,6 @@
 <script>
 LPR_Layout.init({ page: '' });
 
-// Demo-User automatisch anlegen beim ersten Besuch
-(async function() {
-  try {
-    await LPR.seedDemoUsers();
-  } catch(e) { console.warn('seedDemoUsers:', e); }
-})();
-
 // Bereits eingeloggt?
 (function() {
   const s = LPR.getSession();
@@ -203,10 +188,6 @@ async function doLogin() {
   const password = document.getElementById('li-password').value;
   const errEl = document.getElementById('li-error');
   errEl.hidden = true;
-  // Sicherstellen dass Demo-User da sind (falls jemand schneller klickt als das Async-Seed)
-  if (email.endsWith('@demo.de')) {
-    try { await LPR.seedDemoUsers(); } catch(e) {}
-  }
   const res = await LPR.loginWithPassword({ email, password });
   if (!res.ok) { errEl.textContent = res.error; errEl.hidden = false; return; }
   const target = LPR.roleTarget(res.user.role);

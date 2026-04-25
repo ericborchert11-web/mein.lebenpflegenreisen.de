@@ -11,12 +11,8 @@
     const bar = document.createElement('div');
     bar.className = 'a11y-bar';
     bar.setAttribute('role','region');
-    bar.setAttribute('aria-label','Barrierefreiheit und Demo-Modus');
+    bar.setAttribute('aria-label','Barrierefreiheit');
     bar.innerHTML = `
-      <div class="a11y-left">
-        <span class="demo-badge" title="Daten werden lokal im Browser gespeichert">DEMO</span>
-        <a href="demo.html" class="a11y-btn" style="border-color:rgba(200,241,53,.5);">⚙ Test-Konten</a>
-      </div>
       <div class="a11y-right">
         <div class="a11y-group">
           <span class="a11y-label">Text:</span>

@@ -88,7 +88,6 @@
 }
 .member-action:hover { background: var(--green-deep); }
 
-/* ═══════════ Dialog ═══════════ */
 dialog#profile-dialog {
   border: none; border-radius: var(--radius);
   padding: 0; max-width: 680px; width: calc(100% - 32px);
@@ -193,9 +192,7 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
   font-size: 13px;
 }
 .clinic-row-name { font-weight: 600; }
-.clinic-row-actions {
-  display: flex; gap: 6px;
-}
+.clinic-row-actions { display: flex; gap: 6px; }
 .clinic-btn {
   font-size: 11.5px; font-weight: 700;
   padding: 4px 10px; border-radius: 6px;
@@ -208,6 +205,33 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
 .clinic-btn.neutral.active { background: var(--muted); color: #fff; border-color: var(--muted); }
 .clinic-btn.no { background: #fff; color: #8B2818; border-color: #C85B30; }
 .clinic-btn.no.active { background: #C85B30; color: #fff; }
+
+.cmp-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) auto auto;
+  gap: 10px; align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: #FAFAF5; margin-bottom: 6px;
+}
+.cmp-row:hover { background: #F5F5EC; }
+.cmp-row .cmp-name { font-weight: 600; font-size: 13px; }
+.cmp-row .cmp-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.cmp-row select, .cmp-row input[type="date"] {
+  padding: 5px 8px; font-size: 12px;
+  border: 1px solid var(--border); border-radius: 4px;
+  font-family: inherit; background: #fff;
+}
+.cmp-row select { min-width: 130px; }
+.cmp-status-pill {
+  display: inline-block; font-size: 10.5px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px;
+  letter-spacing: 0.04em; margin-left: 6px;
+}
+.cmp-status-pill.missing   { background: #FDE4DC; color: #8B2818; }
+.cmp-status-pill.submitted { background: #FFF4E4; color: #8B6218; }
+.cmp-status-pill.approved  { background: #D4E8DC; color: #1A3A2A; }
+.cmp-status-pill.expired   { background: #FDE4DC; color: #8B2818; }
 
 .pd-foot {
   padding: 16px 26px;
@@ -260,9 +284,7 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
       Die Präferenzen sind ein <strong>freiwilliger Service</strong> des Vereins, der Mitwirkenden dabei hilft, für sie relevante Dienste zu finden.
       Der Verein ist den Mitwirkenden gegenüber <strong>nicht weisungsbefugt</strong> (§ 1 der Mitwirkungsvereinbarung).
     </p>
-    <p style="margin-top: 8px;">
-      <strong>Daraus folgt:</strong>
-    </p>
+    <p style="margin-top: 8px;"><strong>Daraus folgt:</strong></p>
     <ul style="margin: 8px 0 8px 20px;">
       <li><strong>Harte Präferenzen</strong> sind nur Tatsachen/Qualifikationen (z.B. „hat Sitzwachen-Schulung absolviert"). Diese werden in Absprache mit der Person dokumentiert.</li>
       <li><strong>Weiche Präferenzen</strong> sind persönliche Vorlieben. Jede:r Mitwirkende kann sie jederzeit selbst ändern.</li>
@@ -291,14 +313,11 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
     <div id="member-list"></div>
   </div>
 
-  <div style="text-align: center; margin-top: 16px;">
-    
-  </div>
+  <div style="text-align: center; margin-top: 16px;"></div>
 
 </div>
 </main>
 
-<!-- Profil-Dialog -->
 <dialog id="profile-dialog">
   <div class="pd-head">
     <div>
@@ -310,64 +329,59 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
 
   <div class="pd-body">
 
-    <!-- HARTE PRÄFERENZEN: Qualifikationen -->
+    <div class="pd-section">
+      <div class="pd-section-head">
+        <h4>Compliance-Dokumente</h4>
+        <span class="type-label hard">Pflicht · Admin</span>
+      </div>
+      <div class="hint">
+        Status der 5 Pflicht-Dokumente. Sobald ein Dokument per E-Mail eingegangen und geprüft ist, hier auf <strong>Freigegeben</strong> stellen. Bei Führungszeugnis und Erste-Hilfe bitte das Ablaufdatum eintragen — Mitwirkende werden frühzeitig erinnert.
+      </div>
+      <div id="pref-compliance" style="display: flex; flex-direction: column; gap: 4px; margin-top: 10px;"></div>
+    </div>
+
     <div class="pd-section">
       <div class="pd-section-head">
         <h4>Qualifikationen & Zulassungen</h4>
         <span class="type-label hard">Hart · Admin</span>
       </div>
-      <div class="hint">
-        Was hat die Person absolviert oder als Bedingung mitgebracht? Diese Angaben werden in Absprache mit der Person gesetzt.
-        Ohne diese Zulassungen sind die entsprechenden Dienste für die Person nicht sichtbar.
-      </div>
+      <div class="hint">Was hat die Person absolviert oder als Bedingung mitgebracht? Diese Angaben werden in Absprache mit der Person gesetzt. Ohne diese Zulassungen sind die entsprechenden Dienste für die Person nicht sichtbar.</div>
       <div class="pref-grid" id="pref-qual"></div>
     </div>
 
-    <!-- HARTE PRÄFERENZEN: Angebots-Typen -->
     <div class="pd-section">
       <div class="pd-section-head">
         <h4>Art der Tätigkeit</h4>
         <span class="type-label hard">Hart · Admin</span>
       </div>
-      <div class="hint">
-        Welche Arten von Einsätzen möchte die Person grundsätzlich machen? Wird gemeinsam festgelegt und kann vom Mitwirkenden selbst geändert werden.
-      </div>
+      <div class="hint">Welche Arten von Einsätzen möchte die Person grundsätzlich machen? Wird gemeinsam festgelegt und kann vom Mitwirkenden selbst geändert werden.</div>
       <div class="pref-grid" id="pref-types"></div>
     </div>
 
-    <!-- WEICHE PRÄFERENZEN: Schichten -->
     <div class="pd-section">
       <div class="pd-section-head">
         <h4>Bevorzugte Schichten</h4>
         <span class="type-label soft">Weich · Wunsch</span>
       </div>
-      <div class="hint">
-        Weiche Vorliebe. Nicht-bevorzugte Schichten werden gedimmt angezeigt, aber bleiben annehmbar (z.B. im Notfall).
-      </div>
+      <div class="hint">Weiche Vorliebe. Nicht-bevorzugte Schichten werden gedimmt angezeigt, aber bleiben annehmbar (z.B. im Notfall).</div>
       <div class="pref-grid" id="pref-shifts"></div>
     </div>
 
-    <!-- WEICHE PRÄFERENZEN: Kliniken -->
     <div class="pd-section">
       <div class="pd-section-head">
         <h4>Kliniken</h4>
         <span class="type-label soft">Weich · Wunsch</span>
       </div>
-      <div class="hint">
-        Für jede Klinik: Präferiert (wird bevorzugt angezeigt), Neutral (normal), oder Ausgeschlossen (wird gedimmt mit Notfall-Hinweis).
-      </div>
+      <div class="hint">Für jede Klinik: Präferiert (wird bevorzugt angezeigt), Neutral (normal), oder Ausgeschlossen (wird gedimmt mit Notfall-Hinweis).</div>
       <div class="clinics-list" id="pref-clinics"></div>
     </div>
 
-    <!-- WEICHE PRÄFERENZEN: Persönliche Rahmen -->
     <div class="pd-section">
       <div class="pd-section-head">
         <h4>Persönlicher Rahmen</h4>
         <span class="type-label soft">Weich · Wunsch</span>
       </div>
-      <div class="hint">
-        Allgemeine Rahmenbedingungen der Person für die Dienst-Planung.
-      </div>
+      <div class="hint">Allgemeine Rahmenbedingungen der Person für die Dienst-Planung.</div>
       <div class="pref-input-row">
         <div>
           <label for="pref-plz">Wohnort-PLZ (für Entfernung)</label>
@@ -412,7 +426,6 @@ LPR_Layout.init({ page: '', chatbot: false });
 
 const PROFILE_KEY = 'lpr-profiles-v1';
 
-// Stammdaten
 const QUALIFICATIONS = [
   { id: 'sitzwache-schulung', label: 'Sitzwachen-Schulung', emoji: '🎓' },
   { id: 'reise-schulung',     label: 'Reiseleitungs-Schulung', emoji: '🧳' },
@@ -433,7 +446,6 @@ const SHIFT_TYPES = [
   { id: 'nacht', label: 'Nachtdienst', emoji: '🌙' }
 ];
 
-// Beispiel-Kliniken (später aus echter Klinik-Liste)
 const CLINICS = [
   { id: 'charite-mitte',        name: 'Charité Campus Mitte',        plz: '10117' },
   { id: 'charite-virchow',      name: 'Charité Virchow-Klinikum',    plz: '13353' },
@@ -449,28 +461,18 @@ function escape(s) { const d=document.createElement('div'); d.textContent=s??'';
 
 function getDefaultProfile() {
   return {
-    qualifications: [],
-    activityTypes: [],
+    qualifications: [], activityTypes: [],
     preferredShifts: ['frueh','spaet','nacht'],
-    clinicPrefs: {}, // { clinicId: 'pref'|'neutral'|'avoid' }
-    plz: '',
-    maxKm: '',
-    languages: '',
-    notes: ''
+    clinicPrefs: {}, plz: '', maxKm: '', languages: '', notes: ''
   };
 }
 
-// ═══════════════════════════════════════════════════════
-// Mitwirkende laden (jetzt asynchron gegen Supabase)
-// ═══════════════════════════════════════════════════════
 async function loadMembers() {
-  // Approved Ehrenamtliche laden
   const all = await LPR.listUsersByStatus('approved');
   return (all || []).filter(u => u.role === 'ehrenamt');
 }
 
 async function loadPending() {
-  // Pending + rejected zusammen anzeigen, wie bisher
   const [pending, rejected] = await Promise.all([
     LPR.listUsersByStatus('pending'),
     LPR.listUsersByStatus('rejected')
@@ -484,10 +486,7 @@ function renderPending() {
   const list = document.getElementById('pending-list');
   const count = document.getElementById('pending-count');
   if (!section || !list) return;
-  if (pending.length === 0) {
-    section.style.display = 'none';
-    return;
-  }
+  if (pending.length === 0) { section.style.display = 'none'; return; }
   section.style.display = 'block';
   count.textContent = pending.length + ' offen';
   list.innerHTML = pending.map(u => {
@@ -511,20 +510,14 @@ function renderPending() {
       </div>
     </div>`;
   }).join('');
-
   list.querySelectorAll('.btn-approve').forEach(btn => {
     btn.addEventListener('click', async () => {
       const email = btn.getAttribute('data-email');
       if (!confirm('Konto für ' + email + ' freischalten? Die Personalnummer wird automatisch vergeben.')) return;
       btn.disabled = true; btn.textContent = '…';
       const res = await LPR.approveUser(email);
-      if (res.ok) {
-        showToast('✓ ' + email + ' freigeschaltet als ' + res.user.personalnummer);
-        await render();
-      } else {
-        btn.disabled = false; btn.textContent = '✓ Freigeben';
-        showToast('Fehler: ' + res.error);
-      }
+      if (res.ok) { showToast('✓ ' + email + ' freigeschaltet als ' + res.user.personalnummer); await render(); }
+      else { btn.disabled = false; btn.textContent = '✓ Freigeben'; showToast('Fehler: ' + res.error); }
     });
   });
   list.querySelectorAll('.btn-reject').forEach(btn => {
@@ -534,13 +527,8 @@ function renderPending() {
       if (reason === null) return;
       btn.disabled = true; btn.textContent = '…';
       const res = await LPR.rejectUser(email, reason);
-      if (res.ok) {
-        showToast('Registrierung abgelehnt: ' + email);
-        await render();
-      } else {
-        btn.disabled = false; btn.textContent = 'Ablehnen';
-        showToast('Fehler: ' + res.error);
-      }
+      if (res.ok) { showToast('Registrierung abgelehnt: ' + email); await render(); }
+      else { btn.disabled = false; btn.textContent = 'Ablehnen'; showToast('Fehler: ' + res.error); }
     });
   });
   });
@@ -551,16 +539,11 @@ async function render() {
   const members = await loadMembers();
   const profiles = loadJSON(PROFILE_KEY, {});
   document.getElementById('member-count').textContent = `${members.length} Person${members.length === 1 ? '' : 'en'}`;
-
   const box = document.getElementById('member-list');
   if (members.length === 0) {
-    box.innerHTML = `<div style="padding: 40px 22px; text-align: center; color: var(--muted);">
-      Keine Mitwirkenden gefunden.<br>
-      Noch keine Registrierungen vorhanden.
-    </div>`;
+    box.innerHTML = `<div style="padding: 40px 22px; text-align: center; color: var(--muted);">Keine Mitwirkenden gefunden.<br>Noch keine Registrierungen vorhanden.</div>`;
     return;
   }
-
   box.innerHTML = members.map(m => {
     const p = profiles[m.email] || getDefaultProfile();
     const qualCount = (p.qualifications || []).length;
@@ -568,7 +551,6 @@ async function render() {
     const clinicPrefs = Object.values(p.clinicPrefs || {});
     const avoidCount = clinicPrefs.filter(v => v === 'avoid').length;
     const prefCount = clinicPrefs.filter(v => v === 'pref').length;
-
     const badges = [];
     if (qualCount > 0) badges.push(`<span class="mbadge hard">${qualCount} Qual.</span>`);
     if (typeCount > 0) badges.push(`<span class="mbadge hard">${typeCount} Tätigkeiten</span>`);
@@ -576,7 +558,6 @@ async function render() {
     if (avoidCount > 0) badges.push(`<span class="mbadge block">${avoidCount}× ausgeschl.</span>`);
     if (p.plz) badges.push(`<span class="mbadge soft">PLZ ${escape(p.plz)}</span>`);
     if (badges.length === 0) badges.push(`<span class="mbadge" style="background:#F0ECE4; color:var(--muted);">Noch kein Profil</span>`);
-
     return `<div class="member-row" onclick="openProfile('${escape(m.email)}')">
       <div>
         <div class="member-name">${escape(m.name)}</div>
@@ -588,9 +569,6 @@ async function render() {
   }).join('');
 }
 
-// ═══════════════════════════════════════════════════════
-// Profil-Dialog
-// ═══════════════════════════════════════════════════════
 let currentEmail = null;
 
 async function openProfile(email) {
@@ -600,63 +578,148 @@ async function openProfile(email) {
   currentEmail = email;
   const profiles = loadJSON(PROFILE_KEY, {});
   const p = profiles[email] || getDefaultProfile();
-
   document.getElementById('pd-title').textContent = m.name;
   document.getElementById('pd-subtitle').textContent = m.email;
-
-  // Qualifikationen
   document.getElementById('pref-qual').innerHTML = QUALIFICATIONS.map(q => {
     const checked = (p.qualifications || []).includes(q.id);
-    return `<label class="pref-chip ${checked ? 'checked' : ''}">
-      <input type="checkbox" data-qual="${q.id}" ${checked ? 'checked' : ''}>
-      <span>${q.emoji} ${q.label}</span>
-    </label>`;
+    return `<label class="pref-chip ${checked ? 'checked' : ''}"><input type="checkbox" data-qual="${q.id}" ${checked ? 'checked' : ''}><span>${q.emoji} ${q.label}</span></label>`;
   }).join('');
-
-  // Activity Types
   document.getElementById('pref-types').innerHTML = ACTIVITY_TYPES.map(t => {
     const checked = (p.activityTypes || []).includes(t.id);
-    return `<label class="pref-chip ${checked ? 'checked' : ''}">
-      <input type="checkbox" data-type="${t.id}" ${checked ? 'checked' : ''}>
-      <span>${t.emoji} ${t.label}</span>
-    </label>`;
+    return `<label class="pref-chip ${checked ? 'checked' : ''}"><input type="checkbox" data-type="${t.id}" ${checked ? 'checked' : ''}><span>${t.emoji} ${t.label}</span></label>`;
   }).join('');
-
-  // Shifts
   document.getElementById('pref-shifts').innerHTML = SHIFT_TYPES.map(s => {
     const checked = (p.preferredShifts || []).includes(s.id);
-    return `<label class="pref-chip ${checked ? 'checked' : ''}">
-      <input type="checkbox" data-shift="${s.id}" ${checked ? 'checked' : ''}>
-      <span>${s.emoji} ${s.label}</span>
-    </label>`;
+    return `<label class="pref-chip ${checked ? 'checked' : ''}"><input type="checkbox" data-shift="${s.id}" ${checked ? 'checked' : ''}><span>${s.emoji} ${s.label}</span></label>`;
   }).join('');
-
-  // Clinics
   document.getElementById('pref-clinics').innerHTML = CLINICS.map(c => {
     const pref = (p.clinicPrefs || {})[c.id] || 'neutral';
-    return `<div class="clinic-row">
-      <div class="clinic-row-name">${escape(c.name)}<br><span style="color:var(--muted); font-size:11px; font-weight:400;">PLZ ${c.plz}</span></div>
-      <div class="clinic-row-actions">
-        <button type="button" class="clinic-btn ok ${pref === 'pref' ? 'active' : ''}" onclick="setClinicPref('${c.id}','pref')">Bevorzugt</button>
-        <button type="button" class="clinic-btn neutral ${pref === 'neutral' ? 'active' : ''}" onclick="setClinicPref('${c.id}','neutral')">Neutral</button>
-        <button type="button" class="clinic-btn no ${pref === 'avoid' ? 'active' : ''}" onclick="setClinicPref('${c.id}','avoid')">Nicht bevorzugt</button>
-      </div>
-    </div>`;
+    return `<div class="clinic-row"><div class="clinic-row-name">${escape(c.name)}<br><span style="color:var(--muted); font-size:11px; font-weight:400;">PLZ ${c.plz}</span></div><div class="clinic-row-actions"><button type="button" class="clinic-btn ok ${pref === 'pref' ? 'active' : ''}" onclick="setClinicPref('${c.id}','pref')">Bevorzugt</button><button type="button" class="clinic-btn neutral ${pref === 'neutral' ? 'active' : ''}" onclick="setClinicPref('${c.id}','neutral')">Neutral</button><button type="button" class="clinic-btn no ${pref === 'avoid' ? 'active' : ''}" onclick="setClinicPref('${c.id}','avoid')">Nicht bevorzugt</button></div></div>`;
   }).join('');
-
   document.getElementById('pref-plz').value = p.plz || '';
   document.getElementById('pref-maxkm').value = p.maxKm || '';
   document.getElementById('pref-languages').value = p.languages || '';
   document.getElementById('pref-notes').value = p.notes || '';
-
-  // Event: Klicks auf Chips visuell umsetzen
   document.querySelectorAll('.pref-chip input').forEach(cb => {
-    cb.addEventListener('change', (e) => {
-      e.target.closest('.pref-chip').classList.toggle('checked', e.target.checked);
+    cb.addEventListener('change', (e) => { e.target.closest('.pref-chip').classList.toggle('checked', e.target.checked); });
+  });
+  document.getElementById('profile-dialog').showModal();
+  _lastComplianceUserId = null;
+  renderCompliance(m._id || null, email);
+}
+
+const COMPLIANCE_ITEMS = [
+  { id: 'fuehrungszeugnis', label: '🛡 Führungszeugnis', hasExpiry: true,  expiryHint: 'Ablauf 3J nach Ausstellung' },
+  { id: 'ifsg43',           label: '🦠 §43 IfSG',         hasExpiry: false },
+  { id: 'erste_hilfe',      label: '🚑 Erste-Hilfe',      hasExpiry: true,  expiryHint: 'Auffrischung nach 2J' },
+  { id: 'dsgvo',            label: '🔒 DSGVO',            hasExpiry: false },
+  { id: 'schweigepflicht',  label: '🤫 Schweigepflicht',  hasExpiry: false }
+];
+
+const COMPLIANCE_STATUS_LABELS = {
+  missing:   'Fehlt',
+  submitted: 'Eingereicht',
+  approved:  'Freigegeben',
+  expired:   'Abgelaufen'
+};
+
+function complianceEffectiveStatus(record) {
+  if (!record) return 'missing';
+  if (record.status === 'approved' && record.valid_until) {
+    const days = Math.floor((new Date(record.valid_until) - new Date()) / (1000*60*60*24));
+    if (days < 0) return 'expired';
+  }
+  return record.status || 'missing';
+}
+
+let _lastComplianceUserId = null;
+
+async function renderCompliance(userId, fallbackEmail) {
+  const container = document.getElementById('pref-compliance');
+  if (!container) return;
+  container.innerHTML = '<div style="padding: 12px; color: var(--muted); font-size: 12px;">Lade Compliance-Status…</div>';
+  let id = userId || _lastComplianceUserId;
+  if (!id && fallbackEmail) {
+    try {
+      const list = await LPR.listUsersByStatus();
+      const match = (list || []).find(u => u.email === fallbackEmail);
+      id = match && match._id;
+    } catch(e) {}
+  }
+  if (!id) {
+    container.innerHTML = '<div style="padding: 12px; color: #c00; font-size: 12px;">Compliance kann nicht geladen werden — User-ID nicht gefunden.</div>';
+    return;
+  }
+  _lastComplianceUserId = id;
+  const result = await LPR.getComplianceForUser(id);
+  if (!result.ok) {
+    container.innerHTML = '<div style="padding: 12px; color: #c00; font-size: 12px;">Fehler: ' + escape(result.error || 'unbekannt') + '</div>';
+    return;
+  }
+  const byType = {};
+  for (const r of result.records) byType[r.document_type] = r;
+  container.innerHTML = COMPLIANCE_ITEMS.map(item => {
+    const record = byType[item.id];
+    const status = complianceEffectiveStatus(record);
+    const validUntil = record && record.valid_until ? record.valid_until.substring(0, 10) : '';
+    const submittedAt = record && record.submitted_at ? new Date(record.submitted_at).toLocaleDateString('de-DE') : null;
+    const approvedAt = record && record.approved_at ? new Date(record.approved_at).toLocaleDateString('de-DE') : null;
+    const recordId = record ? record.id : '';
+    const meta = [];
+    if (submittedAt) meta.push('eingereicht ' + submittedAt);
+    if (approvedAt)  meta.push('freigegeben ' + approvedAt);
+    return `<div class="cmp-row" data-cmp-row="${item.id}">
+      <div>
+        <div class="cmp-name">${item.label} <span class="cmp-status-pill ${status}">${COMPLIANCE_STATUS_LABELS[status]}</span></div>
+        ${meta.length ? '<div class="cmp-meta">' + escape(meta.join(' · ')) + '</div>' : ''}
+      </div>
+      <select data-cmp-status="${escape(recordId)}" data-doc-type="${item.id}" data-original="${status === 'expired' ? 'approved' : status}">
+        <option value="missing"   ${status==='missing'   ? 'selected':''}>Fehlt</option>
+        <option value="submitted" ${status==='submitted' ? 'selected':''}>Eingereicht</option>
+        <option value="approved"  ${(status==='approved' || status==='expired') ? 'selected':''}>Freigegeben</option>
+      </select>
+      ${item.hasExpiry
+        ? `<input type="date" data-cmp-expiry="${escape(recordId)}" value="${escape(validUntil)}" title="${escape(item.expiryHint || '')}">`
+        : '<span style="font-size: 11px; color: var(--muted);">—</span>'}
+    </div>`;
+  }).join('');
+  container.querySelectorAll('[data-cmp-status]').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const rowEl = sel.closest('.cmp-row');
+      const recordId = sel.getAttribute('data-cmp-status');
+      const docType = sel.getAttribute('data-doc-type');
+      const original = sel.getAttribute('data-original');
+      const newStatus = sel.value;
+      const expiryInput = rowEl.querySelector('[data-cmp-expiry]');
+      const validUntil = expiryInput ? (expiryInput.value || null) : null;
+      if (!recordId) {
+        showToast('Fehler: Compliance-Datensatz nicht gefunden. Bitte Seite neu laden.');
+        sel.value = original;
+        return;
+      }
+      sel.disabled = true;
+      const res = await LPR.setComplianceStatus(recordId, { status: newStatus, valid_until: validUntil });
+      sel.disabled = false;
+      if (res.ok) {
+        const itemDef = COMPLIANCE_ITEMS.find(i=>i.id===docType);
+        showToast('✓ ' + (itemDef ? itemDef.label : docType) + ': ' + COMPLIANCE_STATUS_LABELS[newStatus]);
+        await renderCompliance(_lastComplianceUserId);
+      } else {
+        showToast('Fehler: ' + (res.error || 'unbekannt'));
+        sel.value = original;
+      }
     });
   });
-
-  document.getElementById('profile-dialog').showModal();
+  container.querySelectorAll('[data-cmp-expiry]').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const recordId = inp.getAttribute('data-cmp-expiry');
+      const newDate = inp.value || null;
+      if (!recordId) return;
+      const res = await LPR.setComplianceStatus(recordId, { valid_until: newDate });
+      if (res.ok) showToast('✓ Ablaufdatum gespeichert');
+      else showToast('Fehler: ' + (res.error || 'unbekannt'));
+    });
+  });
 }
 
 function setClinicPref(clinicId, value) {
@@ -667,9 +730,7 @@ function setClinicPref(clinicId, value) {
   p.clinicPrefs[clinicId] = value;
   profiles[currentEmail] = p;
   saveJSON(PROFILE_KEY, profiles);
-  // Nur die Buttons für diese eine Klinik neu zeichnen
-  const row = [...document.querySelectorAll('.clinic-row')].find(r =>
-    r.innerHTML.includes(`setClinicPref('${clinicId}'`));
+  const row = [...document.querySelectorAll('.clinic-row')].find(r => r.innerHTML.includes(`setClinicPref('${clinicId}'`));
   if (row) {
     ['pref','neutral','avoid'].forEach(k => {
       const btn = row.querySelector(`.clinic-btn.${k === 'pref' ? 'ok' : k === 'neutral' ? 'neutral' : 'no'}`);
@@ -687,7 +748,6 @@ function saveProfile() {
   if (!currentEmail) return;
   const profiles = loadJSON(PROFILE_KEY, {});
   const p = profiles[currentEmail] || getDefaultProfile();
-
   p.qualifications = [...document.querySelectorAll('[data-qual]:checked')].map(cb => cb.dataset.qual);
   p.activityTypes = [...document.querySelectorAll('[data-type]:checked')].map(cb => cb.dataset.type);
   p.preferredShifts = [...document.querySelectorAll('[data-shift]:checked')].map(cb => cb.dataset.shift);
@@ -695,18 +755,13 @@ function saveProfile() {
   p.maxKm = document.getElementById('pref-maxkm').value;
   p.languages = document.getElementById('pref-languages').value.trim();
   p.notes = document.getElementById('pref-notes').value.trim();
-
   profiles[currentEmail] = p;
   saveJSON(PROFILE_KEY, profiles);
-
   closeProfile();
   render();
   showToast('✓ Profil gespeichert');
 }
 
-// ═══════════════════════════════════════════════════════
-// Toast
-// ═══════════════════════════════════════════════════════
 let toastTimer;
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -716,22 +771,13 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-// Auth-Check: Nur Admin
 async function authCheck() {
-  // Erst frische Session aus Supabase ziehen, dann erst entscheiden
   if (window.LPR && typeof LPR.refreshSessionCache === 'function') {
     try { await LPR.refreshSessionCache(); } catch(e) {}
   }
   const session = loadJSON('lpr-session-v2', null);
   if (!session || session.role !== 'admin') {
-    document.querySelector('.admin-wrap').innerHTML = `
-      <div class="admin-header">
-        <h1>🔒 Admin-Bereich</h1>
-        <div class="sub">Bitte als Vorstand/Admin einloggen.</div>
-        <div style="margin-top: 16px;">
-          <a href="login.html" class="member-action" style="display: inline-block; text-decoration: none;">Zum Login →</a>
-        </div>
-      </div>`;
+    document.querySelector('.admin-wrap').innerHTML = `<div class="admin-header"><h1>🔒 Admin-Bereich</h1><div class="sub">Bitte als Vorstand/Admin einloggen.</div><div style="margin-top: 16px;"><a href="login.html" class="member-action" style="display: inline-block; text-decoration: none;">Zum Login →</a></div></div>`;
     return false;
   }
   return true;

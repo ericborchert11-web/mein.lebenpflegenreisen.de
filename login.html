@@ -75,7 +75,7 @@
       <div class="field">
         <label for="li-password">Passwort <span class="req">*</span></label>
         <input type="password" id="li-password" autocomplete="current-password" required>
-      </div>
+      <div class="field-hint" style="margin-top:6px; font-size:13px;"><a href="mailto:vorstand@lebenpflegenreisen.de?subject=Passwort%20vergessen" style="color:var(--green);">Passwort vergessen?</a> — Schreib uns kurz, wir setzen es zurück.</div></div>
       <div class="field-error" id="li-error" hidden></div>
       <button type="submit" class="btn btn-primary btn-block">Anmelden</button>
     </form>
@@ -130,13 +130,13 @@
       </div>
       <div class="field">
         <label for="rg-password">Passwort <span class="req">*</span></label>
-        <input type="password" id="rg-password" autocomplete="new-password" minlength="6" required>
-        <div class="field-hint">Mindestens 6 Zeichen.</div>
+        <input type="password" id="rg-password" autocomplete="new-password" minlength="8" required oninput="checkPwStrength(this)">
+        <div class="field-hint">Mindestens 8 Zeichen.</div>
       </div>
 
       <label class="check">
         <input type="checkbox" id="rg-dsgvo" required>
-        <div class="check-text">Ich habe die <a href="https://lebenpflegenreisen.de/datenschutz" target="_blank" rel="noopener" target="_blank" style="color:var(--green); font-weight:700;">Datenschutzerklärung</a> gelesen und willige in die Verarbeitung meiner Daten ein.</div>
+        <div class="check-text">Ich habe die <a href="https://lebenpflegenreisen.de/datenschutz" target="_blank" rel="noopener" target="_blank" style="color:var(--green); font-weight:700;">Datenschutzerklärung</a> gelesen und willige in die Verarbeitung meiner Daten ein. <span class="req">*</span></div>
       </label>
 
       <div class="field-error" id="rg-error" hidden></div>
@@ -241,6 +241,26 @@ function showErr(msg) {
   el.textContent = msg;
   el.hidden = false;
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+</script>
+
+<script>
+function checkPwStrength(input){
+  var v = input.value;
+  var hint = input.parentElement.querySelector(".field-hint");
+  if(!hint) return;
+  if(v.length === 0){
+    hint.textContent = "Mindestens 8 Zeichen.";
+    hint.style.color = "";
+    return;
+  }
+  if(v.length < 8){
+    hint.textContent = "Noch " + (8 - v.length) + " Zeichen …";
+    hint.style.color = "var(--warn)";
+  } else {
+    hint.textContent = "✓ Passwortlänge ok";
+    hint.style.color = "#4A7A5A";
+  }
 }
 </script>
 </body>

@@ -562,77 +562,15 @@ body.ls .ls-tag { display: inline-block; }
 LPR_Layout.init({ page: 'schichtplaner' });
 
 // ────────────────────────────────────────
-// DEMO-DATEN (später aus DB/WordPress)
+// Reisen-Anmeldung gegen Supabase (Block C)
 // ────────────────────────────────────────
-const DEMO_TRIPS = [
-  {
-    id: 'trip-001',
-    title: 'Oberhof – Thüringer Wald',
-    location: 'Oberhof, Thüringen',
-    start: '2026-05-25',
-    end:   '2026-05-31',
-    partner: 'AWO',
-    description: 'Letzte Maiwoche im Thüringer Wald — barrierefreies Hotel, Kurort-Infrastruktur, kleine Ausflüge und Spaziergänge. In Kooperation mit der AWO.',
-    descriptionLS: 'Wir fahren nach Oberhof. Das ist in Thüringen. Wir bleiben 1 Woche. Wir machen Ausflüge. Die AWO ist unser Partner.',
-    maxSpots: 4
-  },
-  {
-    id: 'trip-002',
-    title: 'Ostsee – Strand und Meer',
-    location: 'Ostsee, Deutschland',
-    start: '2026-06-08',
-    end:   '2026-06-14',
-    partner: 'AWO',
-    description: 'Eine Woche direkt an der Ostsee mit kleiner Reisegruppe. Strandpromenade, Seeluft, gute barrierefreie Infrastruktur. In Kooperation mit der AWO.',
-    descriptionLS: 'Wir fahren an die Ostsee. Das ist in Deutschland. Wir bleiben 1 Woche. Wir gehen an den Strand. Die AWO ist unser Partner.',
-    maxSpots: 4
-  },
-  {
-    id: 'trip-003',
-    title: 'Bayerischer Wald – Natur & Ruhe',
-    location: 'Bodenmais, Bayern',
-    start: '2026-07-04',
-    end:   '2026-07-10',
-    description: 'Sommerreise in den Bayerischen Wald. Barrierefreie Wanderwege, Kurort-Infrastruktur, kleine Tagesausflüge.',
-    descriptionLS: 'Wir fahren in den Wald in Bayern. Wir bleiben 1 Woche. Wir machen kleine Spaziergänge.',
-    maxSpots: 4
-  },
-  {
-    id: 'trip-004',
-    title: 'Städtetrip Dresden',
-    location: 'Dresden, Sachsen',
-    start: '2026-09-12',
-    end:   '2026-09-15',
-    description: 'Verlängertes Wochenende in Dresden. Kultur, Semperoper (mit Audiodeskription), Zwinger, barrierefreie Altstadt-Tour.',
-    descriptionLS: 'Wir fahren nach Dresden. Das ist eine Stadt in Deutschland. Wir bleiben 4 Tage. Wir sehen schöne Gebäude.',
-    maxSpots: 4
-  }
-];
+
+let _trips = [];          // Trips aus DB
+let _signupsByTrip = {};  // tripId -> [signups]
+let _mySignupByTrip = {}; // tripId -> mein signup oder null
 
 // ────────────────────────────────────────
-// STORAGE
-// ────────────────────────────────────────
-const STORAGE_KEY = 'lpr-schichtplan-v1';
-
-function loadSignups() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-  } catch(e) { return {}; }
-}
-function saveSignups(data) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
-}
-
-// In dieser Prototyp-Version identifizieren wir einen User über seine E-Mail
-function getMyEmail() {
-  try { return localStorage.getItem('lpr-my-email') || ''; } catch(e) { return ''; }
-}
-function setMyEmail(email) {
-  try { localStorage.setItem('lpr-my-email', email); } catch(e) {}
-}
-
-// ────────────────────────────────────────
-// RENDERING
+// FORMAT
 // ────────────────────────────────────────
 function formatDateRange(start, end) {
   const opts = { day: '2-digit', month: 'short' };
@@ -641,21 +579,74 @@ function formatDateRange(start, end) {
   return `${s} – ${e}`;
 }
 
+function maskName(name) {
+  if (!name) return '—';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return parts[0];
+  return parts[0].charAt(0) + '. ' + parts.slice(1).join(' ');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+// ────────────────────────────────────────
+// LADEN
+// ────────────────────────────────────────
+async function loadAll() {
+  const tripsRes = await window.LPR.listTrips({ status: 'open' });
+  if (!tripsRes.ok) {
+    showToast('Reisen konnten nicht geladen werden: ' + (tripsRes.error || 'Fehler'), 'warn');
+    _trips = [];
+    return;
+  }
+  _trips = tripsRes.trips || [];
+
+  // Signups je Trip parallel laden
+  _signupsByTrip = {};
+  _mySignupByTrip = {};
+  const session = window.LPR.getSession();
+
+  await Promise.all(_trips.map(async (trip) => {
+    const sRes = await window.LPR.getTripSignups(trip.id);
+    _signupsByTrip[trip.id] = (sRes.signups || []).filter(s => s.status !== 'cancelled');
+    if (session) {
+      const mine = _signupsByTrip[trip.id].find(s => s.user_id === session.id);
+      _mySignupByTrip[trip.id] = mine || null;
+    }
+  }));
+}
+
+// ────────────────────────────────────────
+// RENDERING
+// ────────────────────────────────────────
 function renderTrips() {
   const container = document.getElementById('trips-container');
-  const signups = loadSignups();
-  const myEmail = getMyEmail();
+  if (!container) return;
+  const session = window.LPR.getSession();
   const isLS = document.body.classList.contains('ls');
 
-  container.innerHTML = DEMO_TRIPS.map(trip => {
-    const entries = signups[trip.id] || [];
-    const confirmed = entries.slice(0, trip.maxSpots);
-    const waitlist = entries.slice(trip.maxSpots);
-    const spotsLeft = trip.maxSpots - confirmed.length;
-    const myEntry = entries.find(e => e.email === myEmail);
-    const myIndex = myEmail ? entries.findIndex(e => e.email === myEmail) : -1;
-    const iAmIn = myIndex >= 0 && myIndex < trip.maxSpots;
-    const iAmWait = myIndex >= trip.maxSpots;
+  if (_trips.length === 0) {
+    container.innerHTML = `
+      <div class="card" style="padding:32px;text-align:center;">
+        <p style="color:var(--muted);">
+          Aktuell sind keine offenen Reisen ausgeschrieben. Schau bald wieder vorbei.
+        </p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = _trips.map(trip => {
+    const all = _signupsByTrip[trip.id] || [];
+    const confirmed = all.filter(s => s.status === 'confirmed').sort((a,b) => a.position - b.position);
+    const waitlist  = all.filter(s => s.status === 'waitlist').sort((a,b) => a.position - b.position);
+    const spotsLeft = Math.max(0, trip.max_spots - confirmed.length);
+    const mine = _mySignupByTrip[trip.id];
+    const iAmIn   = mine && mine.status === 'confirmed';
+    const iAmWait = mine && mine.status === 'waitlist';
+    const myPos   = mine ? mine.position : null;
 
     let badge = `<span class="card-badge"><span class="legend-dot dot-open"></span> ${spotsLeft} ${spotsLeft===1?'Platz':'Plätze'} frei</span>`;
     if (spotsLeft === 0) {
@@ -664,8 +655,8 @@ function renderTrips() {
       badge = `<span class="card-badge almost">◐ Nur noch ${spotsLeft} ${spotsLeft===1?'Platz':'Plätze'}</span>`;
     }
 
-    // Slots (4 Plätze)
-    const slotsHtml = Array.from({length: trip.maxSpots}).map((_, i) => {
+    // Slots (max_spots Plätze)
+    const slotsHtml = Array.from({length: trip.max_spots}).map((_, i) => {
       const entry = confirmed[i];
       if (!entry) {
         return `<div class="slot empty">
@@ -673,13 +664,13 @@ function renderTrips() {
           <div><div class="slot-name">frei</div><div class="slot-tag">—</div></div>
         </div>`;
       }
-      const mine = entry.email === myEmail;
-      const displayName = mine ? entry.name + ' (du)' : maskName(entry.name);
-      return `<div class="slot ${mine?'mine':''}">
+      const isMine = session && entry.user_id === session.id;
+      const displayName = isMine ? (session.name || 'Du') + ' (du)' : maskName('Mitglied');
+      return `<div class="slot ${isMine?'mine':''}">
         <span class="slot-num">${i+1}</span>
         <div>
-          <div class="slot-name">${escape(displayName)}</div>
-          <div class="slot-tag">${new Date(entry.signedAt).toLocaleDateString('de-DE')}</div>
+          <div class="slot-name">${escapeHtml(displayName)}</div>
+          <div class="slot-tag">${entry.signed_at ? new Date(entry.signed_at).toLocaleDateString('de-DE') : ''}</div>
         </div>
       </div>`;
     }).join('');
@@ -691,11 +682,11 @@ function renderTrips() {
         <div class="waitlist-head">⏳ Warteliste (${waitlist.length})</div>
         <div class="waitlist-list">
           ${waitlist.map((e, i) => {
-            const mine = e.email === myEmail;
-            const displayName = mine ? e.name + ' (du)' : maskName(e.name);
+            const isMine = session && e.user_id === session.id;
+            const displayName = isMine ? (session.name || 'Du') + ' (du)' : maskName('Mitglied');
             return `<div class="waitlist-item">
               <span class="slot-num">W${i+1}</span>
-              <div><div class="slot-name">${escape(displayName)}</div></div>
+              <div><div class="slot-name">${escapeHtml(displayName)}</div></div>
             </div>`;
           }).join('')}
         </div>
@@ -704,45 +695,50 @@ function renderTrips() {
 
     // Action button
     let actionHtml = '';
-    if (iAmIn) {
+    if (!session) {
       actionHtml = `
-        <div class="spots-info">✓ Du bist <strong>fest eingetragen</strong> (Platz ${myIndex+1})</div>
-        <button class="btn btn-danger" onclick="cancelSignup('${trip.id}')">Abmelden</button>`;
+        <div class="spots-info">Bitte zuerst einloggen.</div>
+        <a href="login.html" class="btn btn-primary">Einloggen</a>`;
+    } else if (iAmIn) {
+      actionHtml = `
+        <div class="spots-info">✓ Sie sind <strong>fest eingetragen</strong> (Platz ${myPos})</div>
+        <button class="btn btn-danger" data-cancel="${trip.id}">Abmelden</button>`;
     } else if (iAmWait) {
+      const wPos = myPos - trip.max_spots;
       actionHtml = `
-        <div class="spots-info">⏳ Du stehst auf der <strong>Warteliste</strong> (Position ${myIndex - trip.maxSpots + 1})</div>
-        <button class="btn btn-danger" onclick="cancelSignup('${trip.id}')">Abmelden</button>`;
+        <div class="spots-info">⏳ Sie stehen auf der <strong>Warteliste</strong> (Position ${wPos})</div>
+        <button class="btn btn-danger" data-cancel="${trip.id}">Abmelden</button>`;
     } else if (spotsLeft > 0) {
       actionHtml = `
-        <div class="spots-info"><strong>${spotsLeft}</strong> von ${trip.maxSpots} Plätzen frei</div>
-        <button class="btn btn-primary" onclick="openDialog('${trip.id}')">
+        <div class="spots-info"><strong>${spotsLeft}</strong> von ${trip.max_spots} Plätzen frei</div>
+        <button class="btn btn-primary" data-signup="${trip.id}">
           Jetzt eintragen
         </button>`;
     } else {
       actionHtml = `
         <div class="spots-info">Alle Plätze belegt</div>
-        <button class="btn btn-lime" onclick="openDialog('${trip.id}', true)">
+        <button class="btn btn-lime" data-signup="${trip.id}" data-waitlist="1">
           Auf Warteliste setzen
         </button>`;
     }
 
-    const desc = isLS ? trip.descriptionLS : trip.description;
+    const desc = isLS && trip.description_ls ? trip.description_ls : trip.description;
 
     return `<article class="card" data-trip="${trip.id}">
       <div class="card-head">
         <div>
-          <h3 class="card-title">${escape(trip.title)}</h3>
+          <h3 class="card-title">${escapeHtml(trip.title)}</h3>
           <div class="card-meta">
-            <span>📍 ${escape(trip.location)}</span>
-            <span>📅 ${formatDateRange(trip.start, trip.end)}</span>
-            <span>👥 max. ${trip.maxSpots} Ehrenamtliche</span>
-            ${trip.partner ? `<span style="background:var(--lime-soft);color:var(--green-deep);padding:3px 10px;border-radius:12px;font-weight:700;font-size:12px;">🤝 mit ${escape(trip.partner)}</span>` : ''}
+            <span>📍 ${escapeHtml(trip.location)}</span>
+            <span>📅 ${formatDateRange(trip.start_date, trip.end_date)}</span>
+            <span>👥 max. ${trip.max_spots} Ehrenamtliche</span>
+            ${trip.partner ? `<span style="background:var(--lime-soft);color:var(--green-deep);padding:3px 10px;border-radius:12px;font-weight:700;font-size:12px;">🤝 mit ${escapeHtml(trip.partner)}</span>` : ''}
           </div>
         </div>
         ${badge}
       </div>
       <div class="card-body">
-        <p class="card-desc">${escape(desc)}</p>
+        <p class="card-desc">${escapeHtml(desc || '')}</p>
         <div class="slots">${slotsHtml}</div>
         ${waitlistHtml}
       </div>
@@ -751,112 +747,108 @@ function renderTrips() {
       </div>
     </article>`;
   }).join('');
-}
 
-function maskName(name) {
-  // Datenschutz-Basics: Nur Initial + Nachname zeigen
-  const parts = name.trim().split(/\s+/);
-  if (parts.length < 2) return parts[0];
-  return parts[0].charAt(0) + '. ' + parts.slice(1).join(' ');
-}
-
-function escape(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
+  // Event-Handler binden (CSP-sicher, ohne inline-onclick)
+  container.querySelectorAll('[data-signup]').forEach(btn => {
+    btn.addEventListener('click', () => openDialog(btn.dataset.signup, !!btn.dataset.waitlist));
+  });
+  container.querySelectorAll('[data-cancel]').forEach(btn => {
+    btn.addEventListener('click', () => cancelSignup(btn.dataset.cancel));
+  });
 }
 
 // ────────────────────────────────────────
-// DIALOG HANDLING
+// DIALOG
 // ────────────────────────────────────────
 let currentTripId = null;
 let currentIsWaitlist = false;
 
 function openDialog(tripId, isWaitlist = false) {
+  const session = window.LPR.getSession();
+  if (!session) {
+    showToast('Bitte zuerst einloggen.', 'warn');
+    return;
+  }
   currentTripId = tripId;
   currentIsWaitlist = isWaitlist;
-  const trip = DEMO_TRIPS.find(t => t.id === tripId);
+  const trip = _trips.find(t => t.id === tripId);
+  if (!trip) return;
   const dlg = document.getElementById('signup-dialog');
   document.getElementById('dlg-title').textContent =
     isWaitlist ? 'Auf Warteliste setzen' : 'Für Reise eintragen';
   document.getElementById('dlg-sub').textContent =
-    `${trip.title} · ${formatDateRange(trip.start, trip.end)}`;
+    `${trip.title} · ${formatDateRange(trip.start_date, trip.end_date)}`;
 
-  // Pre-fill falls Email bekannt
-  const me = getMyEmail();
-  if (me) document.getElementById('f-email').value = me;
+  // Pre-fill aus Session
+  const fName = document.getElementById('f-name');
+  const fEmail = document.getElementById('f-email');
+  if (fName && session.name) fName.value = session.name;
+  if (fEmail) fEmail.value = session.email || '';
 
   // Reset errors
-  ['e-name', 'e-email'].forEach(id => document.getElementById(id).hidden = true);
+  ['e-name', 'e-email'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = true;
+  });
 
   dlg.showModal();
-  setTimeout(() => document.getElementById('f-name').focus(), 50);
+  setTimeout(() => {
+    const noteEl = document.getElementById('f-note');
+    if (noteEl) noteEl.focus();
+  }, 50);
 }
 
 function closeDialog() {
   document.getElementById('signup-dialog').close();
-  ['f-name', 'f-email', 'f-phone', 'f-note'].forEach(id =>
-    document.getElementById(id).value = ''
-  );
+  const note = document.getElementById('f-note');
+  if (note) note.value = '';
   currentTripId = null;
+  currentIsWaitlist = false;
 }
 
-function submitSignup() {
-  const name  = document.getElementById('f-name').value.trim();
-  const email = document.getElementById('f-email').value.trim().toLowerCase();
-  const phone = document.getElementById('f-phone').value.trim();
-  const note  = document.getElementById('f-note').value.trim();
+async function submitSignup() {
+  if (!currentTripId) return;
+  const noteEl = document.getElementById('f-note');
+  const note = noteEl ? noteEl.value.trim() : '';
 
-  let valid = true;
-  if (name.length < 2) {
-    document.getElementById('e-name').hidden = false; valid = false;
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    document.getElementById('e-email').hidden = false; valid = false;
-  }
-  if (!valid) return;
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Wird eingetragen…';
 
-  const signups = loadSignups();
-  if (!signups[currentTripId]) signups[currentTripId] = [];
+  const res = await window.LPR.signupForTrip(currentTripId, note || null);
 
-  // Schon eingetragen?
-  if (signups[currentTripId].some(e => e.email === email)) {
-    showToast('Mit dieser E-Mail bist du schon eingetragen.', 'warn');
+  btn.disabled = false;
+  btn.textContent = 'Eintragen';
+
+  if (!res.ok) {
+    showToast(res.error || 'Eintragung fehlgeschlagen.', 'warn');
     return;
   }
 
-  signups[currentTripId].push({
-    name, email, phone, note,
-    signedAt: new Date().toISOString()
-  });
-  saveSignups(signups);
-  setMyEmail(email);
-
-  const trip = DEMO_TRIPS.find(t => t.id === currentTripId);
-  const position = signups[currentTripId].length;
-  const onWaitlist = position > trip.maxSpots;
-
   closeDialog();
+  await loadAll();
   renderTrips();
+
   showToast(
-    onWaitlist
-      ? `Auf Warteliste gesetzt (Position ${position - trip.maxSpots}).`
-      : `Eingetragen! Platz ${position} für „${trip.title}".`
+    res.waitlist
+      ? 'Auf Warteliste gesetzt.'
+      : `Eingetragen! Platz ${res.signup ? res.signup.position : ''}.`
   );
 }
 
-function cancelSignup(tripId) {
-  const me = getMyEmail();
-  if (!me) return;
-  const trip = DEMO_TRIPS.find(t => t.id === tripId);
+async function cancelSignup(tripId) {
+  const trip = _trips.find(t => t.id === tripId);
+  if (!trip) return;
   if (!confirm(`Eintrag für „${trip.title}" wirklich zurückziehen?`)) return;
 
-  const signups = loadSignups();
-  if (!signups[tripId]) return;
-  signups[tripId] = signups[tripId].filter(e => e.email !== me);
-  saveSignups(signups);
+  const res = await window.LPR.cancelSignup(tripId);
+  if (!res.ok) {
+    showToast(res.error || 'Abmelden fehlgeschlagen.', 'warn');
+    return;
+  }
+  await loadAll();
   renderTrips();
-  showToast('Du wurdest abgemeldet. Der nächste auf der Warteliste rückt automatisch nach.');
+  showToast('Sie wurden abgemeldet.');
 }
 
 // ────────────────────────────────────────
@@ -865,6 +857,7 @@ function cancelSignup(tripId) {
 let toastTimer;
 function showToast(msg, type = 'ok') {
   const t = document.getElementById('toast');
+  if (!t) return;
   t.textContent = msg;
   t.className = 'toast show' + (type === 'warn' ? ' warn' : '');
   clearTimeout(toastTimer);
@@ -872,55 +865,35 @@ function showToast(msg, type = 'ok') {
 }
 
 // ────────────────────────────────────────
-// A11Y TOGGLES
+// DIALOG-BUTTON-Handler (CSP-safe statt inline onclick)
 // ────────────────────────────────────────
-function setTextSize(size) {
-  document.body.classList.remove('text-l', 'text-xl');
-  if (size) document.body.classList.add('text-' + size);
-  document.querySelectorAll('.a11y-btn[data-size]').forEach(b => {
-    b.setAttribute('aria-pressed', b.dataset.size === size ? 'true' : 'false');
+document.addEventListener('DOMContentLoaded', async () => {
+  // Buttons im Dialog
+  const submitBtn = document.getElementById('submit-btn');
+  if (submitBtn) submitBtn.addEventListener('click', submitSignup);
+  document.querySelectorAll('[data-action="close-dialog"]').forEach(b => {
+    b.addEventListener('click', closeDialog);
   });
-  try { localStorage.setItem('lpr-text-size', size); } catch(e) {}
-}
+  // Auch falls inline-onclick noch existiert: window-Funktionen exportieren
+  window.openDialog = openDialog;
+  window.closeDialog = closeDialog;
+  window.submitSignup = submitSignup;
+  window.cancelSignup = cancelSignup;
 
-function toggleContrast() {
-  const on = document.body.classList.toggle('contrast');
-  document.getElementById('btn-contrast').setAttribute('aria-pressed', on ? 'true' : 'false');
-  try { localStorage.setItem('lpr-contrast', on ? '1' : '0'); } catch(e) {}
-}
-
-function toggleLS() {
-  const on = document.body.classList.toggle('ls');
-  document.getElementById('btn-ls').setAttribute('aria-pressed', on ? 'true' : 'false');
-
-  // Text-Replacements für Elemente mit data-ls Attribut
-  document.querySelectorAll('[data-ls]').forEach(el => {
-    if (!el._orig) el._orig = el.innerHTML;
-    el.innerHTML = on ? el.getAttribute('data-ls') : el._orig;
+  // ESC schließt Dialog
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const dlg = document.getElementById('signup-dialog');
+      if (dlg && dlg.open) closeDialog();
+    }
   });
 
-  renderTrips(); // re-render wegen descriptionLS
-  try { localStorage.setItem('lpr-ls', on ? '1' : '0'); } catch(e) {}
-}
-
-// Load a11y settings
-try {
-  const size = localStorage.getItem('lpr-text-size');
-  if (size) setTextSize(size);
-  if (localStorage.getItem('lpr-contrast') === '1') toggleContrast();
-  if (localStorage.getItem('lpr-ls') === '1') toggleLS();
-} catch(e) {}
-
-// ESC schließt Dialog
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    const dlg = document.getElementById('signup-dialog');
-    if (dlg.open) closeDialog();
-  }
+  // Initial-Load
+  await loadAll();
+  renderTrips();
 });
 
-// Initial render
-renderTrips();
+
 </script>
 </body>
 </html>

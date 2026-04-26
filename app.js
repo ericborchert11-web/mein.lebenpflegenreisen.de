@@ -142,7 +142,7 @@
   async function register({ email, password, name, role, extra }) {
     email = (email || '').trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Bitte gültige E-Mail eingeben.' };
-    if (!password || password.length < 6) return { ok: false, error: 'Passwort muss mindestens 6 Zeichen lang sein.' };
+    if (!password || password.length < 8) return { ok: false, error: 'Passwort muss mindestens 8 Zeichen lang sein.' };
     if (!name || name.trim().length < 2) return { ok: false, error: 'Bitte Namen eingeben.' };
     if (!['ehrenamt','klinik','admin'].includes(role)) return { ok: false, error: 'Ungültige Rolle.' };
 
@@ -422,6 +422,330 @@
     return 'mein-bereich.html';
   }
 
+  // ───────────────────────────────────────────────────────
+  // Block C — APIs für Reisen, Verfügbarkeit, Buchungen, Abrechnung
+  // ───────────────────────────────────────────────────────
+
+  // --- Tarife ---
+  let _ratesCache = null;
+  async function getRates() {
+    if (_ratesCache) return _ratesCache;
+    try {
+      const { data, error } = await (await sb())
+        .from('compensation_rates')
+        .select('rate_key, amount, unit, description, effective_from')
+        .order('effective_from', { ascending: false });
+      if (error || !data) return {};
+      // Letzte (aktuelle) Rate pro Key behalten
+      const latest = {};
+      for (const r of data) {
+        if (!latest[r.rate_key]) latest[r.rate_key] = r;
+      }
+      _ratesCache = latest;
+      return latest;
+    } catch(e) { console.error('[LPR] getRates:', e); return {}; }
+  }
+  async function getRate(key) {
+    const all = await getRates();
+    return all[key] || null;
+  }
+
+  // --- Reisen (trips) ---
+  async function listTrips(filter) {
+    try {
+      let q = (await sb())
+        .from('trips')
+        .select('id, title, location, start_date, end_date, partner, description, description_ls, max_spots, status, rate_override_per_day')
+        .order('start_date', { ascending: true });
+      if (filter && filter.status) q = q.eq('status', filter.status);
+      else q = q.in('status', ['open','closed','completed']);
+      const { data, error } = await q;
+      if (error) return { ok: false, error: error.message, trips: [] };
+      return { ok: true, trips: data || [] };
+    } catch(e) { console.error('[LPR] listTrips:', e); return { ok: false, error: 'Netzwerkfehler.', trips: [] }; }
+  }
+  async function getTrip(tripId) {
+    try {
+      const { data, error } = await (await sb())
+        .from('trips')
+        .select('id, title, location, start_date, end_date, partner, description, description_ls, max_spots, status, rate_override_per_day')
+        .eq('id', tripId)
+        .single();
+      if (error) return { ok: false, error: error.message, trip: null };
+      return { ok: true, trip: data };
+    } catch(e) { console.error('[LPR] getTrip:', e); return { ok: false, error: 'Netzwerkfehler.', trip: null }; }
+  }
+  async function getTripSignups(tripId) {
+    try {
+      const { data, error } = await (await sb())
+        .from('trip_signups')
+        .select('id, user_id, position, status, signed_at, note')
+        .eq('trip_id', tripId)
+        .order('position', { ascending: true });
+      if (error) return { ok: false, error: error.message, signups: [] };
+      return { ok: true, signups: data || [] };
+    } catch(e) { console.error('[LPR] getTripSignups:', e); return { ok: false, error: 'Netzwerkfehler.', signups: [] }; }
+  }
+  async function getMySignup(tripId) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.', signup: null };
+    try {
+      const { data, error } = await (await sb())
+        .from('trip_signups')
+        .select('id, position, status, signed_at, note')
+        .eq('trip_id', tripId)
+        .eq('user_id', s.id)
+        .maybeSingle();
+      if (error) return { ok: false, error: error.message, signup: null };
+      return { ok: true, signup: data };
+    } catch(e) { console.error('[LPR] getMySignup:', e); return { ok: false, error: 'Netzwerkfehler.', signup: null }; }
+  }
+  async function signupForTrip(tripId, note) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      // 1. Trip prüfen, max_spots ermitteln
+      const tripRes = await getTrip(tripId);
+      if (!tripRes.ok || !tripRes.trip) return { ok: false, error: 'Reise nicht gefunden.' };
+      if (tripRes.trip.status !== 'open') return { ok: false, error: 'Diese Reise nimmt aktuell keine Anmeldungen entgegen.' };
+
+      // 2. Bestehende signups holen, Position bestimmen
+      const sRes = await getTripSignups(tripId);
+      const active = (sRes.signups || []).filter(x => x.status !== 'cancelled');
+      const nextPos = active.length + 1;
+      const status = nextPos <= tripRes.trip.max_spots ? 'confirmed' : 'waitlist';
+
+      // 3. Insert
+      const { data, error } = await (await sb())
+        .from('trip_signups')
+        .insert({ trip_id: tripId, user_id: s.id, position: nextPos, status, note: note || null })
+        .select()
+        .single();
+      if (error) {
+        if (error.code === '23505') return { ok: false, error: 'Sie sind bereits für diese Reise eingetragen.' };
+        return { ok: false, error: error.message };
+      }
+      return { ok: true, signup: data, waitlist: status === 'waitlist' };
+    } catch(e) { console.error('[LPR] signupForTrip:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+  async function cancelSignup(tripId) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const { error } = await (await sb())
+        .from('trip_signups')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('trip_id', tripId)
+        .eq('user_id', s.id);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) { console.error('[LPR] cancelSignup:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  // --- Verfügbarkeit (availabilities) ---
+  // Tabelle: availabilities (user_id, date, shift, note)
+  // shift_slot ENUM: 'morning' | 'afternoon' | 'night'
+  async function getMyAvailability(monthIso) {
+    // monthIso optional: '2026-05' filtert auf den Monat
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.', availabilities: [] };
+    try {
+      let q = (await sb())
+        .from('availabilities')
+        .select('id, date, shift, note')
+        .eq('user_id', s.id);
+      if (monthIso) {
+        const start = monthIso + '-01';
+        const [y, m] = monthIso.split('-').map(Number);
+        const next = new Date(y, m, 1);
+        const end = next.toISOString().slice(0,10);
+        q = q.gte('date', start).lt('date', end);
+      }
+      q = q.order('date', { ascending: true });
+      const { data, error } = await q;
+      if (error) return { ok: false, error: error.message, availabilities: [] };
+      return { ok: true, availabilities: data || [] };
+    } catch(e) { console.error('[LPR] getMyAvailability:', e); return { ok: false, error: 'Netzwerkfehler.', availabilities: [] }; }
+  }
+  async function setAvailability(date, shift, note) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (!['morning','afternoon','night'].includes(shift)) return { ok: false, error: 'Ungültige Schicht.' };
+    try {
+      const { data, error } = await (await sb())
+        .from('availabilities')
+        .insert({ user_id: s.id, date, shift, note: note || null })
+        .select()
+        .single();
+      if (error) {
+        if (error.code === '23505') return { ok: false, error: 'Diese Verfügbarkeit existiert bereits.' };
+        return { ok: false, error: error.message };
+      }
+      return { ok: true, availability: data };
+    } catch(e) { console.error('[LPR] setAvailability:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+  async function removeAvailability(date, shift) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const { error } = await (await sb())
+        .from('availabilities')
+        .delete()
+        .eq('user_id', s.id)
+        .eq('date', date)
+        .eq('shift', shift);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) { console.error('[LPR] removeAvailability:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  // --- Sitzwachen-Buchungen (bookings) ---
+  // Tabelle: bookings (volunteer_id, request_id, date, shift, hours, compensation_eur, status)
+  async function getMyBookings(filter) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.', bookings: [] };
+    try {
+      let q = (await sb())
+        .from('bookings')
+        .select('id, request_id, date, shift, hours, compensation_eur, status, created_at')
+        .eq('volunteer_id', s.id)
+        .order('date', { ascending: false });
+      if (filter && filter.status) q = q.eq('status', filter.status);
+      const { data, error } = await q;
+      if (error) return { ok: false, error: error.message, bookings: [] };
+      return { ok: true, bookings: data || [] };
+    } catch(e) { console.error('[LPR] getMyBookings:', e); return { ok: false, error: 'Netzwerkfehler.', bookings: [] }; }
+  }
+
+  // --- Abrechnung (claims) ---
+  // claims werden aus signups oder bookings auto-generiert
+  async function getMyClaims(filter) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.', claims: [] };
+    try {
+      let q = (await sb())
+        .from('claims')
+        .select('id, source_type, trip_signup_id, booking_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, rejected_reason, notes')
+        .eq('user_id', s.id)
+        .order('submitted_at', { ascending: false });
+      if (filter && filter.status) q = q.eq('status', filter.status);
+      const { data, error } = await q;
+      if (error) return { ok: false, error: error.message, claims: [] };
+      return { ok: true, claims: data || [] };
+    } catch(e) { console.error('[LPR] getMyClaims:', e); return { ok: false, error: 'Netzwerkfehler.', claims: [] }; }
+  }
+
+  function _diffDays(startIso, endIso) {
+    const a = new Date(startIso); const b = new Date(endIso);
+    return Math.round((b - a) / (1000 * 60 * 60 * 24)) + 1; // inkl. beider Tage
+  }
+
+  async function submitTripClaim(signupId, notes) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      // 1. Signup laden + Trip dazu
+      const { data: signup, error: sErr } = await (await sb())
+        .from('trip_signups')
+        .select('id, trip_id, user_id, status, trips ( id, start_date, end_date, rate_override_per_day )')
+        .eq('id', signupId)
+        .single();
+      if (sErr || !signup) return { ok: false, error: 'Anmeldung nicht gefunden.' };
+      if (signup.user_id !== s.id) return { ok: false, error: 'Diese Anmeldung gehört nicht zu Ihrem Konto.' };
+      if (signup.status !== 'confirmed') return { ok: false, error: 'Nur bestätigte Anmeldungen können abgerechnet werden.' };
+      const trip = signup.trips;
+      if (!trip) return { ok: false, error: 'Reise nicht gefunden.' };
+
+      // 2. Tagessatz: rate_override_per_day > Default
+      let perDay = trip.rate_override_per_day;
+      if (perDay == null) {
+        const r = await getRate('travel_per_day');
+        perDay = r ? Number(r.amount) : 0;
+      }
+      const days = _diffDays(trip.start_date, trip.end_date);
+      // Anreise- und Abreisetag = halbe Tage → effektiv days - 1 ganze Tage
+      const effective = Math.max(1, days - 1);
+      const amount = Number((effective * perDay).toFixed(2));
+      const breakdown = [{ tage_gesamt: days, ganze_tage: effective, satz: perDay, summe: amount, hinweis: 'An- und Abreisetag = halbe Tage' }];
+
+      // 3. Bestehenden Claim für dieses Signup finden
+      const { data: existing } = await (await sb())
+        .from('claims').select('id, status').eq('trip_signup_id', signupId).maybeSingle();
+      if (existing && existing.status !== 'rejected' && existing.status !== 'draft') {
+        return { ok: false, error: 'Für diese Reise wurde bereits eine Abrechnung eingereicht.' };
+      }
+
+      // 4. Insert claim
+      const { data, error } = await (await sb())
+        .from('claims')
+        .insert({
+          user_id: s.id,
+          source_type: 'trip',
+          trip_signup_id: signupId,
+          amount,
+          amount_breakdown: breakdown,
+          period_start: trip.start_date,
+          period_end: trip.end_date,
+          status: 'submitted',
+          notes: notes || null
+        })
+        .select()
+        .single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, claim: data };
+    } catch(e) { console.error('[LPR] submitTripClaim:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  async function submitSitzClaim(bookingId, notes) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const { data: booking, error: bErr } = await (await sb())
+        .from('bookings')
+        .select('id, volunteer_id, date, shift, hours, compensation_eur, status')
+        .eq('id', bookingId)
+        .single();
+      if (bErr || !booking) return { ok: false, error: 'Buchung nicht gefunden.' };
+      if (booking.volunteer_id !== s.id) return { ok: false, error: 'Diese Buchung gehört nicht zu Ihrem Konto.' };
+      if (booking.status !== 'completed') return { ok: false, error: 'Nur abgeschlossene Schichten können abgerechnet werden.' };
+
+      // Tarif: compensation_eur direkt aus booking, oder Default aus rates
+      let amount = booking.compensation_eur;
+      if (amount == null) {
+        const r = await getRate('sitz_' + booking.shift);
+        amount = r ? Number(r.amount) : 0;
+      }
+      const breakdown = [{ datum: booking.date, schicht: booking.shift, stunden: booking.hours, satz: amount, summe: amount }];
+
+      // bestehenden claim prüfen
+      const { data: existing } = await (await sb())
+        .from('claims').select('id, status').eq('booking_id', bookingId).maybeSingle();
+      if (existing && existing.status !== 'rejected' && existing.status !== 'draft') {
+        return { ok: false, error: 'Für diese Schicht wurde bereits eine Abrechnung eingereicht.' };
+      }
+
+      const { data, error } = await (await sb())
+        .from('claims')
+        .insert({
+          user_id: s.id,
+          source_type: 'sitzwache',
+          booking_id: bookingId,
+          amount: Number(amount),
+          amount_breakdown: breakdown,
+          period_start: booking.date,
+          period_end: booking.date,
+          status: 'submitted',
+          notes: notes || null
+        })
+        .select()
+        .single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, claim: data };
+    } catch(e) { console.error('[LPR] submitSitzClaim:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+
+
   document.addEventListener('DOMContentLoaded', async () => {
     applyA11ySettings();
     try {
@@ -448,6 +772,13 @@
     register, loginWithPassword, requireRole,
     listUsersByStatus, approveUser, rejectUser,
     getMyCompliance, getComplianceForUser, setComplianceStatus, isComplianceComplete,
+    // Block C
+    getRates, getRate,
+    listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
+    getMyAvailability, setAvailability, removeAvailability,
+    getMyBookings,
+    getMyClaims, submitTripClaim, submitSitzClaim,
+    // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,
     roleTarget

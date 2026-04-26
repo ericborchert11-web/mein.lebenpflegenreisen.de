@@ -163,44 +163,9 @@
 <body>
 <a href="#main" class="sr-only">Zum Hauptinhalt</a>
 
-<div class="a11y-bar" role="region" aria-label="Barrierefreiheit">
-  <div class="a11y-left">
-  </div>
-  <div class="a11y-right">
-    <div class="a11y-group">
-      <span class="a11y-label">Text:</span>
-      <button class="a11y-btn" data-size="" aria-pressed="true" onclick="LPR.setTextSize('')">A</button>
-      <button class="a11y-btn" data-size="l" aria-pressed="false" onclick="LPR.setTextSize('l')">A+</button>
-      <button class="a11y-btn" data-size="xl" aria-pressed="false" onclick="LPR.setTextSize('xl')">A++</button>
-    </div>
-    <div class="a11y-group">
-      <button class="a11y-btn" id="btn-contrast" aria-pressed="false" onclick="LPR.toggleContrast()">◐ Kontrast</button>
-      <button class="a11y-btn" id="btn-ls" aria-pressed="false" onclick="LPR.toggleLS()">✎ Leichte Sprache</button>
-    </div>
-  </div>
-</div>
 
-<header class="site">
-  <div class="wrap header-row">
-    <a href="index.html" class="brand">
-      <svg viewBox="0 0 48 48" width="38" height="38" aria-hidden="true">
-        <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="10,10 24,24 10,38" stroke="#C8F135" stroke-width="4.5"/>
-          <polyline points="22,10 36,24 22,38" stroke="#C8F135" stroke-width="4.5" opacity="0.42"/>
-        </g>
-      </svg>
-      <div>
-        <div class="brand-name">Leben <em>Pflegen</em> Reisen</div>
-        <div class="brand-sub">Mein Bereich</div>
-      </div>
-    </a>
-    <nav><ul>
-      <li><a href="index.html">Start</a></li>
-      <li><a href="profil.html">Profil</a></li>
-      <li><a href="#" onclick="doLogout(); return false;">Abmelden</a></li>
-    </ul></nav>
-  </div>
-</header>
+
+
 
 <main id="main">
 
@@ -311,17 +276,13 @@
 </div>
 </main>
 
-<footer class="site">
-  <div class="wrap">
-    <div class="footer-bottom" style="border-top:none; padding-top:0;">
-      <div>© 2026 Leben Pflegen Reisen e.V. · Berlin</div>
-      <div><a href="https://lebenpflegenreisen.de/impressum" target="_blank" rel="noopener" style="color:var(--lime);">Impressum</a> · <a href="https://lebenpflegenreisen.de/datenschutz" target="_blank" rel="noopener" style="color:var(--lime);">Datenschutz</a> · <a href="barrierefreiheit.html" style="color:var(--lime);">Barrierefreiheit</a></div>
-    </div>
-  </div>
-</footer>
+
 
 <script src="app.js"></script>
+<script src="layout.js"></script>
 <script>
+LPR_Layout.init({ page: 'mein-bereich' });
+
 const COMPLIANCE_LABELS = {
   fuehrungszeugnis: '🛡 Erweitertes Führungszeugnis',
   ifsg43: '🦠 Belehrung nach §43 IfSG',

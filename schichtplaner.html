@@ -479,42 +479,11 @@ body.ls .ls-tag { display: inline-block; }
 
 <a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
 
-<!-- ════════════ A11Y BAR ════════════ -->
-<div class="a11y-bar" role="region" aria-label="Barrierefreiheits-Einstellungen">
-  <div class="a11y-group">
-    <span class="a11y-label">Textgröße:</span>
-    <button class="a11y-btn" data-size="" aria-pressed="true" onclick="setTextSize('')" aria-label="Normale Textgröße">A</button>
-    <button class="a11y-btn" data-size="l" aria-pressed="false" onclick="setTextSize('l')" aria-label="Große Textgröße">A+</button>
-    <button class="a11y-btn" data-size="xl" aria-pressed="false" onclick="setTextSize('xl')" aria-label="Sehr große Textgröße">A++</button>
-  </div>
-  <div class="a11y-group">
-    <button class="a11y-btn" id="btn-contrast" aria-pressed="false" onclick="toggleContrast()">
-      ◐ Hoher Kontrast
-    </button>
-    <button class="a11y-btn" id="btn-ls" aria-pressed="false" onclick="toggleLS()">
-      ✎ Leichte Sprache
-    </button>
-  </div>
-</div>
 
-<!-- ════════════ HEADER ════════════ -->
-<header>
-  <a href="mein-bereich.html" class="brand" aria-label="Zur Startseite">
-    <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" width="40" height="40" aria-hidden="true">
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="10,10 24,24 10,38" stroke="#C8F135" stroke-width="4.5" opacity="1"/>
-        <polyline points="22,10 36,24 22,38" stroke="#C8F135" stroke-width="4.5" opacity="0.42"/>
-      </g>
-    </svg>
-    <div>
-      <div class="brand-name">Leben Pflegen Reisen</div>
-      <div class="brand-sub">e.V. · Schichtplan</div>
-    </div>
-  </a>
-  <nav>
-    <a href="https://lebenpflegenreisen.de" target="_blank" rel="noopener" class="nav-link">Zur Website ↗</a>
-  </nav>
-</header>
+
+
+
+
 
 <!-- ════════════ HERO ════════════ -->
 <section class="hero">
@@ -583,15 +552,14 @@ body.ls .ls-tag { display: inline-block; }
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<!-- ════════════ FOOTER ════════════ -->
-<footer>
-  <div>Leben Pflegen Reisen e.V. · Berlin · <a href="https://lebenpflegenreisen.de">Zur Vereinsseite</a></div>
-  <div style="margin-top:8px; opacity:.6; font-size:12px;">
-    Prototyp – Daten werden lokal im Browser gespeichert
-  </div>
-</footer>
 
+
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
 <script>
+LPR_Layout.init({ page: 'schichtplaner' });
+
 // ────────────────────────────────────────
 // DEMO-DATEN (später aus DB/WordPress)
 // ────────────────────────────────────────

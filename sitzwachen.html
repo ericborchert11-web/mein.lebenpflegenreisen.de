@@ -597,38 +597,10 @@ footer a { color: var(--lime); text-decoration: none; }
 <a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
 
 <!-- A11y -->
-<div class="a11y-bar" role="region" aria-label="Barrierefreiheit">
-  <div class="a11y-group">
-    <span class="a11y-label">Textgröße:</span>
-    <button class="a11y-btn" data-size="" aria-pressed="true" onclick="setTextSize('')">A</button>
-    <button class="a11y-btn" data-size="l" aria-pressed="false" onclick="setTextSize('l')">A+</button>
-    <button class="a11y-btn" data-size="xl" aria-pressed="false" onclick="setTextSize('xl')">A++</button>
-  </div>
-  <div class="a11y-group">
-    <button class="a11y-btn" id="btn-contrast" aria-pressed="false" onclick="toggleContrast()">◐ Hoher Kontrast</button>
-  </div>
-</div>
+
 
 <!-- Header -->
-<header>
-  <a href="mein-bereich.html" class="brand" aria-label="Zu meinem Bereich">
-    <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true">
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="10,10 24,24 10,38" stroke="#C8F135" stroke-width="4.5"/>
-        <polyline points="22,10 36,24 22,38" stroke="#C8F135" stroke-width="4.5" opacity="0.42"/>
-      </g>
-    </svg>
-    <div>
-      <div class="brand-name">Leben Pflegen Reisen</div>
-      <div class="brand-sub">e.V. · Sitzwachen</div>
-    </div>
-  </a>
-  <nav>
-    <a href="schichtplaner.html" class="nav-link">Schichtplan</a>
-    <a href="abrechnung.html" class="nav-link">Abrechnung</a>
-    <a href="mein-bereich.html" class="nav-link">← Mein Bereich</a>
-  </nav>
-</header>
+
 
 <!-- Hero -->
 <section class="hero">
@@ -805,14 +777,13 @@ footer a { color: var(--lime); text-decoration: none; }
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<footer>
-  <div>Leben Pflegen Reisen e.V. · Berlin</div>
-  <div style="margin-top:8px; opacity:.6; font-size:12px;">
-    Prototyp · Daten lokal gespeichert
-  </div>
-</footer>
 
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
 <script>
+LPR_Layout.init({ page: 'sitzwachen' });
+
 // ═══════════════════════════════════════════════════════
 // STORAGE (shared mit kliniken.html!)
 // ═══════════════════════════════════════════════════════

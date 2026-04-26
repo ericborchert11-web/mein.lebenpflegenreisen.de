@@ -88,37 +88,14 @@ a { color: var(--green); }
 </head>
 <body>
 
-<div class="a11y-bar">
-  <div class="a11y-group"><span class="a11y-label">Schrift:</span>
-    <button class="a11y-btn" data-size="" aria-pressed="true" onclick="setTextSize('')">A</button>
-    <button class="a11y-btn" data-size="l" aria-pressed="false" onclick="setTextSize('l')">A+</button>
-    <button class="a11y-btn" data-size="xl" aria-pressed="false" onclick="setTextSize('xl')">A++</button>
-  </div>
-  <div class="a11y-group">
-    <button class="a11y-btn" id="btn-contrast" aria-pressed="false" onclick="toggleContrast()">◐ Kontrast</button>
-  </div>
-</div>
 
-<header>
-  <a href="#" id="brand-link" class="brand">
-    <svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true">
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="10,10 24,24 10,38" stroke="#C8F135" stroke-width="4.5"/>
-        <polyline points="22,10 36,24 22,38" stroke="#C8F135" stroke-width="4.5" opacity="0.42"/>
-      </g>
-    </svg>
-    <div>
-      <div class="brand-name">Leben <em>Pflegen</em> Reisen</div>
-      <div class="brand-sub">e.V. · Berlin</div>
-    </div>
-  </a>
-  <a href="#" id="back-link" class="nav-link">← Zurück</a>
-</header>
+
+
 
 <main>
 
 <h1 class="doc-title">Erklärung zur Barrierefreiheit</h1>
-<div class="doc-sub">Freiwillige Selbsterklärung · Stand: <span class="placeholder">Datum</span></div>
+<div class="doc-sub">Freiwillige Selbsterklärung · Stand: 26. April 2026</div>
 
 <div class="notice">
   <strong>Rechtlicher Hinweis:</strong> Der Verein ist derzeit nicht nach Barrierefreiheitsstärkungsgesetz (BFSG, gültig seit 28. Juni 2025) verpflichtet, Barrierefreiheit zu gewährleisten — als gemeinnütziger Verein ohne Verbraucher-E-Commerce-Angebot fallen wir nicht unter die Verpflichteten nach § 1 BFSG. Wir orientieren uns dennoch <strong>freiwillig</strong> an den Anforderungen, weil unsere Zielgruppen besonders auf barrierefreie Angebote angewiesen sind.
@@ -161,14 +138,14 @@ a { color: var(--green); }
 </ul>
 
 <h2>Erstellung dieser Erklärung</h2>
-<p>Diese Erklärung wurde am <span class="placeholder">Datum</span> erstmals veröffentlicht. Sie beruht auf einer <strong>Selbstbewertung</strong> des Vorstands. Eine externe Prüfung durch eine anerkannte Prüfstelle ist für das Jahr <span class="placeholder">2026/2027</span> geplant.</p>
+<p>Diese Erklärung wurde am 26. April 2026 erstmals veröffentlicht. Sie beruht auf einer <strong>Selbstbewertung</strong> des Vorstands. Eine externe Prüfung durch eine anerkannte Prüfstelle ist für das Jahr 2026/2027 geplant.</p>
 
 <h2>Feedback und Kontaktmöglichkeiten</h2>
 <p>Sie haben Barrieren festgestellt oder möchten Informationen in einer anderen Form (Großdruck, Leichte Sprache, barrierefreies PDF)? Schreiben Sie uns:</p>
 <p>
   <strong>E-Mail:</strong> <a href="mailto:barrierefreiheit@lebenpflegenreisen.de">barrierefreiheit@lebenpflegenreisen.de</a><br>
-  <strong>Telefon:</strong> <span class="placeholder">Telefonnummer</span><br>
-  <strong>Post:</strong> Leben Pflegen Reisen e.V., <span class="placeholder">Vereinsanschrift</span>
+  <strong>Telefon:</strong> <a href="mailto:barrierefreiheit@lebenpflegenreisen.de">per E-Mail</a> (Telefon folgt)<br>
+  <strong>Post:</strong> Leben Pflegen Reisen e.V., Berlin (genaue Anschrift folgt nach Vereinsregister-Eintragung)
 </p>
 <p>Wir bemühen uns, Ihr Anliegen innerhalb von <strong>zwei Wochen</strong> zu beantworten.</p>
 
@@ -182,22 +159,18 @@ a { color: var(--green); }
 </p>
 
 <p style="color: var(--muted); font-size: 13px; margin-top: 40px;">
-  Diese Erklärung wird jährlich überprüft und aktualisiert. Letzte Prüfung: <span class="placeholder">Datum</span>.
+  Diese Erklärung wird jährlich überprüft und aktualisiert. Letzte Prüfung: 26. April 2026.
 </p>
 
 </main>
 
-<footer>
-  <div style="margin-bottom: 8px;">© 2026 Leben Pflegen Reisen e.V. · Berlin</div>
-  <div>
-    <a href="#" id="footer-home">Mein Bereich</a> ·
-    <a href="https://lebenpflegenreisen.de/impressum" target="_blank" rel="noopener">Impressum</a> ·
-    <a href="https://lebenpflegenreisen.de/datenschutz" target="_blank" rel="noopener">Datenschutz</a>
-  </div>
-</footer>
+
 
 <script src="app.js"></script>
+<script src="layout.js"></script>
 <script>
+LPR_Layout.init({ page: 'barrierefreiheit' });
+
 // Dynamische Back-Navigation: Je nachdem ob eingeloggt oder nicht
 (function() {
   const session = LPR.getSession ? LPR.getSession() : null;

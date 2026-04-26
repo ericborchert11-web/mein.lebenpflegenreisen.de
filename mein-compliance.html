@@ -140,11 +140,11 @@
 <main class="cp-wrap">
   <div class="cp-header">
     <h1>📋 Meine Unterlagen</h1>
-    <div class="sub">Compliance-Dokumente für Ihre Mitwirkung bei Leben Pflegen Reisen e.V.</div>
+    <div class="sub">Compliance-Dokumente für deine Mitwirkung bei Leben Pflegen Reisen e.V.</div>
     <div class="cp-intro">
       <strong>Warum diese Unterlagen?</strong><br>
-      Für den Einsatz als Sitzwache oder Reisebegleitung benötigen wir von Ihnen gesetzlich vorgeschriebene Nachweise.
-      Bitte halten Sie diese stets aktuell. Bei Ablauf informieren wir Sie frühzeitig.
+      Für deinen Einsatz als Sitzwache oder Reisebegleitung brauchen wir gesetzlich vorgeschriebene Nachweise von dir.
+      Bitte halte sie stets aktuell. Bei Ablauf informieren wir dich frühzeitig.
     </div>
     <div class="cp-progress">
       <div class="cp-progress-label" id="cp-percent">0 %</div>
@@ -155,10 +155,10 @@
 
   <div class="cp-notice">
     <strong>So funktioniert die Einreichung:</strong>
-    Sie senden Ihre Dokumente per E-Mail an
+    Du sendest deine Dokumente per E-Mail an
     <a href="mailto:vorstand@lebenpflegenreisen.de">vorstand@lebenpflegenreisen.de</a>.
-    Der Vorstand prüft die Unterlagen und schaltet sie hier frei. Den Status Ihrer Dokumente sehen Sie immer aktuell auf dieser Seite.
-    <strong>Wichtig:</strong> Solange nicht alle fünf Dokumente freigegeben sind, können Sie noch keine Einsätze übernehmen.
+    Der Vorstand prüft die Unterlagen und schaltet sie hier frei. Den Status deiner Dokumente siehst du immer aktuell auf dieser Seite.
+    <strong>Wichtig:</strong> Solange nicht alle fünf Dokumente freigegeben sind, kannst du noch keine Einsätze übernehmen.
   </div>
 
   <div class="cp-list" id="cp-list"></div>
@@ -284,7 +284,7 @@ function buildMailtoLink(item, session) {
 
 async function render() {
   const list = document.getElementById('cp-list');
-  list.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--muted);">Lade Ihre Unterlagen…</div>';
+  list.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--muted);">Lade deine Unterlagen…</div>';
   const session = LPR.getSession();
   const result = await LPR.getMyCompliance();
   if (!result.ok) {
@@ -317,7 +317,7 @@ async function render() {
       </div>`;
     } else if (status === 'submitted') {
       actions = `<div class="cp-meta" style="background: #fffbe5; color: #8a6d00; border: 1px solid #f2d060;">
-        Vielen Dank! Der Vorstand prüft Ihre Einreichung. Sie werden per E-Mail benachrichtigt, sobald freigegeben.
+        Vielen Dank! Der Vorstand prüft deine Einreichung. Du wirst per E-Mail benachrichtigt, sobald freigegeben.
       </div>`;
     }
     return `<div class="cp-card">

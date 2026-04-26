@@ -307,7 +307,7 @@ const COMPLIANCE_LABELS = {
   const firstName = (session.name || session.email || 'Mitglied').split(' ')[0];
   document.getElementById('greeting').textContent = `${tod}, ${firstName}!`;
   if (location.search.includes('welcome=1')) document.getElementById('welcome').hidden = false;
-  renderStats();
+  await renderStats();
   if (session.role === 'ehrenamt') {
     await checkCompliance();
   }
@@ -330,36 +330,60 @@ async function checkCompliance() {
   }
 }
 
-function renderStats() {
+async function renderStats() {
   const s = LPR.getSession();
-  const avail = LPR.load(LPR.KEYS.availability, {});
-  const bookings = LPR.load(LPR.KEYS.bookings, {});
-  const signups = LPR.load(LPR.KEYS.signups, {});
-  const claims = (LPR.load(LPR.KEYS.claims, []) || []).filter(c => c.email === s.email);
+  if (!s) return;
   const now = new Date();
   const month = now.getMonth(), year = now.getFullYear();
-  let availCount = 0, bookedCount = 0;
-  const myAvail = avail[s.email] || {};
-  for (const k in myAvail) {
-    const d = new Date(k);
-    if (d.getFullYear() === year && d.getMonth() === month) {
-      availCount += (myAvail[k].shifts || []).length;
+  const monthIso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+  // Verfügbarkeiten dieser Monat (count = Slots)
+  let availCount = 0;
+  try {
+    const aRes = await LPR.getMyAvailability(monthIso);
+    if (aRes.ok) availCount = (aRes.entries || []).length;
+  } catch(e) {}
+
+  // Sitzwachen-Buchungen dieser Monat
+  let bookedCount = 0;
+  try {
+    const bRes = await LPR.getMyBookings();
+    if (bRes.ok) {
+      bookedCount = (bRes.bookings || []).filter(b => {
+        if (!b.date) return false;
+        const d = new Date(b.date);
+        return d.getFullYear() === year && d.getMonth() === month;
+      }).length;
     }
-  }
-  for (const k in bookings) {
-    const d = new Date(k);
-    if (d.getFullYear() === year && d.getMonth() === month) {
-      for (const sh in bookings[k]) {
-        if (bookings[k][sh].ehrenamt_email === s.email) bookedCount++;
-      }
-    }
-  }
+  } catch(e) {}
+
+  // Reise-Anmeldungen (alle aktiven Trips, in denen ich confirmed/waitlist bin)
   let tripCount = 0;
-  for (const tripId in signups) {
-    if ((signups[tripId] || []).find(e => e.email === s.email)) tripCount++;
-  }
-  const yearClaims = claims.filter(c => new Date(c.submittedAt).getFullYear() === year);
-  const usedAmount = yearClaims.reduce((sum, c) => sum + (c.amount || 0), 0);
+  try {
+    const tRes = await LPR.listTrips({ status: 'open' });
+    if (tRes.ok && tRes.trips) {
+      const sigChecks = await Promise.all(
+        tRes.trips.map(t => LPR.getMySignup(t.id).then(r => r.signup).catch(() => null))
+      );
+      tripCount = sigChecks.filter(sg => sg && sg.status !== 'cancelled').length;
+    }
+  } catch(e) {}
+
+  // Pauschalen-Summe des Jahres (nur approved/paid)
+  let usedAmount = 0;
+  try {
+    const cRes = await LPR.getMyClaims();
+    if (cRes.ok) {
+      usedAmount = (cRes.claims || [])
+        .filter(c => (c.status === 'approved' || c.status === 'paid'))
+        .filter(c => {
+          const d = new Date(c.submitted_at || c.created_at);
+          return d.getFullYear() === year;
+        })
+        .reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+    }
+  } catch(e) {}
+
   document.getElementById('stats').innerHTML = `
     <div class="stat-card"><div class="num">${availCount}</div><div class="lbl">Verfügbarkeit (Monat)</div></div>
     <div class="stat-card"><div class="num accent">${bookedCount}</div><div class="lbl">Gebuchte Dienste</div></div>

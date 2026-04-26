@@ -830,21 +830,31 @@ function dateKey(d) {
 function keyToDate(k) { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); }
 
 // ═══════════════════════════════════════════════════════
-// SESSION
+// SESSION (Block C: nutzt LPR.getSession)
 // ═══════════════════════════════════════════════════════
+// SHIFT-Mapping: Frontend deutsch ↔ DB englisch
+const SHIFT_DE_TO_DB = { frueh: 'morning', spaet: 'afternoon', nacht: 'night' };
+const SHIFT_DB_TO_DE = { morning: 'frueh', afternoon: 'spaet', night: 'nacht' };
+
+// In-Memory-Cache der Verfügbarkeiten aus DB.
+// Format: { 'YYYY-MM-DD': ['frueh','spaet','nacht'] }
+let _dbAvail = {};
+
 function getSession() {
-  const s = loadJSON(SESSION_KEY, null);
+  const s = (window.LPR && window.LPR.getSession) ? window.LPR.getSession() : null;
   if (!s) return null;
-  // Nur Ehrenamt (und Admin zum Testen) dürfen hier rein
   if (s.role !== 'ehrenamt' && s.role !== 'admin') return null;
   return s;
 }
-function setSession(s) { saveJSON(SESSION_KEY, s); }
-function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch(e) {} }
+function setSession(s) { /* No-op: Block C verwaltet Session in LPR */ }
+function clearSession() { /* No-op */ }
 
 function doLogin() { window.location.href = "login.html"; }
 
-function doLogout() { clearSession(); window.location.href = "index.html"; }
+async function doLogout() {
+  if (window.LPR && window.LPR.logout) await window.LPR.logout();
+  window.location.href = "index.html";
+}
 
 // ═══════════════════════════════════════════════════════
 // MONAT-NAVIGATION
@@ -852,15 +862,38 @@ function doLogout() { clearSession(); window.location.href = "index.html"; }
 let currentMonth = new Date();
 currentMonth.setDate(1);
 
-function shiftMonth(delta) {
+async function shiftMonth(delta) {
   currentMonth.setMonth(currentMonth.getMonth() + delta);
-  render();
+  await render();
 }
 
 // ═══════════════════════════════════════════════════════
-// KALENDER RENDERN
+// VERFÜGBARKEIT laden (DB → Cache)
 // ═══════════════════════════════════════════════════════
-function render() {
+async function loadAvailFromDb() {
+  const session = getSession();
+  if (!session) { _dbAvail = {}; return; }
+  const monthIso = currentMonth.getFullYear() + '-' + String(currentMonth.getMonth() + 1).padStart(2, '0');
+  try {
+    const res = await window.LPR.getMyAvailability(monthIso);
+    _dbAvail = {};
+    if (res.ok && res.entries) {
+      for (const e of res.entries) {
+        const dateStr = e.date; // YYYY-MM-DD
+        const shiftDe = SHIFT_DB_TO_DE[e.shift] || e.shift;
+        if (!_dbAvail[dateStr]) _dbAvail[dateStr] = [];
+        if (!_dbAvail[dateStr].includes(shiftDe)) _dbAvail[dateStr].push(shiftDe);
+      }
+    }
+  } catch (e) {
+    console.error('[LPR] loadAvailFromDb failed:', e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+async function render() {
   const session = getSession();
   document.getElementById('login-view').hidden = !!session;
   document.getElementById('dashboard-view').hidden = !session;
@@ -873,6 +906,7 @@ function render() {
   document.getElementById('month-title').textContent =
     `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
 
+  await loadAvailFromDb();
   renderCalendar();
   renderStats();
 }
@@ -881,6 +915,7 @@ function renderCalendar() {
   const grid = document.getElementById('cal-grid');
   const today = new Date(); today.setHours(0,0,0,0);
   const session = getSession();
+  if (!session) return;
 
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -890,24 +925,20 @@ function renderCalendar() {
   const daysInPrevMonth = new Date(year, month, 0).getDate();
 
   const cells = [];
-
-  // Vormonats-Tage
   for (let i = startWeekday - 1; i >= 0; i--) {
     const d = new Date(year, month - 1, daysInPrevMonth - i);
     cells.push({ date: d, otherMonth: true });
   }
-  // Aktuelle Monats-Tage
   for (let i = 1; i <= daysInMonth; i++) {
     cells.push({ date: new Date(year, month, i), otherMonth: false });
   }
-  // Nächster Monat
   while (cells.length % 7 !== 0 || cells.length < 35) {
     const last = cells[cells.length-1].date;
     cells.push({ date: new Date(last.getTime() + DAY_MS), otherMonth: true });
     if (cells.length >= 42) break;
   }
 
-  const avail = loadJSON(AVAIL_KEY, {});
+  // Bookings bleiben localStorage (Klinik-Buchungen, Zwischenstand)
   const bookings = loadJSON(BOOK_KEY, {});
 
   grid.innerHTML = cells.map(c => {
@@ -922,10 +953,10 @@ function renderCalendar() {
     if (isPast) classes.push('past');
     if (isWeekend) classes.push('weekend');
 
-    // Meine Verfügbarkeiten an diesem Tag
-    const myAvail = (avail[session.email]?.[key]) || null;
+    // Meine Verfügbarkeiten an diesem Tag (aus DB-Cache)
+    const myShiftsOnDay = _dbAvail[key] || [];
 
-    // Meine Buchungen an diesem Tag (nur Buchungen für MICH anzeigen)
+    // Meine Buchungen an diesem Tag (localStorage – Übergangsstand)
     const dayBookings = bookings[key] || {};
     const myBookingsForDay = {};
     for (const shift in dayBookings) {
@@ -937,7 +968,7 @@ function renderCalendar() {
     let chips = '';
     for (const shift of ['frueh','spaet','nacht']) {
       const booked = myBookingsForDay[shift];
-      const availOn = myAvail?.shifts?.includes(shift);
+      const availOn = myShiftsOnDay.includes(shift);
       if (booked) {
         const zone = calcZone(key, shift);
         const zoneClass = `zone-${zone}`;
@@ -967,19 +998,19 @@ function renderCalendar() {
 
 function renderStats() {
   const session = getSession();
-  const avail = loadJSON(AVAIL_KEY, {});
+  if (!session) return;
   const bookings = loadJSON(BOOK_KEY, {});
+
+  // availCount: Summe meiner Slots im aktuellen Monat (aus _dbAvail)
+  let availCount = 0;
+  for (const dateStr in _dbAvail) {
+    availCount += _dbAvail[dateStr].length;
+  }
+
+  // bookedCount: localStorage-Bookings im aktuellen Monat
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
-
-  let availCount = 0, bookedCount = 0;
-  const mine = avail[session.email] || {};
-  for (const key in mine) {
-    const d = keyToDate(key);
-    if (d.getFullYear() === year && d.getMonth() === month) {
-      availCount += (mine[key].shifts || []).length;
-    }
-  }
+  let bookedCount = 0;
   for (const key in bookings) {
     const d = keyToDate(key);
     if (d.getFullYear() === year && d.getMonth() === month) {
@@ -1001,11 +1032,9 @@ let currentAddKey = null;
 function openAdd(key) {
   currentAddKey = key;
   const d = keyToDate(key);
-  const session = getSession();
-  const avail = loadJSON(AVAIL_KEY, {});
   const bookings = loadJSON(BOOK_KEY, {});
-  const existing = (avail[session.email]?.[key]?.shifts) || [];
-
+  // Existing shifts kommen aus dem DB-Cache
+  const existing = _dbAvail[key] || [];
   const dayBookings = bookings[key] || {};
 
   document.getElementById('add-title').textContent =
@@ -1015,13 +1044,16 @@ function openAdd(key) {
     const chk = document.getElementById('chk-' + shift);
     const opt = document.getElementById('opt-' + shift);
     chk.checked = existing.includes(shift);
-    // Falls bereits gebucht, nicht deaktivierbar
-    const mineBooked = dayBookings[shift]?.ehrenamt_email === session.email;
-    opt.classList.toggle('already-added', mineBooked);
-    if (mineBooked) chk.checked = true;
+    if (dayBookings[shift]) {
+      chk.checked = true;
+      chk.disabled = true;
+      opt.classList.add('disabled');
+    } else {
+      chk.disabled = false;
+      opt.classList.remove('disabled');
+    }
   }
-  document.getElementById('note').value = avail[session.email]?.[key]?.note || '';
-
+  document.getElementById('note').value = '';
   document.getElementById('add-dialog').showModal();
 }
 
@@ -1030,40 +1062,72 @@ function closeAdd() {
   currentAddKey = null;
 }
 
-function saveAvail() {
+async function saveAvail() {
   const session = getSession();
-  const avail = loadJSON(AVAIL_KEY, {});
-  if (!avail[session.email]) avail[session.email] = {};
-
+  if (!session) return;
   const selected = ['frueh','spaet','nacht'].filter(s => document.getElementById('chk-'+s).checked);
-  const note = document.getElementById('note').value.trim();
 
-  if (selected.length === 0) {
-    delete avail[session.email][currentAddKey];
-  } else {
-    avail[session.email][currentAddKey] = {
-      name: session.name,
-      shifts: selected,
-      note,
-      updatedAt: new Date().toISOString()
-    };
+  // Was ist aktuell in DB für diesen Tag?
+  const existingDe = _dbAvail[currentAddKey] || [];
+
+  // Diff: zu entfernen vs. zu setzen
+  const toRemove = existingDe.filter(s => !selected.includes(s));
+  const toAdd = selected.filter(s => !existingDe.includes(s));
+
+  const errors = [];
+
+  for (const shiftDe of toRemove) {
+    const shiftDb = SHIFT_DE_TO_DB[shiftDe];
+    try {
+      const res = await window.LPR.removeAvailability(currentAddKey, shiftDb);
+      if (!res.ok) errors.push(`Entfernen ${shiftDe}: ${res.error}`);
+    } catch (e) { errors.push(`Entfernen ${shiftDe}: ${e.message}`); }
   }
-  saveJSON(AVAIL_KEY, avail);
+  for (const shiftDe of toAdd) {
+    const shiftDb = SHIFT_DE_TO_DB[shiftDe];
+    try {
+      const res = await window.LPR.setAvailability(currentAddKey, shiftDb);
+      if (!res.ok) errors.push(`Hinzufügen ${shiftDe}: ${res.error}`);
+    } catch (e) { errors.push(`Hinzufügen ${shiftDe}: ${e.message}`); }
+  }
+
   closeAdd();
-  render();
-  showToast(selected.length === 0 ? 'Eintrag entfernt.' : `${selected.length} Schicht${selected.length>1?'en':''} gespeichert.`);
+
+  if (errors.length > 0) {
+    showToast('Fehler beim Speichern: ' + errors.join('; '), 'warn');
+  } else {
+    const totalChanges = toRemove.length + toAdd.length;
+    if (totalChanges === 0) {
+      showToast('Keine Änderungen.');
+    } else if (selected.length === 0) {
+      showToast('Eintrag entfernt.');
+    } else {
+      showToast(`${selected.length} Schicht${selected.length>1?'en':''} gespeichert.`);
+    }
+  }
+
+  await loadAvailFromDb();
+  renderCalendar();
+  renderStats();
 }
 
-function removeShift(event, key, shift) {
+async function removeShift(event, key, shift) {
   event.stopPropagation();
   if (!confirm(`${SHIFTS[shift].label} am ${keyToDate(key).toLocaleDateString('de-DE')} wirklich entfernen?`)) return;
-  const session = getSession();
-  const avail = loadJSON(AVAIL_KEY, {});
-  if (!avail[session.email]?.[key]) return;
-  avail[session.email][key].shifts = avail[session.email][key].shifts.filter(s => s !== shift);
-  if (avail[session.email][key].shifts.length === 0) delete avail[session.email][key];
-  saveJSON(AVAIL_KEY, avail);
-  render();
+  const shiftDb = SHIFT_DE_TO_DB[shift];
+  try {
+    const res = await window.LPR.removeAvailability(key, shiftDb);
+    if (!res.ok) {
+      showToast('Fehler: ' + res.error, 'warn');
+      return;
+    }
+  } catch (e) {
+    showToast('Fehler: ' + e.message, 'warn');
+    return;
+  }
+  await loadAvailFromDb();
+  renderCalendar();
+  renderStats();
   showToast('Schicht entfernt.');
 }
 

@@ -63,21 +63,21 @@
           <li><a href="schichtplaner.html" class="${c('schichtplaner')}">Reisen</a></li>
           <li><a href="meine-praeferenzen.html" class="${c('praeferenzen')}">Präferenzen</a></li>
           <li><a href="profil.html" class="${c('profil')}">Profil</a></li>
-          <li><a href="#" onclick="LPR.logout(); location.href='index.html'; return false;" style="color:var(--warn);">Abmelden</a></li>
+          <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;" style="color:var(--warn);">Abmelden</a></li>
         `;
       } else if (session.role === 'klinik') {
         navItems = `
           <li><a href="kliniken.html" class="${c('kliniken')}">Klinik-Portal</a></li>
           <li><a href="sitzwachen.html" class="${c('sitzwachen')}">Sitzwachen</a></li>
           <li><a href="sitzwache-buchen.html" class="${c('sw-buchen')}">Neue Buchung</a></li>
-          <li><a href="#" onclick="LPR.logout(); location.href='index.html'; return false;" style="color:var(--warn);">Abmelden</a></li>
+          <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;" style="color:var(--warn);">Abmelden</a></li>
         `;
       } else if (session.role === 'admin') {
         navItems = `
           <li><a href="admin-mitwirkende.html" class="${c('admin')}">Mitwirkende</a></li>
           <li><a href="schichtplaner.html" class="${c('schichtplaner')}">Reisen</a></li>
           <li><a href="sitzwachen.html" class="${c('sitzwachen')}">Sitzwachen</a></li>
-          <li><a href="#" onclick="LPR.logout(); location.href='index.html'; return false;" style="color:var(--warn);">Abmelden</a></li>
+          <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;" style="color:var(--warn);">Abmelden</a></li>
         `;
       }
     } else {
@@ -154,7 +154,7 @@
               ${session ? `
                 <li><a href="${LPR.roleTarget ? LPR.roleTarget(session.role) : 'mein-bereich.html'}">Mein Bereich</a></li>
                 <li><a href="profil.html">Profil</a></li>
-                <li><a href="#" onclick="LPR.logout(); location.href='index.html'; return false;">Abmelden</a></li>
+                <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;">Abmelden</a></li>
               ` : `
                 <li><a href="login.html">Anmelden</a></li>
                 <li><a href="login.html">Konto erstellen</a></li>

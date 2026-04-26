@@ -877,8 +877,8 @@ async function loadAvailFromDb() {
   try {
     const res = await window.LPR.getMyAvailability(monthIso);
     _dbAvail = {};
-    if (res.ok && res.entries) {
-      for (const e of res.entries) {
+    if (res.ok && res.availabilities) {
+      for (const e of res.availabilities) {
         const dateStr = e.date; // YYYY-MM-DD
         const shiftDe = SHIFT_DB_TO_DE[e.shift] || e.shift;
         if (!_dbAvail[dateStr]) _dbAvail[dateStr] = [];

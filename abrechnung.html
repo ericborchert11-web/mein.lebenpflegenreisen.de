@@ -1274,7 +1274,26 @@ document.addEventListener('keydown', e => {
     if (dlg.open) closeDialog();
   }
 });
-
+  // -- DEBUG: Remote-Daten via LPR-API testen --
+    // Aus der Browser-Konsole aufrufen: LPR_DEBUG()
+    async function debugRemoteData() {
+          console.group('[abrechnung.html] LPR Remote-Daten');
+          try {
+                  const sigs = await LPR.getMySignups();
+                  console.log('LPR.getMySignups():', sigs);
+                  const sigsConf = await LPR.getMySignups({status: 'confirmed'});
+                  console.log('LPR.getMySignups({status:confirmed}):', sigsConf);
+                  const claims = await LPR.getMyClaims();
+                  console.log('LPR.getMyClaims():', claims);
+                  const bookings = await LPR.getMyBookings();
+                  console.log('LPR.getMyBookings():', bookings);
+          } catch(e) {
+                  console.error('Debug-Fehler:', e);
+          }
+          console.groupEnd();
+    }
+    window.LPR_DEBUG = debugRemoteData;
+  
 // Initial
 render();
 </script>

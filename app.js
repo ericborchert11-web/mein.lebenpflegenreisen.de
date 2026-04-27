@@ -606,7 +606,7 @@
           if (!s) return { ok: false, error: 'Nicht eingeloggt.', signups: [] };
           try {
                   let q = (await sb())
-                    .from('signups')
+                    .from('trip_signups')
                     .select('id, trip_id, position, status, signed_at, note, trips(id, title, location, start_date, end_date, rate_override_per_day, status)')
                     .eq('user_id', s.id)
                     .order('start_date', { ascending: false, foreignTable: 'trips' });

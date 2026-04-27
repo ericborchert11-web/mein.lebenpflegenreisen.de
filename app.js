@@ -598,7 +598,26 @@
       return { ok: true };
     } catch(e) { console.error('[LPR] removeAvailability:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
+  // --- Reise-Anmeldungen (signups) ---
+    // Tabelle: signups (id, user_id, trip_id, position, status, signed_at, note)
+    // Mit Join auf trips für Reise-Details
+    async function getMySignups(filter) {
+          const s = getSession();
+          if (!s) return { ok: false, error: 'Nicht eingeloggt.', signups: [] };
+          try {
+                  let q = (await sb())
+                    .from('signups')
+                    .select('id, trip_id, position, status, signed_at, note, trips(id, title, location, start_date, end_date, rate_override_per_day, status)')
+                    .eq('user_id', s.id)
+                    .order('start_date', { ascending: false, foreignTable: 'trips' });
+                  if (filter && filter.status) q = q.eq('status', filter.status);
+                  const { data, error } = await q;
+                  if (error) return { ok: false, error: error.message, signups: [] };
+                  return { ok: true, signups: data || [] };
+          } catch(e) { console.error('[LPR] getMySignups:', e); return { ok: false, error: 'Netzwerkfehler.', signups: [] }; }
+    }
 
+  
   // --- Sitzwachen-Buchungen (bookings) ---
   // Tabelle: bookings (volunteer_id, request_id, date, shift, hours, compensation_eur, status)
   async function getMyBookings(filter) {

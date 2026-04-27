@@ -140,6 +140,13 @@
 <script>
 LPR_Layout.init({ page: '' });
 
+        // === Zugriffsschutz: Nur Ehrenamtliche ===
+        const _session = LPR.getSession();
+        if (!_session || _session.role !== 'ehrenamt') {
+                  document.body.innerHTML = '<main style="max-width:600px;margin:80px auto;padding:0 20px;text-align:center;font-family:Instrument Sans,sans-serif;color:#1A3A2A"><h1 style="font-family:Bricolage Grotesque,sans-serif;font-weight:800;font-size:28px;margin-bottom:16px">Kein Zugriff</h1><p style="color:#666;line-height:1.6">Das Schulungsportal ist nur für ehrenamtliche Mitwirkende des Vereins zugänglich. <a href="mein-bereich.html" style="color:#1A3A2A;text-decoration:underline">Zurück zur Übersicht</a></p></main>';
+                  throw new Error('access_denied');
+        }
+
 const SCHULUNG_KEY = 'lpr-schulung-completed';
 
 function loadStatus() {

@@ -795,7 +795,7 @@
     getRates, getRate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     getMyAvailability, setAvailability, removeAvailability,
-    getMyBookings,
+    getMySignups, getMyBookings,
     getMyClaims, submitTripClaim, submitSitzClaim,
     // UI
     setTextSize, toggleContrast, toggleLS,

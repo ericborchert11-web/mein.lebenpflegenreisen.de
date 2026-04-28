@@ -561,7 +561,7 @@ footer a { color: var(--lime); text-decoration: none; }
 .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .section-divider { height: 1px; background: var(--border); margin: 32px 0; }
-
+</style>
 </head>
 <body>
 
@@ -585,7 +585,6 @@ footer a { color: var(--lime); text-decoration: none; }
 </section>
 
 <!-- ════════════ MAIN ════════════ -->
-<main id="main">
 <main id="main">
 
   <!-- Login-Prompt (zentrale Login-Seite) -->
@@ -635,7 +634,6 @@ footer a { color: var(--lime); text-decoration: none; }
       <strong>⚠️ Achtung:</strong> Du näherst dich dem jährlichen Freibetrag von 4.260 € (§ 3 Nr. 26 + 26a EStG). Darüber hinausgehende Beträge wären steuer- und ggf. sozialversicherungspflichtig. Bitte sprich vor weiteren Einsätzen mit dem Vorstand.
     </div>
 
-    <!-- Abzurechnende Reisen -->
     <!-- Loading State -->
     <div id="loading-state" class="loading-state">
       <span class="loading-spinner"></span>Lade deine Daten…
@@ -644,7 +642,7 @@ footer a { color: var(--lime); text-decoration: none; }
     <!-- IBAN Info -->
     <div id="iban-info" class="iban-info" hidden></div>
 
-    <!-- Abzurechnen: Reisen -->
+    <!-- Abzurechnende Reisen -->
     <div id="trips-section" hidden>
       <div class="section-label">
         <h2>Abzurechnende Reisen</h2>
@@ -653,7 +651,7 @@ footer a { color: var(--lime); text-decoration: none; }
       <div id="open-trips"></div>
     </div>
 
-    <!-- Abzurechnen: Sitzwachen -->
+    <!-- Abzurechnende Sitzwachen -->
     <div id="sitz-section" hidden>
       <div class="section-divider"></div>
       <div class="section-label">
@@ -672,105 +670,6 @@ footer a { color: var(--lime); text-decoration: none; }
       </div>
       <div id="submitted-claims"></div>
     </div>
-
-
-  .a11y-bar, header, .hero, footer, .toolbar, main > *:not(#beleg-container) { display: none !important; }
-  #beleg-container { display: block !important; }
-  .beleg-wrap {
-    box-shadow: none; border: none;
-    padding: 0; margin: 0; max-width: 100%;
-  }
-  body { background: #fff; padding: 0; }
-  @page { size: A4; margin: 20mm; }
-}
-
-</style>
-
-</head>
-<body>
-
-<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
-
-
-
-
-
-
-
-<!-- ════════════ HERO ════════════ -->
-<section class="hero">
-  <div class="hero-wrap">
-    <div class="hero-eyebrow">Aufwandsentschädigung · § 3 Nr. 26 / 26a EStG</div>
-    <h1>Deine Abrechnung</h1>
-    <p>
-      Reiche deinen Antrag auf Aufwandsentschädigung für abgeschlossene Reisebegleitungen ein. Die Berechnung folgt dem Vorstandsbeschluss vom 15. April 2026: 150 € je Reisetag (Anreise- und Abreisetag als halbe Tage). Die Zahlung ist als Übungsleiter- und Ehrenamtspauschale steuer- und sozialversicherungsfrei bis 4.260 € pro Jahr.
-    </p>
-  </div>
-</section>
-
-<!-- ════════════ MAIN ════════════ -->
-<main id="main">
-
-  <!-- Login-Prompt (zentrale Login-Seite) -->
-  <div class="login-card" id="login-view" hidden style="max-width:520px; margin:40px auto; background:#fff; border-radius:14px; padding:36px 32px; box-shadow:0 2px 12px rgba(0,0,0,.05); border:1px solid var(--border); text-align:center;">
-    <div style="font-size:44px; margin-bottom:12px;">🔒</div>
-    <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:var(--green); margin-bottom:10px;">Bitte anmelden</h2>
-    <p style="color:var(--muted); margin-bottom:22px; font-size:14px;" id="login-prompt-text">Dieser Bereich ist nur für angemeldete Mitglieder.</p>
-    <a href="login.html" class="btn btn-primary" style="width:100%; justify-content:center;">Zum Login →</a>
-    <p style="margin-top:14px; font-size:12px; color:var(--muted);">
-      Noch kein Konto? Auf der Login-Seite können Sie sich registrieren.
-    </p>
-  </div>
-
-  <!-- Dashboard -->
-  <div id="dashboard-view" hidden>
-
-    <!-- User / Freibetrag -->
-    <div class="dash-header">
-      <div>
-        <div class="dash-user-name" id="user-name">—</div>
-        <div class="dash-user-email" id="user-email">—</div>
-      </div>
-      <div>
-        <button class="btn btn-ghost" onclick="doLogout()">Abmelden</button>
-      </div>
-      <div class="budget">
-        <div class="budget-cell">
-          <div class="budget-num" id="budget-used">0 €</div>
-          <div class="budget-label">Dieses Jahr ausgezahlt</div>
-        </div>
-        <div class="budget-cell">
-          <div class="budget-num" id="budget-pending" style="color: var(--muted);">0 €</div>
-          <div class="budget-label">Offene Anträge</div>
-        </div>
-        <div class="budget-cell">
-          <div class="budget-num" id="budget-left" style="color: var(--ok);">4.260 €</div>
-          <div class="budget-label">Verbleibender Freibetrag</div>
-        </div>
-        <div class="bar-track">
-          <div class="bar-fill" id="budget-bar" style="width:0%"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Hinweise -->
-    <div class="info-box" id="budget-warning" hidden>
-      <strong>⚠️ Achtung:</strong> Du näherst dich dem jährlichen Freibetrag von 4.260 € (§ 3 Nr. 26 + 26a EStG). Darüber hinausgehende Beträge wären steuer- und ggf. sozialversicherungspflichtig. Bitte sprich vor weiteren Einsätzen mit dem Vorstand.
-    </div>
-
-    <!-- Abzurechnende Reisen -->
-    <div class="section-label">
-      <h2>Abzurechnen</h2>
-      <p>Nur abgeschlossene Reisen, an denen du als Ehrenamtliche:r teilgenommen hast.</p>
-    </div>
-    <div id="open-trips"></div>
-
-    <!-- Bereits eingereicht -->
-    <div class="section-label" style="margin-top:40px;">
-      <h2>Meine Anträge</h2>
-      <p>Alle bereits eingereichten Abrechnungen mit Status.</p>
-    </div>
-    <div id="submitted-claims"></div>
 
   </div>
 
@@ -862,32 +761,28 @@ footer a { color: var(--lime); text-decoration: none; }
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+
+
+
 <script src="app.js"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'abrechnung' });
 
-// ═══════════════════════════════════════════════════════
-// KONFIGURATION
-// ═══════════════════════════════════════════════════════
-const JAHRESFREIBETRAG = 4260; // § 3 Nr. 26 (3.300 €) + Nr. 26a (840 €) kombiniert
+// === KONFIGURATION ===
+const JAHRESFREIBETRAG = 4260;
 const BESCHLUSS_DATUM = '2026-01-15';
-const VEREIN = {
-  name: 'Leben Pflegen Reisen e.V.',
-  adresse: 'Berlin',
-  vertretung: 'Vorstand'
-};
+const VEREIN = { name: 'Leben Pflegen Reisen e.V.', adresse: 'Berlin', vertretung: 'Vorstand' };
 
 // State
 let _profile = null;
 let _signups = [];
 let _bookings = [];
 let _claims = [];
-let _activeContext = null; // { type: 'trip'|'sitz', signup?: {}, booking?: {}, breakdown: {}, total: 0 }
+let _rates = {};
+let _activeContext = null;
 
-// ═══════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════
+// === HELPERS ===
 function escape(str) {
   return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -897,43 +792,33 @@ function formatEUR(amount) {
 function formatDateRange(start, end) {
   const s = new Date(start).toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit',year:'numeric'});
   const e = new Date(end).toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit',year:'numeric'});
-  return start === end ? s : `${s} – ${e}`;
+  return start === end ? s : (s + ' – ' + e);
 }
 function formatIbanDisplay(iban) {
   return (iban || '').replace(/\s+/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim();
 }
 function diffDays(start, end) {
-  const ms = new Date(end) - new Date(start);
-  return Math.round(ms / 86400000) + 1;
+  return Math.round((new Date(end) - new Date(start)) / 86400000) + 1;
 }
-
-// ═══════════════════════════════════════════════════════
-// CALC: Trip-Pauschale (Anreise/Abreise = halbe Tage)
-// ═══════════════════════════════════════════════════════
 function calcTripBreakdown(trip, perDay) {
   const days = diffDays(trip.start_date, trip.end_date);
   const effective = Math.max(1, days - 1);
-  const total = Number((effective * perDay).toFixed(2));
   return {
     days, effective, perDay,
     halfAmount: perDay / 2,
     midDays: Math.max(0, effective - 2),
     midAmount: Math.max(0, effective - 2) * perDay,
-    total
+    total: Number((effective * perDay).toFixed(2))
   };
 }
 
-// ═══════════════════════════════════════════════════════
-// LOAD ALL
-// ═══════════════════════════════════════════════════════
+// === LOAD ALL ===
 async function loadAll() {
   const session = LPR.getSession();
-  if (!session) {
-    location.href = 'login.html';
-    return;
-  }
+  if (!session) { location.href = 'login.html'; return; }
 
   document.getElementById('loading-state').hidden = false;
+  document.getElementById('iban-info').hidden = true;
   document.getElementById('trips-section').hidden = true;
   document.getElementById('sitz-section').hidden = true;
   document.getElementById('claims-section').hidden = true;
@@ -946,13 +831,12 @@ async function loadAll() {
       LPR.getMyClaims(),
       LPR.getRates()
     ]);
-
     if (!pResp.ok) throw new Error(pResp.error || 'Profil konnte nicht geladen werden');
     _profile = pResp.profile;
     _signups = sResp?.signups || [];
     _bookings = bResp?.bookings || [];
     _claims = cResp?.claims || [];
-    window._RATES = ratesResp || {};
+    _rates = ratesResp || {};
 
     document.getElementById('loading-state').hidden = true;
     renderIbanInfo();
@@ -961,21 +845,18 @@ async function loadAll() {
     renderClaimsSection();
     renderBudget();
   } catch(e) {
-    document.getElementById('loading-state').innerHTML = '<p style="color:var(--warn)">Fehler beim Laden: ' + escape(e.message) + '</p>';
     console.error('[abrechnung] loadAll:', e);
+    document.getElementById('loading-state').innerHTML = '<p style="color:var(--warn)">Fehler beim Laden: ' + escape(e.message) + '</p>';
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// RENDER
-// ═══════════════════════════════════════════════════════
+// === RENDER ===
 function renderIbanInfo() {
   const el = document.getElementById('iban-info');
   el.hidden = false;
   if (_profile.iban) {
     el.classList.remove('iban-missing');
-    el.innerHTML = '<strong>Auszahlungs-IBAN:</strong> ' + escape(formatIbanDisplay(_profile.iban)) +
-      ' <a class="change-link" href="profil.html#iban">Ändern</a>';
+    el.innerHTML = '<strong>Auszahlungs-IBAN:</strong> ' + escape(formatIbanDisplay(_profile.iban)) + ' <a class="change-link" href="profil.html#iban">Ändern</a>';
   } else {
     el.classList.add('iban-missing');
     el.innerHTML = '<strong>⚠️ Keine IBAN hinterlegt.</strong> Bevor du eine Abrechnung einreichen kannst, musst du im <a class="change-link" href="profil.html#iban">Profil</a> deine IBAN hinterlegen.';
@@ -984,27 +865,19 @@ function renderIbanInfo() {
 
 function renderBudget() {
   const yearNow = new Date().getFullYear();
-  const yearClaims = _claims.filter(c => {
-    const y = new Date(c.created_at).getFullYear();
-    return y === yearNow && c.status !== 'rejected';
-  });
+  const yearClaims = _claims.filter(c => new Date(c.created_at).getFullYear() === yearNow && c.status !== 'rejected');
   const used = yearClaims.reduce((s, c) => s + Number(c.amount || 0), 0);
   const left = Math.max(0, JAHRESFREIBETRAG - used);
   const pct = Math.min(100, (used / JAHRESFREIBETRAG) * 100);
-
-  const usedEl = document.getElementById('budget-used');
-  const leftEl = document.getElementById('budget-left');
-  const totalEl = document.getElementById('budget-total');
+  const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  setText('budget-used', formatEUR(used));
+  setText('budget-left', formatEUR(left));
+  setText('budget-total', formatEUR(JAHRESFREIBETRAG));
   const barEl = document.getElementById('budget-bar');
-  const warnEl = document.getElementById('budget-warning');
-  if (usedEl) usedEl.textContent = formatEUR(used);
-  if (leftEl) leftEl.textContent = formatEUR(left);
-  if (totalEl) totalEl.textContent = formatEUR(JAHRESFREIBETRAG);
-  if (barEl) {
-    barEl.style.width = pct + '%';
-    barEl.classList.toggle('warn', pct > 75);
-  }
+  if (barEl) { barEl.style.width = pct + '%'; barEl.classList.toggle('warn', pct > 75); }
+  const leftEl = document.getElementById('budget-left');
   if (leftEl) leftEl.classList.toggle('warn', left < 300);
+  const warnEl = document.getElementById('budget-warning');
   if (warnEl) warnEl.hidden = pct <= 90;
 }
 
@@ -1012,8 +885,6 @@ function renderTripsSection() {
   const sec = document.getElementById('trips-section');
   const el = document.getElementById('open-trips');
   const today = new Date(); today.setHours(0,0,0,0);
-
-  // Confirmed signups, deren Reise vorbei ist UND noch kein non-rejected/draft claim existiert
   const claimedSignupIds = new Set(_claims.filter(c => c.source_type === 'trip' && c.status !== 'rejected' && c.status !== 'draft').map(c => c.trip_signup_id));
   const candidates = _signups.filter(su => {
     if (su.status !== 'confirmed') return false;
@@ -1028,36 +899,18 @@ function renderTripsSection() {
     el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>Aktuell keine abgeschlossenen Reisen zum Abrechnen.</p><p class="muted">Reisen erscheinen hier, sobald sie beendet sind.</p></div>';
     return;
   }
-
-  const ratePerDay = _RATES.travel_per_day?.amount ? Number(_RATES.travel_per_day.amount) : 150;
-
+  const ratePerDay = _rates.travel_per_day?.amount ? Number(_rates.travel_per_day.amount) : 150;
   el.innerHTML = candidates.map(su => {
     const trip = su.trips;
     const perDay = trip.rate_override_per_day != null ? Number(trip.rate_override_per_day) : ratePerDay;
     const b = calcTripBreakdown(trip, perDay);
-    return `<div class="trip-card">
-      <div>
-        <span class="type-badge trip">Reise</span>
-        <div class="trip-info-title">${escape(trip.title)}</div>
-        <div class="trip-info-meta">
-          <span>📍 ${escape(trip.location || '')}</span>
-          <span>📅 ${formatDateRange(trip.start_date, trip.end_date)}</span>
-          <span><strong>${b.days} Tage</strong></span>
-          ${trip.partner ? `<span>🤝 mit ${escape(trip.partner)}</span>` : ''}
-        </div>
-      </div>
-      <div class="trip-action">
-        <div class="trip-amount">${formatEUR(b.total)}</div>
-        <button class="btn btn-primary" onclick="openTripClaim('${su.id}')">Abrechnen →</button>
-      </div>
-    </div>`;
+    return '<div class="trip-card"><div><span class="type-badge trip">Reise</span><div class="trip-info-title">' + escape(trip.title) + '</div><div class="trip-info-meta"><span>📍 ' + escape(trip.location || '') + '</span><span>📅 ' + formatDateRange(trip.start_date, trip.end_date) + '</span><span><strong>' + b.days + ' Tage</strong></span>' + (trip.partner ? '<span>🤝 mit ' + escape(trip.partner) + '</span>' : '') + '</div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(b.total) + '</div><button class="btn btn-primary" onclick="openTripClaim(\'' + su.id + '\')">Abrechnen →</button></div></div>';
   }).join('');
 }
 
 function renderSitzSection() {
   const sec = document.getElementById('sitz-section');
   const el = document.getElementById('open-sitz');
-
   const claimedBookingIds = new Set(_claims.filter(c => c.source_type === 'sitzwache' && c.status !== 'rejected' && c.status !== 'draft').map(c => c.booking_id));
   const candidates = _bookings.filter(b => b.status === 'completed' && !claimedBookingIds.has(b.id));
 
@@ -1066,87 +919,39 @@ function renderSitzSection() {
     el.innerHTML = '<div class="empty"><div class="empty-icon">🪑</div><p>Aktuell keine abgeschlossenen Sitzwachen zum Abrechnen.</p><p class="muted">Schichten erscheinen hier, sobald der Vorstand sie als „abgeschlossen" markiert hat.</p></div>';
     return;
   }
-
   el.innerHTML = candidates.map(bk => {
-    const amount = bk.compensation_eur != null
-      ? Number(bk.compensation_eur)
-      : Number(_RATES?.['sitz_' + bk.shift]?.amount || 45);
+    const amount = bk.compensation_eur != null ? Number(bk.compensation_eur) : Number(_rates['sitz_' + bk.shift]?.amount || 45);
     const shiftLabel = ({morning:'Frühdienst', afternoon:'Spätdienst', night:'Nachtdienst'})[bk.shift] || bk.shift;
-    return `<div class="trip-card">
-      <div>
-        <span class="type-badge sitz">Sitzwache</span>
-        <div class="trip-info-title">${shiftLabel} · ${formatDateRange(bk.date, bk.date)}</div>
-        <div class="trip-info-meta">
-          <span>⏱ ${bk.hours || '?'} Std.</span>
-          <span>Status: abgeschlossen</span>
-        </div>
-      </div>
-      <div class="trip-action">
-        <div class="trip-amount">${formatEUR(amount)}</div>
-        <button class="btn btn-primary" onclick="openSitzClaim('${bk.id}')">Abrechnen →</button>
-      </div>
-    </div>`;
+    return '<div class="trip-card"><div><span class="type-badge sitz">Sitzwache</span><div class="trip-info-title">' + shiftLabel + ' · ' + formatDateRange(bk.date, bk.date) + '</div><div class="trip-info-meta"><span>⏱ ' + (bk.hours || '?') + ' Std.</span><span>Status: abgeschlossen</span></div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(amount) + '</div><button class="btn btn-primary" onclick="openSitzClaim(\'' + bk.id + '\')">Abrechnen →</button></div></div>';
   }).join('');
 }
 
 function renderClaimsSection() {
   const sec = document.getElementById('claims-section');
   const el = document.getElementById('submitted-claims');
-
   sec.hidden = false;
   if (_claims.length === 0) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">📄</div><p>Noch keine Anträge eingereicht.</p></div>';
     return;
   }
-
-  // Sort: neuste zuerst
   const sorted = [..._claims].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-
   el.innerHTML = sorted.map(c => {
-    const stateLabel = c.status === 'paid' ? 'Ausgezahlt'
-      : c.status === 'approved' ? 'Genehmigt'
-      : c.status === 'rejected' ? 'Abgelehnt'
-      : c.status === 'draft' ? 'Entwurf'
-      : 'Eingereicht';
-    const stateClass = c.status === 'paid' ? 'state-paid'
-      : c.status === 'approved' ? 'state-approved'
-      : c.status === 'rejected' ? 'state-rejected'
-      : 'state-submitted';
-    const typeBadge = c.source_type === 'sitzwache'
-      ? '<span class="type-badge sitz">Sitzwache</span>'
-      : '<span class="type-badge trip">Reise</span>';
-    const title = c.source_type === 'sitzwache'
-      ? 'Sitzwache vom ' + formatDateRange(c.period_start, c.period_end)
-      : 'Reise: ' + formatDateRange(c.period_start, c.period_end);
-    return `<div class="trip-card">
-      <div>
-        ${typeBadge}
-        <div class="trip-info-title">${escape(title)}</div>
-        <div class="trip-info-meta">
-          <span>Beleg-ID: <strong>${escape(c.id.substring(0,8).toUpperCase())}</strong></span>
-          <span>Eingereicht: ${new Date(c.created_at).toLocaleDateString('de-DE')}</span>
-          <span class="trip-state ${stateClass}">${stateLabel}</span>
-        </div>
-      </div>
-      <div class="trip-action">
-        <div class="trip-amount">${formatEUR(c.amount)}</div>
-        <button class="btn btn-ghost" onclick="showBeleg('${c.id}')">Beleg ansehen</button>
-      </div>
-    </div>`;
+    const stateLabel = c.status === 'paid' ? 'Ausgezahlt' : c.status === 'approved' ? 'Genehmigt' : c.status === 'rejected' ? 'Abgelehnt' : c.status === 'draft' ? 'Entwurf' : 'Eingereicht';
+    const stateClass = c.status === 'paid' ? 'state-paid' : c.status === 'approved' ? 'state-approved' : c.status === 'rejected' ? 'state-rejected' : 'state-submitted';
+    const typeBadge = c.source_type === 'sitzwache' ? '<span class="type-badge sitz">Sitzwache</span>' : '<span class="type-badge trip">Reise</span>';
+    const title = c.source_type === 'sitzwache' ? 'Sitzwache vom ' + formatDateRange(c.period_start, c.period_end) : 'Reise: ' + formatDateRange(c.period_start, c.period_end);
+    return '<div class="trip-card"><div>' + typeBadge + '<div class="trip-info-title">' + escape(title) + '</div><div class="trip-info-meta"><span>Beleg-ID: <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong></span><span>Eingereicht: ' + new Date(c.created_at).toLocaleDateString('de-DE') + '</span><span class="trip-state ' + stateClass + '">' + stateLabel + '</span></div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(c.amount) + '</div><button class="btn btn-ghost" onclick="showBeleg(\'' + c.id + '\')">Beleg ansehen</button></div></div>';
   }).join('');
 }
 
-// ═══════════════════════════════════════════════════════
-// CLAIM DIALOG
-// ═══════════════════════════════════════════════════════
+// === DIALOG ===
 function openTripClaim(signupId) {
   const su = _signups.find(s => s.id === signupId);
   if (!su || !su.trips) return;
   const trip = su.trips;
-  const ratePerDay = _RATES.travel_per_day?.amount ? Number(_RATES.travel_per_day.amount) : 150;
+  const ratePerDay = _rates.travel_per_day?.amount ? Number(_rates.travel_per_day.amount) : 150;
   const perDay = trip.rate_override_per_day != null ? Number(trip.rate_override_per_day) : ratePerDay;
   const b = calcTripBreakdown(trip, perDay);
-
   _activeContext = { type: 'trip', signup: su, breakdown: b, total: b.total };
 
   document.getElementById('cd-title').textContent = 'Antrag: Reisebegleitung';
@@ -1156,11 +961,9 @@ function openTripClaim(signupId) {
   document.getElementById('cd-period').value = formatDateRange(trip.start_date, trip.end_date) + ' (' + b.days + ' Tage)';
 
   const rows = [];
-  rows.push(`<div class="calc-row"><span>Anreisetag (halber Tag)</span><span>0,5 × ${formatEUR(perDay)} = <strong>${formatEUR(perDay/2)}</strong></span></div>`);
-  if (b.midDays > 0) {
-    rows.push(`<div class="calc-row"><span>Volltage</span><span>${b.midDays} × ${formatEUR(perDay)} = <strong>${formatEUR(b.midAmount)}</strong></span></div>`);
-  }
-  rows.push(`<div class="calc-row"><span>Abreisetag (halber Tag)</span><span>0,5 × ${formatEUR(perDay)} = <strong>${formatEUR(perDay/2)}</strong></span></div>`);
+  rows.push('<div class="calc-row"><span>Anreisetag (halber Tag)</span><span>0,5 × ' + formatEUR(perDay) + ' = <strong>' + formatEUR(perDay/2) + '</strong></span></div>');
+  if (b.midDays > 0) rows.push('<div class="calc-row"><span>Volltage</span><span>' + b.midDays + ' × ' + formatEUR(perDay) + ' = <strong>' + formatEUR(b.midAmount) + '</strong></span></div>');
+  rows.push('<div class="calc-row"><span>Abreisetag (halber Tag)</span><span>0,5 × ' + formatEUR(perDay) + ' = <strong>' + formatEUR(perDay/2) + '</strong></span></div>');
   document.getElementById('cd-calc-rows').innerHTML = rows.join('');
   document.getElementById('cd-total').textContent = formatEUR(b.total);
 
@@ -1171,11 +974,8 @@ function openTripClaim(signupId) {
 function openSitzClaim(bookingId) {
   const bk = _bookings.find(b => b.id === bookingId);
   if (!bk) return;
-  const amount = bk.compensation_eur != null
-    ? Number(bk.compensation_eur)
-    : Number(_RATES?.['sitz_' + bk.shift]?.amount || 45);
+  const amount = bk.compensation_eur != null ? Number(bk.compensation_eur) : Number(_rates['sitz_' + bk.shift]?.amount || 45);
   const shiftLabel = ({morning:'Frühdienst (06:00–14:00)', afternoon:'Spätdienst (14:00–22:00)', night:'Nachtdienst (22:00–06:00)'})[bk.shift] || bk.shift;
-
   _activeContext = { type: 'sitz', booking: bk, breakdown: { amount, shift: bk.shift }, total: amount };
 
   document.getElementById('cd-title').textContent = 'Antrag: Sitzwache';
@@ -1184,8 +984,7 @@ function openSitzClaim(bookingId) {
   document.getElementById('cd-activity-hint').textContent = 'Pflegerisch-betreuende Sitzwache im Rahmen der gemeinnützigen Vereinstätigkeit';
   document.getElementById('cd-period').value = formatDateRange(bk.date, bk.date) + ' (' + (bk.hours || '?') + ' Std.)';
 
-  document.getElementById('cd-calc-rows').innerHTML =
-    `<div class="calc-row"><span>${shiftLabel}</span><span><strong>${formatEUR(amount)}</strong></span></div>`;
+  document.getElementById('cd-calc-rows').innerHTML = '<div class="calc-row"><span>' + shiftLabel + '</span><span><strong>' + formatEUR(amount) + '</strong></span></div>';
   document.getElementById('cd-total').textContent = formatEUR(amount);
 
   prepareDialog();
@@ -1193,7 +992,6 @@ function openSitzClaim(bookingId) {
 }
 
 function prepareDialog() {
-  // IBAN-Anzeige
   const ibanEl = document.getElementById('cd-iban-display');
   const submitBtn = document.getElementById('cd-submit-btn');
   if (_profile?.iban) {
@@ -1205,13 +1003,8 @@ function prepareDialog() {
     document.getElementById('cd-iban-info').classList.add('iban-missing');
     submitBtn.disabled = true;
   }
-
-  // Reset checkboxes & note
   document.getElementById('cd-note').value = '';
-  document.querySelectorAll('.cd-req').forEach(c => {
-    c.checked = false;
-    c.parentElement.classList.remove('required-not-checked');
-  });
+  document.querySelectorAll('.cd-req').forEach(c => { c.checked = false; c.parentElement.classList.remove('required-not-checked'); });
 }
 
 function closeDialog() {
@@ -1219,43 +1012,21 @@ function closeDialog() {
   _activeContext = null;
 }
 
-// ═══════════════════════════════════════════════════════
-// SUBMIT
-// ═══════════════════════════════════════════════════════
+// === SUBMIT ===
 async function submitClaim() {
   if (!_activeContext) return;
-  if (!_profile?.iban) {
-    showToast('Bitte erst IBAN im Profil hinterlegen.', 'warn');
-    return;
-  }
-
-  // Pflichtbestaetigungen
+  if (!_profile?.iban) { showToast('Bitte erst IBAN im Profil hinterlegen.', 'warn'); return; }
   let allChecked = true;
   document.querySelectorAll('.cd-req').forEach(c => {
-    if (!c.checked) {
-      allChecked = false;
-      c.parentElement.classList.add('required-not-checked');
-    } else {
-      c.parentElement.classList.remove('required-not-checked');
-    }
+    if (!c.checked) { allChecked = false; c.parentElement.classList.add('required-not-checked'); }
+    else c.parentElement.classList.remove('required-not-checked');
   });
-  if (!allChecked) {
-    showToast('Bitte alle Erklärungen bestätigen.', 'warn');
-    return;
-  }
+  if (!allChecked) { showToast('Bitte alle Erklärungen bestätigen.', 'warn'); return; }
 
-  // Freibetragsprüfung (nur Warnung, nicht blockieren)
   const yearNow = new Date().getFullYear();
-  const yearTotal = _claims.filter(c => new Date(c.created_at).getFullYear() === yearNow && c.status !== 'rejected')
-    .reduce((s, c) => s + Number(c.amount || 0), 0);
+  const yearTotal = _claims.filter(c => new Date(c.created_at).getFullYear() === yearNow && c.status !== 'rejected').reduce((s, c) => s + Number(c.amount || 0), 0);
   if (yearTotal + _activeContext.total > JAHRESFREIBETRAG) {
-    if (!confirm(
-      'Achtung: Mit diesem Antrag würdest du den Jahresfreibetrag von ' + formatEUR(JAHRESFREIBETRAG) + ' überschreiten.\n\n' +
-      'Bisher: ' + formatEUR(yearTotal) + '\n' +
-      'Dieser Antrag: ' + formatEUR(_activeContext.total) + '\n' +
-      'Überschreitung: ' + formatEUR(yearTotal + _activeContext.total - JAHRESFREIBETRAG) + '\n\n' +
-      'Ab dem Überschreitungsbetrag sind Steuer- und Sozialversicherungspflicht möglich. Möchtest du trotzdem einreichen?'
-    )) return;
+    if (!confirm('Achtung: Mit diesem Antrag würdest du den Jahresfreibetrag von ' + formatEUR(JAHRESFREIBETRAG) + ' überschreiten.\n\nBisher: ' + formatEUR(yearTotal) + '\nDieser Antrag: ' + formatEUR(_activeContext.total) + '\n\nMöchtest du trotzdem einreichen?')) return;
   }
 
   const submitBtn = document.getElementById('cd-submit-btn');
@@ -1264,12 +1035,9 @@ async function submitClaim() {
   const note = document.getElementById('cd-note').value.trim();
 
   try {
-    let resp;
-    if (_activeContext.type === 'trip') {
-      resp = await LPR.submitTripClaim(_activeContext.signup.id, note);
-    } else {
-      resp = await LPR.submitSitzClaim(_activeContext.booking.id, note);
-    }
+    const resp = _activeContext.type === 'trip'
+      ? await LPR.submitTripClaim(_activeContext.signup.id, note)
+      : await LPR.submitSitzClaim(_activeContext.booking.id, note);
     if (!resp.ok) {
       showToast('Fehler: ' + (resp.error || 'unbekannt'), 'warn');
       submitBtn.disabled = false;
@@ -1289,125 +1057,39 @@ async function submitClaim() {
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// BELEG (für beide Typen)
-// ═══════════════════════════════════════════════════════
+// === BELEG ===
 function showBeleg(claimId) {
   const c = _claims.find(x => x.id === claimId);
   if (!c) return;
   const isSitz = c.source_type === 'sitzwache';
   const breakdown = c.amount_breakdown || [];
-
   let positionsHtml = '';
   if (isSitz && breakdown[0]) {
     const b = breakdown[0];
     const shiftLabel = ({morning:'Frühdienst', afternoon:'Spätdienst', night:'Nachtdienst'})[b.schicht] || b.schicht || '';
-    positionsHtml = `<tr>
-        <td>Sitzwache ${escape(shiftLabel)} (${escape(b.datum || '')})</td>
-        <td class="num">${b.stunden || '–'}</td>
-        <td class="num">${formatEUR(b.satz)}</td>
-        <td class="num">${formatEUR(b.summe)}</td>
-      </tr>`;
+    positionsHtml = '<tr><td>Sitzwache ' + escape(shiftLabel) + ' (' + escape(b.datum || '') + ')</td><td class="num">' + (b.stunden || '–') + '</td><td class="num">' + formatEUR(b.satz) + '</td><td class="num">' + formatEUR(b.summe) + '</td></tr>';
   } else if (!isSitz) {
-    // Trip-Breakdown: Backend liefert {tage_gesamt, ganze_tage, satz, summe, hinweis}
     const b = breakdown[0] || {};
     const perDay = Number(b.satz || 0);
     const ganze = Number(b.ganze_tage || 0);
-    positionsHtml = `
-      <tr><td>Anreisetag (halber Tag)</td><td class="num">0,5</td><td class="num">${formatEUR(perDay)}</td><td class="num">${formatEUR(perDay/2)}</td></tr>
-      ${ganze > 2 ? `<tr><td>Volltage</td><td class="num">${ganze - 2}</td><td class="num">${formatEUR(perDay)}</td><td class="num">${formatEUR((ganze-2)*perDay)}</td></tr>` : ''}
-      <tr><td>Abreisetag (halber Tag)</td><td class="num">0,5</td><td class="num">${formatEUR(perDay)}</td><td class="num">${formatEUR(perDay/2)}</td></tr>`;
+    positionsHtml = '<tr><td>Anreisetag (halber Tag)</td><td class="num">0,5</td><td class="num">' + formatEUR(perDay) + '</td><td class="num">' + formatEUR(perDay/2) + '</td></tr>' + (ganze > 2 ? '<tr><td>Volltage</td><td class="num">' + (ganze - 2) + '</td><td class="num">' + formatEUR(perDay) + '</td><td class="num">' + formatEUR((ganze-2)*perDay) + '</td></tr>' : '') + '<tr><td>Abreisetag (halber Tag)</td><td class="num">0,5</td><td class="num">' + formatEUR(perDay) + '</td><td class="num">' + formatEUR(perDay/2) + '</td></tr>';
   }
-
   const aktivitaet = isSitz ? 'Ehrenamtliche Sitzwache' : 'Ehrenamtliche Reisebegleitung';
-  const html = `
-    <div class="beleg-head">
-      <div>
-        <div class="beleg-logo-name">${escape(VEREIN.name)}</div>
-        <div class="beleg-logo-sub">${escape(VEREIN.adresse)}</div>
-      </div>
-      <div class="beleg-nr">
-        Beleg-ID <strong>${escape(c.id.substring(0,8).toUpperCase())}</strong><br>
-        Ausgestellt am ${new Date(c.created_at).toLocaleDateString('de-DE')}
-      </div>
-    </div>
-    <div class="beleg-title">Aufwandsentschädigung</div>
-    <div class="beleg-subtitle">
-      Übungsleiterpauschale gemäß § 3 Nr. 26 EStG · steuer- und sozialversicherungsfrei
-    </div>
-    <div class="beleg-grid">
-      <div class="beleg-block">
-        <h4>Empfänger:in</h4>
-        <p>
-          <strong>${escape(_profile?.full_name || '')}</strong><br>
-          ${escape(_profile?.email || '')}<br>
-          IBAN: ${escape(formatIbanDisplay(_profile?.iban || ''))}
-        </p>
-      </div>
-      <div class="beleg-block">
-        <h4>Auszahlender Verein</h4>
-        <p>
-          <strong>${escape(VEREIN.name)}</strong><br>
-          ${escape(VEREIN.adresse)}<br>
-          Vertreten durch den Vorstand<br>
-          (Gemeinnütziger Verein i.S.d. § 52 AO)
-        </p>
-      </div>
-      <div class="beleg-block">
-        <h4>Tätigkeit</h4>
-        <p>${aktivitaet}<br><span class="muted">pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins</span></p>
-      </div>
-      <div class="beleg-block">
-        <h4>Zeitraum</h4>
-        <p><strong>${formatDateRange(c.period_start, c.period_end)}</strong></p>
-      </div>
-    </div>
-    <table class="beleg-table">
-      <thead><tr><th>Position</th><th class="num">Anzahl</th><th class="num">Satz</th><th class="num">Betrag</th></tr></thead>
-      <tbody>
-        ${positionsHtml}
-        <tr class="beleg-total-row">
-          <td colspan="3">Summe Aufwandsentschädigung</td>
-          <td class="num">${formatEUR(c.amount)}</td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="beleg-declaration">
-      <h4>Erklärungen der/des Ehrenamtlichen</h4>
-      <ul>
-        <li>Die angegebenen Zeiten und Tätigkeiten wurden tatsächlich und in der genannten Form erbracht.</li>
-        <li>Die Tätigkeit wird nebenberuflich ausgeübt (nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit).</li>
-        <li>Die Übungsleiterpauschale nach § 3 Nr. 26 EStG wurde im laufenden Kalenderjahr nicht anderweitig so in Anspruch genommen, dass der Jahresfreibetrag von 3.300 € zusammen mit dieser Zahlung überschritten wird.</li>
-        <li>Der/die Ehrenamtliche wurde über die Verarbeitung und zehnjährige Aufbewahrung der Angaben gemäß § 147 AO informiert (Art. 6 Abs. 1 lit. c DSGVO).</li>
-      </ul>
-      ${c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : ''}
-    </div>
-    <div class="beleg-foot">
-      <p class="muted">Status: ${escape(c.status)} · Vereinsbeschluss vom ${BESCHLUSS_DATUM}</p>
-    </div>
-  `;
+  const html = '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(VEREIN.name) + '</div><div class="beleg-logo-sub">' + escape(VEREIN.adresse) + '</div></div><div class="beleg-nr">Beleg-ID <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong><br>Ausgestellt am ' + new Date(c.created_at).toLocaleDateString('de-DE') + '</div></div><div class="beleg-title">Aufwandsentschädigung</div><div class="beleg-subtitle">Übungsleiterpauschale gemäß § 3 Nr. 26 EStG · steuer- und sozialversicherungsfrei</div><div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(_profile?.full_name || '') + '</strong><br>' + escape(_profile?.email || '') + '<br>IBAN: ' + escape(formatIbanDisplay(_profile?.iban || '')) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(VEREIN.name) + '</strong><br>' + escape(VEREIN.adresse) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>Tätigkeit</h4><p>' + aktivitaet + '<br><span class="muted">pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins</span></p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + formatDateRange(c.period_start, c.period_end) + '</strong></p></div></div><table class="beleg-table"><thead><tr><th>Position</th><th class="num">Anzahl</th><th class="num">Satz</th><th class="num">Betrag</th></tr></thead><tbody>' + positionsHtml + '<tr class="beleg-total-row"><td colspan="3">Summe Aufwandsentschädigung</td><td class="num">' + formatEUR(c.amount) + '</td></tr></tbody></table><div class="beleg-declaration"><h4>Erklärungen der/des Ehrenamtlichen</h4><ul><li>Die angegebenen Zeiten und Tätigkeiten wurden tatsächlich und in der genannten Form erbracht.</li><li>Die Tätigkeit wird nebenberuflich ausgeübt (nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit).</li><li>Die Übungsleiterpauschale nach § 3 Nr. 26 EStG wurde im laufenden Kalenderjahr nicht anderweitig so in Anspruch genommen, dass der Jahresfreibetrag von 3.300 € überschritten wird.</li><li>Der/die Ehrenamtliche wurde über die Verarbeitung und zehnjährige Aufbewahrung der Angaben gemäß § 147 AO informiert (Art. 6 Abs. 1 lit. c DSGVO).</li></ul>' + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '') + '</div><div class="beleg-foot"><p class="muted">Status: ' + escape(c.status) + ' · Vereinsbeschluss vom ' + BESCHLUSS_DATUM + '</p></div>';
 
   document.getElementById('beleg-content').innerHTML = html;
-  document.querySelector('main > .container, .container').hidden = true;
-  // Loading-state und Sections verstecken
-  ['loading-state','iban-info','trips-section','sitz-section','claims-section'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.hidden = true;
-  });
+  ['loading-state','iban-info','trips-section','sitz-section','claims-section'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; });
   document.getElementById('beleg-container').hidden = false;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function backToDashboard() {
   document.getElementById('beleg-container').hidden = true;
-  ['iban-info','trips-section','sitz-section','claims-section'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.hidden = false;
-  });
+  ['iban-info','trips-section','sitz-section','claims-section'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = false; });
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ═══════════════════════════════════════════════════════
-// TOAST
-// ═══════════════════════════════════════════════════════
+// === TOAST ===
 let toastTimer;
 function showToast(msg, type = 'ok') {
   const t = document.getElementById('toast');
@@ -1417,9 +1099,7 @@ function showToast(msg, type = 'ok') {
   toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
 }
 
-// ═══════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════
+// === INIT ===
 loadAll();
 </script>
 </body>

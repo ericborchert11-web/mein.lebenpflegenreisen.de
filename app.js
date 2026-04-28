@@ -659,131 +659,248 @@
     return Math.round((b - a) / (1000 * 60 * 60 * 24)) + 1; // inkl. beider Tage
   }
 
-  async function submitTripClaim(signupId, notes) {
-    const s = getSession();
-    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
-    try {
-      // 1. Signup laden + Trip dazu
-      const { data: signup, error: sErr } = await (await sb())
-        .from('trip_signups')
-        .select('id, trip_id, user_id, status, trips ( id, start_date, end_date, rate_override_per_day )')
-        .eq('id', signupId)
-        .single();
-      if (sErr || !signup) return { ok: false, error: 'Anmeldung nicht gefunden.' };
-      if (signup.user_id !== s.id) return { ok: false, error: 'Diese Anmeldung gehört nicht zu Ihrem Konto.' };
-      if (signup.status !== 'confirmed') return { ok: false, error: 'Nur bestätigte Anmeldungen können abgerechnet werden.' };
-      const trip = signup.trips;
-      if (!trip) return { ok: false, error: 'Reise nicht gefunden.' };
-
-      // 2. Tagessatz: rate_override_per_day > Default
-      let perDay = trip.rate_override_per_day;
-      if (perDay == null) {
-        const r = await getRate('travel_per_day');
-        perDay = r ? Number(r.amount) : 0;
-      }
-      const days = _diffDays(trip.start_date, trip.end_date);
-      // Anreise- und Abreisetag = halbe Tage → effektiv days - 1 ganze Tage
-      const effective = Math.max(1, days - 1);
-      const amount = Number((effective * perDay).toFixed(2));
-      const breakdown = [{ tage_gesamt: days, ganze_tage: effective, satz: perDay, summe: amount, hinweis: 'An- und Abreisetag = halbe Tage' }];
-
-      // 3. Bestehenden Claim für dieses Signup finden
-      const { data: existing } = await (await sb())
-        .from('claims').select('id, status').eq('trip_signup_id', signupId).maybeSingle();
-      if (existing && existing.status !== 'rejected' && existing.status !== 'draft') {
-        return { ok: false, error: 'Für diese Reise wurde bereits eine Abrechnung eingereicht.' };
-      }
-
-      // 4. Insert claim
-      const { data, error } = await (await sb())
-        .from('claims')
-        .insert({
-          user_id: s.id,
-          source_type: 'trip',
-          trip_signup_id: signupId,
-          amount,
-          amount_breakdown: breakdown,
-          period_start: trip.start_date,
-          period_end: trip.end_date,
-          status: 'submitted',
-          notes: notes || null
-        })
-        .select()
-        .single();
-      if (error) return { ok: false, error: error.message };
-      return { ok: true, claim: data };
-    } catch(e) { console.error('[LPR] submitTripClaim:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
-  }
-
-  async function submitSitzClaim(bookingId, notes) {
-    const s = getSession();
-    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
-    try {
-      const { data: booking, error: bErr } = await (await sb())
-        .from('bookings')
-        .select('id, volunteer_id, date, shift, hours, compensation_eur, status')
-        .eq('id', bookingId)
-        .single();
-      if (bErr || !booking) return { ok: false, error: 'Buchung nicht gefunden.' };
-      if (booking.volunteer_id !== s.id) return { ok: false, error: 'Diese Buchung gehört nicht zu Ihrem Konto.' };
-      if (booking.status !== 'completed') return { ok: false, error: 'Nur abgeschlossene Schichten können abgerechnet werden.' };
-
-      // Tarif: compensation_eur direkt aus booking, oder Default aus rates
-      let amount = booking.compensation_eur;
-      if (amount == null) {
-        const r = await getRate('sitz_' + booking.shift);
-        amount = r ? Number(r.amount) : 0;
-      }
-      const breakdown = [{ datum: booking.date, schicht: booking.shift, stunden: booking.hours, satz: amount, summe: amount }];
-
-      // bestehenden claim prüfen
-      const { data: existing } = await (await sb())
-        .from('claims').select('id, status').eq('booking_id', bookingId).maybeSingle();
-      if (existing && existing.status !== 'rejected' && existing.status !== 'draft') {
-        return { ok: false, error: 'Für diese Schicht wurde bereits eine Abrechnung eingereicht.' };
-      }
-
-      const { data, error } = await (await sb())
-        .from('claims')
-        .insert({
-          user_id: s.id,
-          source_type: 'sitzwache',
-          booking_id: bookingId,
-          amount: Number(amount),
-          amount_breakdown: breakdown,
-          period_start: booking.date,
-          period_end: booking.date,
-          status: 'submitted',
-          notes: notes || null
-        })
-        .select()
-        .single();
-      if (error) return { ok: false, error: error.message };
-      return { ok: true, claim: data };
-    } catch(e) { console.error('[LPR] submitSitzClaim:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
-  }
-
-
-
-  document.addEventListener('DOMContentLoaded', async () => {
-    applyA11ySettings();
-    try {
-      const client = await sb();
-      client.auth.onAuthStateChange((event, sbSession) => {
-        if (event === 'SIGNED_OUT' || !sbSession) {
-          clearSession();
-        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-          refreshSessionCache().catch(()=>{});
-        }
-      });
-      refreshSessionCache().catch(e => console.warn('refreshSessionCache:', e));
-    } catch(e) {
-      console.warn('[LPR] Supabase-Init fehlgeschlagen:', e);
+  async function calculatePay(ctx) {
+  // ctx: { activity, shift_type, role, date, override_amount, start_date, end_date, duration_days }
+  try {
+    const role = ctx.role || 'ehrenamt';
+    
+    // 1) Basisbetrag bestimmen
+    let baseAmount, baseSource;
+    if (ctx.override_amount != null && !isNaN(Number(ctx.override_amount))) {
+      baseAmount = Number(ctx.override_amount);
+      baseSource = 'override';
+    } else {
+      const { data: rateRow, error: rateErr } = await supabase
+        .from('compensation_rates')
+        .select('amount')
+        .eq('activity', ctx.activity)
+        .eq('shift_type', ctx.shift_type)
+        .eq('role', role)
+        .is('effective_to', null)
+        .maybeSingle();
+      if (rateErr) return { ok: false, error: 'Tarif konnte nicht geladen werden: ' + rateErr.message };
+      if (!rateRow) return { ok: false, error: 'Kein gültiger Tarif für ' + ctx.activity + '/' + ctx.shift_type + '/' + role + ' hinterlegt.' };
+      baseAmount = Number(rateRow.amount);
+      baseSource = 'tariff';
     }
-  });
+    
+    // 2) Reise-Pfad: keine Zuschläge, halbe Tage am Anfang/Ende
+    if (ctx.activity === 'reise') {
+      if (!ctx.start_date || !ctx.end_date) return { ok: false, error: 'Reise braucht start_date und end_date' };
+      const days = Math.round((new Date(ctx.end_date) - new Date(ctx.start_date)) / 86400000) + 1;
+      if (days < 1) return { ok: false, error: 'Ungültige Reisedauer' };
+      const halfAmount = Number((baseAmount / 2).toFixed(2));
+      const breakdown = [];
+      let total = 0;
+      if (days === 1) {
+        // 1-Tages-Reise: voller Tag
+        breakdown.push({ label: 'Reisetag', date: ctx.start_date, base: baseAmount, factor: 1, amount: baseAmount });
+        total = baseAmount;
+      } else {
+        breakdown.push({ label: 'Anreisetag (halber Tag)', date: ctx.start_date, base: baseAmount, factor: 0.5, amount: halfAmount });
+        total += halfAmount;
+        const midDays = days - 2;
+        if (midDays > 0) {
+          const midAmount = Number((midDays * baseAmount).toFixed(2));
+          breakdown.push({ label: 'Volltage', count: midDays, base: baseAmount, factor: 1, amount: midAmount });
+          total += midAmount;
+        }
+        breakdown.push({ label: 'Abreisetag (halber Tag)', date: ctx.end_date, base: baseAmount, factor: 0.5, amount: halfAmount });
+        total += halfAmount;
+      }
+      total = Number(total.toFixed(2));
+      return { ok: true, base_source: baseSource, base_amount: baseAmount, supplements_applied: [], breakdown, total, currency: 'EUR' };
+    }
+    
+    // 3) Sitzwache-Pfad: 1 Schicht pauschal, ggf. mit Zuschlägen
+    if (ctx.activity === 'sitzwache') {
+      const shiftLabels = { morning: 'Frühdienst (06:00–14:00)', afternoon: 'Spätdienst (14:00–22:00)', night: 'Nachtdienst (22:00–06:00)' };
+      const label = shiftLabels[ctx.shift_type] || 'Sitzwache';
+      
+      // Zuschläge laden
+      const today = new Date().toISOString().split('T')[0];
+      const { data: supps } = await supabase
+        .from('pay_supplements')
+        .select('*')
+        .eq('active', true)
+        .lte('effective_from', today)
+        .or('effective_to.is.null,effective_to.gte.' + today);
+      
+      const applicable = [];
+      const dateObj = ctx.date ? new Date(ctx.date) : new Date();
+      const weekday = dateObj.getDay() === 0 ? 7 : dateObj.getDay();
+      
+      for (const s of (supps || [])) {
+        if (s.applies_to_activity && s.applies_to_activity !== 'sitzwache' && s.applies_to_activity !== '*') continue;
+        if (s.applies_to_shift_type && s.applies_to_shift_type !== ctx.shift_type) continue;
+        if (s.applies_to_role && s.applies_to_role !== role) continue;
+        let matches = false;
+        if (s.condition_type === 'always') matches = true;
+        else if (s.condition_type === 'weekday') {
+          const days = (s.condition_value && s.condition_value.days) || [];
+          matches = days.includes(weekday);
+        } else if (s.condition_type === 'date_range') {
+          const cv = s.condition_value || {};
+          const from = cv.from ? new Date(cv.from) : null;
+          const to = cv.to ? new Date(cv.to) : null;
+          matches = (!from || dateObj >= from) && (!to || dateObj <= to);
+        }
+        if (matches) applicable.push(s);
+      }
+      
+      let suppTotal = 0;
+      const suppDetails = [];
+      for (const s of applicable) {
+        const v = Number(s.bonus_value || 0);
+        const amt = s.bonus_type === 'percent' ? Number((baseAmount * v / 100).toFixed(2)) : v;
+        suppTotal += amt;
+        suppDetails.push({ name: s.name, type: s.bonus_type, value: v, amount: amt });
+      }
+      
+      const breakdown = [{ label: 'Sitzwache ' + label, date: ctx.date, base: baseAmount, factor: 1, amount: baseAmount }];
+      for (const sd of suppDetails) {
+        breakdown.push({ label: 'Zuschlag: ' + sd.name + ' (' + (sd.type === 'percent' ? sd.value + ' %' : '+' + sd.value + ' €') + ')', amount: sd.amount });
+      }
+      const total = Number((baseAmount + suppTotal).toFixed(2));
+      
+      return { ok: true, base_source: baseSource, base_amount: baseAmount, supplements_applied: suppDetails, breakdown, total, currency: 'EUR' };
+    }
+    
+    return { ok: false, error: 'Unbekannte Aktivität: ' + ctx.activity };
+  } catch(e) {
+    console.error('[LPR] calculatePay:', e);
+    return { ok: false, error: 'Netzwerkfehler bei Tarif-Berechnung.' };
+  }
+}
 
-  // ─── PROFIL & IBAN ──────────────────────────────────────
-  async function getMyProfile() {
+async function submitTripClaim(signupId, notes) {
+  try {
+    const session = getSession();
+    if (!session) return { ok: false, error: 'Nicht eingeloggt.' };
+    
+    // Profil für IBAN-Check
+    const profileResp = await getMyProfile();
+    if (!profileResp.ok) return { ok: false, error: 'Profil konnte nicht geladen werden.' };
+    if (!profileResp.profile.iban) return { ok: false, error: 'Bitte erst IBAN im Profil hinterlegen.' };
+    
+    // Signup + Trip laden
+    const { data: signup, error: suErr } = await supabase
+      .from('trip_signups')
+      .select('id, status, user_id, trip_id, trips(id, title, start_date, end_date, rate_override_per_day)')
+      .eq('id', signupId)
+      .maybeSingle();
+    if (suErr || !signup) return { ok: false, error: 'Signup nicht gefunden.' };
+    if (signup.user_id !== session.id) return { ok: false, error: 'Dieser Signup gehört nicht dir.' };
+    if (signup.status !== 'confirmed') return { ok: false, error: 'Signup nicht bestätigt (Status: ' + signup.status + ').' };
+    if (!signup.trips) return { ok: false, error: 'Reise-Daten fehlen.' };
+    const trip = signup.trips;
+    
+    // Existierenden Claim prüfen (außer rejected/draft)
+    const { data: existingClaims } = await supabase
+      .from('claims')
+      .select('id, status')
+      .eq('trip_signup_id', signupId);
+    const blocking = (existingClaims || []).find(c => c.status !== 'rejected' && c.status !== 'draft');
+    if (blocking) return { ok: false, error: 'Für diese Reise existiert bereits ein Antrag (Status: ' + blocking.status + ').' };
+    
+    // Tarif-Berechnung über calculatePay
+    const calc = await calculatePay({
+      activity: 'reise',
+      shift_type: 'day',
+      role: 'ehrenamt',
+      override_amount: trip.rate_override_per_day,
+      start_date: trip.start_date,
+      end_date: trip.end_date
+    });
+    if (!calc.ok) return { ok: false, error: calc.error };
+    
+    // Claim einreichen
+    const { data: claim, error: insErr } = await supabase
+      .from('claims')
+      .insert({
+        user_id: session.id,
+        source_type: 'trip',
+        trip_signup_id: signupId,
+        amount: calc.total,
+        amount_breakdown: calc.breakdown,
+        period_start: trip.start_date,
+        period_end: trip.end_date,
+        status: 'submitted',
+        notes: notes || null
+      })
+      .select()
+      .single();
+    if (insErr) return { ok: false, error: 'Antrag konnte nicht gespeichert werden: ' + insErr.message };
+    
+    return { ok: true, claim };
+  } catch(e) {
+    console.error('[LPR] submitTripClaim:', e);
+    return { ok: false, error: 'Netzwerkfehler.' };
+  }
+}
+
+async function submitSitzClaim(bookingId, notes) {
+  try {
+    const session = getSession();
+    if (!session) return { ok: false, error: 'Nicht eingeloggt.' };
+    
+    const profileResp = await getMyProfile();
+    if (!profileResp.ok) return { ok: false, error: 'Profil konnte nicht geladen werden.' };
+    if (!profileResp.profile.iban) return { ok: false, error: 'Bitte erst IBAN im Profil hinterlegen.' };
+    
+    // Booking laden
+    const { data: booking, error: bkErr } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('id', bookingId)
+      .maybeSingle();
+    if (bkErr || !booking) return { ok: false, error: 'Buchung nicht gefunden.' };
+    if (booking.volunteer_id !== session.id) return { ok: false, error: 'Diese Buchung gehört nicht dir.' };
+    if (booking.status !== 'completed') return { ok: false, error: 'Buchung nicht abgeschlossen (Status: ' + booking.status + ').' };
+    
+    // Bestehender Claim?
+    const { data: existingClaims } = await supabase
+      .from('claims')
+      .select('id, status')
+      .eq('booking_id', bookingId);
+    const blocking = (existingClaims || []).find(c => c.status !== 'rejected' && c.status !== 'draft');
+    if (blocking) return { ok: false, error: 'Für diese Buchung existiert bereits ein Antrag (Status: ' + blocking.status + ').' };
+    
+    // Tarif-Berechnung
+    const calc = await calculatePay({
+      activity: 'sitzwache',
+      shift_type: booking.shift,
+      role: 'ehrenamt',
+      override_amount: booking.compensation_eur,
+      date: booking.date
+    });
+    if (!calc.ok) return { ok: false, error: calc.error };
+    
+    const { data: claim, error: insErr } = await supabase
+      .from('claims')
+      .insert({
+        user_id: session.id,
+        source_type: 'sitzwache',
+        booking_id: bookingId,
+        amount: calc.total,
+        amount_breakdown: calc.breakdown,
+        period_start: booking.date,
+        period_end: booking.date,
+        status: 'submitted',
+        notes: notes || null
+      })
+      .select()
+      .single();
+    if (insErr) return { ok: false, error: 'Antrag konnte nicht gespeichert werden: ' + insErr.message };
+    
+    return { ok: true, claim };
+  } catch(e) {
+    console.error('[LPR] submitSitzClaim:', e);
+    return { ok: false, error: 'Netzwerkfehler.' };
+  }
+}
+
+async function getMyProfile() {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
     try {
@@ -833,7 +950,8 @@
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     getMyAvailability, setAvailability, removeAvailability,
     getMySignups, getMyBookings,
-    getMyClaims, submitTripClaim, submitSitzClaim,
+    getMyClaims, calculatePay,
+    submitTripClaim, submitSitzClaim,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

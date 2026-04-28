@@ -843,6 +843,7 @@ async function loadAll() {
     _rates = ratesResp || {};
 
     document.getElementById('loading-state').hidden = true;
+    renderUserInfo();
     renderIbanInfo();
     renderTripsSection();
     renderSitzSection();
@@ -855,6 +856,18 @@ async function loadAll() {
 }
 
 // === RENDER ===
+function renderUserInfo() {
+  const nameEl = document.getElementById('user-name');
+  const mailEl = document.getElementById('user-email');
+  if (nameEl) nameEl.textContent = _profile.full_name || '—';
+  if (mailEl) mailEl.textContent = _profile.email || '';
+}
+
+async function doLogout() {
+  try { await LPR.logout(); } catch(e) {}
+  location.href = 'login.html';
+}
+
 function renderIbanInfo() {
   const el = document.getElementById('iban-info');
   el.hidden = false;

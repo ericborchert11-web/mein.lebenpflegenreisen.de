@@ -343,9 +343,9 @@
     const REQUIRED = ['fuehrungszeugnis','ifsg43','erste_hilfe','dsgvo','schweigepflicht'];
     try {
       const { data, error } = await (await sb())
-        .from('compliance_records').select('document_type, status').eq('user_id', id);
+        .from('compliance_records').select('document_type, status, valid_until').eq('user_id', id);
       if (error) return { ok: false, complete: false, missing: [] };
-      const approved = new Set((data || []).filter(r => r.status === 'approved').map(r => r.document_type));
+      const approved = new Set((data || []).filter(r => r.status === 'approved' && (!r.valid_until || new Date(r.valid_until).setHours(0,0,0,0) >= new Date().setHours(0,0,0,0))).map(r => r.document_type));
       const missing = REQUIRED.filter(t => !approved.has(t));
       return { ok: true, complete: missing.length === 0, missing };
     } catch(e) { return { ok: false, complete: false, missing: [] }; }
@@ -503,6 +503,7 @@
   async function signupForTrip(tripId, note) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    const cc = await isComplianceComplete(s.id); if (!cc.complete) return { ok: false, error: 'Compliance unvollständig oder abgelaufen. Bitte Vorstand kontaktieren.', missing: cc.missing };
     try {
       // 1. Trip prüfen, max_spots ermitteln
       const tripRes = await getTrip(tripId);
@@ -571,6 +572,7 @@
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
     if (!['morning','afternoon','night'].includes(shift)) return { ok: false, error: 'Ungültige Schicht.' };
+    const cc = await isComplianceComplete(s.id); if (!cc.complete) return { ok: false, error: 'Compliance unvollständig oder abgelaufen. Bitte Vorstand kontaktieren.', missing: cc.missing };
     try {
       const { data, error } = await (await sb())
         .from('availabilities')

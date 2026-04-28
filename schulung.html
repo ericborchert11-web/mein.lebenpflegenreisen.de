@@ -117,7 +117,8 @@ body.fullscreen-mode #fullscreen-exit { display: block; }
     </div>
 
     <div class="iframe-box">
-      <iframe src="https://lernen.lebenpflegenreisen.de/"
+      <iframe id="schulung-iframe"
+              data-base-src="https://lernen.lebenpflegenreisen.de/"
               title="LPR Schulungsportal — Psychiatrische Einzelbetreuung"
               loading="lazy"
               allow="fullscreen">
@@ -151,6 +152,24 @@ if (!_session || _session.role !== 'ehrenamt') {
   document.body.innerHTML = '<main style="max-width:600px;margin:80px auto;padding:0 20px;text-align:center;font-family:Instrument Sans,sans-serif;color:#1A3A2A"><h1 style="font-family:Bricolage Grotesque,sans-serif;font-weight:800;font-size:28px;margin-bottom:16px">Kein Zugriff</h1><p style="color:#666;line-height:1.6">Das Schulungsportal ist nur für ehrenamtliche Mitwirkende des Vereins zugänglich. <a href="mein-bereich.html" style="color:#1A3A2A;text-decoration:underline">Zurück zur Übersicht</a></p></main>';
   throw new Error('access_denied');
 }
+
+// === LPR: iframe-src dynamisch mit Session-Name fuettern ===
+(function setupIframe() {
+  const iframe = document.getElementById('schulung-iframe');
+  if (!iframe) return;
+  const baseSrc = iframe.getAttribute('data-base-src');
+  let userName = '';
+  try {
+    const s = _session || {};
+    userName = (s.fullName || s.displayName ||
+                ((s.firstName || s.vorname) && (s.lastName || s.nachname)
+                  ? ((s.firstName || s.vorname) + ' ' + (s.lastName || s.nachname))
+                  : (s.name || s.username || '')) || '').trim();
+  } catch(e) { userName = ''; }
+  iframe.src = userName
+    ? baseSrc + '?name=' + encodeURIComponent(userName)
+    : baseSrc;
+})();
 
 const SCHULUNG_KEY = 'lpr-schulung-completed';
 

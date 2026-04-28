@@ -817,6 +817,10 @@ async function loadAll() {
   const session = LPR.getSession();
   if (!session) { location.href = 'login.html'; return; }
 
+  // Login-View aus, Dashboard-View an (Fix für Original-Layout)
+  const loginV = document.getElementById('login-view'); if (loginV) loginV.hidden = true;
+  const dashV = document.getElementById('dashboard-view'); if (dashV) dashV.hidden = false;
+
   document.getElementById('loading-state').hidden = false;
   document.getElementById('iban-info').hidden = true;
   document.getElementById('trips-section').hidden = true;

@@ -782,12 +782,49 @@
     }
   });
 
+  // ─── PROFIL & IBAN ──────────────────────────────────────
+  async function getMyProfile() {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const { data, error } = await (await sb())
+        .from('profiles')
+        .select('id, email, full_name, phone, role, status, personalnummer, iban, iban_updated_at')
+        .eq('id', s.id)
+        .single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, profile: data };
+    } catch(e) { console.error('[LPR] getMyProfile:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  async function updateMyIban(rawIban) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    // Normalisieren: Leerzeichen weg, uppercase
+    const iban = (rawIban || '').replace(/\s+/g, '').toUpperCase();
+    // Validierung: leer (zum Löschen) oder DE + 20 Ziffern
+    if (iban !== '' && !/^DE[0-9]{20}$/.test(iban)) {
+      return { ok: false, error: 'Bitte eine gültige deutsche IBAN angeben (DE + 20 Ziffern).' };
+    }
+    try {
+      const { data, error } = await (await sb())
+        .from('profiles')
+        .update({ iban: iban || null, iban_updated_at: new Date().toISOString() })
+        .eq('id', s.id)
+        .select('iban, iban_updated_at')
+        .single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, iban: data.iban, iban_updated_at: data.iban_updated_at };
+    } catch(e) { console.error('[LPR] updateMyIban:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
   global.LPR = {
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,
     getSession, setSession, clearSession, refreshSessionCache,
     logout,
     getUser,
+    getMyProfile, updateMyIban,
     register, loginWithPassword, requireRole,
     listUsersByStatus, approveUser, rejectUser,
     getMyCompliance, getComplianceForUser, setComplianceStatus, isComplianceComplete,

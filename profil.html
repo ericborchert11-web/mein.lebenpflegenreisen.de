@@ -69,6 +69,21 @@
   </div>
 
   <div class="profile-card">
+    <h2>Bankverbindung</h2>
+    <p class="sub">Deine IBAN wird für die Auszahlung von Aufwandsentschädigungen verwendet. Sie wird nur intern für Abrechnungen genutzt.</p>
+    <form id="iban-form" novalidate>
+      <div class="field">
+        <label for="pf-iban">IBAN</label>
+        <input type="text" id="pf-iban" placeholder="DE00 0000 0000 0000 0000 00" autocomplete="off" inputmode="text">
+        <div class="field-hint">Deutsche IBAN: DE + 20 Ziffern. Leerzeichen werden automatisch entfernt.</div>
+      </div>
+      <div class="field-error" id="iban-error" hidden></div>
+      <div class="field-hint" id="iban-status" hidden></div>
+      <button type="submit" class="btn btn-primary" id="iban-save-btn">IBAN speichern</button>
+    </form>
+  </div>
+
+  <div class="profile-card">
     <h2>Passwort ändern</h2>
     <p class="sub">Aus Sicherheitsgründen brauchen wir zuerst dein aktuelles Passwort.</p>
     <form onsubmit="event.preventDefault(); changePw();">
@@ -220,6 +235,92 @@ async function changePw() {
 }
 
 loadProfile();
+
+// === IBAN-Block ===
+async function loadIban() {
+  try {
+    const r = await LPR.getMyProfile();
+    if (!r.ok) return;
+    const ibanField = document.getElementById('pf-iban');
+    const status = document.getElementById('iban-status');
+    if (r.profile.iban) {
+      ibanField.value = formatIbanDisplay(r.profile.iban);
+      ibanField.dataset.original = r.profile.iban;
+      if (status && r.profile.iban_updated_at) {
+        const d = new Date(r.profile.iban_updated_at).toLocaleDateString('de-DE');
+        status.textContent = '✓ IBAN hinterlegt (zuletzt geändert am ' + d + ')';
+        status.hidden = false;
+      }
+    } else {
+      ibanField.dataset.original = '';
+      if (status) {
+        status.textContent = 'Noch keine IBAN hinterlegt.';
+        status.hidden = false;
+      }
+    }
+  } catch(e) { console.warn('loadIban:', e); }
+}
+
+function formatIbanDisplay(iban) {
+  // DE89 3704 0044 0532 0130 00 — 4er-Gruppen
+  const clean = (iban || '').replace(/\s+/g, '').toUpperCase();
+  return clean.replace(/(.{4})/g, '$1 ').trim();
+}
+
+async function saveIban(e) {
+  e.preventDefault();
+  const ibanField = document.getElementById('pf-iban');
+  const errEl = document.getElementById('iban-error');
+  const btn = document.getElementById('iban-save-btn');
+  const newIban = ibanField.value.replace(/\s+/g, '').toUpperCase();
+  const original = (ibanField.dataset.original || '').replace(/\s+/g, '').toUpperCase();
+
+  errEl.hidden = true;
+  errEl.textContent = '';
+
+  // Format pruefen (leer = loeschen erlaubt)
+  if (newIban !== '' && !/^DE[0-9]{20}$/.test(newIban)) {
+    errEl.textContent = 'Bitte eine gültige deutsche IBAN eingeben (DE + 20 Ziffern).';
+    errEl.hidden = false;
+    ibanField.focus();
+    return;
+  }
+
+  // Bestaetigung wenn sich die IBAN aendert UND vorher schon eine gesetzt war
+  if (original && original !== newIban) {
+    const msg = newIban
+      ? 'Möchtest du deine IBAN wirklich ändern?\n\nWichtig: Bereits eingereichte, aber noch nicht ausgezahlte Anträge werden auf das neue Konto überwiesen.'
+      : 'Möchtest du deine IBAN wirklich entfernen?\n\nOhne hinterlegte IBAN kannst du keine Abrechnungen einreichen.';
+    if (!confirm(msg)) return;
+  }
+
+  btn.disabled = true;
+  const r = await LPR.updateMyIban(newIban);
+  btn.disabled = false;
+
+  if (!r.ok) {
+    errEl.textContent = r.error || 'Speichern fehlgeschlagen.';
+    errEl.hidden = false;
+    return;
+  }
+  // Erfolg: Feld neu formatieren, Status updaten
+  ibanField.dataset.original = r.iban || '';
+  ibanField.value = r.iban ? formatIbanDisplay(r.iban) : '';
+  const status = document.getElementById('iban-status');
+  if (status) {
+    if (r.iban) {
+      const d = new Date(r.iban_updated_at).toLocaleDateString('de-DE');
+      status.textContent = '✓ IBAN gespeichert (' + d + ')';
+    } else {
+      status.textContent = 'Keine IBAN hinterlegt.';
+    }
+    status.hidden = false;
+  }
+  LPR.showToast('✓ IBAN gespeichert');
+}
+
+document.getElementById('iban-form').addEventListener('submit', saveIban);
+loadIban();
 </script>
 </body>
 </html>

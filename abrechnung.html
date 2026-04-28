@@ -656,7 +656,7 @@ footer a { color: var(--lime); text-decoration: none; }
       <div class="section-divider"></div>
       <div class="section-label">
         <h2>Abzurechnende Sitzwachen</h2>
-        <p>Nur abgeschlossene Schichten. Tarif: Frühdienst/Spätdienst 45 € · Nachtdienst 60 €.</p>
+        <p>Nur abgeschlossene Schichten. Tarif: 100 € pro Schicht (8 Stunden).</p>
       </div>
       <div id="open-sitz"></div>
     </div>
@@ -764,7 +764,7 @@ footer a { color: var(--lime); text-decoration: none; }
 
 
 
-<script src="app.js?v20260428a"></script>
+<script src="app.js?v20260428b"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'abrechnung' });
@@ -937,7 +937,7 @@ function renderSitzSection() {
     return;
   }
   el.innerHTML = candidates.map(bk => {
-    const amount = bk.compensation_eur != null ? Number(bk.compensation_eur) : Number(_rates['sitz_' + bk.shift]?.amount || 45);
+    const amount = bk.compensation_eur != null ? Number(bk.compensation_eur) : Number(_rates['sitz_' + bk.shift]?.amount || 100);
     const shiftLabel = ({morning:'Frühdienst', afternoon:'Spätdienst', night:'Nachtdienst'})[bk.shift] || bk.shift;
     return '<div class="trip-card"><div><span class="type-badge sitz">Sitzwache</span><div class="trip-info-title">' + shiftLabel + ' · ' + formatDateRange(bk.date, bk.date) + '</div><div class="trip-info-meta"><span>⏱ ' + (bk.hours || '?') + ' Std.</span><span>Status: abgeschlossen</span></div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(amount) + '</div><button class="btn btn-primary" onclick="openSitzClaim(\'' + bk.id + '\')">Abrechnen →</button></div></div>';
   }).join('');
@@ -991,7 +991,7 @@ function openTripClaim(signupId) {
 function openSitzClaim(bookingId) {
   const bk = _bookings.find(b => b.id === bookingId);
   if (!bk) return;
-  const amount = bk.compensation_eur != null ? Number(bk.compensation_eur) : Number(_rates['sitz_' + bk.shift]?.amount || 45);
+  const amount = bk.compensation_eur != null ? Number(bk.compensation_eur) : Number(_rates['sitz_' + bk.shift]?.amount || 100);
   const shiftLabel = ({morning:'Frühdienst (06:00–14:00)', afternoon:'Spätdienst (14:00–22:00)', night:'Nachtdienst (22:00–06:00)'})[bk.shift] || bk.shift;
   _activeContext = { type: 'sitz', booking: bk, breakdown: { amount, shift: bk.shift }, total: amount };
 
@@ -1118,7 +1118,7 @@ function showBeleg(claimId) {
   
   const totalColspan = isSitz ? 1 : 3;
   const aktivitaet = isSitz ? 'Ehrenamtliche Sitzwache' : 'Ehrenamtliche Reisebegleitung';
-  const html = '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(VEREIN.name) + '</div><div class="beleg-logo-sub">' + escape(VEREIN.adresse) + '</div></div><div class="beleg-nr">Beleg-ID <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong><br>Ausgestellt am ' + new Date(c.submitted_at).toLocaleDateString('de-DE') + '</div></div><div class="beleg-title">Aufwandsentschädigung</div><div class="beleg-subtitle">Übungsleiterpauschale gemäß § 3 Nr. 26 EStG · steuer- und sozialversicherungsfrei</div><div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(_profile?.full_name || '') + '</strong><br>' + escape(_profile?.email || '') + '<br>IBAN: ' + escape(formatIbanDisplay(_profile?.iban || '')) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(VEREIN.name) + '</strong><br>' + escape(VEREIN.adresse) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>Tätigkeit</h4><p>' + aktivitaet + '<br><span class="muted">pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins</span></p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + formatDateRange(c.period_start, c.period_end) + '</strong></p></div></div><table class="beleg-table"><thead>' + columnsHeader + '</thead><tbody>' + positionsHtml + '<tr class="beleg-total-row"><td colspan="' + totalColspan + '">Summe Aufwandsentschädigung</td><td class="num">' + formatEUR(c.amount) + '</td></tr></tbody></table><div class="beleg-declaration"><h4>Erklärungen der/des Ehrenamtlichen</h4><ul><li>Die angegebenen Zeiten und Tätigkeiten wurden tatsächlich und in der genannten Form erbracht.</li><li>Die Tätigkeit wird nebenberuflich ausgeübt (nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit).</li><li>Die Übungsleiterpauschale nach § 3 Nr. 26 EStG wurde im laufenden Kalenderjahr nicht anderweitig so in Anspruch genommen, dass der Jahresfreibetrag von 3.300 € überschritten wird.</li><li>Der/die Ehrenamtliche wurde über die Verarbeitung und zehnjährige Aufbewahrung der Angaben gemäß § 147 AO informiert (Art. 6 Abs. 1 lit. c DSGVO).</li></ul>' + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '') + '</div><div class="beleg-foot"><p class="muted">Status: ' + escape(c.status) + ' · Vereinsbeschluss vom ' + BESCHLUSS_DATUM + '</p></div>';
+  const html = '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(VEREIN.name) + '</div><div class="beleg-logo-sub">' + escape(VEREIN.adresse) + '</div></div><div class="beleg-nr">Beleg-ID <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong><br>Ausgestellt am ' + new Date(c.submitted_at).toLocaleDateString('de-DE') + '</div></div><div class="beleg-title">Aufwandsentschädigung</div><div class="beleg-subtitle">Übungsleiterpauschale gemäß § 3 Nr. 26 EStG · steuer- und sozialversicherungsfrei</div><div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(_profile?.full_name || '') + '</strong><br>' + escape(_profile?.email || '') + '<br>IBAN: ' + escape(formatIbanDisplay(_profile?.iban || '')) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(VEREIN.name) + '</strong><br>' + escape(VEREIN.adresse) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>Tätigkeit</h4><p>' + aktivitaet + '<br><span class="muted">pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins</span></p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + formatDateRange(c.period_start, c.period_end) + '</strong></p></div></div><table class="beleg-table"><thead>' + columnsHeader + '</thead><tbody>' + positionsHtml + '<tr class="beleg-total-row"><td colspan="' + totalColspan + '">Summe Aufwandsentschädigung</td><td class="num">' + formatEUR(c.amount) + '</td></tr></tbody></table><div class="beleg-declaration"><h4>Erklärungen der/des Ehrenamtlichen</h4><ul><li>Die angegebenen Zeiten und Tätigkeiten wurden tatsächlich und in der genannten Form erbracht.</li><li>Die Tätigkeit wird nebenberuflich ausgeübt (nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit).</li><li>Die Übungsleiterpauschale nach § 3 Nr. 26 EStG wurde im laufenden Kalenderjahr nicht anderweitig so in Anspruch genommen, dass der Jahresfreibetrag von 3.300 € überschritten wird.</li><li>Der/die Ehrenamtliche wurde über die Verarbeitung und zehnjährige Aufbewahrung der Angaben gemäß § 147 AO informiert (Art. 6 Abs. 1 lit. c DSGVO).</li></ul>' + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '') + '</div><div class="beleg-foot"><p class="muted">Status: ' + escape(c.status) + ' · Vereinsbeschluss vom ' + new Date(BESCHLUSS_DATUM).toLocaleDateString('de-DE') + '</p></div>';
 
   document.getElementById('beleg-content').innerHTML = html;
   ['loading-state','iban-info','trips-section','sitz-section','claims-section'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; });

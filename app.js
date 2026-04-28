@@ -679,7 +679,7 @@
           .is('effective_to', null)
           .maybeSingle();
         if (rateErr) return { ok: false, error: 'Tarif konnte nicht geladen werden: ' + rateErr.message };
-        if (!rateRow) return { ok: false, error: 'Kein gueltiger Tarif fuer ' + ctx.activity + '/' + ctx.shift_type + '/' + role + ' hinterlegt.' };
+        if (!rateRow) return { ok: false, error: 'Kein gültiger Tarif für ' + ctx.activity + '/' + ctx.shift_type + '/' + role + ' hinterlegt.' };
         baseAmount = Number(rateRow.amount);
         baseSource = 'tariff';
       }
@@ -688,7 +688,7 @@
       if (ctx.activity === 'reise') {
         if (!ctx.start_date || !ctx.end_date) return { ok: false, error: 'Reise braucht start_date und end_date' };
         const days = Math.round((new Date(ctx.end_date) - new Date(ctx.start_date)) / 86400000) + 1;
-        if (days < 1) return { ok: false, error: 'Ungueltige Reisedauer' };
+        if (days < 1) return { ok: false, error: 'Ungültige Reisedauer' };
         const halfAmount = Number((baseAmount / 2).toFixed(2));
         const breakdown = [];
         let total = 0;
@@ -713,7 +713,7 @@
       
       // 3) Sitzwache-Pfad
       if (ctx.activity === 'sitzwache') {
-        const shiftLabels = { morning: 'Fruehdienst (06:00-14:00)', afternoon: 'Spaetdienst (14:00-22:00)', night: 'Nachtdienst (22:00-06:00)' };
+        const shiftLabels = { morning: 'Frühdienst (06:00–14:00)', afternoon: 'Spätdienst (14:00–22:00)', night: 'Nachtdienst (22:00–06:00)' };
         const label = shiftLabels[ctx.shift_type] || 'Sitzwache';
         
         // Zuschlaege laden
@@ -758,14 +758,14 @@
         
         const breakdown = [{ label: 'Sitzwache ' + label, date: ctx.date, base: baseAmount, factor: 1, amount: baseAmount }];
         for (const sd of suppDetails) {
-          breakdown.push({ label: 'Zuschlag: ' + sd.name + ' (' + (sd.type === 'percent' ? sd.value + ' %' : '+' + sd.value + ' EUR') + ')', amount: sd.amount });
+          breakdown.push({ label: 'Zuschlag: ' + sd.name + ' (' + (sd.type === 'percent' ? sd.value + ' %' : '+' + sd.value + ' €') + ')', amount: sd.amount });
         }
         const total = Number((baseAmount + suppTotal).toFixed(2));
         
         return { ok: true, base_source: baseSource, base_amount: baseAmount, supplements_applied: suppDetails, breakdown, total, currency: 'EUR' };
       }
       
-      return { ok: false, error: 'Unbekannte Aktivitaet: ' + ctx.activity };
+      return { ok: false, error: 'Unbekannte Aktivität: ' + ctx.activity };
     } catch(e) {
       console.error('[LPR] calculatePay:', e);
       return { ok: false, error: 'Netzwerkfehler bei Tarif-Berechnung.' };
@@ -788,8 +788,8 @@
         .eq('id', signupId)
         .maybeSingle();
       if (suErr || !signup) return { ok: false, error: 'Signup nicht gefunden.' };
-      if (signup.user_id !== session.id) return { ok: false, error: 'Dieser Signup gehoert nicht dir.' };
-      if (signup.status !== 'confirmed') return { ok: false, error: 'Signup nicht bestaetigt (Status: ' + signup.status + ').' };
+      if (signup.user_id !== session.id) return { ok: false, error: 'Dieser Signup gehört nicht dir.' };
+      if (signup.status !== 'confirmed') return { ok: false, error: 'Signup nicht bestätigt (Status: ' + signup.status + ').' };
       if (!signup.trips) return { ok: false, error: 'Reise-Daten fehlen.' };
       const trip = signup.trips;
       
@@ -798,7 +798,7 @@
         .select('id, status')
         .eq('trip_signup_id', signupId);
       const blocking = (existingClaims || []).find(c => c.status !== 'rejected' && c.status !== 'draft');
-      if (blocking) return { ok: false, error: 'Fuer diese Reise existiert bereits ein Antrag (Status: ' + blocking.status + ').' };
+      if (blocking) return { ok: false, error: 'Für diese Reise existiert bereits ein Antrag (Status: ' + blocking.status + ').' };
       
       const calc = await calculatePay({
         activity: 'reise',
@@ -850,7 +850,7 @@
         .eq('id', bookingId)
         .maybeSingle();
       if (bkErr || !booking) return { ok: false, error: 'Buchung nicht gefunden.' };
-      if (booking.volunteer_id !== session.id) return { ok: false, error: 'Diese Buchung gehoert nicht dir.' };
+      if (booking.volunteer_id !== session.id) return { ok: false, error: 'Diese Buchung gehört nicht dir.' };
       if (booking.status !== 'completed') return { ok: false, error: 'Buchung nicht abgeschlossen (Status: ' + booking.status + ').' };
       
       const { data: existingClaims } = await client
@@ -858,7 +858,7 @@
         .select('id, status')
         .eq('booking_id', bookingId);
       const blocking = (existingClaims || []).find(c => c.status !== 'rejected' && c.status !== 'draft');
-      if (blocking) return { ok: false, error: 'Fuer diese Buchung existiert bereits ein Antrag (Status: ' + blocking.status + ').' };
+      if (blocking) return { ok: false, error: 'Für diese Buchung existiert bereits ein Antrag (Status: ' + blocking.status + ').' };
       
       const calc = await calculatePay({
         activity: 'sitzwache',

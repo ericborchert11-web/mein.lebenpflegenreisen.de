@@ -146,9 +146,12 @@
     if (!name || name.trim().length < 2) return { ok: false, error: 'Bitte Namen eingeben.' };
     if (!['ehrenamt','klinik','admin'].includes(role)) return { ok: false, error: 'Ungültige Rolle.' };
 
-    if (role === 'klinik') {
-      return { ok: false, error: 'Klinik-Konten werden direkt vom Vorstand angelegt. Bitte kontaktieren Sie uns unter info@lebenpflegenreisen.de.' };
-    }
+    // Klinik: Standard-Auth-Flow wie Ehrenamt. Klinik-Stammdaten (Adresse,
+    // Ansprechpartner, Telefon) werden NACH dem ersten Login auf
+    // kliniken.html im Onboarding-Form abgefragt. Grund: Beim ersten signUp
+    // ist die E-Mail-Bestätigung noch ausstehend, der User ist nicht
+    // authentifiziert → RLS-Insert in clinic_details würde fehlschlagen.
+    // Zweistufiger Flow ist robuster.
 
     const beRole = ROLE_FE_TO_BE[role];
 
@@ -1191,8 +1194,8 @@
     let max_km = null;
     if (payload.maxKm !== '' && payload.maxKm != null) {
       const n = parseInt(payload.maxKm, 10);
-      if (!Number.isFinite(n) || n < 1 || n > 30) {
-        return { ok: false, error: 'Max. Anfahrt muss zwischen 1 und 30 km liegen.' };
+      if (!Number.isFinite(n) || n < 1 || n > 500) {
+        return { ok: false, error: 'Max. Anfahrt muss zwischen 1 und 500 km liegen.' };
       }
       max_km = n;
     }
@@ -1369,8 +1372,8 @@
     let max_km = null;
     if (payload.maxKm !== '' && payload.maxKm != null) {
       const n = parseInt(payload.maxKm, 10);
-      if (!Number.isFinite(n) || n < 1 || n > 30) {
-        return { ok: false, error: 'Max. Anfahrt muss zwischen 1 und 30 km liegen.' };
+      if (!Number.isFinite(n) || n < 1 || n > 500) {
+        return { ok: false, error: 'Max. Anfahrt muss zwischen 1 und 500 km liegen.' };
       }
       max_km = n;
     }
@@ -1439,6 +1442,261 @@
     }
   }
 
+  // ───────────────────────────────────────────────────────
+  // Klinik-Self-Service (Etappe 1)
+  // Onboarding: Klinik registriert sich → kliniken.html zeigt Onboarding-Form
+  // → status=pending → Vorstand prüft → approve(linked_clinic_id) | reject
+  // ───────────────────────────────────────────────────────
+
+  /**
+   * Eigene Klinik-Daten lesen.
+   * Returns: { ok, details: {...} | null }
+   * details=null wenn noch nicht onboarded → Frontend zeigt Onboarding-Form.
+   */
+  async function getMyClinic() {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'klinik') return { ok: false, error: 'Nur für Klinik-Konten.' };
+
+    try {
+      const client = await sb();
+      const { data, error } = await client
+        .from('clinic_details')
+        .select('id, clinic_name, address, postal_code, city, contact_person, phone, status, linked_clinic_id, rejection_reason, created_at, approved_at')
+        .eq('id', s.id)
+        .maybeSingle();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, details: data || null };
+    } catch(e) {
+      console.error('[LPR] getMyClinic:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Eigene Klinik-Daten beim Onboarding einreichen oder eigene Stammdaten korrigieren.
+   * Wird zweimal genutzt:
+   *   - Onboarding: Erster Insert (status default 'pending')
+   *   - Self-Update: Klinik korrigiert eigene Daten (Adresse, Telefon)
+   *     → status/linked_clinic_id/approved_* sind via Trigger geschützt
+   */
+  async function submitMyClinic(payload) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'klinik') return { ok: false, error: 'Nur für Klinik-Konten.' };
+
+    const clinic_name = (payload.clinicName || '').trim();
+    if (clinic_name.length < 2) return { ok: false, error: 'Bitte den Klinik-Namen angeben.' };
+
+    const phone = (payload.phone || '').trim();
+    if (phone.length < 4) return { ok: false, error: 'Bitte eine Telefonnummer angeben.' };
+
+    const contact_person = (payload.contactPerson || '').trim();
+    if (contact_person.length < 2) return { ok: false, error: 'Bitte einen Ansprechpartner angeben.' };
+
+    const postal_code = (payload.postalCode || '').trim();
+    if (postal_code !== '' && !/^\d{5}$/.test(postal_code)) {
+      return { ok: false, error: 'PLZ muss aus 5 Ziffern bestehen oder leer sein.' };
+    }
+
+    const row = {
+      id:               s.id,
+      clinic_name,
+      address:          (payload.address || '').trim() || null,
+      postal_code:      postal_code || null,
+      city:             (payload.city || '').trim() || null,
+      contact_person,
+      phone
+    };
+
+    try {
+      const client = await sb();
+      // Upsert: Beim ersten Mal Insert (status default 'pending'),
+      // danach Update (status bleibt durch Trigger geschützt).
+      const { data, error } = await client
+        .from('clinic_details')
+        .upsert(row, { onConflict: 'id' })
+        .select('id, clinic_name, status, address, postal_code, city, contact_person, phone, rejection_reason')
+        .single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, details: data };
+    } catch(e) {
+      console.error('[LPR] submitMyClinic:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * VORSTAND: Liste aller Kliniken nach Status (pending/approved/rejected).
+   * Returns: { ok, clinics: [{...}] } — angereichert mit profiles.email
+   */
+  async function listClinicsByStatus(status) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'admin' && s.role !== 'board') {
+      return { ok: false, error: 'Nur der Vorstand kann diese Liste sehen.' };
+    }
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      return { ok: false, error: 'Ungültiger Status-Filter.' };
+    }
+
+    try {
+      const client = await sb();
+      const { data, error } = await client
+        .from('clinic_details')
+        .select(`
+          id, clinic_name, address, postal_code, city, contact_person, phone,
+          status, linked_clinic_id, rejection_reason,
+          created_at, approved_at, approved_by,
+          profiles:profiles!clinic_details_id_fkey(email, full_name)
+        `)
+        .eq('status', status)
+        .order('created_at', { ascending: status === 'pending' });
+      if (error) return { ok: false, error: error.message };
+      const clinics = (data || []).map(c => ({
+        ...c,
+        email:           c.profiles?.email || '',
+        registered_name: c.profiles?.full_name || '',
+        profiles:        undefined
+      }));
+      return { ok: true, clinics };
+    } catch(e) {
+      console.error('[LPR] listClinicsByStatus:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * VORSTAND: Klinik-Anmeldung freigeben.
+   * Zwei Wege:
+   *   - Existierender clinics-Eintrag: linkedClinicId mitgeben
+   *   - Neuer Stammdaten-Eintrag: createNewClinicId mitgeben (text-Slug),
+   *     wird automatisch in clinics angelegt aus den clinic_details-Daten.
+   */
+  async function approveClinic(clinicAccountId, opts) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'admin' && s.role !== 'board') {
+      return { ok: false, error: 'Nur der Vorstand kann freigeben.' };
+    }
+    if (!clinicAccountId) return { ok: false, error: 'Keine Klinik-ID übergeben.' };
+
+    let linkedId = (opts?.linkedClinicId || '').trim();
+    const createNewId = (opts?.createNewClinicId || '').trim();
+
+    if (!linkedId && !createNewId) {
+      return { ok: false, error: 'Entweder bestehende Klinik wählen oder neue ID angeben.' };
+    }
+
+    try {
+      const client = await sb();
+
+      // Wenn neue Stammdaten angelegt werden sollen
+      if (createNewId) {
+        if (!/^[a-z0-9-]{3,40}$/.test(createNewId)) {
+          return { ok: false, error: 'Neue Klinik-ID nur Kleinbuchstaben, Ziffern und Bindestriche, 3–40 Zeichen.' };
+        }
+
+        // Erst clinic_details lesen, um die Daten zu kennen
+        const { data: cd, error: cdErr } = await client
+          .from('clinic_details')
+          .select('clinic_name, postal_code, city')
+          .eq('id', clinicAccountId)
+          .single();
+        if (cdErr) return { ok: false, error: cdErr.message };
+
+        // Neuen clinics-Eintrag anlegen
+        const { error: insErr } = await client
+          .from('clinics')
+          .insert({
+            id:         createNewId,
+            name:       cd.clinic_name,
+            plz:        cd.postal_code,
+            city:       cd.city,
+            active:     true,
+            sort_order: 999
+          });
+        if (insErr) {
+          if (insErr.code === '23505') {
+            return { ok: false, error: 'Klinik-ID bereits vergeben. Bitte andere wählen.' };
+          }
+          return { ok: false, error: insErr.message };
+        }
+        linkedId = createNewId;
+      } else {
+        // Existenz prüfen
+        const { data: existing, error: chkErr } = await client
+          .from('clinics')
+          .select('id')
+          .eq('id', linkedId)
+          .maybeSingle();
+        if (chkErr) return { ok: false, error: chkErr.message };
+        if (!existing) return { ok: false, error: 'Diese Klinik gibt es nicht in den Stammdaten.' };
+      }
+
+      // clinic_details auf approved setzen
+      const { data, error } = await client
+        .from('clinic_details')
+        .update({
+          status:           'approved',
+          linked_clinic_id: linkedId,
+          approved_at:      new Date().toISOString(),
+          approved_by:      s.id,
+          rejection_reason: null
+        })
+        .eq('id', clinicAccountId)
+        .select('id, status, linked_clinic_id, approved_at')
+        .single();
+      if (error) return { ok: false, error: error.message };
+
+      // Auch profiles.status auf approved setzen, damit Login klappt
+      await client.from('profiles').update({ status: 'approved' }).eq('id', clinicAccountId);
+
+      return { ok: true, details: data };
+    } catch(e) {
+      console.error('[LPR] approveClinic:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * VORSTAND: Klinik-Anmeldung ablehnen.
+   */
+  async function rejectClinic(clinicAccountId, reason) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'admin' && s.role !== 'board') {
+      return { ok: false, error: 'Nur der Vorstand kann ablehnen.' };
+    }
+    if (!clinicAccountId) return { ok: false, error: 'Keine Klinik-ID übergeben.' };
+    const r = (reason || '').trim();
+    if (r.length < 5) return { ok: false, error: 'Bitte eine kurze Begründung angeben (min. 5 Zeichen).' };
+
+    try {
+      const client = await sb();
+      const { data, error } = await client
+        .from('clinic_details')
+        .update({
+          status:           'rejected',
+          rejection_reason: r,
+          approved_at:      null,
+          approved_by:      null,
+          linked_clinic_id: null
+        })
+        .eq('id', clinicAccountId)
+        .select('id, status, rejection_reason')
+        .single();
+      if (error) return { ok: false, error: error.message };
+
+      await client.from('profiles').update({ status: 'rejected' }).eq('id', clinicAccountId);
+
+      return { ok: true, details: data };
+    } catch(e) {
+      console.error('[LPR] rejectClinic:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   global.LPR = {
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,
@@ -1464,6 +1722,9 @@
     submitTripClaim, submitSitzClaim,
     // Block C2: Payroll
     uploadClaimPdf, sendClaimToPayroll,
+    // Klinik-Self-Service (Etappe 1)
+    getMyClinic, submitMyClinic,
+    listClinicsByStatus, approveClinic, rejectClinic,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

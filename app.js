@@ -930,6 +930,73 @@
     } catch(e) { console.error('[LPR] updateMyIban:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
 
+  // ─────────────────────────────────────────────────
+  // Block C2: Claim-PDF in Storage + Mail an Buchhaltung
+  // ─────────────────────────────────────────────────
+  
+  /**
+   * Lädt ein PDF-Blob in den Storage-Bucket 'claim-pdfs' und schreibt
+   * pdf_path in die claims-Zeile. Pfad-Konvention: {user_id}/{claim_id}.pdf
+   * — RLS sorgt dafür, dass Mitwirkende nur in ihren eigenen Ordner schreiben.
+   */
+  async function uploadClaimPdf(claimId, pdfBlob) {
+    try {
+      const session = getSession();
+      if (!session) return { ok: false, error: 'Nicht eingeloggt.' };
+      if (!claimId || !pdfBlob) return { ok: false, error: 'claim_id oder PDF fehlt.' };
+      
+      const client = await sb();
+      const path = session.id + '/' + claimId + '.pdf';
+      
+      const { error: upErr } = await client
+        .storage
+        .from('claim-pdfs')
+        .upload(path, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+      if (upErr) return { ok: false, error: 'PDF-Upload fehlgeschlagen: ' + upErr.message };
+      
+      const { error: updErr } = await client
+        .from('claims')
+        .update({ pdf_path: path })
+        .eq('id', claimId)
+        .eq('user_id', session.id);
+      if (updErr) return { ok: false, error: 'pdf_path konnte nicht gespeichert werden: ' + updErr.message };
+      
+      return { ok: true, path };
+    } catch(e) {
+      console.error('[LPR] uploadClaimPdf:', e);
+      return { ok: false, error: 'Netzwerkfehler beim PDF-Upload.' };
+    }
+  }
+  
+  /**
+   * Ruft die Edge Function 'send-claim-to-payroll' auf, die das PDF
+   * aus Storage lädt und per SMTP an buchhaltung@ verschickt.
+   * Bei Fehler bleibt der Claim eingereicht — Margarete bekommt Hinweis,
+   * dass sie Sonja manuell informieren kann.
+   */
+  async function sendClaimToPayroll(claimId) {
+    try {
+      const session = getSession();
+      if (!session) return { ok: false, error: 'Nicht eingeloggt.' };
+      if (!claimId) return { ok: false, error: 'claim_id fehlt.' };
+      
+      const client = await sb();
+      const { data, error } = await client.functions.invoke('send-claim-to-payroll', {
+        body: { claim_id: claimId }
+      });
+      if (error) return { ok: false, error: error.message || 'Edge-Function-Aufruf fehlgeschlagen.' };
+      if (data && data.error) return { ok: false, error: data.error };
+      
+      return { ok: true, sent_to: data?.sent_to };
+    } catch(e) {
+      console.error('[LPR] sendClaimToPayroll:', e);
+      return { ok: false, error: 'Netzwerkfehler beim Mailversand.' };
+    }
+  }
+
   global.LPR = {
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,
@@ -947,6 +1014,8 @@
     getMySignups, getMyBookings,
     getMyClaims, calculatePay,
     submitTripClaim, submitSitzClaim,
+    // Block C2: Payroll
+    uploadClaimPdf, sendClaimToPayroll,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

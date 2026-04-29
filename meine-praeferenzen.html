@@ -230,21 +230,22 @@
 <script>
 LPR_Layout.init({ page: '' });
 
-const PROFILE_KEY = 'lpr-profiles-v1';
-const SESSION_KEY = 'lpr-session-v2';
+// ───────────────────────────────────────────────────────
+// Konstanten (UI-Labels für IDs aus der DB)
+// ───────────────────────────────────────────────────────
 
 const QUALIFICATIONS = [
-  { id: 'sitzwache-schulung', label: 'Sitzwachen-Schulung', emoji: '🎓' },
-  { id: 'reise-schulung',     label: 'Reiseleitungs-Schulung', emoji: '🧳' },
-  { id: 'fuehrungszeugnis',   label: 'Erw. Führungszeugnis', emoji: '📄' },
-  { id: 'erste-hilfe',        label: 'Erste-Hilfe-Kurs', emoji: '🩹' },
-  { id: 'demenz-schulung',    label: 'Demenz-Schulung', emoji: '💭' }
+  { id: 'sitzwache-schulung', label: 'Sitzwachen-Schulung',     emoji: '🎓' },
+  { id: 'reise-schulung',     label: 'Reiseleitungs-Schulung',  emoji: '🧳' },
+  { id: 'fuehrungszeugnis',   label: 'Erw. Führungszeugnis',    emoji: '📄' },
+  { id: 'erste-hilfe',        label: 'Erste-Hilfe-Kurs',        emoji: '🩹' },
+  { id: 'demenz-schulung',    label: 'Demenz-Schulung',         emoji: '💭' }
 ];
 
 const ACTIVITY_TYPES = [
-  { id: 'sitzwachen', label: 'Sitzwachen', emoji: '🪑' },
-  { id: 'reisen',     label: 'Reisebegleitung', emoji: '🧳' },
-  { id: 'teilhabe',   label: 'Soziale Teilhabe', emoji: '🤝' }
+  { id: 'sitzwachen', label: 'Sitzwachen',         emoji: '🪑' },
+  { id: 'reisen',     label: 'Reisebegleitung',    emoji: '🧳' },
+  { id: 'teilhabe',   label: 'Soziale Teilhabe',   emoji: '🤝' }
 ];
 
 const SHIFT_TYPES = [
@@ -253,112 +254,183 @@ const SHIFT_TYPES = [
   { id: 'nacht', label: 'Nachtdienst', emoji: '🌙' }
 ];
 
-const CLINICS = [
-  { id: 'charite-mitte', name: 'Charité Campus Mitte', plz: '10117' },
-  { id: 'charite-virchow', name: 'Charité Virchow-Klinikum', plz: '13353' },
-  { id: 'vivantes-friedrichshain', name: 'Vivantes Friedrichshain', plz: '10249' },
-  { id: 'vivantes-neukoelln', name: 'Vivantes Neukölln', plz: '12351' },
-  { id: 'hedwig', name: 'St. Hedwig-Krankenhaus', plz: '10115' },
-  { id: 'helios-buch', name: 'Helios Klinikum Buch', plz: '13125' }
-];
+// State, der zwischen Render und Save fließt
+let _clinics = [];
+let _state = {
+  qualifications:   [],
+  activityTypes:    [],
+  preferredShifts:  [],
+  homePlz:          '',
+  maxKm:            '',
+  clinicPrefs:      {}    // clinic_id → 'pref'|'neutral'|'avoid'
+};
 
-function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch(e) { return d; } }
-function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
-function escape(s) { const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
-
-function getSession() {
-  const s = loadJSON(SESSION_KEY, null);
-  if (!s) { window.location.href = 'login.html'; return null; }
-  return s;
+function escape(s) {
+  const d = document.createElement('div');
+  d.textContent = s ?? '';
+  return d.innerHTML;
 }
 
-function render() {
-  const session = getSession();
-  if (!session) return;
-  const profiles = loadJSON(PROFILE_KEY, {});
-  const p = profiles[session.email] || {};
+// ───────────────────────────────────────────────────────
+// Render
+// ───────────────────────────────────────────────────────
 
-  // Qualifikationen: Alle anzeigen, vorhandene grün, fehlende gedimmt
+function renderQualifications() {
   document.getElementById('qual-list-display').innerHTML = QUALIFICATIONS.map(q => {
-    const has = (p.qualifications || []).includes(q.id);
-    return `<span class="qual-item ${has ? '' : 'missing'}">${q.emoji} ${escape(q.label)} ${has ? '✓' : ''}</span>`;
+    const has = _state.qualifications.includes(q.id);
+    return `<span class="qual-item ${has ? '' : 'missing'}">${q.emoji} ${escape(q.label)}${has ? ' ✓' : ''}</span>`;
   }).join('');
+}
 
-  document.getElementById('activity-list-display').innerHTML = ACTIVITY_TYPES.length
-    ? ACTIVITY_TYPES.map(t => {
-        const has = (p.activityTypes || []).includes(t.id);
-        return `<span class="qual-item ${has ? '' : 'missing'}">${t.emoji} ${escape(t.label)} ${has ? '✓' : ''}</span>`;
-      }).join('')
-    : '<span style="color:var(--muted);">Noch nichts festgelegt — sprich mit dem Vorstand.</span>';
+function renderActivityTypes() {
+  const has_any = _state.activityTypes.length > 0;
+  if (!has_any) {
+    document.getElementById('activity-list-display').innerHTML =
+      '<span style="color:var(--muted);">Noch nichts festgelegt — sprich mit dem Vorstand.</span>';
+    return;
+  }
+  document.getElementById('activity-list-display').innerHTML = ACTIVITY_TYPES.map(t => {
+    const has = _state.activityTypes.includes(t.id);
+    return `<span class="qual-item ${has ? '' : 'missing'}">${t.emoji} ${escape(t.label)}${has ? ' ✓' : ''}</span>`;
+  }).join('');
+}
 
-  // Schichten (editierbar)
+function renderShifts() {
+  // Wenn das Feld leer ist (kommt eigentlich nur durch User-Aktion), zeigen wir nichts gewählt.
+  // Default-Wert (alle drei) wird vom Backend bei Insert gesetzt.
   document.getElementById('shifts-edit').innerHTML = SHIFT_TYPES.map(s => {
-    const checked = (p.preferredShifts || ['frueh','spaet','nacht']).includes(s.id);
+    const checked = _state.preferredShifts.includes(s.id);
     return `<label class="pref-chip ${checked ? 'checked' : ''}">
       <input type="checkbox" data-shift="${s.id}" ${checked ? 'checked' : ''}>
       <span>${s.emoji} ${s.label}</span>
     </label>`;
   }).join('');
-
-  // Kliniken (editierbar)
-  document.getElementById('clinics-edit').innerHTML = CLINICS.map(c => {
-    const pref = (p.clinicPrefs || {})[c.id] || 'neutral';
-    return `<div class="clinic-row">
-      <div class="clinic-row-name">${escape(c.name)} <span style="color:var(--muted); font-size:11px; font-weight:400;">· ${c.plz}</span></div>
-      <div class="clinic-row-actions">
-        <button type="button" class="clinic-btn ok ${pref === 'pref' ? 'active' : ''}" onclick="setClinic('${c.id}','pref')">💚 bevorzugt</button>
-        <button type="button" class="clinic-btn neutral ${pref === 'neutral' ? 'active' : ''}" onclick="setClinic('${c.id}','neutral')">neutral</button>
-        <button type="button" class="clinic-btn no ${pref === 'avoid' ? 'active' : ''}" onclick="setClinic('${c.id}','avoid')">nicht bevorzugt</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  document.getElementById('pref-plz').value = p.plz || '';
-  document.getElementById('pref-maxkm').value = p.maxKm || '';
-
   document.querySelectorAll('[data-shift]').forEach(cb => {
-    cb.addEventListener('change', e => e.target.closest('.pref-chip').classList.toggle('checked', e.target.checked));
+    cb.addEventListener('change', e => {
+      e.target.closest('.pref-chip').classList.toggle('checked', e.target.checked);
+    });
   });
 }
 
-function setClinic(clinicId, value) {
-  const session = getSession();
-  if (!session) return;
-  const profiles = loadJSON(PROFILE_KEY, {});
-  const p = profiles[session.email] || {};
-  p.clinicPrefs = p.clinicPrefs || {};
-  p.clinicPrefs[clinicId] = value;
-  profiles[session.email] = p;
-  saveJSON(PROFILE_KEY, profiles);
-  render();
+function renderClinics() {
+  if (!_clinics.length) {
+    document.getElementById('clinics-edit').innerHTML =
+      '<div style="color:var(--muted); font-size:13px;">Klinik-Liste wird geladen …</div>';
+    return;
+  }
+  document.getElementById('clinics-edit').innerHTML = _clinics.map(c => {
+    const pref = _state.clinicPrefs[c.id] || 'neutral';
+    return `<div class="clinic-row">
+      <div class="clinic-row-name">${escape(c.name)} <span style="color:var(--muted); font-size:11px; font-weight:400;">· ${escape(c.plz || '')}</span></div>
+      <div class="clinic-row-actions">
+        <button type="button" class="clinic-btn ok ${pref === 'pref' ? 'active' : ''}"      onclick="setClinic('${escape(c.id)}','pref')">💚 bevorzugt</button>
+        <button type="button" class="clinic-btn neutral ${pref === 'neutral' ? 'active' : ''}" onclick="setClinic('${escape(c.id)}','neutral')">neutral</button>
+        <button type="button" class="clinic-btn no ${pref === 'avoid' ? 'active' : ''}"     onclick="setClinic('${escape(c.id)}','avoid')">nicht bevorzugt</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
-function savePrefs() {
-  const session = getSession();
-  if (!session) return;
-  const profiles = loadJSON(PROFILE_KEY, {});
-  const p = profiles[session.email] || {};
-
-  p.preferredShifts = [...document.querySelectorAll('[data-shift]:checked')].map(cb => cb.dataset.shift);
-  p.plz = document.getElementById('pref-plz').value.trim();
-  p.maxKm = document.getElementById('pref-maxkm').value;
-
-  profiles[session.email] = p;
-  saveJSON(PROFILE_KEY, profiles);
-
-  showToast('✓ Deine Präferenzen sind gespeichert.');
+function renderTravel() {
+  document.getElementById('pref-plz').value   = _state.homePlz || '';
+  document.getElementById('pref-maxkm').value = _state.maxKm   || '';
 }
 
-let toastTimer;
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+function renderAll() {
+  renderQualifications();
+  renderActivityTypes();
+  renderShifts();
+  renderClinics();
+  renderTravel();
 }
 
-render();
+// ───────────────────────────────────────────────────────
+// Daten laden
+// ───────────────────────────────────────────────────────
+
+async function loadAll() {
+  // Session prüfen — sonst Login
+  const session = LPR.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+
+  // Parallel: Kliniken-Stammdaten + eigene Präferenzen
+  const [clinicsRes, prefsRes] = await Promise.all([
+    LPR.listClinics(),
+    LPR.getMyPreferences()
+  ]);
+
+  if (!clinicsRes.ok) {
+    LPR.showToast('Kliniken konnten nicht geladen werden: ' + (clinicsRes.error || 'Unbekannter Fehler'), 'warn');
+  } else {
+    _clinics = clinicsRes.clinics;
+  }
+
+  if (!prefsRes.ok) {
+    LPR.showToast('Präferenzen konnten nicht geladen werden: ' + (prefsRes.error || 'Unbekannter Fehler'), 'warn');
+  } else {
+    _state = prefsRes.preferences;
+  }
+
+  renderAll();
+}
+
+// ───────────────────────────────────────────────────────
+// User-Aktionen
+// ───────────────────────────────────────────────────────
+
+async function setClinic(clinicId, value) {
+  // Optimistisch im UI setzen (sofortiges Feedback)
+  const prev = _state.clinicPrefs[clinicId];
+  _state.clinicPrefs[clinicId] = value;
+  renderClinics();
+
+  const res = await LPR.setClinicPreference(clinicId, value);
+  if (!res.ok) {
+    // Rollback bei Fehler
+    if (prev === undefined) delete _state.clinicPrefs[clinicId];
+    else _state.clinicPrefs[clinicId] = prev;
+    renderClinics();
+    LPR.showToast('Konnte nicht gespeichert werden: ' + (res.error || 'Fehler'), 'warn');
+  }
+}
+
+async function savePrefs() {
+  // Werte aus DOM lesen
+  const preferredShifts = [...document.querySelectorAll('[data-shift]:checked')].map(cb => cb.dataset.shift);
+  const homePlz = document.getElementById('pref-plz').value.trim();
+  const maxKm   = document.getElementById('pref-maxkm').value;
+
+  const btn = document.querySelector('.save-bar button');
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Speichern …';
+
+  const res = await LPR.updateMySoftPreferences({ preferredShifts, homePlz, maxKm });
+
+  btn.disabled = false;
+  btn.textContent = oldText;
+
+  if (!res.ok) {
+    LPR.showToast(res.error || 'Speichern fehlgeschlagen', 'warn');
+    return;
+  }
+
+  // Lokal updaten (Backend hat ggf. normalisiert/gefiltert)
+  _state.preferredShifts = res.profile.preferred_shifts || [];
+  _state.homePlz         = res.profile.home_plz || '';
+  _state.maxKm           = res.profile.max_km != null ? String(res.profile.max_km) : '';
+  renderShifts();
+  renderTravel();
+
+  LPR.showToast('✓ Deine Präferenzen sind gespeichert.');
+}
+
+// Globale Funktionen für onclick-Handler
+window.setClinic = setClinic;
+window.savePrefs = savePrefs;
+
+// Start
+loadAll();
 </script>
 </body>
 </html>

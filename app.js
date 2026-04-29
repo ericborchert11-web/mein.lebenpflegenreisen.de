@@ -1097,6 +1097,207 @@
     }
   }
 
+  // ───────────────────────────────────────────────────────
+  // Präferenzen & Kliniken
+  // ───────────────────────────────────────────────────────
+
+  /**
+   * Lädt die Klinik-Stammdaten (alle aktiven, sortiert).
+   */
+  async function listClinics() {
+    try {
+      const { data, error } = await (await sb())
+        .from('clinics')
+        .select('id, name, plz, city, sort_order')
+        .eq('active', true)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+      if (error) return { ok: false, error: error.message, clinics: [] };
+      return { ok: true, clinics: data || [] };
+    } catch(e) {
+      console.error('[LPR] listClinics:', e);
+      return { ok: false, error: 'Netzwerkfehler.', clinics: [] };
+    }
+  }
+
+  /**
+   * Lädt das vollständige Präferenz-Bündel des aktuellen Users:
+   * - profile-Felder (qualifications, activity_types, preferred_shifts, home_plz, max_km)
+   * - clinic_preferences (Map clinic_id → 'pref'|'neutral'|'avoid')
+   */
+  async function getMyPreferences() {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const client = await sb();
+      const [profileRes, prefsRes] = await Promise.all([
+        client.from('profiles')
+          .select('qualifications, activity_types, preferred_shifts, home_plz, max_km')
+          .eq('id', s.id)
+          .single(),
+        client.from('clinic_preferences')
+          .select('clinic_id, preference')
+          .eq('user_id', s.id)
+      ]);
+      if (profileRes.error) return { ok: false, error: profileRes.error.message };
+      if (prefsRes.error)   return { ok: false, error: prefsRes.error.message };
+
+      const clinicPrefs = {};
+      (prefsRes.data || []).forEach(r => { clinicPrefs[r.clinic_id] = r.preference; });
+
+      return {
+        ok: true,
+        preferences: {
+          qualifications:   profileRes.data.qualifications   || [],
+          activityTypes:    profileRes.data.activity_types   || [],
+          preferredShifts:  profileRes.data.preferred_shifts || [],
+          homePlz:          profileRes.data.home_plz || '',
+          maxKm:            profileRes.data.max_km != null ? String(profileRes.data.max_km) : '',
+          clinicPrefs
+        }
+      };
+    } catch(e) {
+      console.error('[LPR] getMyPreferences:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Speichert die WEICHEN Präferenzen (Schichten, PLZ, Max-KM).
+   * Qualifikationen + Tätigkeiten kann der User NICHT selbst ändern — nur Vorstand.
+   */
+  async function updateMySoftPreferences(payload) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (!payload || typeof payload !== 'object') return { ok: false, error: 'Keine Daten übergeben.' };
+
+    // Schichten: nur erlaubte Werte
+    const ALLOWED_SHIFTS = ['frueh','spaet','nacht'];
+    let preferred_shifts = Array.isArray(payload.preferredShifts)
+      ? payload.preferredShifts.filter(x => ALLOWED_SHIFTS.includes(x))
+      : null;
+    if (preferred_shifts && preferred_shifts.length === 0) {
+      // Niemand sollte ALLE Schichten abwählen — sonst sieht er nichts mehr.
+      // Wir erlauben es trotzdem, geben aber Hinweis im UI.
+    }
+
+    // PLZ: 5 Ziffern oder leer
+    const plzRaw = (payload.homePlz || '').trim();
+    if (plzRaw !== '' && !/^\d{5}$/.test(plzRaw)) {
+      return { ok: false, error: 'PLZ muss aus 5 Ziffern bestehen oder leer sein.' };
+    }
+
+    // max_km: positive Zahl oder leer
+    let max_km = null;
+    if (payload.maxKm !== '' && payload.maxKm != null) {
+      const n = parseInt(payload.maxKm, 10);
+      if (!Number.isFinite(n) || n < 1 || n > 500) {
+        return { ok: false, error: 'Max. Anfahrt muss zwischen 1 und 500 km liegen.' };
+      }
+      max_km = n;
+    }
+
+    const patch = {
+      home_plz: plzRaw || null,
+      max_km
+    };
+    if (preferred_shifts !== null) patch.preferred_shifts = preferred_shifts;
+
+    try {
+      const { data, error } = await (await sb())
+        .from('profiles')
+        .update(patch)
+        .eq('id', s.id)
+        .select('preferred_shifts, home_plz, max_km')
+        .single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, profile: data };
+    } catch(e) {
+      console.error('[LPR] updateMySoftPreferences:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Setzt die Präferenz für eine einzelne Klinik (upsert).
+   * value: 'pref' | 'neutral' | 'avoid'
+   * Bei 'neutral' wird der Eintrag gelöscht (Default).
+   */
+  async function setClinicPreference(clinicId, value) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (!clinicId) return { ok: false, error: 'Keine Klinik-ID.' };
+    if (!['pref','neutral','avoid'].includes(value)) {
+      return { ok: false, error: 'Ungültiger Wert.' };
+    }
+    try {
+      const client = await sb();
+      if (value === 'neutral') {
+        // Eintrag löschen — neutral ist der implizite Default
+        const { error } = await client
+          .from('clinic_preferences')
+          .delete()
+          .eq('user_id', s.id)
+          .eq('clinic_id', clinicId);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, preference: 'neutral' };
+      } else {
+        // Upsert: bei Konflikt (PK user_id+clinic_id) Update
+        const { error } = await client
+          .from('clinic_preferences')
+          .upsert({
+            user_id:    s.id,
+            clinic_id:  clinicId,
+            preference: value
+          }, { onConflict: 'user_id,clinic_id' });
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, preference: value };
+      }
+    } catch(e) {
+      console.error('[LPR] setClinicPreference:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * VORSTAND-FUNKTION: Setzt die HARTEN Präferenzen eines Users
+   * (Qualifikationen + Tätigkeiten). Nur durch Board-Rolle aufrufbar.
+   * Wird von admin-mitwirkende.html benutzt.
+   */
+  async function setUserHardPreferences(userId, payload) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'admin' && s.role !== 'board') {
+      return { ok: false, error: 'Nur der Vorstand kann diese Werte ändern.' };
+    }
+    if (!userId) return { ok: false, error: 'Keine User-ID.' };
+
+    const patch = {};
+    if (Array.isArray(payload.qualifications)) {
+      patch.qualifications = payload.qualifications.filter(x => typeof x === 'string');
+    }
+    if (Array.isArray(payload.activityTypes)) {
+      patch.activity_types = payload.activityTypes.filter(x => typeof x === 'string');
+    }
+    if (Object.keys(patch).length === 0) {
+      return { ok: false, error: 'Nichts zu speichern.' };
+    }
+
+    try {
+      const { data, error } = await (await sb())
+        .from('profiles')
+        .update(patch)
+        .eq('id', userId)
+        .select('qualifications, activity_types')
+        .single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, profile: data };
+    } catch(e) {
+      console.error('[LPR] setUserHardPreferences:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   global.LPR = {
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,
@@ -1104,6 +1305,8 @@
     logout,
     getUser,
     getMyProfile, updateMyIban,
+    // Präferenzen
+    listClinics, getMyPreferences, updateMySoftPreferences, setClinicPreference, setUserHardPreferences,
     register, loginWithPassword, requireRole,
     listUsersByStatus, approveUser, rejectUser,
     getMyCompliance, getComplianceForUser, setComplianceStatus, isComplianceComplete,

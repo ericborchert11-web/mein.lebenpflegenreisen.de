@@ -512,6 +512,24 @@
     if ('start_date' in filtered && filtered.start_date && !/^\d{4}-\d{2}-\d{2}$/.test(filtered.start_date)) return { ok: false, error: 'start_date ungültig.' };
     if ('end_date' in filtered && filtered.end_date && !/^\d{4}-\d{2}-\d{2}$/.test(filtered.end_date)) return { ok: false, error: 'end_date ungültig.' };
     if ('status' in filtered && !['draft','open','closed','completed','cancelled'].includes(filtered.status)) return { ok: false, error: 'status ungültig.' };
+    
+    // Normalisiere optionale Strings/Numbers: leere Strings -> null
+    for (const k of ['partner','description','description_ls']) {
+      if (k in filtered) {
+        const v = (filtered[k] || '').trim();
+        filtered[k] = v || null;
+      }
+    }
+    if ('rate_override_per_day' in filtered) {
+      const v = filtered.rate_override_per_day;
+      if (v === '' || v == null) {
+        filtered.rate_override_per_day = null;
+      } else {
+        const n = Number(v);
+        if (!Number.isFinite(n) || n < 0) return { ok: false, error: 'rate_override_per_day ungueltig.' };
+        filtered.rate_override_per_day = n;
+      }
+    }
     try {
       const { data, error } = await (await sb()).from('trips').update(filtered).eq('id', tripId).select().single();
       if (error) return { ok: false, error: 'Aktualisieren fehlgeschlagen: ' + error.message };

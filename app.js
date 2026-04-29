@@ -1298,6 +1298,147 @@
     }
   }
 
+  /**
+   * VORSTAND-FUNKTION: Lädt das vollständige Präferenz-Bündel eines anderen Users.
+   * Gleiches Format wie getMyPreferences().
+   */
+  async function getUserPreferences(userId) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'admin' && s.role !== 'board') {
+      return { ok: false, error: 'Nur Vorstand.' };
+    }
+    if (!userId) return { ok: false, error: 'Keine User-ID.' };
+    try {
+      const client = await sb();
+      const [profileRes, prefsRes] = await Promise.all([
+        client.from('profiles')
+          .select('qualifications, activity_types, preferred_shifts, home_plz, max_km')
+          .eq('id', userId)
+          .single(),
+        client.from('clinic_preferences')
+          .select('clinic_id, preference')
+          .eq('user_id', userId)
+      ]);
+      if (profileRes.error) return { ok: false, error: profileRes.error.message };
+      if (prefsRes.error)   return { ok: false, error: prefsRes.error.message };
+
+      const clinicPrefs = {};
+      (prefsRes.data || []).forEach(r => { clinicPrefs[r.clinic_id] = r.preference; });
+
+      return {
+        ok: true,
+        preferences: {
+          qualifications:   profileRes.data.qualifications   || [],
+          activityTypes:    profileRes.data.activity_types   || [],
+          preferredShifts:  profileRes.data.preferred_shifts || [],
+          homePlz:          profileRes.data.home_plz || '',
+          maxKm:            profileRes.data.max_km != null ? String(profileRes.data.max_km) : '',
+          clinicPrefs
+        }
+      };
+    } catch(e) {
+      console.error('[LPR] getUserPreferences:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * VORSTAND-FUNKTION: Setzt die WEICHEN Präferenzen eines anderen Users.
+   * Gleiche Validierung wie updateMySoftPreferences.
+   */
+  async function setUserSoftPreferences(userId, payload) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'admin' && s.role !== 'board') {
+      return { ok: false, error: 'Nur Vorstand.' };
+    }
+    if (!userId) return { ok: false, error: 'Keine User-ID.' };
+    if (!payload || typeof payload !== 'object') return { ok: false, error: 'Keine Daten übergeben.' };
+
+    const ALLOWED_SHIFTS = ['frueh','spaet','nacht'];
+    let preferred_shifts = Array.isArray(payload.preferredShifts)
+      ? payload.preferredShifts.filter(x => ALLOWED_SHIFTS.includes(x))
+      : null;
+
+    const plzRaw = (payload.homePlz || '').trim();
+    if (plzRaw !== '' && !/^\d{5}$/.test(plzRaw)) {
+      return { ok: false, error: 'PLZ muss aus 5 Ziffern bestehen oder leer sein.' };
+    }
+
+    let max_km = null;
+    if (payload.maxKm !== '' && payload.maxKm != null) {
+      const n = parseInt(payload.maxKm, 10);
+      if (!Number.isFinite(n) || n < 1 || n > 500) {
+        return { ok: false, error: 'Max. Anfahrt muss zwischen 1 und 500 km liegen.' };
+      }
+      max_km = n;
+    }
+
+    const patch = {
+      home_plz: plzRaw || null,
+      max_km
+    };
+    if (preferred_shifts !== null) patch.preferred_shifts = preferred_shifts;
+
+    try {
+      const { data, error } = await (await sb())
+        .from('profiles')
+        .update(patch)
+        .eq('id', userId)
+        .select('preferred_shifts, home_plz, max_km')
+        .single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, profile: data };
+    } catch(e) {
+      console.error('[LPR] setUserSoftPreferences:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * VORSTAND-FUNKTION: Setzt eine einzelne Klinik-Präferenz für einen anderen User.
+   * RLS für clinic_preferences erlaubt Vorstand das Schreiben über die "cp_admin_all"-Policy.
+   * Falls die fehlt, muss sie ergänzt werden — siehe Migration unten.
+   */
+  async function setUserClinicPreference(userId, clinicId, value) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'admin' && s.role !== 'board') {
+      return { ok: false, error: 'Nur Vorstand.' };
+    }
+    if (!userId) return { ok: false, error: 'Keine User-ID.' };
+    if (!clinicId) return { ok: false, error: 'Keine Klinik-ID.' };
+    if (!['pref','neutral','avoid'].includes(value)) {
+      return { ok: false, error: 'Ungültiger Wert.' };
+    }
+    try {
+      const client = await sb();
+      if (value === 'neutral') {
+        const { error } = await client
+          .from('clinic_preferences')
+          .delete()
+          .eq('user_id', userId)
+          .eq('clinic_id', clinicId);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, preference: 'neutral' };
+      } else {
+        const { error } = await client
+          .from('clinic_preferences')
+          .upsert({
+            user_id:    userId,
+            clinic_id:  clinicId,
+            preference: value
+          }, { onConflict: 'user_id,clinic_id' });
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, preference: value };
+      }
+    } catch(e) {
+      console.error('[LPR] setUserClinicPreference:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   global.LPR = {
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,
@@ -1305,8 +1446,10 @@
     logout,
     getUser,
     getMyProfile, updateMyIban,
-    // Präferenzen
-    listClinics, getMyPreferences, updateMySoftPreferences, setClinicPreference, setUserHardPreferences,
+    // Präferenzen — Self-Service
+    listClinics, getMyPreferences, updateMySoftPreferences, setClinicPreference,
+    // Präferenzen — Vorstand
+    setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
     register, loginWithPassword, requireRole,
     listUsersByStatus, approveUser, rejectUser,
     getMyCompliance, getComplianceForUser, setComplianceStatus, isComplianceComplete,

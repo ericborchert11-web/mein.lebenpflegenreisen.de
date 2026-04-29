@@ -369,6 +369,11 @@ async function loadAll() {
     LPR.showToast('Präferenzen konnten nicht geladen werden: ' + (prefsRes.error || 'Unbekannter Fehler'), 'warn');
   } else {
     _state = prefsRes.preferences;
+    // Wenn der User noch nie Schichten gesetzt hat (leeres Array), alle drei vorbelegen.
+    // Das matcht den Hinweis-Text "alle Dienste anzeigen ist Default".
+    if (!_state.preferredShifts || _state.preferredShifts.length === 0) {
+      _state.preferredShifts = ['frueh', 'spaet', 'nacht'];
+    }
   }
 
   renderAll();

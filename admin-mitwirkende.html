@@ -622,6 +622,13 @@ async function ensureClinicsLoaded() {
 
 async function openProfile(userId, email, name) {
   if (!userId) { showToast('Fehler: Keine User-ID.'); return; }
+
+  // Defensive: API-Funktionen vorhanden?
+  if (typeof LPR.getUserPreferences !== 'function' || typeof LPR.listClinics !== 'function') {
+    showToast('Fehler: API unvollständig. Bitte Strg+Shift+R drücken.');
+    return;
+  }
+
   _currentUser = { id: userId, email, name };
 
   document.getElementById('pd-title').textContent    = name;
@@ -639,13 +646,22 @@ async function openProfile(userId, email, name) {
   document.getElementById('profile-dialog').showModal();
 
   // Daten parallel laden
-  const [prefsRes, _] = await Promise.all([
-    LPR.getUserPreferences(userId),
-    ensureClinicsLoaded()
-  ]);
+  let prefsRes;
+  try {
+    [prefsRes] = await Promise.all([
+      LPR.getUserPreferences(userId),
+      ensureClinicsLoaded()
+    ]);
+  } catch (e) {
+    console.error('[openProfile]', e);
+    showToast('Laden fehlgeschlagen: ' + (e.message || 'Unbekannter Fehler'));
+    prefsRes = { ok: false, error: e.message };
+  }
 
-  if (!prefsRes.ok) {
-    showToast('Präferenzen konnten nicht geladen werden: ' + (prefsRes.error || 'Fehler'));
+  if (!prefsRes || !prefsRes.ok) {
+    if (prefsRes && prefsRes.error) {
+      showToast('Präferenzen konnten nicht geladen werden: ' + prefsRes.error);
+    }
     _currentPrefs = { qualifications: [], activityTypes: [], preferredShifts: [], clinicPrefs: {}, homePlz: '', maxKm: '' };
   } else {
     _currentPrefs = prefsRes.preferences;
@@ -815,6 +831,13 @@ async function renderCompliance(userId) {
 
 async function setClinicPref(clinicId, value) {
   if (!_currentUser) return;
+
+  // Defensive: API-Funktion vorhanden?
+  if (typeof LPR.setUserClinicPreference !== 'function') {
+    showToast('Fehler: API unvollständig. Bitte Strg+Shift+R drücken.');
+    return;
+  }
+
   // Optimistisch im UI
   const prev = _currentPrefs.clinicPrefs[clinicId];
   _currentPrefs.clinicPrefs[clinicId] = value;
@@ -828,8 +851,15 @@ async function setClinicPref(clinicId, value) {
   }
 
   // Server speichern
-  const res = await LPR.setUserClinicPreference(_currentUser.id, clinicId, value);
-  if (!res.ok) {
+  let res;
+  try {
+    res = await LPR.setUserClinicPreference(_currentUser.id, clinicId, value);
+  } catch (e) {
+    console.error('[setClinicPref]', e);
+    res = { ok: false, error: e.message || 'Netzwerkfehler' };
+  }
+
+  if (!res || !res.ok) {
     // Rollback
     if (prev === undefined) delete _currentPrefs.clinicPrefs[clinicId];
     else _currentPrefs.clinicPrefs[clinicId] = prev;
@@ -840,7 +870,7 @@ async function setClinicPref(clinicId, value) {
       const btn = row.querySelector('.clinic-btn' + map[fallback]);
       if (btn) btn.classList.add('active');
     }
-    showToast('Konnte nicht gespeichert werden: ' + (res.error || 'Fehler'));
+    showToast('Konnte nicht gespeichert werden: ' + ((res && res.error) || 'Fehler'));
   }
 }
 
@@ -855,6 +885,16 @@ function closeProfile() {
 async function saveProfile() {
   if (!_currentUser) return;
 
+  // Defensive: prüfen, dass alle benötigten API-Funktionen verfügbar sind
+  // (Schützt vor Browser-Cache-Problemen, wenn app.js veraltet ist)
+  const missing = [];
+  if (typeof LPR.setUserHardPreferences !== 'function') missing.push('setUserHardPreferences');
+  if (typeof LPR.setUserSoftPreferences !== 'function') missing.push('setUserSoftPreferences');
+  if (missing.length > 0) {
+    showToast('Fehler: API unvollständig (' + missing.join(', ') + '). Bitte Strg+Shift+R drücken.');
+    return;
+  }
+
   const qualifications  = [...document.querySelectorAll('[data-qual]:checked')].map(cb => cb.dataset.qual);
   const activityTypes   = [...document.querySelectorAll('[data-type]:checked')].map(cb => cb.dataset.type);
   const preferredShifts = [...document.querySelectorAll('[data-shift]:checked')].map(cb => cb.dataset.shift);
@@ -866,17 +906,33 @@ async function saveProfile() {
   saveBtn.disabled = true;
   saveBtn.textContent = 'Speichern …';
 
-  // Hart und weich parallel speichern
-  const [hardRes, softRes] = await Promise.all([
-    LPR.setUserHardPreferences(_currentUser.id, { qualifications, activityTypes }),
-    LPR.setUserSoftPreferences(_currentUser.id, { preferredShifts, homePlz, maxKm })
-  ]);
+  let hardRes, softRes;
+  try {
+    // Hart und weich parallel speichern
+    [hardRes, softRes] = await Promise.all([
+      LPR.setUserHardPreferences(_currentUser.id, { qualifications, activityTypes }),
+      LPR.setUserSoftPreferences(_currentUser.id, { preferredShifts, homePlz, maxKm })
+    ]);
+  } catch (e) {
+    saveBtn.disabled = false;
+    saveBtn.textContent = oldText;
+    console.error('[saveProfile]', e);
+    showToast('Speichern fehlgeschlagen: ' + (e.message || 'Unbekannter Fehler'));
+    return;
+  }
 
   saveBtn.disabled = false;
   saveBtn.textContent = oldText;
 
-  if (!hardRes.ok) { showToast('Qualifikationen: ' + (hardRes.error || 'Fehler')); return; }
-  if (!softRes.ok) { showToast('Schichten/Anfahrt: ' + (softRes.error || 'Fehler')); return; }
+  // Defensive: Beide Antworten müssen ein ok=true haben
+  if (!hardRes || !hardRes.ok) {
+    showToast('Qualifikationen: ' + ((hardRes && hardRes.error) || 'Fehler'));
+    return;
+  }
+  if (!softRes || !softRes.ok) {
+    showToast('Schichten/Anfahrt: ' + ((softRes && softRes.error) || 'Fehler'));
+    return;
+  }
 
   showToast('✓ Profil gespeichert');
   closeProfile();

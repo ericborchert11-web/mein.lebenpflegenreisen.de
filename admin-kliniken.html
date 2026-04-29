@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kliniken verwalten · Admin · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.ak-wrap { max-width: 1100px; margin: 32px auto 60px; padding: 0 24px; }
+
+.ak-header {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  flex-wrap: wrap; gap: 16px;
+  margin-bottom: 24px;
+}
+.ak-header h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 28px;
+  color: var(--green-deep);
+  margin: 0;
+  letter-spacing: -.02em;
+}
+.ak-header p { color: var(--muted); font-size: 14px; margin: 4px 0 0; }
+
+/* Tabs */
+.ak-tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+.ak-tab {
+  background: transparent; border: none;
+  padding: 10px 18px; cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+.ak-tab.active { color: var(--green-deep); border-bottom-color: var(--green); }
+.ak-tab .ak-count {
+  display: inline-block;
+  background: var(--green-soft);
+  color: var(--green-deep);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: 6px;
+}
+.ak-tab.active .ak-count { background: var(--lime); color: var(--green-deep); }
+
+/* Klinik-Karten */
+.ak-card {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.ak-card h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--green-deep);
+  margin: 0 0 4px;
+}
+.ak-card .ak-meta {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.ak-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 18px;
+  font-size: 13.5px;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+.ak-grid dt { color: var(--muted); font-weight: 600; font-size: 12px; }
+.ak-grid dd { margin: 0 0 4px; }
+@media (max-width: 580px) {
+  .ak-grid { grid-template-columns: 1fr; }
+}
+
+.ak-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.ak-btn {
+  border: none; border-radius: var(--radius-sm);
+  padding: 8px 16px; font-size: 13px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.ak-btn-approve { background: var(--green); color: #fff; }
+.ak-btn-approve:hover { background: var(--green-deep); }
+.ak-btn-reject  { background: transparent; color: var(--warn); border: 1.5px solid var(--warn); }
+.ak-btn-reject:hover  { background: var(--warn); color: #fff; }
+
+.ak-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+  font-size: 14px;
+  background: #FAFAF5;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+/* Approve-Modal */
+.ak-modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  display: none;
+  align-items: center; justify-content: center;
+  z-index: 9990;
+}
+.ak-modal-bg.show { display: flex; }
+.ak-modal {
+  background: #fff;
+  border-radius: var(--radius);
+  max-width: 540px; width: 92%;
+  padding: 28px 32px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  max-height: 90vh; overflow-y: auto;
+}
+.ak-modal h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  color: var(--green-deep);
+  margin: 0 0 6px;
+}
+.ak-modal p.muted { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+
+.ak-modal-section { margin-bottom: 18px; }
+.ak-modal-section h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green-deep);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.ak-radio-group { display: flex; flex-direction: column; gap: 8px; }
+.ak-radio {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px;
+  background: #FAFAF5;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all .18s;
+}
+.ak-radio.checked { border-color: var(--green); background: #F2F8F2; }
+.ak-radio input { margin-top: 3px; }
+.ak-radio-content { flex: 1; }
+.ak-radio-content strong { display: block; font-size: 13.5px; color: var(--text); margin-bottom: 2px; }
+.ak-radio-content small { font-size: 12px; color: var(--muted); }
+
+.ak-modal select, .ak-modal input, .ak-modal textarea {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  margin-top: 6px;
+  background: #fff;
+  color: var(--text);
+  box-sizing: border-box;
+}
+.ak-modal textarea { resize: vertical; min-height: 70px; }
+.ak-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.ak-error { font-size: 12.5px; color: var(--warn); margin-top: 6px; min-height: 16px; }
+
+.ak-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+.ak-modal-actions .ak-btn-cancel {
+  background: transparent;
+  color: var(--muted);
+  border: 1.5px solid var(--border);
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--green-deep); color: #fff;
+  padding: 12px 22px; border-radius: 10px;
+  font-weight: 600; font-size: 14px;
+  opacity: 0; transition: all .25s;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  z-index: 9999;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.warn { background: var(--warn); }
+
+.ak-loading {
+  text-align: center; padding: 40px;
+  color: var(--muted); font-size: 14px;
+}
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+
+<main id="main">
+<div class="ak-wrap">
+
+  <div class="ak-header">
+    <div>
+      <h1>Kliniken verwalten</h1>
+      <p>Klinik-Anmeldungen prüfen, freigeben oder ablehnen</p>
+    </div>
+  </div>
+
+  <div class="ak-tabs">
+    <button class="ak-tab active" data-tab="pending"  onclick="setTab('pending')">Offen <span class="ak-count" id="cnt-pending">0</span></button>
+    <button class="ak-tab"        data-tab="approved" onclick="setTab('approved')">Freigegeben <span class="ak-count" id="cnt-approved">0</span></button>
+    <button class="ak-tab"        data-tab="rejected" onclick="setTab('rejected')">Abgelehnt <span class="ak-count" id="cnt-rejected">0</span></button>
+  </div>
+
+  <div id="list-area">
+    <div class="ak-loading">Lade Kliniken …</div>
+  </div>
+
+</div>
+</main>
+
+<!-- Approve-Modal -->
+<div class="ak-modal-bg" id="approve-modal">
+  <div class="ak-modal" role="dialog" aria-labelledby="approve-title">
+    <h2 id="approve-title">Klinik freigeben</h2>
+    <p class="muted" id="approve-clinic-name"></p>
+
+    <div class="ak-modal-section">
+      <h4>Stammdaten-Eintrag</h4>
+      <div class="ak-radio-group">
+        <label class="ak-radio" id="radio-existing-wrap">
+          <input type="radio" name="approve-mode" value="existing" id="approve-mode-existing">
+          <div class="ak-radio-content">
+            <strong>Mit bestehender Klinik verknüpfen</strong>
+            <small>Wenn die Klinik schon in unseren Stammdaten ist (z.B. weil Ehrenamtliche dort schon Einsätze haben).</small>
+          </div>
+        </label>
+        <label class="ak-radio" id="radio-new-wrap">
+          <input type="radio" name="approve-mode" value="new" id="approve-mode-new" checked>
+          <div class="ak-radio-content">
+            <strong>Neuen Stammdaten-Eintrag anlegen</strong>
+            <small>Übernimmt Name, PLZ und Ort aus den Onboarding-Daten der Klinik.</small>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="ak-modal-section" id="existing-fields" hidden>
+      <h4>Bestehende Klinik wählen</h4>
+      <select id="approve-existing-id">
+        <option value="">— bitte wählen —</option>
+      </select>
+    </div>
+
+    <div class="ak-modal-section" id="new-fields">
+      <h4>Neue Klinik-ID (Slug)</h4>
+      <input type="text" id="approve-new-id" placeholder="z.B. vivantes-neukoelln" maxlength="40"
+        oninput="this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g, '')">
+      <p class="ak-hint">Nur Kleinbuchstaben, Ziffern und Bindestriche. 3–40 Zeichen.</p>
+    </div>
+
+    <div class="ak-error" id="approve-error"></div>
+
+    <div class="ak-modal-actions">
+      <button class="ak-btn-cancel" onclick="closeApproveModal()">Abbrechen</button>
+      <button class="ak-btn ak-btn-approve" id="approve-confirm-btn" onclick="confirmApprove()">Freigeben</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reject-Modal -->
+<div class="ak-modal-bg" id="reject-modal">
+  <div class="ak-modal" role="dialog" aria-labelledby="reject-title">
+    <h2 id="reject-title">Klinik ablehnen</h2>
+    <p class="muted" id="reject-clinic-name"></p>
+
+    <div class="ak-modal-section">
+      <h4>Begründung (wird der Klinik angezeigt)</h4>
+      <textarea id="reject-reason" placeholder="z.B. Wir können den Bedarf aktuell nicht abdecken. …" maxlength="600"></textarea>
+      <p class="ak-hint">Mindestens 5 Zeichen. Wird der Klinik im eingeloggten Bereich angezeigt.</p>
+    </div>
+
+    <div class="ak-error" id="reject-error"></div>
+
+    <div class="ak-modal-actions">
+      <button class="ak-btn-cancel" onclick="closeRejectModal()">Abbrechen</button>
+      <button class="ak-btn ak-btn-reject" id="reject-confirm-btn" onclick="confirmReject()">Ablehnen</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: 'admin-kliniken' });
+
+function escape(s) {
+  const d = document.createElement('div');
+  d.textContent = s ?? '';
+  return d.innerHTML;
+}
+
+// State
+let _currentTab = 'pending';
+let _cache = { pending: null, approved: null, rejected: null };
+let _allClinics = []; // für approve-modal Dropdown
+let _activeApproveId = null;
+let _activeApproveName = '';
+let _activeRejectId = null;
+let _activeRejectName = '';
+
+async function init() {
+  const session = LPR.getSession();
+  if (!session) {
+    window.location.href = 'login.html?next=' + encodeURIComponent(location.pathname);
+    return;
+  }
+  if (session.role !== 'admin' && session.role !== 'board') {
+    LPR.showToast('Nur für den Vorstand.', 'warn');
+    setTimeout(() => { window.location.href = LPR.roleTarget(session.role); }, 1200);
+    return;
+  }
+  await loadAllTabs();
+}
+
+async function loadAllTabs() {
+  const [p, a, r] = await Promise.all([
+    LPR.listClinicsByStatus('pending'),
+    LPR.listClinicsByStatus('approved'),
+    LPR.listClinicsByStatus('rejected')
+  ]);
+  _cache.pending  = p.ok ? p.clinics : [];
+  _cache.approved = a.ok ? a.clinics : [];
+  _cache.rejected = r.ok ? r.clinics : [];
+
+  document.getElementById('cnt-pending').textContent  = _cache.pending.length;
+  document.getElementById('cnt-approved').textContent = _cache.approved.length;
+  document.getElementById('cnt-rejected').textContent = _cache.rejected.length;
+
+  // Stammdaten für approve-Dropdown
+  const all = await LPR.listClinics();
+  _allClinics = all.ok ? (all.clinics || []) : [];
+  const sel = document.getElementById('approve-existing-id');
+  sel.innerHTML = '<option value="">— bitte wählen —</option>' +
+    _allClinics.map(c => `<option value="${escape(c.id)}">${escape(c.name)} ${c.plz ? '· '+escape(c.plz) : ''} ${c.city ? escape(c.city) : ''}</option>`).join('');
+
+  renderTab();
+}
+
+function setTab(tab) {
+  _currentTab = tab;
+  document.querySelectorAll('.ak-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  renderTab();
+}
+
+function renderTab() {
+  const list = _cache[_currentTab] || [];
+  const area = document.getElementById('list-area');
+  if (list.length === 0) {
+    const labels = {
+      pending:  'Aktuell sind keine Anmeldungen offen.',
+      approved: 'Es sind noch keine Kliniken freigegeben.',
+      rejected: 'Keine abgelehnten Anmeldungen.'
+    };
+    area.innerHTML = `<div class="ak-empty">${escape(labels[_currentTab])}</div>`;
+    return;
+  }
+  area.innerHTML = list.map(c => renderCard(c)).join('');
+}
+
+function renderCard(c) {
+  const addr = [c.address, [c.postal_code, c.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || '—';
+  const created = c.created_at ? new Date(c.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+
+  let actions = '';
+  if (c.status === 'pending') {
+    actions = `
+      <div class="ak-actions">
+        <button class="ak-btn ak-btn-approve" onclick="openApproveModal('${escape(c.id)}', ${JSON.stringify(c.clinic_name).replace(/"/g, '&quot;')})">Freigeben</button>
+        <button class="ak-btn ak-btn-reject"  onclick="openRejectModal('${escape(c.id)}', ${JSON.stringify(c.clinic_name).replace(/"/g, '&quot;')})">Ablehnen</button>
+      </div>`;
+  } else if (c.status === 'rejected') {
+    actions = `
+      <div style="margin-top: 10px; padding: 10px 14px; background: #FDECE7; border-radius: 8px; font-size: 12.5px; color: #6B1F0F;">
+        <strong>Begründung:</strong> ${escape(c.rejection_reason || '—')}
+      </div>
+      <div class="ak-actions">
+        <button class="ak-btn ak-btn-approve" onclick="openApproveModal('${escape(c.id)}', ${JSON.stringify(c.clinic_name).replace(/"/g, '&quot;')})">Doch freigeben</button>
+      </div>`;
+  } else if (c.status === 'approved') {
+    actions = `
+      <div class="ak-actions">
+        <span style="font-size: 12.5px; color: var(--muted);">Verknüpft mit Stammdaten-ID: <code style="background: #FAFAF5; padding: 2px 6px; border-radius: 4px;">${escape(c.linked_clinic_id || '—')}</code></span>
+      </div>`;
+  }
+
+  return `
+    <div class="ak-card">
+      <h3>${escape(c.clinic_name)}</h3>
+      <div class="ak-meta">${escape(c.email || '—')} · Eingereicht: ${escape(created)}</div>
+      <dl class="ak-grid">
+        <div><dt>Adresse</dt><dd>${escape(addr)}</dd></div>
+        <div><dt>Ansprechpartner</dt><dd>${escape(c.contact_person || '—')}</dd></div>
+        <div><dt>Telefon</dt><dd>${escape(c.phone || '—')}</dd></div>
+        <div><dt>Konto-Name</dt><dd>${escape(c.registered_name || '—')}</dd></div>
+      </dl>
+      ${actions}
+    </div>`;
+}
+
+// Approve-Modal
+function openApproveModal(clinicAccountId, clinicName) {
+  _activeApproveId = clinicAccountId;
+  _activeApproveName = clinicName;
+  document.getElementById('approve-clinic-name').textContent = clinicName;
+  document.getElementById('approve-error').textContent = '';
+  document.getElementById('approve-new-id').value = '';
+  document.getElementById('approve-existing-id').value = '';
+  document.getElementById('approve-mode-new').checked = true;
+  syncApproveModeUI();
+  document.getElementById('approve-modal').classList.add('show');
+}
+function closeApproveModal() {
+  document.getElementById('approve-modal').classList.remove('show');
+  _activeApproveId = null;
+}
+function syncApproveModeUI() {
+  const mode = document.querySelector('input[name="approve-mode"]:checked').value;
+  document.getElementById('existing-fields').hidden = (mode !== 'existing');
+  document.getElementById('new-fields').hidden      = (mode !== 'new');
+  document.getElementById('radio-existing-wrap').classList.toggle('checked', mode === 'existing');
+  document.getElementById('radio-new-wrap').classList.toggle('checked', mode === 'new');
+}
+
+async function confirmApprove() {
+  if (!_activeApproveId) return;
+  const errEl = document.getElementById('approve-error');
+  errEl.textContent = '';
+  const btn = document.getElementById('approve-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Speichere …';
+
+  const mode = document.querySelector('input[name="approve-mode"]:checked').value;
+  const opts = {};
+  if (mode === 'existing') {
+    const id = document.getElementById('approve-existing-id').value.trim();
+    if (!id) {
+      errEl.textContent = 'Bitte eine Klinik aus der Liste wählen.';
+      btn.disabled = false; btn.textContent = 'Freigeben';
+      return;
+    }
+    opts.linkedClinicId = id;
+  } else {
+    const newId = document.getElementById('approve-new-id').value.trim();
+    if (!/^[a-z0-9-]{3,40}$/.test(newId)) {
+      errEl.textContent = 'Klinik-ID: nur a-z, 0-9, Bindestriche, 3–40 Zeichen.';
+      btn.disabled = false; btn.textContent = 'Freigeben';
+      return;
+    }
+    opts.createNewClinicId = newId;
+  }
+
+  const res = await LPR.approveClinic(_activeApproveId, opts);
+  btn.disabled = false; btn.textContent = 'Freigeben';
+
+  if (!res.ok) {
+    errEl.textContent = res.error || 'Freigabe fehlgeschlagen.';
+    return;
+  }
+  closeApproveModal();
+  LPR.showToast('✓ Klinik freigegeben.');
+  await loadAllTabs();
+  setTab(_currentTab);
+}
+
+// Reject-Modal
+function openRejectModal(clinicAccountId, clinicName) {
+  _activeRejectId = clinicAccountId;
+  _activeRejectName = clinicName;
+  document.getElementById('reject-clinic-name').textContent = clinicName;
+  document.getElementById('reject-reason').value = '';
+  document.getElementById('reject-error').textContent = '';
+  document.getElementById('reject-modal').classList.add('show');
+}
+function closeRejectModal() {
+  document.getElementById('reject-modal').classList.remove('show');
+  _activeRejectId = null;
+}
+async function confirmReject() {
+  if (!_activeRejectId) return;
+  const reason = document.getElementById('reject-reason').value.trim();
+  const errEl = document.getElementById('reject-error');
+  errEl.textContent = '';
+  if (reason.length < 5) {
+    errEl.textContent = 'Bitte eine Begründung mit min. 5 Zeichen angeben.';
+    return;
+  }
+  const btn = document.getElementById('reject-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Speichere …';
+
+  const res = await LPR.rejectClinic(_activeRejectId, reason);
+  btn.disabled = false; btn.textContent = 'Ablehnen';
+
+  if (!res.ok) {
+    errEl.textContent = res.error || 'Ablehnung fehlgeschlagen.';
+    return;
+  }
+  closeRejectModal();
+  LPR.showToast('Klinik abgelehnt.');
+  await loadAllTabs();
+  setTab(_currentTab);
+}
+
+// Listener: Radio-Wechsel im Approve-Modal
+document.querySelectorAll('input[name="approve-mode"]').forEach(r => {
+  r.addEventListener('change', syncApproveModeUI);
+});
+
+// Click outside modal closes it
+document.querySelectorAll('.ak-modal-bg').forEach(bg => {
+  bg.addEventListener('click', (e) => {
+    if (e.target === bg) {
+      bg.classList.remove('show');
+    }
+  });
+});
+
+// Globals für onclick
+window.setTab             = setTab;
+window.openApproveModal   = openApproveModal;
+window.closeApproveModal  = closeApproveModal;
+window.confirmApprove     = confirmApprove;
+window.openRejectModal    = openRejectModal;
+window.closeRejectModal   = closeRejectModal;
+window.confirmReject      = confirmReject;
+
+init();
+</script>
+</body>
+</html>

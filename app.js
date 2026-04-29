@@ -1191,8 +1191,8 @@
     let max_km = null;
     if (payload.maxKm !== '' && payload.maxKm != null) {
       const n = parseInt(payload.maxKm, 10);
-      if (!Number.isFinite(n) || n < 1 || n > 500) {
-        return { ok: false, error: 'Max. Anfahrt muss zwischen 1 und 500 km liegen.' };
+      if (!Number.isFinite(n) || n < 1 || n > 30) {
+        return { ok: false, error: 'Max. Anfahrt muss zwischen 1 und 30 km liegen.' };
       }
       max_km = n;
     }
@@ -1369,8 +1369,8 @@
     let max_km = null;
     if (payload.maxKm !== '' && payload.maxKm != null) {
       const n = parseInt(payload.maxKm, 10);
-      if (!Number.isFinite(n) || n < 1 || n > 500) {
-        return { ok: false, error: 'Max. Anfahrt muss zwischen 1 und 500 km liegen.' };
+      if (!Number.isFinite(n) || n < 1 || n > 30) {
+        return { ok: false, error: 'Max. Anfahrt muss zwischen 1 und 30 km liegen.' };
       }
       max_km = n;
     }

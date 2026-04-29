@@ -451,6 +451,88 @@
   }
 
   // --- Reisen (trips) ---
+  
+  /**
+   * Vorstand: Listet ALLE Reisen, unabhängig vom Status (auch 'draft').
+   */
+  async function listAllTripsAdmin() {
+    try {
+      const { data, error } = await (await sb())
+        .from('trips')
+        .select('id, title, location, start_date, end_date, partner, description, max_spots, status, rate_override_per_day, created_at')
+        .order('start_date', { ascending: false });
+      if (error) return { ok: false, error: error.message, trips: [] };
+      return { ok: true, trips: data || [] };
+    } catch(e) { console.error('[LPR] listAllTripsAdmin:', e); return { ok: false, error: 'Netzwerkfehler.', trips: [] }; }
+  }
+  
+  async function createTrip(payload) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (!payload || typeof payload !== 'object') return { ok: false, error: 'Keine Daten übergeben.' };
+    const title = (payload.title || '').trim();
+    const location = (payload.location || '').trim();
+    const start_date = payload.start_date;
+    const end_date = payload.end_date;
+    const max_spots = parseInt(payload.max_spots, 10);
+    if (!title) return { ok: false, error: 'Titel fehlt.' };
+    if (!location) return { ok: false, error: 'Ort fehlt.' };
+    if (!start_date || !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) return { ok: false, error: 'Startdatum ungültig.' };
+    if (!end_date || !/^\d{4}-\d{2}-\d{2}$/.test(end_date)) return { ok: false, error: 'Enddatum ungültig.' };
+    if (end_date < start_date) return { ok: false, error: 'Enddatum darf nicht vor Startdatum liegen.' };
+    if (!Number.isFinite(max_spots) || max_spots < 1) return { ok: false, error: 'Anzahl Begleiter:innen muss mindestens 1 sein.' };
+    const insertData = {
+      title, location, start_date, end_date, max_spots,
+      status: payload.status || 'open',
+      partner: (payload.partner || '').trim() || null,
+      description: (payload.description || '').trim() || null,
+      description_ls: (payload.description_ls || '').trim() || null,
+      rate_override_per_day: payload.rate_override_per_day != null && payload.rate_override_per_day !== '' ? Number(payload.rate_override_per_day) : null,
+      created_by: s.id
+    };
+    try {
+      const { data, error } = await (await sb()).from('trips').insert(insertData).select().single();
+      if (error) return { ok: false, error: 'Anlegen fehlgeschlagen: ' + error.message };
+      return { ok: true, trip: data };
+    } catch(e) { console.error('[LPR] createTrip:', e); return { ok: false, error: 'Netzwerkfehler beim Anlegen.' }; }
+  }
+  
+  async function updateTrip(tripId, patch) {
+    if (!tripId) return { ok: false, error: 'tripId fehlt.' };
+    if (!patch || typeof patch !== 'object') return { ok: false, error: 'Kein Patch übergeben.' };
+    const allowedKeys = ['title','location','start_date','end_date','partner','description','description_ls','max_spots','status','rate_override_per_day'];
+    const filtered = {};
+    for (const k of allowedKeys) { if (k in patch) filtered[k] = patch[k]; }
+    if (Object.keys(filtered).length === 0) return { ok: false, error: 'Nichts zu aktualisieren.' };
+    if ('max_spots' in filtered) {
+      const n = parseInt(filtered.max_spots, 10);
+      if (!Number.isFinite(n) || n < 1) return { ok: false, error: 'max_spots ungültig.' };
+      filtered.max_spots = n;
+    }
+    if ('start_date' in filtered && filtered.start_date && !/^\d{4}-\d{2}-\d{2}$/.test(filtered.start_date)) return { ok: false, error: 'start_date ungültig.' };
+    if ('end_date' in filtered && filtered.end_date && !/^\d{4}-\d{2}-\d{2}$/.test(filtered.end_date)) return { ok: false, error: 'end_date ungültig.' };
+    if ('status' in filtered && !['draft','open','closed','completed','cancelled'].includes(filtered.status)) return { ok: false, error: 'status ungültig.' };
+    try {
+      const { data, error } = await (await sb()).from('trips').update(filtered).eq('id', tripId).select().single();
+      if (error) return { ok: false, error: 'Aktualisieren fehlgeschlagen: ' + error.message };
+      return { ok: true, trip: data };
+    } catch(e) { console.error('[LPR] updateTrip:', e); return { ok: false, error: 'Netzwerkfehler beim Aktualisieren.' }; }
+  }
+  
+  async function deleteTrip(tripId) {
+    if (!tripId) return { ok: false, error: 'tripId fehlt.' };
+    try {
+      const sRes = await getTripSignups(tripId);
+      const active = (sRes.signups || []).filter(x => x.status !== 'cancelled');
+      if (active.length > 0) {
+        return { ok: false, error: `Reise hat ${active.length} aktive Anmeldung(en). Bitte stattdessen den Status auf "Abgesagt" setzen.` };
+      }
+      const { error } = await (await sb()).from('trips').delete().eq('id', tripId);
+      if (error) return { ok: false, error: 'Löschen fehlgeschlagen: ' + error.message };
+      return { ok: true };
+    } catch(e) { console.error('[LPR] deleteTrip:', e); return { ok: false, error: 'Netzwerkfehler beim Löschen.' }; }
+  }
+  
   async function listTrips(filter) {
     try {
       let q = (await sb())
@@ -1010,6 +1092,8 @@
     // Block C
     getRates, getRate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
+    // Vorstand: Reise-Verwaltung
+    listAllTripsAdmin, createTrip, updateTrip, deleteTrip,
     getMyAvailability, setAvailability, removeAvailability,
     getMySignups, getMyBookings,
     getMyClaims, calculatePay,

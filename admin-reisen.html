@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reisen verwalten · Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Vorstand: Reisen anlegen und verwalten">
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green:      #2D4A3A;
+  --green-soft: #3E5C4B;
+  --green-deep: #1E3127;
+  --lime:       #C8F135;
+  --lime-soft:  #E8F7A8;
+  --sand:       #E8E4DC;
+  --white:      #F5F5F0;
+  --text:       #1A241E;
+  --muted:      #6B7771;
+  --border:     #D8D4CC;
+  --warn:       #C85B30;
+  --ok:         #4A7A5A;
+  --info:       #2F6BA8;
+
+  --fs-base: 17px;
+  --fs-h1: 38px;
+  --fs-h2: 22px;
+  --fs-h3: 18px;
+  --fs-small: 14px;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 12px rgba(0,0,0,.05);
+  --shadow-lg: 0 6px 24px rgba(0,0,0,.08);
+}
+
+body.text-l  { --fs-base: 19px; --fs-h1: 42px; --fs-h2: 25px; --fs-h3: 20px; --fs-small: 15px; }
+body.text-xl { --fs-base: 22px; --fs-h1: 48px; --fs-h2: 28px; --fs-h3: 22px; --fs-small: 17px; }
+
+body.contrast {
+  --green: #000; --green-soft: #222; --green-deep: #000;
+  --lime: #FFD900; --lime-soft: #FFF1A8;
+  --sand: #FFF; --white: #FFF;
+  --text: #000; --muted: #333; --border: #000;
+  --warn: #B32400; --ok: #006400;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--sand);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: var(--fs-base);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0;
+}
+
+/* Hero */
+.hero {
+  background: linear-gradient(135deg, var(--green) 0%, var(--green-soft) 100%);
+  color: #fff; padding: 40px 24px 32px;
+}
+.hero-wrap { max-width: 1100px; margin: 0 auto; }
+.hero-eyebrow {
+  display: inline-block;
+  background: rgba(200, 241, 53, 0.18);
+  color: var(--lime);
+  font-size: 12px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  padding: 6px 14px; border-radius: 20px;
+  margin-bottom: 14px;
+}
+.hero h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: var(--fs-h1);
+  line-height: 1.05; letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+.hero p { opacity: .88; max-width: 720px; }
+
+/* Main */
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 24px 60px;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
+}
+.toolbar-filter {
+  display: flex; align-items: center; gap: 8px;
+  background: #fff; border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px;
+  font-size: 14px;
+}
+.toolbar-filter label { color: var(--muted); font-weight: 600; }
+.toolbar-filter select {
+  border: none; background: transparent;
+  font-family: inherit; font-size: 14px;
+  font-weight: 600; color: var(--text);
+  cursor: pointer; outline: none;
+  min-height: 32px;
+}
+
+/* Trip card */
+.trip-card {
+  background: #fff; border-radius: var(--radius);
+  padding: 18px 22px; margin-bottom: 12px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px; align-items: start;
+}
+.trip-info { min-width: 0; }
+.trip-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 18px;
+  color: var(--green-deep); margin-bottom: 4px;
+}
+.trip-meta {
+  font-size: 13px; color: var(--muted);
+  display: flex; flex-wrap: wrap; gap: 4px 16px;
+}
+.trip-meta strong { color: var(--text); font-weight: 600; }
+.trip-spots {
+  margin-top: 8px;
+  font-size: 13px; color: var(--muted);
+}
+.trip-spots strong { color: var(--green-deep); }
+
+.trip-state {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 4px 10px; border-radius: 10px;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+.state-draft     { background: #F0F0F0; color: #666; }
+.state-open      { background: var(--lime-soft); color: var(--green-deep); }
+.state-closed    { background: #FFF3DE; color: #8E6112; }
+.state-completed { background: #E8F0EB; color: var(--ok); }
+.state-cancelled { background: #F8E0DA; color: var(--warn); }
+
+.trip-actions {
+  display: flex; flex-direction: column; gap: 6px;
+  align-items: flex-end;
+}
+
+/* Empty state */
+.empty {
+  background: #fff; border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 44px 24px; text-align: center;
+  color: var(--muted);
+}
+.empty-icon { font-size: 38px; margin-bottom: 10px; }
+.empty p { margin-bottom: 4px; }
+.empty p.lead { color: var(--text); font-weight: 600; font-size: 16px; margin-bottom: 8px; }
+
+/* Buttons */
+.btn {
+  font-family: inherit; font-weight: 700;
+  padding: 10px 18px; border-radius: 8px;
+  border: none; cursor: pointer;
+  font-size: 14px; letter-spacing: .01em;
+  min-height: 40px;
+  transition: transform .1s, box-shadow .15s;
+  display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--green); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--green-deep); box-shadow: var(--shadow-lg); }
+.btn-lime { background: var(--lime); color: var(--green-deep); }
+.btn-lime:hover:not(:disabled) { background: #B8E028; }
+.btn-ghost {
+  background: transparent; color: var(--green);
+  border: 1.5px solid var(--green);
+}
+.btn-ghost:hover:not(:disabled) { background: var(--green); color: #fff; }
+.btn-danger-ghost {
+  background: transparent; color: var(--warn);
+  border: 1.5px solid var(--warn);
+}
+.btn-danger-ghost:hover:not(:disabled) { background: var(--warn); color: #fff; }
+.btn-sm { padding: 6px 12px; min-height: 32px; font-size: 13px; }
+
+/* Modal */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(20, 30, 25, .55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; z-index: 100;
+  animation: fadeIn .15s;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  background: #fff; border-radius: var(--radius);
+  width: 100%; max-width: 560px;
+  max-height: calc(100vh - 40px);
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  border: 1px solid var(--border);
+}
+.modal-head {
+  padding: 22px 26px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+}
+.modal-head h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 22px;
+  color: var(--green-deep); letter-spacing: -0.01em;
+}
+.modal-close {
+  background: transparent; border: none;
+  font-size: 26px; line-height: 1; cursor: pointer;
+  color: var(--muted); padding: 4px 10px;
+  border-radius: 6px;
+}
+.modal-close:hover { background: var(--sand); color: var(--text); }
+.modal-body {
+  padding: 22px 26px; overflow-y: auto; flex: 1;
+}
+.modal-foot {
+  padding: 14px 26px 22px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 10px; justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.modal-error {
+  background: #F8E0DA; color: #8B2C0E;
+  padding: 10px 14px; border-radius: 8px;
+  font-size: 13px; margin-bottom: 14px;
+  display: none;
+}
+.modal-error.visible { display: block; }
+
+/* Form */
+.form-row {
+  margin-bottom: 16px;
+}
+.form-row.cols-2 {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+.form-label {
+  display: block; font-weight: 600; font-size: 14px;
+  color: var(--text); margin-bottom: 6px;
+}
+.form-label .req { color: var(--warn); }
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  font-family: inherit; font-size: 15px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: #fff; color: var(--text);
+  min-height: 42px;
+  transition: border-color .15s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  outline: none; border-color: var(--green);
+}
+.form-textarea { min-height: 80px; resize: vertical; line-height: 1.5; }
+.form-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+.form-toggle-extra {
+  background: transparent; border: none; padding: 0;
+  color: var(--green); font-weight: 600; font-size: 13px;
+  cursor: pointer; text-decoration: underline;
+  margin-top: -4px; margin-bottom: 12px;
+}
+.form-extra { display: none; }
+.form-extra.visible { display: block; }
+
+/* Mobile */
+@media (max-width: 640px) {
+  .trip-card { grid-template-columns: 1fr; }
+  .trip-actions { flex-direction: row; flex-wrap: wrap; }
+  .form-row.cols-2 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-wrap">
+    <div class="hero-eyebrow">Vorstand · Verwaltung</div>
+    <h1>Reisen verwalten</h1>
+    <p>Lege neue Reisen an, bearbeite Details und schließe oder schließe Anmeldungen ab. Mitwirkende sehen alle Reisen mit Status <strong>„Offen"</strong> im Reise-Kalender.</p>
+  </div>
+</section>
+
+<main id="main">
+
+  <!-- Login-Prompt -->
+  <div id="login-view" hidden style="background:#fff; border-radius:12px; padding:32px; box-shadow:0 2px 12px rgba(0,0,0,.05); text-align:center; max-width:520px; margin:40px auto;">
+    <div style="font-size:44px; margin-bottom:12px;">🔒</div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:var(--green); margin-bottom:10px;">Nur für den Vorstand</h2>
+    <p id="login-prompt-text" style="color:var(--muted); margin-bottom:22px; font-size:14px;">Dieser Bereich ist nur für eingeloggte Vorstandsmitglieder zugänglich.</p>
+    <a href="login.html" class="btn btn-primary" style="width:100%; justify-content:center;">Zum Login →</a>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="admin-view" hidden>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-filter">
+        <label for="status-filter">Filter:</label>
+        <select id="status-filter" onchange="applyFilter()">
+          <option value="all">Alle Reisen</option>
+          <option value="open" selected>Offen</option>
+          <option value="closed">Anmeldung geschlossen</option>
+          <option value="completed">Abgeschlossen</option>
+          <option value="cancelled">Abgesagt</option>
+          <option value="draft">Entwurf</option>
+        </select>
+      </div>
+      <button class="btn btn-lime" onclick="openCreateModal()">＋ Neue Reise anlegen</button>
+    </div>
+
+    <!-- Loading state -->
+    <div id="loading-state" style="text-align:center; padding:40px; color:var(--muted);">Lade Reisen…</div>
+
+    <!-- Reise-Liste -->
+    <div id="trips-list"></div>
+
+  </div>
+</main>
+
+<!-- ════════════ MODAL: Reise anlegen / bearbeiten ════════════ -->
+<div id="trip-modal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modal-title">Neue Reise anlegen</h2>
+      <button class="modal-close" type="button" aria-label="Schließen" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-error" id="modal-error" role="alert"></div>
+
+      <div class="form-row">
+        <label class="form-label" for="f-title">Titel <span class="req">*</span></label>
+        <input class="form-input" id="f-title" type="text" maxlength="200" placeholder="z. B. Ostsee-Reise mit Frau M.">
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="f-location">Ziel / Ort <span class="req">*</span></label>
+        <input class="form-input" id="f-location" type="text" maxlength="200" placeholder="z. B. Timmendorfer Strand">
+      </div>
+
+      <div class="form-row cols-2">
+        <div>
+          <label class="form-label" for="f-start">Beginn <span class="req">*</span></label>
+          <input class="form-input" id="f-start" type="date">
+        </div>
+        <div>
+          <label class="form-label" for="f-end">Ende <span class="req">*</span></label>
+          <input class="form-input" id="f-end" type="date">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="f-spots">Anzahl Begleiter:innen <span class="req">*</span></label>
+        <input class="form-input" id="f-spots" type="number" min="1" max="20" value="1">
+        <div class="form-hint">Wie viele Ehrenamtliche werden für diese Reise benötigt?</div>
+      </div>
+
+      <button class="form-toggle-extra" type="button" onclick="toggleExtra()">＋ Weitere Felder (optional)</button>
+
+      <div class="form-extra" id="form-extra">
+        <div class="form-row">
+          <label class="form-label" for="f-status">Status</label>
+          <select class="form-select" id="f-status">
+            <option value="open" selected>Offen — Anmeldung möglich</option>
+            <option value="draft">Entwurf — noch nicht öffentlich</option>
+            <option value="closed">Anmeldung geschlossen</option>
+            <option value="completed">Abgeschlossen</option>
+            <option value="cancelled">Abgesagt</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label" for="f-partner">Partner / Quelle</label>
+          <input class="form-input" id="f-partner" type="text" maxlength="200" placeholder="z. B. SF Private Krankenpflege">
+          <div class="form-hint">Optional — z. B. wenn Reise über einen Partner-Anbieter läuft.</div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label" for="f-description">Beschreibung</label>
+          <textarea class="form-textarea" id="f-description" maxlength="2000" placeholder="Was sollten Ehrenamtliche zu dieser Reise wissen?"></textarea>
+          <div class="form-hint">Wird im Reise-Kalender für alle Ehrenamtlichen angezeigt.</div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label" for="f-rate">Tagespauschale Override (€)</label>
+          <input class="form-input" id="f-rate" type="number" min="0" step="0.01" placeholder="leer = Standardsatz 150 €">
+          <div class="form-hint">Nur ausfüllen, wenn diese Reise abweichend vergütet werden soll.</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" type="button" onclick="closeModal()">Abbrechen</button>
+      <button class="btn btn-primary" type="button" id="modal-save-btn" onclick="saveTrip()">Reise anlegen</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js?v20260429b"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+
+let _trips = [];
+let _editingTripId = null;  // null = create mode
+
+// ══════ AUTH GUARD ══════
+async function init() {
+  const session = LPR.getSession();
+  if (!session) {
+    location.href = 'login.html?next=admin-reisen.html';
+    return;
+  }
+  if (session.role !== 'admin') {
+    document.getElementById('login-view').hidden = false;
+    document.getElementById('login-prompt-text').textContent = 'Diese Seite ist nur für Vorstandsmitglieder zugänglich.';
+    return;
+  }
+  document.getElementById('admin-view').hidden = false;
+  await loadTrips();
+}
+
+async function loadTrips() {
+  document.getElementById('loading-state').hidden = false;
+  document.getElementById('trips-list').innerHTML = '';
+  try {
+    const res = await LPR.listAllTripsAdmin();
+    if (!res.ok) throw new Error(res.error || 'Reisen konnten nicht geladen werden');
+    _trips = res.trips || [];
+    document.getElementById('loading-state').hidden = true;
+    render();
+  } catch(e) {
+    console.error('[admin-reisen] loadTrips:', e);
+    document.getElementById('loading-state').innerHTML = '<p style="color:var(--warn)">Fehler beim Laden: ' + escapeHtml(e.message) + '</p>';
+  }
+}
+
+function applyFilter() { render(); }
+
+function render() {
+  const filter = document.getElementById('status-filter').value;
+  const list = filter === 'all' ? _trips : _trips.filter(t => t.status === filter);
+  const el = document.getElementById('trips-list');
+  
+  if (list.length === 0) {
+    el.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🧳</div>
+        <p class="lead">${filter === 'all' ? 'Noch keine Reisen angelegt' : 'Keine Reisen mit diesem Status'}</p>
+        <p>Klicke oben auf <strong>„Neue Reise anlegen"</strong>, um die erste Reise zu erstellen.</p>
+      </div>`;
+    return;
+  }
+  
+  el.innerHTML = list.map(t => `
+    <article class="trip-card">
+      <div class="trip-info">
+        <span class="trip-state state-${escapeHtml(t.status)}">${stateLabel(t.status)}</span>
+        <div class="trip-title">${escapeHtml(t.title)}</div>
+        <div class="trip-meta">
+          <span>📍 <strong>${escapeHtml(t.location)}</strong></span>
+          <span>📅 ${formatDateRange(t.start_date, t.end_date)}</span>
+          ${t.partner ? `<span>🤝 ${escapeHtml(t.partner)}</span>` : ''}
+        </div>
+        <div class="trip-spots">Begleiter:innen: <strong>${t.max_spots}</strong>${t.rate_override_per_day ? ` · Tagessatz: <strong>${Number(t.rate_override_per_day).toFixed(2)} €</strong>` : ''}</div>
+      </div>
+      <div class="trip-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditModal('${t.id}')">Bearbeiten</button>
+        <button class="btn btn-danger-ghost btn-sm" onclick="askDelete('${t.id}')">Löschen</button>
+      </div>
+    </article>
+  `).join('');
+}
+
+function stateLabel(s) {
+  return ({
+    draft:     'Entwurf',
+    open:      'Offen',
+    closed:    'Anmeldung zu',
+    completed: 'Abgeschlossen',
+    cancelled: 'Abgesagt'
+  })[s] || s;
+}
+
+function formatDateRange(s, e) {
+  if (!s) return '—';
+  const sd = new Date(s), ed = new Date(e || s);
+  const fmt = (d) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  if (s === e) return fmt(sd);
+  return fmt(sd) + ' – ' + fmt(ed);
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ══════ MODAL ══════
+function openCreateModal() {
+  _editingTripId = null;
+  document.getElementById('modal-title').textContent = 'Neue Reise anlegen';
+  document.getElementById('modal-save-btn').textContent = 'Reise anlegen';
+  resetForm();
+  document.getElementById('trip-modal').hidden = false;
+  setTimeout(() => document.getElementById('f-title').focus(), 50);
+}
+
+function openEditModal(tripId) {
+  const t = _trips.find(x => x.id === tripId);
+  if (!t) return;
+  _editingTripId = tripId;
+  document.getElementById('modal-title').textContent = 'Reise bearbeiten';
+  document.getElementById('modal-save-btn').textContent = 'Änderungen speichern';
+  resetForm();
+  document.getElementById('f-title').value = t.title || '';
+  document.getElementById('f-location').value = t.location || '';
+  document.getElementById('f-start').value = t.start_date || '';
+  document.getElementById('f-end').value = t.end_date || '';
+  document.getElementById('f-spots').value = t.max_spots || 1;
+  document.getElementById('f-status').value = t.status || 'open';
+  document.getElementById('f-partner').value = t.partner || '';
+  document.getElementById('f-description').value = t.description || '';
+  document.getElementById('f-rate').value = t.rate_override_per_day != null ? Number(t.rate_override_per_day) : '';
+  // Wenn was Optionales gesetzt ist, klappe es auf
+  if (t.partner || t.description || t.rate_override_per_day || t.status !== 'open') {
+    document.getElementById('form-extra').classList.add('visible');
+  }
+  document.getElementById('trip-modal').hidden = false;
+  setTimeout(() => document.getElementById('f-title').focus(), 50);
+}
+
+function closeModal() {
+  document.getElementById('trip-modal').hidden = true;
+  _editingTripId = null;
+}
+
+function resetForm() {
+  ['f-title','f-location','f-start','f-end','f-partner','f-description','f-rate'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('f-spots').value = 1;
+  document.getElementById('f-status').value = 'open';
+  document.getElementById('form-extra').classList.remove('visible');
+  hideError();
+}
+
+function toggleExtra() {
+  document.getElementById('form-extra').classList.toggle('visible');
+}
+
+function showError(msg) {
+  const el = document.getElementById('modal-error');
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+function hideError() {
+  document.getElementById('modal-error').classList.remove('visible');
+}
+
+async function saveTrip() {
+  hideError();
+  const payload = {
+    title: document.getElementById('f-title').value,
+    location: document.getElementById('f-location').value,
+    start_date: document.getElementById('f-start').value,
+    end_date: document.getElementById('f-end').value,
+    max_spots: document.getElementById('f-spots').value,
+    status: document.getElementById('f-status').value,
+    partner: document.getElementById('f-partner').value,
+    description: document.getElementById('f-description').value,
+    rate_override_per_day: document.getElementById('f-rate').value
+  };
+  
+  const btn = document.getElementById('modal-save-btn');
+  btn.disabled = true;
+  const oldText = btn.textContent;
+  btn.textContent = 'Speichere…';
+  
+  try {
+    let res;
+    if (_editingTripId) {
+      res = await LPR.updateTrip(_editingTripId, payload);
+    } else {
+      res = await LPR.createTrip(payload);
+    }
+    if (!res.ok) {
+      showError(res.error || 'Fehler beim Speichern.');
+      return;
+    }
+    closeModal();
+    await loadTrips();
+    if (LPR.showToast) LPR.showToast(_editingTripId ? 'Reise aktualisiert.' : 'Reise angelegt.');
+  } catch(e) {
+    console.error('[admin-reisen] saveTrip:', e);
+    showError('Netzwerkfehler beim Speichern.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+}
+
+async function askDelete(tripId) {
+  const t = _trips.find(x => x.id === tripId);
+  if (!t) return;
+  const ok = confirm(`Reise „${t.title}" wirklich löschen?\n\nDas geht nur, wenn keine aktiven Anmeldungen vorhanden sind.\nFalls doch, setze stattdessen den Status auf „Abgesagt".`);
+  if (!ok) return;
+  
+  const res = await LPR.deleteTrip(tripId);
+  if (!res.ok) {
+    alert(res.error || 'Löschen fehlgeschlagen.');
+    return;
+  }
+  if (LPR.showToast) LPR.showToast('Reise gelöscht.');
+  await loadTrips();
+}
+
+// Modal: Klick auf Backdrop schließt
+document.getElementById('trip-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'trip-modal') closeModal();
+});
+// ESC schließt
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.getElementById('trip-modal').hidden) closeModal();
+});
+
+// ══════ STARTUP ══════
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

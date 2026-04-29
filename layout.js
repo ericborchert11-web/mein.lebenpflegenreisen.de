@@ -75,7 +75,7 @@
       } else if (session.role === 'admin') {
         navItems = `
           <li><a href="admin-mitwirkende.html" class="${c('admin')}">Mitwirkende</a></li>
-          <li><a href="schichtplaner.html" class="${c('schichtplaner')}">Reisen</a></li>
+          <li><a href="admin-reisen.html" class="${c('reisen-admin')}">Reisen</a></li>
           <li><a href="sitzwachen.html" class="${c('sitzwachen')}">Sitzwachen</a></li>
           <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;" style="color:var(--warn);">Abmelden</a></li>
         `;

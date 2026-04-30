@@ -94,6 +94,36 @@
 
   function getSession() { return load(KEYS.session, null); }
 
+  // Cross-Subdomain Hint-Cookie auf .lebenpflegenreisen.de
+  // KEIN Auth-Token — nur ein UX-Hinweis für die WordPress-Seite,
+  // damit sie eingeloggte Besucher als solche erkennt und einen
+  // "Mein Bereich"-Button statt "Anmelden" anzeigen kann.
+  // Format: lpr_hint=<role>:<firstname>; max-age=30 Tage
+  function setHintCookie(role, name) {
+    try {
+      const host = window.location.hostname;
+      // Nur produktiv setzen (nicht auf localhost o. ä.)
+      if (!host.endsWith('lebenpflegenreisen.de')) return;
+      const firstName = (name || '').split(' ')[0].slice(0, 40);
+      const value = encodeURIComponent((role || '') + ':' + firstName);
+      const maxAge = 60 * 60 * 24 * 30; // 30 Tage
+      document.cookie = 'lpr_hint=' + value
+        + '; domain=.lebenpflegenreisen.de'
+        + '; path=/'
+        + '; max-age=' + maxAge
+        + '; SameSite=Lax'
+        + (location.protocol === 'https:' ? '; Secure' : '');
+    } catch(e) { console.warn('[LPR] setHintCookie:', e); }
+  }
+  function clearHintCookie() {
+    try {
+      const host = window.location.hostname;
+      if (!host.endsWith('lebenpflegenreisen.de')) return;
+      document.cookie = 'lpr_hint=; domain=.lebenpflegenreisen.de; path=/; max-age=0; SameSite=Lax'
+        + (location.protocol === 'https:' ? '; Secure' : '');
+    } catch(e) {}
+  }
+
   function setSession(profile, supabaseSession) {
     if (!profile || !supabaseSession) { clearSession(); return null; }
     const s = {
@@ -106,10 +136,11 @@
       loginAt:        new Date().toISOString()
     };
     save(KEYS.session, s);
+    setHintCookie(s.role, s.name);
     return s;
   }
 
-  function clearSession() { del(KEYS.session); del(KEYS.clinicSession); }
+  function clearSession() { del(KEYS.session); del(KEYS.clinicSession); clearHintCookie(); }
 
   async function refreshSessionCache() {
     try {
@@ -1909,5 +1940,12 @@
   global.setTextSize = setTextSize;
   global.toggleContrast = toggleContrast;
   global.toggleLS = toggleLS;
+
+  // Beim Laden: bestehende Session → Hint-Cookie auch dann auffrischen,
+  // wenn der User schon vor dem Cookie-Feature eingeloggt war.
+  try {
+    const _existing = getSession();
+    if (_existing && _existing.role) setHintCookie(_existing.role, _existing.name);
+  } catch(e) {}
 
 })(window);

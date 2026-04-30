@@ -152,11 +152,19 @@
 <script>
 LPR_Layout.init({ page: '' });
 
+// URL-Parameter lesen: ?role=ehrenamt|klinik (Pre-Selection),
+// ?next=... (nach Login-Redirect)
+const _urlParams = new URLSearchParams(window.location.search);
+const _preRole = _urlParams.get('role');
+const _nextUrl = _urlParams.get('next');
+
 // Bereits eingeloggt?
 (function() {
   const s = LPR.getSession();
   if (s) {
-    const target = LPR.roleTarget(s.role);
+    const target = _nextUrl && /^[a-zA-Z0-9_\-./?=&]+$/.test(_nextUrl)
+      ? _nextUrl
+      : LPR.roleTarget(s.role);
     const note = document.createElement('div');
     note.style.cssText = 'max-width:960px; margin:20px auto 0; padding:16px; background:#EEF6F0; border:1px solid #9FC0A8; border-radius:14px; text-align:center; font-size:14px;';
     note.innerHTML = `Sie sind bereits als <strong>${LPR.escape(s.name)}</strong> (${s.role}) angemeldet. <a href="${target}" style="color:var(--green-deep); font-weight:700; margin-left:8px;">→ Zu Ihrem Bereich</a> &nbsp;|&nbsp; <a href="#" onclick="LPR.logout(); location.reload(); return false;" style="color:var(--warn); font-weight:700;">Abmelden</a>`;
@@ -190,7 +198,9 @@ async function doLogin() {
   errEl.hidden = true;
   const res = await LPR.loginWithPassword({ email, password });
   if (!res.ok) { errEl.textContent = res.error; errEl.hidden = false; return; }
-  const target = LPR.roleTarget(res.user.role);
+  const target = (_nextUrl && /^[a-zA-Z0-9_\-./?=&]+$/.test(_nextUrl))
+    ? _nextUrl
+    : LPR.roleTarget(res.user.role);
   window.location.href = target;
 }
 
@@ -242,6 +252,30 @@ function showErr(msg) {
   el.hidden = false;
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
+
+// Falls ?role=ehrenamt oder ?role=klinik in URL: vorauswählen + sanft hinweisen,
+// dazu zur Registrierungs-Karte scrollen (sie ist die Standard-Aktion bei Empfehlung
+// von der Hauptseite). Login-Karte bleibt sichtbar oben links.
+(function preselectRoleFromUrl() {
+  if (_preRole !== 'ehrenamt' && _preRole !== 'klinik') return;
+  const btn = document.querySelector('.role-opt[data-role="' + _preRole + '"]');
+  if (!btn) return;
+  pickRole(btn);
+  // Sanfter Hinweis über der Registrierungs-Karte
+  const card = btn.closest('.auth-card');
+  if (card) {
+    const hint = document.createElement('div');
+    hint.style.cssText = 'background:var(--lime-soft); border:1px solid var(--lime); border-radius:10px; padding:10px 14px; font-size:13px; color:var(--green-deep); margin-bottom:14px;';
+    hint.innerHTML = _preRole === 'klinik'
+      ? '🏥 <strong>Klinik-Registrierung</strong> — Rolle wurde für Sie vorausgewählt.'
+      : '🤝 <strong>Ehrenamts-Registrierung</strong> — Rolle wurde für Sie vorausgewählt.';
+    card.querySelector('.sub').after(hint);
+    // Auf kleinen Bildschirmen sichtbar machen
+    if (window.innerWidth < 820) {
+      setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
+  }
+})();
 </script>
 
 <script>

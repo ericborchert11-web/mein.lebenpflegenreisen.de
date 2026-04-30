@@ -17,8 +17,11 @@
   --max:1180px;
 }
 
-body.text-l  { --fs-base:19px; --fs-h1:54px; --fs-h2:34px; --fs-h3:22px; }
-body.text-xl { --fs-base:22px; --fs-h1:62px; --fs-h2:38px; --fs-h3:24px; }
+/* Schriftgrößen-Skalierung wirkt auf ALLES (Schrift, Spacing, Bilder, Buttons) — */
+/* genau was Barriere-User erwarten. CSS `zoom` ist in allen modernen Browsern */
+/* (Chrome, Safari, Edge, Firefox 126+ seit Mai 2024) zuverlässig unterstützt. */
+body.text-l  { --fs-base:19px; --fs-h1:54px; --fs-h2:34px; --fs-h3:22px; zoom: 1.15; }
+body.text-xl { --fs-base:22px; --fs-h1:62px; --fs-h2:38px; --fs-h3:24px; zoom: 1.30; }
 
 body.contrast {
   --green:#000; --green-soft:#222; --green-deep:#000;

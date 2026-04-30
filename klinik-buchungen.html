@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meine Buchungen · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.kbl-wrap { max-width: 980px; margin: 32px auto 60px; padding: 0 24px; }
+
+.kbl-header {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.kbl-header h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 24px;
+  color: var(--green-deep);
+  margin: 0 0 6px;
+  letter-spacing: -.02em;
+}
+.kbl-header p { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; }
+
+.kbl-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 18px;
+  border-bottom: 1.5px solid var(--border);
+}
+.kbl-tab {
+  background: transparent;
+  border: none;
+  padding: 12px 20px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kbl-tab:hover { color: var(--text); }
+.kbl-tab.active { color: var(--green-deep); border-bottom-color: var(--green-deep); }
+.kbl-tab .kbl-tab-count {
+  background: var(--lime);
+  color: var(--green-deep);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 22px;
+  text-align: center;
+}
+.kbl-tab.active .kbl-tab-count { background: var(--green-deep); color: var(--lime); }
+
+.kbl-card {
+  background: #fff;
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  padding: 18px 22px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.kbl-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.kbl-card-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--green-deep);
+  margin: 0 0 2px;
+}
+.kbl-card-subtitle {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.kbl-card-shiftpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.kbl-card-shiftpill.morning   { background: #FFF7E0; color: #8B5A1A; border-color: #E8A845; }
+.kbl-card-shiftpill.afternoon { background: #FCEEDD; color: #7A4515; border-color: #D88B45; }
+.kbl-card-shiftpill.night     { background: #1E2D44; color: #B8C8E0; border-color: #2A3D5A; }
+
+.kbl-status-pill {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid;
+}
+.kbl-status-pill.planned   { background: #E8F0E8; color: #1E3127; border-color: #4A7A5A; }
+.kbl-status-pill.completed { background: #DCE8E0; color: #1A3A2A; border-color: #2A5740; }
+.kbl-status-pill.cancelled { background: #F0E5E1; color: #7A3A28; border-color: #B07058; }
+
+.kbl-detail-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 18px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  font-size: 13.5px;
+}
+.kbl-detail-grid dt { color: var(--muted); font-weight: 600; }
+.kbl-detail-grid dd { margin: 0; color: var(--text); }
+.kbl-flag-chip-mini {
+  display: inline-block;
+  margin: 0 4px 4px 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  background: #F0EBE0;
+  color: var(--green-deep);
+  font-weight: 600;
+}
+
+.kbl-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  justify-content: flex-end;
+}
+.kbl-btn-cancel {
+  background: transparent;
+  color: #B05030;
+  border: 1.5px solid #D88B45;
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.kbl-btn-cancel:hover { background: #FCEEDD; }
+.kbl-btn-cancel:disabled { opacity: .5; cursor: not-allowed; }
+
+.kbl-empty {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 60px 30px;
+  text-align: center;
+  color: var(--muted);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.kbl-empty p { margin: 0 0 6px; font-size: 15px; }
+.kbl-empty a { color: var(--green-deep); font-weight: 600; }
+.kbl-loading { padding: 60px 0; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<main>
+<div class="kbl-wrap">
+
+  <div class="kbl-header">
+    <h1>Meine Buchungen</h1>
+    <p>Übersicht aller von Ihrer Klinik gebuchten Sitzwachen.</p>
+  </div>
+
+  <div class="kbl-tabs">
+    <button class="kbl-tab active" data-tab="planned">Aktiv <span class="kbl-tab-count" id="kbl-count-planned">0</span></button>
+    <button class="kbl-tab" data-tab="completed">Abgeschlossen <span class="kbl-tab-count" id="kbl-count-completed">0</span></button>
+    <button class="kbl-tab" data-tab="cancelled">Storniert <span class="kbl-tab-count" id="kbl-count-cancelled">0</span></button>
+  </div>
+
+  <div id="kbl-list"><div class="kbl-loading">Lade Buchungen…</div></div>
+
+</div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: 'klinik-buchungen' });
+
+const SHIFT_LABELS = {
+  morning:   { label: 'Frühdienst', time: '06:00–14:00' },
+  afternoon: { label: 'Spätdienst', time: '14:00–22:00' },
+  night:     { label: 'Nachtdienst', time: '22:00–06:00' }
+};
+const STATUS_LABELS = {
+  planned:   'Geplant',
+  completed: 'Abgeschlossen',
+  cancelled: 'Storniert'
+};
+const FLAG_LABELS = {
+  sturzgefahr: 'Sturzgefahr',
+  delir:       'Delir',
+  demenz:      'Demenz',
+  suizidal:    'Suizidalität',
+  fixiert:     'Fixiert'
+};
+
+let allBookings = [];
+let activeTab = 'planned';
+
+function escape(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+function fmtDate(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function updateCounts() {
+  const counts = { planned: 0, completed: 0, cancelled: 0 };
+  for (const b of allBookings) {
+    if (counts[b.status] !== undefined) counts[b.status]++;
+  }
+  document.getElementById('kbl-count-planned').textContent   = counts.planned;
+  document.getElementById('kbl-count-completed').textContent = counts.completed;
+  document.getElementById('kbl-count-cancelled').textContent = counts.cancelled;
+}
+
+function renderList() {
+  const filtered = allBookings.filter(b => b.status === activeTab);
+  const listEl = document.getElementById('kbl-list');
+  if (filtered.length === 0) {
+    let msg = '';
+    if (activeTab === 'planned') {
+      msg = `<p>Keine aktiven Buchungen.</p><p style="font-size:13px;"><a href="klinik-buchen.html">→ Sitzwache buchen</a></p>`;
+    } else if (activeTab === 'completed') {
+      msg = `<p>Noch keine abgeschlossenen Buchungen.</p>`;
+    } else {
+      msg = `<p>Keine stornierten Buchungen.</p>`;
+    }
+    listEl.innerHTML = `<div class="kbl-empty">${msg}</div>`;
+    return;
+  }
+
+  // Sort: planned by date asc (kommend zuerst), completed/cancelled by date desc
+  filtered.sort((a, b) => activeTab === 'planned'
+    ? a.date.localeCompare(b.date)
+    : b.date.localeCompare(a.date));
+
+  let html = '';
+  for (const b of filtered) {
+    const sh = SHIFT_LABELS[b.shift] || { label: b.shift, time: '' };
+    const flags = (b.patient_flags || []).map(f =>
+      `<span class="kbl-flag-chip-mini">${escape(FLAG_LABELS[f] || f)}</span>`
+    ).join('') || '<span style="color:var(--muted);font-size:13px;">—</span>';
+    html += `
+      <div class="kbl-card">
+        <div class="kbl-card-top">
+          <div>
+            <div class="kbl-card-title">${escape(b.volunteer_name)}</div>
+            <div class="kbl-card-subtitle">${escape(fmtDate(b.date))}</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span class="kbl-card-shiftpill ${escape(b.shift)}">${escape(sh.label)} · ${escape(sh.time)}</span>
+            <span class="kbl-status-pill ${escape(b.status)}">${escape(STATUS_LABELS[b.status] || b.status)}</span>
+          </div>
+        </div>
+        <dl class="kbl-detail-grid">
+          <dt>Zimmer</dt><dd>${escape(b.patient_room || '—')}</dd>
+          <dt>Hinweise</dt><dd>${flags}</dd>
+          <dt>Anmerkung</dt><dd>${escape(b.patient_notes || '—')}</dd>
+        </dl>
+        ${b.status === 'planned' ? `
+          <div class="kbl-card-actions">
+            <button type="button" class="kbl-btn-cancel" data-id="${escape(b.id)}">Buchung stornieren</button>
+          </div>` : ''}
+      </div>`;
+  }
+  listEl.innerHTML = html;
+
+  // Storno-Buttons
+  listEl.querySelectorAll('.kbl-btn-cancel').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Diese Buchung wirklich stornieren? Die Sitzwache bekommt das beim nächsten Login mit.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Wird storniert…';
+      const res = await LPR.cancelClinicBooking(btn.dataset.id);
+      if (!res.ok) {
+        LPR.showToast(res.error || 'Stornierung fehlgeschlagen.', 'err');
+        btn.disabled = false;
+        btn.textContent = 'Buchung stornieren';
+        return;
+      }
+      LPR.showToast('Buchung storniert.', 'ok');
+      load();
+    });
+  });
+}
+
+function setTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.kbl-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  renderList();
+}
+
+async function load() {
+  const session = LPR.getSession();
+  if (!session) {
+    location.href = 'login.html?next=/klinik-buchungen.html';
+    return;
+  }
+  if (session.role !== 'clinic' && session.role !== 'klinik') {
+    document.getElementById('kbl-list').innerHTML = '<div class="kbl-empty"><p>Nur Klinik-Konten können diese Seite sehen.</p></div>';
+    return;
+  }
+  document.getElementById('kbl-list').innerHTML = '<div class="kbl-loading">Lade Buchungen…</div>';
+
+  const res = await LPR.getMyClinicBookings();
+  if (!res.ok) {
+    document.getElementById('kbl-list').innerHTML = `<div class="kbl-empty"><p>Fehler beim Laden: ${escape(res.error || '')}</p></div>`;
+    return;
+  }
+  allBookings = res.bookings;
+  updateCounts();
+  renderList();
+}
+
+document.querySelectorAll('.kbl-tab').forEach(t => {
+  t.addEventListener('click', () => setTab(t.dataset.tab));
+});
+
+load();
+</script>
+</body>
+</html>

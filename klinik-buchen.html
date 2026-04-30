@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sitzwache buchen · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.kb-wrap { max-width: 980px; margin: 32px auto 60px; padding: 0 24px; }
+
+.kb-header {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.kb-header h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 24px;
+  color: var(--green-deep);
+  margin: 0 0 6px;
+  letter-spacing: -.02em;
+}
+.kb-header p { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; }
+
+.kb-filterbar {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+.kb-filterbar .kb-filter { display: flex; flex-direction: column; gap: 4px; }
+.kb-filterbar label { font-size: 12px; font-weight: 600; color: var(--green-deep); }
+.kb-filterbar input, .kb-filterbar select {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13.5px;
+  background: #fff;
+  color: var(--text);
+  min-width: 130px;
+}
+.kb-filterbar .kb-clear-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.kb-filterbar .kb-clear-btn:hover { color: var(--text); border-color: var(--text); }
+
+.kb-day-group {
+  background: #fff;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.kb-day-header {
+  background: #F0EBE0;
+  padding: 12px 22px;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--green-deep);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.kb-day-header .kb-count { font-family: 'Instrument Sans', sans-serif; font-weight: 600; font-size: 13px; color: var(--muted); }
+
+.kb-shift-row {
+  display: grid;
+  grid-template-columns: 140px 160px 1fr auto;
+  gap: 16px;
+  padding: 14px 22px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.kb-shift-row:last-child { border-bottom: none; }
+.kb-shift-row .kb-volunteer {
+  font-weight: 600;
+  color: var(--green-deep);
+  font-size: 14.5px;
+}
+.kb-shift-row .kb-shift-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid;
+}
+.kb-shift-pill.morning   { background: #FFF7E0; color: #8B5A1A; border-color: #E8A845; }
+.kb-shift-pill.afternoon { background: #FCEEDD; color: #7A4515; border-color: #D88B45; }
+.kb-shift-pill.night     { background: #1E2D44; color: #B8C8E0; border-color: #2A3D5A; }
+.kb-shift-row .kb-note { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.kb-shift-row .kb-book-btn {
+  background: var(--green-deep);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kb-shift-row .kb-book-btn:hover { background: #234D38; }
+
+@media (max-width: 720px) {
+  .kb-shift-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 14px 20px;
+  }
+  .kb-shift-row .kb-book-btn { justify-self: stretch; padding: 11px 16px; }
+}
+
+.kb-empty {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 60px 30px;
+  text-align: center;
+  color: var(--muted);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.kb-empty p { margin: 0 0 6px; font-size: 15px; }
+
+.kb-loading { padding: 60px 0; text-align: center; color: var(--muted); }
+
+/* ---- Modal ---- */
+.kb-modal-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 28, 19, .55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.kb-modal-bg.show { display: flex; }
+.kb-modal {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  max-width: 540px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 32px rgba(0,0,0,.25);
+}
+.kb-modal h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  color: var(--green-deep);
+  margin: 0 0 6px;
+}
+.kb-modal-summary {
+  background: #F4F0E6;
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin: 12px 0 22px;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.kb-modal-summary strong { color: var(--green-deep); }
+.kb-modal-section { margin-bottom: 18px; }
+.kb-modal-section label.kb-section-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green-deep);
+  margin-bottom: 8px;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.kb-modal input[type="text"], .kb-modal textarea {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  background: #fff;
+  color: var(--text);
+  box-sizing: border-box;
+}
+.kb-modal textarea { resize: vertical; min-height: 80px; }
+.kb-modal input:focus, .kb-modal textarea:focus { outline: none; border-color: var(--green-deep); }
+
+.kb-flags { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 480px) { .kb-flags { grid-template-columns: 1fr; } }
+.kb-flag-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13.5px;
+  background: #fff;
+  user-select: none;
+  transition: border-color .12s, background .12s;
+}
+.kb-flag-chip:hover { border-color: var(--green-deep); }
+.kb-flag-chip.active { background: #E8F0E8; border-color: var(--green-deep); color: var(--green-deep); font-weight: 600; }
+.kb-flag-chip input[type="checkbox"] { margin: 0; cursor: pointer; }
+
+.kb-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+.kb-modal-actions .kb-btn-cancel {
+  background: transparent;
+  color: var(--muted);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.kb-modal-actions .kb-btn-cancel:hover { color: var(--text); border-color: var(--text); }
+.kb-modal-actions .kb-btn-confirm {
+  background: var(--green-deep);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 22px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.kb-modal-actions .kb-btn-confirm:hover { background: #234D38; }
+.kb-modal-actions .kb-btn-confirm:disabled { background: #999; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<main>
+<div class="kb-wrap">
+
+  <div class="kb-header">
+    <h1>Sitzwache buchen</h1>
+    <p>Verfügbare Sitzwachen in den nächsten Wochen. Wählen Sie eine Schicht und ergänzen Sie die Patient-Infos.</p>
+  </div>
+
+  <div class="kb-filterbar">
+    <div class="kb-filter">
+      <label for="kb-from">Ab Datum</label>
+      <input type="date" id="kb-from">
+    </div>
+    <div class="kb-filter">
+      <label for="kb-to">Bis Datum</label>
+      <input type="date" id="kb-to">
+    </div>
+    <div class="kb-filter">
+      <label for="kb-shift-filter">Schicht</label>
+      <select id="kb-shift-filter">
+        <option value="">Alle</option>
+        <option value="morning">Frühdienst (06–14)</option>
+        <option value="afternoon">Spätdienst (14–22)</option>
+        <option value="night">Nachtdienst (22–06)</option>
+      </select>
+    </div>
+    <button class="kb-clear-btn" id="kb-clear" type="button">Filter löschen</button>
+  </div>
+
+  <div id="kb-list"><div class="kb-loading">Lade Verfügbarkeiten…</div></div>
+
+</div>
+</main>
+
+<!-- Buchungs-Modal -->
+<div class="kb-modal-bg" id="kb-modal-bg">
+  <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-modal-title">
+    <h2 id="kb-modal-title">Sitzwache buchen</h2>
+    <div class="kb-modal-summary" id="kb-modal-summary"></div>
+
+    <div class="kb-modal-section">
+      <label class="kb-section-label" for="kb-room">Zimmer / Station</label>
+      <input type="text" id="kb-room" placeholder="z.B. Zimmer 312, Station 4B" maxlength="80">
+    </div>
+
+    <div class="kb-modal-section">
+      <label class="kb-section-label">Patient-Hinweise (Mehrfachauswahl)</label>
+      <div class="kb-flags" id="kb-flags"></div>
+    </div>
+
+    <div class="kb-modal-section">
+      <label class="kb-section-label" for="kb-notes">Anmerkungen (optional)</label>
+      <textarea id="kb-notes" placeholder="Besonderheiten, die für die Sitzwache wichtig sind." maxlength="500"></textarea>
+    </div>
+
+    <div class="kb-modal-actions">
+      <button type="button" class="kb-btn-cancel" id="kb-cancel">Abbrechen</button>
+      <button type="button" class="kb-btn-confirm" id="kb-confirm">Verbindlich buchen</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: 'klinik-buchen' });
+
+const SHIFT_LABELS = {
+  morning:   { label: 'Frühdienst', time: '06:00–14:00' },
+  afternoon: { label: 'Spätdienst', time: '14:00–22:00' },
+  night:     { label: 'Nachtdienst', time: '22:00–06:00' }
+};
+const SHIFT_ORDER = { morning: 1, afternoon: 2, night: 3 };
+
+const PATIENT_FLAGS = [
+  { key: 'sturzgefahr', label: 'Sturzgefahr' },
+  { key: 'delir',       label: 'Delir' },
+  { key: 'demenz',      label: 'Demenz' },
+  { key: 'suizidal',    label: 'Suizidalität' },
+  { key: 'fixiert',     label: 'Fixiert' }
+];
+
+let allShifts = [];
+let activeBooking = null;
+
+function escape(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+
+function fmtDate(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' });
+}
+function fmtDateShort(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function groupByDate(shifts) {
+  const map = new Map();
+  for (const s of shifts) {
+    if (!map.has(s.date)) map.set(s.date, []);
+    map.get(s.date).push(s);
+  }
+  for (const [, arr] of map) {
+    arr.sort((a, b) => (SHIFT_ORDER[a.shift] - SHIFT_ORDER[b.shift]) || a.volunteer_name.localeCompare(b.volunteer_name));
+  }
+  return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+function applyFilters(shifts) {
+  const from = document.getElementById('kb-from').value;
+  const to   = document.getElementById('kb-to').value;
+  const sf   = document.getElementById('kb-shift-filter').value;
+  return shifts.filter(s => {
+    if (from && s.date < from) return false;
+    if (to   && s.date > to)   return false;
+    if (sf   && s.shift !== sf) return false;
+    return true;
+  });
+}
+
+function renderList() {
+  const filtered = applyFilters(allShifts);
+  const listEl = document.getElementById('kb-list');
+  if (filtered.length === 0) {
+    listEl.innerHTML = `
+      <div class="kb-empty">
+        <p>Keine Verfügbarkeiten gefunden.</p>
+        <p style="font-size:13px;">Falls Sie tagesaktuell jemanden brauchen und niemand verfügbar ist, melden Sie sich gern direkt unter <a href="mailto:info@lebenpflegenreisen.de">info@lebenpflegenreisen.de</a>.</p>
+      </div>`;
+    return;
+  }
+  const groups = groupByDate(filtered);
+  let html = '';
+  for (const [date, items] of groups) {
+    html += `
+      <div class="kb-day-group">
+        <div class="kb-day-header">
+          <span>${escape(fmtDate(date))}</span>
+          <span class="kb-count">${items.length} ${items.length === 1 ? 'Sitzwache' : 'Sitzwachen'}</span>
+        </div>`;
+    for (const it of items) {
+      const sh = SHIFT_LABELS[it.shift] || { label: it.shift, time: '' };
+      html += `
+        <div class="kb-shift-row">
+          <div class="kb-volunteer">${escape(it.volunteer_name)}</div>
+          <div><span class="kb-shift-pill ${escape(it.shift)}">${escape(sh.label)} · ${escape(sh.time)}</span></div>
+          <div class="kb-note">${escape(it.note || '')}</div>
+          <button type="button" class="kb-book-btn" data-vol="${escape(it.volunteer_id)}" data-date="${escape(it.date)}" data-shift="${escape(it.shift)}" data-name="${escape(it.volunteer_name)}">Buchen →</button>
+        </div>`;
+    }
+    html += `</div>`;
+  }
+  listEl.innerHTML = html;
+
+  // Buchen-Buttons
+  listEl.querySelectorAll('.kb-book-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openBookingModal({
+        volunteer_id: btn.dataset.vol,
+        volunteer_name: btn.dataset.name,
+        date: btn.dataset.date,
+        shift: btn.dataset.shift
+      });
+    });
+  });
+}
+
+function renderFlagChips() {
+  const container = document.getElementById('kb-flags');
+  container.innerHTML = PATIENT_FLAGS.map(f => `
+    <label class="kb-flag-chip" data-key="${escape(f.key)}">
+      <input type="checkbox" value="${escape(f.key)}">
+      <span>${escape(f.label)}</span>
+    </label>
+  `).join('');
+  container.querySelectorAll('.kb-flag-chip').forEach(chip => {
+    const cb = chip.querySelector('input');
+    cb.addEventListener('change', () => {
+      chip.classList.toggle('active', cb.checked);
+    });
+  });
+}
+
+function openBookingModal(slot) {
+  activeBooking = slot;
+  const sh = SHIFT_LABELS[slot.shift] || { label: slot.shift, time: '' };
+  document.getElementById('kb-modal-summary').innerHTML = `
+    <strong>${escape(slot.volunteer_name)}</strong> · ${escape(fmtDateShort(slot.date))}<br>
+    ${escape(sh.label)} (${escape(sh.time)})
+  `;
+  // Reset form
+  document.getElementById('kb-room').value = '';
+  document.getElementById('kb-notes').value = '';
+  document.querySelectorAll('#kb-flags input[type="checkbox"]').forEach(cb => {
+    cb.checked = false;
+    cb.parentElement.classList.remove('active');
+  });
+  document.getElementById('kb-confirm').disabled = false;
+  document.getElementById('kb-confirm').textContent = 'Verbindlich buchen';
+  document.getElementById('kb-modal-bg').classList.add('show');
+  setTimeout(() => document.getElementById('kb-room').focus(), 50);
+}
+function closeBookingModal() {
+  document.getElementById('kb-modal-bg').classList.remove('show');
+  activeBooking = null;
+}
+
+async function confirmBooking() {
+  if (!activeBooking) return;
+  const room = document.getElementById('kb-room').value.trim();
+  const notes = document.getElementById('kb-notes').value.trim();
+  const flags = [...document.querySelectorAll('#kb-flags input[type="checkbox"]:checked')].map(cb => cb.value);
+
+  const btn = document.getElementById('kb-confirm');
+  btn.disabled = true;
+  btn.textContent = 'Wird gebucht…';
+
+  const res = await LPR.bookShift({
+    volunteer_id: activeBooking.volunteer_id,
+    date: activeBooking.date,
+    shift: activeBooking.shift,
+    patient_room: room,
+    patient_flags: flags,
+    patient_notes: notes
+  });
+
+  if (!res.ok) {
+    LPR.showToast(res.error || 'Buchung fehlgeschlagen.', 'err');
+    btn.disabled = false;
+    btn.textContent = 'Verbindlich buchen';
+    if (res.error && res.error.includes('nicht mehr verfügbar')) {
+      // Bei Race-Condition: Liste neu laden
+      setTimeout(() => { closeBookingModal(); load(); }, 1200);
+    }
+    return;
+  }
+
+  LPR.showToast('Buchung bestätigt — die Sitzwache wird beim nächsten Login informiert.', 'ok');
+  closeBookingModal();
+  setTimeout(load, 400);
+}
+
+async function load() {
+  const session = LPR.getSession();
+  if (!session) {
+    location.href = 'login.html?next=/klinik-buchen.html';
+    return;
+  }
+  if (session.role !== 'clinic' && session.role !== 'klinik') {
+    document.getElementById('kb-list').innerHTML = '<div class="kb-empty"><p>Nur Klinik-Konten können buchen.</p></div>';
+    return;
+  }
+  if (session.status !== 'approved') {
+    document.getElementById('kb-list').innerHTML = '<div class="kb-empty"><p>Ihr Konto ist noch nicht freigegeben. Bitte warten Sie auf die Bestätigung durch den Vorstand.</p></div>';
+    return;
+  }
+  document.getElementById('kb-list').innerHTML = '<div class="kb-loading">Lade Verfügbarkeiten…</div>';
+
+  // Default-Filter: ab heute
+  const fromInput = document.getElementById('kb-from');
+  if (!fromInput.value) {
+    const today = new Date().toISOString().slice(0, 10);
+    fromInput.value = today;
+  }
+
+  const res = await LPR.listAvailableShifts({ from: fromInput.value || undefined, to: document.getElementById('kb-to').value || undefined });
+  if (!res.ok) {
+    document.getElementById('kb-list').innerHTML = `<div class="kb-empty"><p>Fehler beim Laden: ${escape(res.error || '')}</p></div>`;
+    return;
+  }
+  allShifts = res.shifts;
+  renderList();
+}
+
+// Event-Handler
+document.getElementById('kb-from').addEventListener('change', renderList);
+document.getElementById('kb-to').addEventListener('change', renderList);
+document.getElementById('kb-shift-filter').addEventListener('change', renderList);
+document.getElementById('kb-clear').addEventListener('click', () => {
+  document.getElementById('kb-from').value = '';
+  document.getElementById('kb-to').value = '';
+  document.getElementById('kb-shift-filter').value = '';
+  renderList();
+});
+document.getElementById('kb-cancel').addEventListener('click', closeBookingModal);
+document.getElementById('kb-confirm').addEventListener('click', confirmBooking);
+document.getElementById('kb-modal-bg').addEventListener('click', e => {
+  if (e.target.id === 'kb-modal-bg') closeBookingModal();
+});
+
+renderFlagChips();
+load();
+</script>
+</body>
+</html>

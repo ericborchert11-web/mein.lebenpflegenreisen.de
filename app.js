@@ -1856,7 +1856,6 @@
     }
   }
 
-
   global.LPR = {
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,

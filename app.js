@@ -1697,6 +1697,166 @@
     }
   }
 
+  // ============================================================
+  // Klinik-Buchungen (Etappe 2)
+  // ============================================================
+
+  // Klinik sieht alle Verfügbarkeiten (availabilities), die noch nicht gebucht sind.
+  // Zurück: Liste mit { id, volunteer_id, volunteer_name, date, shift, note }
+  // Optional filter: { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' }
+  async function listAvailableShifts(filter) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.', shifts: [] };
+    try {
+      const client = await sb();
+
+      // 1. Alle Verfügbarkeiten mit Volunteer-Pseudonym holen
+      let q = client
+        .from('availabilities')
+        .select('id, user_id, date, shift, note, profiles!inner(full_name, status, role)')
+        .eq('profiles.role', 'volunteer')
+        .eq('profiles.status', 'approved')
+        .order('date', { ascending: true });
+      if (filter && filter.from) q = q.gte('date', filter.from);
+      if (filter && filter.to)   q = q.lte('date', filter.to);
+      const { data: avails, error: e1 } = await q;
+      if (e1) return { ok: false, error: e1.message, shifts: [] };
+
+      // 2. Schon aktive Buchungen holen, um sie rauszufiltern
+      const { data: booked, error: e2 } = await client
+        .from('bookings')
+        .select('volunteer_id, date, shift')
+        .neq('status', 'cancelled');
+      if (e2) return { ok: false, error: e2.message, shifts: [] };
+
+      const bookedSet = new Set((booked || []).map(b => `${b.volunteer_id}|${b.date}|${b.shift}`));
+
+      // 3. Filtern + flach mappen
+      const shifts = (avails || [])
+        .filter(a => !bookedSet.has(`${a.user_id}|${a.date}|${a.shift}`))
+        .map(a => ({
+          id: a.id,
+          volunteer_id: a.user_id,
+          volunteer_name: a.profiles && a.profiles.full_name || '—',
+          date: a.date,
+          shift: a.shift,
+          note: a.note || ''
+        }));
+
+      return { ok: true, shifts };
+    } catch(e) {
+      console.error('[LPR] listAvailableShifts:', e);
+      return { ok: false, error: 'Netzwerkfehler.', shifts: [] };
+    }
+  }
+
+  // Klinik bucht eine konkrete Schicht.
+  // payload: { volunteer_id, date, shift, patient_room, patient_flags: [...], patient_notes }
+  async function bookShift(payload) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'clinic' && s.role !== 'klinik') {
+      return { ok: false, error: 'Nur Kliniken können Schichten buchen.' };
+    }
+    if (!payload || !payload.volunteer_id || !payload.date || !payload.shift) {
+      return { ok: false, error: 'Fehlende Pflichtfelder (volunteer_id, date, shift).' };
+    }
+    const validShifts = ['morning', 'afternoon', 'night'];
+    if (!validShifts.includes(payload.shift)) {
+      return { ok: false, error: 'Ungültige Schicht.' };
+    }
+    const flags = Array.isArray(payload.patient_flags) ? payload.patient_flags : [];
+    const room  = (payload.patient_room || '').trim() || null;
+    const notes = (payload.patient_notes || '').trim() || null;
+
+    try {
+      const client = await sb();
+      const { data, error } = await client
+        .from('bookings')
+        .insert({
+          volunteer_id: payload.volunteer_id,
+          clinic_id: s.id,
+          date: payload.date,
+          shift: payload.shift,
+          status: 'planned',
+          patient_room: room,
+          patient_flags: flags,
+          patient_notes: notes
+        })
+        .select()
+        .single();
+      if (error) {
+        // 23505 = unique violation → schon gebucht
+        if (error.code === '23505') {
+          return { ok: false, error: 'Diese Schicht ist nicht mehr verfügbar.' };
+        }
+        return { ok: false, error: error.message };
+      }
+      return { ok: true, booking: data };
+    } catch(e) {
+      console.error('[LPR] bookShift:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  // Klinik sieht eigene Buchungen mit Volunteer-Namen.
+  async function getMyClinicBookings(filter) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.', bookings: [] };
+    try {
+      let q = (await sb())
+        .from('bookings')
+        .select('id, volunteer_id, date, shift, status, patient_room, patient_flags, patient_notes, created_at, profiles!bookings_volunteer_id_fkey(full_name)')
+        .eq('clinic_id', s.id)
+        .order('date', { ascending: false });
+      if (filter && filter.status) q = q.eq('status', filter.status);
+      if (filter && filter.from)   q = q.gte('date', filter.from);
+      if (filter && filter.to)     q = q.lte('date', filter.to);
+      const { data, error } = await q;
+      if (error) return { ok: false, error: error.message, bookings: [] };
+      const bookings = (data || []).map(b => ({
+        id: b.id,
+        volunteer_id: b.volunteer_id,
+        volunteer_name: b.profiles && b.profiles.full_name || '—',
+        date: b.date,
+        shift: b.shift,
+        status: b.status,
+        patient_room: b.patient_room,
+        patient_flags: b.patient_flags || [],
+        patient_notes: b.patient_notes,
+        created_at: b.created_at
+      }));
+      return { ok: true, bookings };
+    } catch(e) {
+      console.error('[LPR] getMyClinicBookings:', e);
+      return { ok: false, error: 'Netzwerkfehler.', bookings: [] };
+    }
+  }
+
+  // Klinik storniert eine eigene Buchung (nur planned, nicht completed).
+  async function cancelClinicBooking(bookingId) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const client = await sb();
+      const { data, error } = await client
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', bookingId)
+        .eq('clinic_id', s.id)
+        .eq('status', 'planned')
+        .select()
+        .single();
+      if (error) return { ok: false, error: error.message };
+      if (!data)  return { ok: false, error: 'Buchung nicht gefunden oder nicht stornierbar.' };
+      return { ok: true, booking: data };
+    } catch(e) {
+      console.error('[LPR] cancelClinicBooking:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+
   global.LPR = {
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,
@@ -1725,6 +1885,8 @@
     // Klinik-Self-Service (Etappe 1)
     getMyClinic, submitMyClinic,
     listClinicsByStatus, approveClinic, rejectClinic,
+    // Klinik-Buchungen (Etappe 2)
+    listAvailableShifts, bookShift, getMyClinicBookings, cancelClinicBooking,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

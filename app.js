@@ -1777,9 +1777,41 @@
 
       const bookedSet = new Set((booked || []).map(b => `${b.volunteer_id}|${b.date}|${b.shift}`));
 
-      // 3. Filtern + flach mappen
+      // 3. Compliance-Filter: Nur Volunteers mit ALLEN 5 Pflicht-Dokumenten
+      //    'approved' und nicht-abgelaufen dürfen gebucht werden.
+      //    Rechtlich notwendig — bei Schadensfall in der Klinik muss
+      //    nachweisbar sein, dass der Volunteer compliant war.
+      const REQUIRED_DOCS = ['fuehrungszeugnis','ifsg43','erste_hilfe','dsgvo','schweigepflicht'];
+      const candidateIds = Array.from(new Set((avails || []).map(a => a.user_id)));
+      let compliantSet = new Set();
+      if (candidateIds.length > 0) {
+        const { data: complRows, error: e3 } = await client
+          .from('compliance_records')
+          .select('user_id, document_type, status, valid_until')
+          .in('user_id', candidateIds)
+          .eq('status', 'approved');
+        if (e3) return { ok: false, error: e3.message, shifts: [] };
+
+        const today = new Date().setHours(0, 0, 0, 0);
+        // Pro Volunteer alle gültigen, approved Dokumente sammeln
+        const docsByUser = {};
+        (complRows || []).forEach(r => {
+          if (r.valid_until && new Date(r.valid_until).setHours(0,0,0,0) < today) return; // abgelaufen
+          if (!docsByUser[r.user_id]) docsByUser[r.user_id] = new Set();
+          docsByUser[r.user_id].add(r.document_type);
+        });
+        // Nur Volunteers, die alle 5 Pflicht-Dokumente haben, sind compliant
+        Object.keys(docsByUser).forEach(uid => {
+          if (REQUIRED_DOCS.every(d => docsByUser[uid].has(d))) {
+            compliantSet.add(uid);
+          }
+        });
+      }
+
+      // 4. Filtern + flach mappen
       const shifts = (avails || [])
         .filter(a => !bookedSet.has(`${a.user_id}|${a.date}|${a.shift}`))
+        .filter(a => compliantSet.has(a.user_id))
         .map(a => ({
           id: a.id,
           volunteer_id: a.user_id,
@@ -1817,6 +1849,28 @@
 
     try {
       const client = await sb();
+
+      // Defense-in-Depth: Compliance des Volunteers prüfen, bevor gebucht wird.
+      // listAvailableShifts filtert das schon für die UI raus, aber wer den
+      // Frontend-Filter umgeht (z.B. via Konsole), würde sonst durchkommen.
+      const REQUIRED_DOCS = ['fuehrungszeugnis','ifsg43','erste_hilfe','dsgvo','schweigepflicht'];
+      const { data: complRows, error: eC } = await client
+        .from('compliance_records')
+        .select('document_type, status, valid_until')
+        .eq('user_id', payload.volunteer_id)
+        .eq('status', 'approved');
+      if (eC) return { ok: false, error: 'Compliance-Prüfung fehlgeschlagen.' };
+      const today = new Date().setHours(0, 0, 0, 0);
+      const validDocs = new Set(
+        (complRows || [])
+          .filter(r => !r.valid_until || new Date(r.valid_until).setHours(0,0,0,0) >= today)
+          .map(r => r.document_type)
+      );
+      const missing = REQUIRED_DOCS.filter(d => !validDocs.has(d));
+      if (missing.length > 0) {
+        return { ok: false, error: 'Diese:r Mitwirkende:r ist aktuell nicht buchbar (Compliance unvollständig oder abgelaufen).' };
+      }
+
       const { data, error } = await client
         .from('bookings')
         .insert({

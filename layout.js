@@ -68,8 +68,8 @@
       } else if (session.role === 'klinik') {
         navItems = `
           <li><a href="kliniken.html" class="${c('kliniken')}">Klinik-Portal</a></li>
-          <li><a href="sitzwachen.html" class="${c('sitzwachen')}">Sitzwachen</a></li>
-          <li><a href="sitzwache-buchen.html" class="${c('sw-buchen')}">Neue Buchung</a></li>
+          <li><a href="klinik-buchen.html" class="${c('klinik-buchen')}">Sitzwache buchen</a></li>
+        <li><a href="klinik-buchungen.html" class="${c('klinik-buchungen')}">Meine Buchungen</a></li>
           <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;" style="color:var(--warn);">Abmelden</a></li>
         `;
       } else if (session.role === 'admin') {

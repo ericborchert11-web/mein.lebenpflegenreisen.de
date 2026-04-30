@@ -11,108 +11,137 @@
 <style>
 .hub-hero {
   background: linear-gradient(135deg, var(--green) 0%, var(--green-soft) 100%);
-  color: #fff; padding: 44px 0;
+  color: #fff;
+  padding: 44px 0;
 }
 .hub-hero .greeting {
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-weight: 800; font-size: 34px; line-height: 1.1;
-  letter-spacing: -0.02em; margin-bottom: 8px;
+  font-weight: 800;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
 }
 .hub-hero .sub { opacity: .85; font-size: 16px; }
 .hub-hero .role-badge {
-  display: inline-block; background: rgba(200,241,53,.18);
-  color: var(--lime); padding: 4px 10px; border-radius: 12px;
-  font-size: 11px; font-weight: 700;
-  letter-spacing: .1em; text-transform: uppercase;
+  display: inline-block;
+  background: rgba(200,241,53,.18);
+  color: var(--lime);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
   margin-bottom: 10px;
 }
 .welcome-banner {
-  background: var(--lime-soft); border: 2px solid var(--lime);
+  background: var(--lime-soft);
+  border: 2px solid var(--lime);
   border-radius: var(--radius);
-  padding: 18px 24px; margin: 24px 0;
-  display: flex; gap: 14px; align-items: center;
+  padding: 18px 24px;
+  margin: 24px 0;
+  display: flex;
+  gap: 14px;
+  align-items: center;
 }
 .welcome-banner .icon { font-size: 32px; flex-shrink: 0; }
 .welcome-banner h3 {
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-weight: 800; font-size: 18px;
-  color: var(--green-deep); margin-bottom: 2px;
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--green-deep);
+  margin-bottom: 2px;
 }
 .welcome-banner p { font-size: 14px; color: var(--text); }
 .welcome-banner button {
-  background: transparent; border: none;
-  color: var(--green-deep); opacity: .5;
-  font-size: 20px; cursor: pointer;
-  margin-left: auto; padding: 4px 10px;
+  background: transparent;
+  border: none;
+  color: var(--green-deep);
+  opacity: .5;
+  font-size: 20px;
+  cursor: pointer;
+  margin-left: auto;
+  padding: 4px 10px;
 }
 .stats-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 14px; margin-bottom: 28px;
+  gap: 14px;
+  margin-bottom: 28px;
 }
 .stat-card {
-  background: #fff; border-radius: var(--radius);
-  padding: 18px 20px; border: 1px solid var(--border);
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  border: 1px solid var(--border);
   box-shadow: var(--shadow);
 }
 .stat-card .num {
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-weight: 800; font-size: 30px;
-  color: var(--green-deep); line-height: 1; margin-bottom: 4px;
+  font-weight: 800;
+  font-size: 30px;
+  color: var(--green-deep);
+  line-height: 1;
+  margin-bottom: 4px;
 }
 .stat-card .num.accent { color: var(--green); }
 .stat-card .num.warn-col { color: var(--warn); }
-.stat-card .lbl {
-  font-size: 13px; color: var(--muted);
-  font-weight: 600; letter-spacing: .02em;
-}
+.stat-card .lbl { font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
 .tile-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 18px; margin-bottom: 36px;
+  gap: 18px;
+  margin-bottom: 36px;
 }
 .tile {
-  background: #fff; border-radius: var(--radius);
-  padding: 28px 26px; box-shadow: var(--shadow);
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 28px 26px;
+  box-shadow: var(--shadow);
   border: 1px solid var(--border);
-  text-decoration: none; color: var(--text);
-  display: flex; flex-direction: column;
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
   transition: transform .2s, box-shadow .2s;
   min-height: 210px;
 }
 .tile:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
 .tile .tile-icon {
-  width: 54px; height: 54px; border-radius: 14px;
-  background: var(--lime-soft); color: var(--green-deep);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 28px; margin-bottom: 16px;
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  background: var(--lime-soft);
+  color: var(--green-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 16px;
 }
 .tile h3 {
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-weight: 800; font-size: 20px;
-  color: var(--green-deep); margin-bottom: 8px; line-height: 1.2;
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--green-deep);
+  margin-bottom: 8px;
+  line-height: 1.2;
 }
-.tile p {
-  color: var(--muted); font-size: 14px;
-  line-height: 1.5; flex-grow: 1; margin-bottom: 14px;
-}
-.tile .arrow {
-  color: var(--green); font-weight: 700; font-size: 15px;
-  display: inline-flex; align-items: center; gap: 6px;
-}
+.tile p { color: var(--muted); font-size: 14px; line-height: 1.5; flex-grow: 1; margin-bottom: 14px; }
+.tile .arrow { color: var(--green); font-weight: 700; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; }
 .tile:hover .arrow { gap: 10px; transition: gap .15s; }
 .tile-danger .tile-icon { background: #F5DED4; color: var(--warn); }
 .tile-danger .arrow { color: var(--warn); }
 .quick-help {
-  background: #fff; border-radius: var(--radius);
-  padding: 26px 30px; box-shadow: var(--shadow);
-  border: 1px solid var(--border); margin-top: 20px;
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 26px 30px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  margin-top: 20px;
 }
-.quick-help h3 {
-  font-family: 'Bricolage Grotesque', sans-serif;
-  font-weight: 700; font-size: 18px;
-  color: var(--green-deep); margin-bottom: 10px;
-}
+.quick-help h3 { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px; color: var(--green-deep); margin-bottom: 10px; }
 .quick-help p { color: var(--muted); font-size: 14px; margin-bottom: 14px; }
 .quick-help .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .compliance-block {
@@ -125,50 +154,129 @@
 }
 .compliance-block h3 {
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-weight: 800; font-size: 18px;
-  color: #8B5A1A; margin: 0 0 8px;
-  display: flex; align-items: center; gap: 10px;
+  font-weight: 800;
+  font-size: 18px;
+  color: #8B5A1A;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-.compliance-block p {
-  font-size: 14px; color: #5C3D0F; line-height: 1.55;
-  margin: 0 0 14px;
-}
-.compliance-block ul {
-  margin: 0 0 14px 22px; padding: 0;
-  font-size: 13.5px; color: #5C3D0F;
-}
+.compliance-block p { font-size: 14px; color: #5C3D0F; line-height: 1.55; margin: 0 0 14px; }
+.compliance-block ul { margin: 0 0 14px 22px; padding: 0; font-size: 13.5px; color: #5C3D0F; }
 .compliance-block ul li { margin-bottom: 4px; }
 .compliance-block .cb-cta {
   display: inline-block;
-  background: #1A3A2A; color: #C8F135;
-  padding: 10px 20px; border-radius: var(--radius-sm);
-  font-weight: 700; font-size: 14px;
+  background: #1A3A2A;
+  color: #C8F135;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 14px;
   text-decoration: none;
 }
 .compliance-block .cb-cta:hover { background: #0F2419; }
-.tile.locked {
-  opacity: 0.55; pointer-events: none;
-  position: relative;
-}
+.tile.locked { opacity: 0.55; pointer-events: none; position: relative; }
 .tile.locked::after {
   content: '🔒 Erst nach Freigabe der Unterlagen';
-  position: absolute; bottom: 12px; right: 12px;
-  background: #1A3A2A; color: #C8F135;
-  font-size: 10.5px; font-weight: 700;
-  padding: 4px 9px; border-radius: 10px;
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: #1A3A2A;
+  color: #C8F135;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 10px;
   letter-spacing: 0.02em;
+}
+
+/* === Sitzwache-Buchungen-Sektion === */
+.bookings-block {
+  background: linear-gradient(135deg, #E8F0E8 0%, #D7E8DC 100%);
+  border: 2px solid var(--green);
+  border-radius: var(--radius);
+  padding: 22px 26px;
+  margin: 0 0 28px;
+  box-shadow: var(--shadow);
+}
+.bookings-block h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--green-deep);
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bookings-block .bb-intro { font-size: 14px; color: var(--text); margin: 0 0 14px; line-height: 1.5; }
+.bb-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  margin-bottom: 10px;
+}
+.bb-card:last-child { margin-bottom: 0; }
+.bb-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.bb-clinic {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--green-deep);
+}
+.bb-date { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+.bb-shift-pill {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.bb-shift-pill.morning   { background: #FFF7E0; color: #8B5A1A; border-color: #E8A845; }
+.bb-shift-pill.afternoon { background: #FCEEDD; color: #7A4515; border-color: #D88B45; }
+.bb-shift-pill.night     { background: #1E2D44; color: #B8C8E0; border-color: #2A3D5A; }
+.bb-detail-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 13px;
+}
+.bb-detail-grid dt { color: var(--muted); font-weight: 600; }
+.bb-detail-grid dd { margin: 0; color: var(--text); }
+.bb-flag-mini {
+  display: inline-block;
+  margin: 0 4px 3px 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: #F0EBE0;
+  color: var(--green-deep);
+  font-weight: 600;
+}
+.bb-anmerkung {
+  font-style: italic;
+  color: var(--text);
 }
 </style>
 </head>
 <body>
 <a href="#main" class="sr-only">Zum Hauptinhalt</a>
 
-
-
-
-
 <main id="main">
-
 <div id="guard" style="text-align:center; padding: 80px 24px;" hidden>
   <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-size:24px; color:var(--green); margin-bottom:12px;">Bitte anmelden</h2>
   <p style="color: var(--muted); margin-bottom: 20px;">Dieser Bereich ist nur für eingeloggte Ehrenamtliche.</p>
@@ -195,6 +303,13 @@
       <button onclick="this.closest('.welcome-banner').remove()" aria-label="Schließen">×</button>
     </div>
 
+    <!-- Du wurdest gebucht-Sektion (nur sichtbar wenn anstehende Klinik-Buchungen vorhanden sind) -->
+    <div id="bookings-block" class="bookings-block" hidden>
+      <h3>🏥 <span data-ls="Du wurdest für Sitzwachen gebucht">Du wurdest gebucht</span></h3>
+      <p class="bb-intro" data-ls="Hier sind deine nächsten Sitzwachen. Schau bitte vor jedem Dienst noch mal nach, ob es Änderungen gibt.">Eine Klinik hat dich für die folgenden Sitzwachen verbindlich gebucht. Bitte erscheine pünktlich zur Schicht. Bei Fragen melde dich bei der Klinik oder bei <a href="mailto:info@lebenpflegenreisen.de">info@lebenpflegenreisen.de</a>.</p>
+      <div id="bookings-list"></div>
+    </div>
+
     <div class="stats-row" id="stats"></div>
 
     <div id="compliance-block" class="compliance-block" hidden>
@@ -213,49 +328,42 @@
         <p data-ls="Du kannst dich für eine Reise eintragen.">Alle geplanten Reisen ansehen und dich mit einem Klick für eine Begleitung eintragen.</p>
         <span class="arrow">Zum Reise-Kalender →</span>
       </a>
-
       <a href="sitzwachen.html" class="tile" id="tile-sitzwachen">
         <div class="tile-icon">🏥</div>
         <h3 data-ls="Sitz-Wachen">Sitzwachen-Kalender</h3>
         <p data-ls="Sag uns, wann du Sitz-Wache machen kannst.">Sag uns, an welchen Tagen und in welchen Schichten du verfügbar bist. Kliniken buchen dich direkt.</p>
         <span class="arrow">Zum Kalender →</span>
       </a>
-
       <a href="abrechnung.html" class="tile">
         <div class="tile-icon">💰</div>
         <h3 data-ls="Geld abrechnen">Abrechnung &amp; Beleg</h3>
         <p data-ls="Nach der Reise kannst du Geld abrechnen.">Nach Einsätzen kannst du deine Aufwandsentschädigung beantragen und den Beleg als PDF bekommen.</p>
         <span class="arrow">Zur Abrechnung →</span>
       </a>
-
       <a href="profil.html" class="tile">
         <div class="tile-icon">👤</div>
         <h3 data-ls="Mein Profil">Mein Profil</h3>
         <p data-ls="Name, E-Mail, Telefon ändern.">Deine Kontaktdaten und Einstellungen. Passwort ändern, Konto löschen.</p>
         <span class="arrow">Profil bearbeiten →</span>
       </a>
-
       <a href="mein-compliance.html" class="tile">
         <div class="tile-icon">📋</div>
         <h3 data-ls="Meine Unterlagen">Meine Unterlagen</h3>
         <p data-ls="Führungszeugnis und andere wichtige Papiere.">Führungszeugnis, §43 IfSG, Erste-Hilfe und Datenschutz-Erklärungen. Halte deine Unterlagen aktuell.</p>
         <span class="arrow">Unterlagen verwalten →</span>
       </a>
-
       <a href="meine-praeferenzen.html" class="tile">
         <div class="tile-icon">🎯</div>
         <h3 data-ls="Meine Wünsche">Meine Präferenzen</h3>
         <p data-ls="Welche Schichten und Kliniken passen zu dir?">Deine bevorzugten Schichten und Kliniken, Wohnort-PLZ für die Entfernungsberechnung.</p>
         <span class="arrow">Präferenzen ansehen →</span>
       </a>
-
       <a href="schulung.html" class="tile">
         <div class="tile-icon">🎓</div>
         <h3 data-ls="Schulung">Schulungsportal</h3>
         <p data-ls="Hier lernst du, was du wissen musst.">Die Online-Schulung mit allen Modulen für Sitzwache und Begleitung. Zertifikat zum Ausdrucken.</p>
         <span class="arrow">Zur Schulung →</span>
       </a>
-
       <a href="#" onclick="doLogout(); return false;" class="tile tile-danger">
         <div class="tile-icon">🚪</div>
         <h3 data-ls="Abmelden">Abmelden</h3>
@@ -272,11 +380,10 @@
         <a href="mailto:info@lebenpflegenreisen.de" class="btn btn-ghost">✉ info@lebenpflegenreisen.de</a>
       </div>
     </div>
+
   </div>
 </div>
 </main>
-
-
 
 <script src="app.js"></script>
 <script src="layout.js"></script>
@@ -291,6 +398,25 @@ const COMPLIANCE_LABELS = {
   schweigepflicht: '🤫 Schweigepflichterklärung'
 };
 
+const SHIFT_LABELS = {
+  morning:   { label: 'Frühdienst', time: '06:00–14:00' },
+  afternoon: { label: 'Spätdienst', time: '14:00–22:00' },
+  night:     { label: 'Nachtdienst', time: '22:00–06:00' }
+};
+const FLAG_LABELS = {
+  sturzgefahr: 'Sturzgefahr',
+  delir:       'Delir',
+  demenz:      'Demenz',
+  suizidal:    'Suizidalität',
+  fixiert:     'Fixiert'
+};
+
+function escape(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+function fmtDateLong(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+}
+
 (async function init() {
   if (window.LPR && typeof LPR.refreshSessionCache === 'function') {
     try { await LPR.refreshSessionCache(); } catch(e) {}
@@ -302,16 +428,62 @@ const COMPLIANCE_LABELS = {
   }
   document.getElementById('hub-content').hidden = false;
   document.getElementById('role-badge').textContent = session.role === 'admin' ? 'Vorstand · Admin' : 'Ehrenamt';
+
   const hour = new Date().getHours();
   const tod = hour < 11 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend';
   const firstName = (session.name || session.email || 'Mitglied').split(' ')[0];
   document.getElementById('greeting').textContent = `${tod}, ${firstName}!`;
+
   if (location.search.includes('welcome=1')) document.getElementById('welcome').hidden = false;
+
+  await renderUpcomingBookings();
   await renderStats();
   if (session.role === 'ehrenamt') {
     await checkCompliance();
   }
 })();
+
+async function renderUpcomingBookings() {
+  try {
+    const res = await LPR.getMyBookings();
+    if (!res.ok) return;
+    const today = new Date().toISOString().slice(0, 10);
+    // Nur kommende Buchungen (heute oder in der Zukunft), Status 'planned', mit clinic_id (Klinik-Buchungen)
+    const upcoming = (res.bookings || [])
+      .filter(b => b.clinic_id && b.status === 'planned' && b.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (upcoming.length === 0) return;
+
+    const html = upcoming.map(b => {
+      const sh = SHIFT_LABELS[b.shift] || { label: b.shift, time: '' };
+      const flags = (b.patient_flags || []).map(f =>
+        `<span class="bb-flag-mini">${escape(FLAG_LABELS[f] || f)}</span>`
+      ).join('');
+      return `
+        <div class="bb-card">
+          <div class="bb-card-top">
+            <div>
+              <div class="bb-clinic">${escape(b.clinic_name || 'Klinik')}</div>
+              <div class="bb-date">${escape(fmtDateLong(b.date))}</div>
+            </div>
+            <span class="bb-shift-pill ${escape(b.shift)}">${escape(sh.label)} · ${escape(sh.time)}</span>
+          </div>
+          ${(b.patient_room || flags || b.patient_notes) ? `
+            <dl class="bb-detail-grid">
+              ${b.patient_room ? `<dt>Zimmer</dt><dd>${escape(b.patient_room)}</dd>` : ''}
+              ${flags ? `<dt>Hinweise</dt><dd>${flags}</dd>` : ''}
+              ${b.patient_notes ? `<dt>Anmerkung</dt><dd class="bb-anmerkung">${escape(b.patient_notes)}</dd>` : ''}
+            </dl>` : ''}
+        </div>`;
+    }).join('');
+
+    document.getElementById('bookings-list').innerHTML = html;
+    document.getElementById('bookings-block').hidden = false;
+  } catch(e) {
+    console.warn('[LPR] renderUpcomingBookings failed:', e);
+  }
+}
 
 async function checkCompliance() {
   try {

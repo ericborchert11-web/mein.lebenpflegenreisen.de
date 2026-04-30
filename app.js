@@ -731,13 +731,28 @@
     try {
       let q = (await sb())
         .from('bookings')
-        .select('id, request_id, date, shift, hours, compensation_eur, status, created_at')
+        .select('id, request_id, clinic_id, date, shift, hours, compensation_eur, status, patient_room, patient_flags, patient_notes, created_at, profiles!bookings_clinic_id_fkey(full_name)')
         .eq('volunteer_id', s.id)
         .order('date', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
       const { data, error } = await q;
       if (error) return { ok: false, error: error.message, bookings: [] };
-      return { ok: true, bookings: data || [] };
+      const bookings = (data || []).map(b => ({
+        id: b.id,
+        request_id: b.request_id,
+        clinic_id: b.clinic_id,
+        clinic_name: b.profiles && b.profiles.full_name || null,
+        date: b.date,
+        shift: b.shift,
+        hours: b.hours,
+        compensation_eur: b.compensation_eur,
+        status: b.status,
+        patient_room: b.patient_room,
+        patient_flags: b.patient_flags || [],
+        patient_notes: b.patient_notes,
+        created_at: b.created_at
+      }));
+      return { ok: true, bookings };
     } catch(e) { console.error('[LPR] getMyBookings:', e); return { ok: false, error: 'Netzwerkfehler.', bookings: [] }; }
   }
 

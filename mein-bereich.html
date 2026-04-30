@@ -506,25 +506,39 @@ async function renderStats() {
   const s = LPR.getSession();
   if (!s) return;
   const now = new Date();
-  const month = now.getMonth(), year = now.getFullYear();
-  const monthIso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const todayIso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
-  // Verfügbarkeiten dieser Monat (count = Slots)
+  // Verfügbarkeiten ANSTEHEND (heute + 60 Tage rolling).
+  // Vorher war das auf Kalender-Monat gefiltert — am 30. eines Monats
+  // sah man dann 0, weil alle Slots im Folgemonat liegen. Jetzt zeigt
+  // es immer "was kommt", was dem mentalen Modell des Users entspricht.
   let availCount = 0;
   try {
-    const aRes = await LPR.getMyAvailability(monthIso);
-    if (aRes.ok) availCount = (aRes.availabilities || []).length;
+    // Aktuellen + nächsten Monat abdecken (genug Window für rolling 60d)
+    const m1 = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const m2 = next.getFullYear() + '-' + String(next.getMonth() + 1).padStart(2, '0');
+    const [r1, r2] = await Promise.all([
+      LPR.getMyAvailability(m1).catch(() => ({ ok: false })),
+      LPR.getMyAvailability(m2).catch(() => ({ ok: false }))
+    ]);
+    const all = [].concat(
+      (r1.ok && r1.availabilities) || [],
+      (r2.ok && r2.availabilities) || []
+    );
+    availCount = all.filter(a => a.date && a.date >= todayIso).length;
   } catch(e) {}
 
-  // Sitzwachen-Buchungen dieser Monat
+  // Anstehende Klinik-Buchungen (heute + Zukunft, ohne stornierte)
   let bookedCount = 0;
   try {
     const bRes = await LPR.getMyBookings();
     if (bRes.ok) {
       bookedCount = (bRes.bookings || []).filter(b => {
         if (!b.date) return false;
-        const d = new Date(b.date);
-        return d.getFullYear() === year && d.getMonth() === month;
+        if (b.status === 'cancelled') return false;
+        return b.date >= todayIso;
       }).length;
     }
   } catch(e) {}
@@ -557,8 +571,8 @@ async function renderStats() {
   } catch(e) {}
 
   document.getElementById('stats').innerHTML = `
-    <div class="stat-card"><div class="num">${availCount}</div><div class="lbl">Verfügbarkeit (Monat)</div></div>
-    <div class="stat-card"><div class="num accent">${bookedCount}</div><div class="lbl">Gebuchte Dienste</div></div>
+    <div class="stat-card"><div class="num">${availCount}</div><div class="lbl">Anstehende Verfügbarkeit</div></div>
+    <div class="stat-card"><div class="num accent">${bookedCount}</div><div class="lbl">Anstehende Dienste</div></div>
     <div class="stat-card"><div class="num">${tripCount}</div><div class="lbl">Reisen eingetragen</div></div>
     <div class="stat-card"><div class="num ${usedAmount > 2800 ? 'warn-col' : 'accent'}">${LPR.formatEUR(usedAmount)}</div><div class="lbl">Pauschale ${year}</div></div>
   `;

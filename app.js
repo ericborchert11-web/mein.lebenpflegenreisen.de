@@ -247,8 +247,14 @@
           return { ok: false, error: 'Ihr Konto wurde noch nicht vom Vorstand freigeschaltet. Die Freischaltung erfolgt in der Regel innerhalb von 1–2 Werktagen.' };
         }
         if (profile.status === 'rejected') {
-          await (await sb()).auth.signOut();
-          return { ok: false, error: 'Ihre Registrierung wurde nicht angenommen. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
+          // Kliniken dürfen mit rejected-Status einloggen, damit sie ihre
+          // Daten korrigieren und erneut zur Prüfung einreichen können.
+          // (kliniken.html zeigt einen Reject-Banner + "Daten anpassen"-Knopf.)
+          // Ehrenamtliche bleiben geblockt — für sie gibt es keinen Resubmit-Pfad.
+          if (profile.role !== 'klinik') {
+            await (await sb()).auth.signOut();
+            return { ok: false, error: 'Ihre Registrierung wurde nicht angenommen. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
+          }
         }
         if (profile.status === 'suspended') {
           await (await sb()).auth.signOut();

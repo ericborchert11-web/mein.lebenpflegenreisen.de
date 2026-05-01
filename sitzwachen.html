@@ -318,7 +318,8 @@ main {
 .zone-dot.past   { background: var(--muted); }
 
 /* ───── Absage-Dialog ───── */
-#cancel-dialog {
+#cancel-dialog,
+#booking-info-dialog {
   max-width: 560px;
   border-top: 6px solid var(--ok); /* default = grün */
 }
@@ -336,9 +337,9 @@ main {
   padding: 4px 10px; border-radius: 12px;
   margin-bottom: 10px;
 }
-#cancel-dialog .cancel-zone-label.zone-green  { background: #D4E8DC; color: var(--green-deep); }
-#cancel-dialog .cancel-zone-label.zone-orange { background: #FCEADA; color: #6D3514; }
-#cancel-dialog .cancel-zone-label.zone-red    { background: #FDE4DC; color: #8B2818; }
+#cancel-dialog .cancel-zone-label.zone-green,  #booking-info-dialog .cancel-zone-label.zone-green  { background: #D4E8DC; color: var(--green-deep); }
+#cancel-dialog .cancel-zone-label.zone-orange, #booking-info-dialog .cancel-zone-label.zone-orange { background: #FCEADA; color: #6D3514; }
+#cancel-dialog .cancel-zone-label.zone-red,    #booking-info-dialog .cancel-zone-label.zone-red    { background: #FDE4DC; color: #8B2818; }
 
 .cancel-title {
   font-family: 'Bricolage Grotesque', sans-serif;
@@ -416,6 +417,22 @@ main {
 }
 .btn-cancel-confirm.emergency:hover { background: #8B2818; border-color: #8B2818; }
 .btn-cancel-confirm.emergency:disabled { background: #E8A88C; border-color: #E8A88C; color: #fff; }
+
+.binfo-grid {
+  display: grid; grid-template-columns: max-content 1fr;
+  gap: 8px 16px; margin: 0 0 16px;
+  font-size: 14px;
+}
+.binfo-grid dt { font-weight: 600; color: var(--muted); }
+.binfo-grid dd { margin: 0; color: var(--text); }
+.binfo-row { margin-bottom: 14px; }
+.binfo-row > strong { font-size: 13px; color: var(--muted); }
+.binfo-flag {
+  display: inline-block; background: #FEF0EA; color: #8B2818;
+  padding: 3px 9px; border-radius: 10px;
+  font-size: 12px; font-weight: 600;
+  margin: 4px 4px 0 0;
+}
 
 .double-check {
   margin-top: 14px; padding: 12px 14px;
@@ -733,52 +750,39 @@ footer a { color: var(--lime); text-decoration: none; }
 </dialog>
 
 <!-- ═══════════════ ABSAGE-DIALOG (3-stufig) ═══════════════ -->
-<dialog id="cancel-dialog" aria-labelledby="cancel-title">
+<dialog id="booking-info-dialog" aria-labelledby="binfo-title">
   <div class="cancel-header">
-    <span class="cancel-zone-label" id="cancel-zone-label">Zone</span>
-    <div class="cancel-title" id="cancel-title">Dienst absagen?</div>
-    <div class="cancel-subtitle" id="cancel-subtitle">—</div>
+    <span class="cancel-zone-label" id="binfo-zone-label">—</span>
+    <div class="cancel-title" id="binfo-title">Dein nächster Dienst</div>
+    <div class="cancel-subtitle">Diese Schicht hat eine Klinik fest gebucht.</div>
   </div>
   <div class="cancel-body">
-    <div class="cancel-message" id="cancel-message">—</div>
-
-    <!-- Notfall-Block (nur bei Zone rot sichtbar) -->
-    <div class="cancel-emergency" id="cancel-emergency" hidden>
-      <strong>⚠ Weniger als 24 Stunden bis Dienstbeginn</strong>
-      Bitte informiere zusätzlich <u>sofort telefonisch</u> die Station:
-      <span class="phone-big" id="cancel-phone">030 – 000 00 00</span>
+    <dl class="binfo-grid">
+      <dt>Klinik</dt>
+      <dd id="binfo-clinic">—</dd>
+      <dt>Datum</dt>
+      <dd id="binfo-date">—</dd>
+      <dt>Schicht</dt>
+      <dd id="binfo-shift">—</dd>
+      <dt>Zimmer</dt>
+      <dd id="binfo-room">—</dd>
+    </dl>
+    <div class="binfo-row" hidden>
+      <strong>Hinweise zur Patientin / zum Patienten</strong>
+      <div id="binfo-flags"></div>
     </div>
-
-    <!-- Grund-Auswahl (bei Zone orange + rot) -->
-    <div class="cancel-reasons" id="cancel-reasons" hidden>
-      <label class="cancel-reason-opt">
-        <input type="radio" name="cancel-reason" value="krankheit"> Krankheit / Unwohlsein
-      </label>
-      <label class="cancel-reason-opt">
-        <input type="radio" name="cancel-reason" value="familie"> Familiärer Notfall / Angehörige
-      </label>
-      <label class="cancel-reason-opt" id="reason-unfall">
-        <input type="radio" name="cancel-reason" value="unfall"> Unfall / Höhere Gewalt
-      </label>
-      <label class="cancel-reason-opt" id="reason-arbeit">
-        <input type="radio" name="cancel-reason" value="arbeit"> Beruf / Studium kurzfristig
-      </label>
-      <label class="cancel-reason-opt" id="reason-andere">
-        <input type="radio" name="cancel-reason" value="andere"> Andere kurzfristige Verhinderung
-      </label>
+    <div class="binfo-row" hidden>
+      <strong>Anmerkung der Klinik</strong>
+      <p id="binfo-notes" style="margin:.4rem 0 0; font-style:italic;"></p>
     </div>
-
-    <!-- Doppel-Check bei Zone rot -->
-    <div class="double-check" id="cancel-doublecheck" hidden>
-      <label>
-        <input type="checkbox" id="cancel-confirm-checkbox">
-        Ich bestätige: Ich kann den Dienst wirklich nicht antreten und werde die Klinik zusätzlich telefonisch informieren.
-      </label>
+    <div class="cancel-message" style="margin-top:1rem;">
+      <strong>Du kannst den Dienst nicht antreten?</strong><br>
+      Bitte melde dich beim Vorstand: <a href="mailto:info@lebenpflegenreisen.de">info@lebenpflegenreisen.de</a>.
+      Wir kümmern uns um Ersatz und informieren die Klinik. Bei kurzfristigen Absagen bitte zusätzlich anrufen.
     </div>
   </div>
   <div class="cancel-footer">
-    <button class="btn-keep" onclick="closeCancel()">Dienst behalten</button>
-    <button class="btn-cancel-confirm" id="btn-cancel-confirm" onclick="confirmCancel()">Absagen</button>
+    <button class="btn-keep" onclick="closeBookingInfo()">Schließen</button>
   </div>
 </dialog>
 
@@ -792,15 +796,13 @@ footer a { color: var(--lime); text-decoration: none; }
 LPR_Layout.init({ page: 'sitzwachen' });
 
 // ═══════════════════════════════════════════════════════
-// STORAGE (shared mit kliniken.html!)
 // ═══════════════════════════════════════════════════════
-const AVAIL_KEY = 'lpr-sitzwachen-avail-v1';   // Verfügbarkeiten aller Ehrenamtler
-const BOOK_KEY  = 'lpr-sitzwachen-book-v1';    // Buchungen von Kliniken
-const CANCEL_KEY = 'lpr-sitzwachen-cancel-v1'; // Absage-Log (für Kliniken sichtbar)
-const USERS_KEY = 'lpr-sitzwachen-users-v1';   // Registrierte Ehrenamtliche
-const PROFILE_KEY = 'lpr-profiles-v1';         // Präferenzen/Profile der Mitwirkenden
-const SESSION_KEY = 'lpr-session-v2';
-const MY_EMAIL_KEY = 'lpr-my-email';
+// SCHICHT-DEFINITION
+// ═══════════════════════════════════════════════════════
+// Verfügbarkeiten und Buchungen kommen aus Supabase (LPR.getMyAvailability /
+// LPR.getMyBookings). Es gibt KEINE localStorage-Buchungs-Logik mehr.
+// Buchungen werden hier nur read-only angezeigt — Stornierung läuft über
+// den Vorstand (siehe openBookingInfo).
 
 const SHIFTS = {
   frueh: { label: 'Frühdienst', time: '06:00–14:00', cls: 'frueh', startH: 6 },
@@ -827,8 +829,6 @@ function calcZone(key, shift) {
   return 'green';
 }
 
-function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch(e) { return d; } }
-function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
 function escape(s) { const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
 function dateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -845,6 +845,10 @@ const SHIFT_DB_TO_DE = { morning: 'frueh', afternoon: 'spaet', night: 'nacht' };
 // In-Memory-Cache der Verfügbarkeiten aus DB.
 // Format: { 'YYYY-MM-DD': ['frueh','spaet','nacht'] }
 let _dbAvail = {};
+
+// In-Memory-Cache der Klinik-Buchungen aus DB.
+// Format: { 'YYYY-MM-DD|frueh': { id, clinic_name, patient_room, patient_flags, patient_notes, status, shift_de } }
+let _dbBookings = {};
 
 function getSession() {
   const s = (window.LPR && window.LPR.getSession) ? window.LPR.getSession() : null;
@@ -897,6 +901,39 @@ async function loadAvailFromDb() {
 }
 
 // ═══════════════════════════════════════════════════════
+// BUCHUNGEN laden (DB → Cache)
+// ═══════════════════════════════════════════════════════
+// Lädt alle aktiven (nicht-stornierten) Klinik-Buchungen des Volunteers.
+// Wird im Kalender als read-only Chip mit Klinik-Name angezeigt.
+async function loadBookingsFromDb() {
+  const session = getSession();
+  if (!session) { _dbBookings = {}; return; }
+  try {
+    const res = await window.LPR.getMyBookings();
+    _dbBookings = {};
+    if (res.ok && res.bookings) {
+      for (const b of res.bookings) {
+        if (b.status === 'cancelled') continue;
+        const shiftDe = SHIFT_DB_TO_DE[b.shift] || b.shift;
+        const key = `${b.date}|${shiftDe}`;
+        _dbBookings[key] = {
+          id: b.id,
+          clinic_name: b.clinic_name || '—',
+          patient_room: b.patient_room || '',
+          patient_flags: b.patient_flags || [],
+          patient_notes: b.patient_notes || '',
+          status: b.status,
+          date: b.date,
+          shift_de: shiftDe
+        };
+      }
+    }
+  } catch (e) {
+    console.error('[LPR] loadBookingsFromDb failed:', e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
 // RENDER
 // ═══════════════════════════════════════════════════════
 async function render() {
@@ -912,7 +949,7 @@ async function render() {
   document.getElementById('month-title').textContent =
     `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
 
-  await loadAvailFromDb();
+  await Promise.all([loadAvailFromDb(), loadBookingsFromDb()]);
   renderCalendar();
   renderStats();
 }
@@ -944,8 +981,8 @@ function renderCalendar() {
     if (cells.length >= 42) break;
   }
 
-  // Bookings bleiben localStorage (Klinik-Buchungen, Zwischenstand)
-  const bookings = loadJSON(BOOK_KEY, {});
+  // Bookings kommen aus DB-Cache (read-only, befüllt in loadBookingsFromDb).
+  // Klinik-Buchungen werden hier nur angezeigt — Stornierung läuft über den Vorstand.
 
   grid.innerHTML = cells.map(c => {
     const d = c.date;
@@ -962,26 +999,19 @@ function renderCalendar() {
     // Meine Verfügbarkeiten an diesem Tag (aus DB-Cache)
     const myShiftsOnDay = _dbAvail[key] || [];
 
-    // Meine Buchungen an diesem Tag (localStorage – Übergangsstand)
-    const dayBookings = bookings[key] || {};
-    const myBookingsForDay = {};
-    for (const shift in dayBookings) {
-      if (dayBookings[shift].ehrenamt_email === session.email) {
-        myBookingsForDay[shift] = dayBookings[shift];
-      }
-    }
-
     let chips = '';
     for (const shift of ['frueh','spaet','nacht']) {
-      const booked = myBookingsForDay[shift];
+      const booking = _dbBookings[`${key}|${shift}`] || null;
       const availOn = myShiftsOnDay.includes(shift);
-      if (booked) {
+      if (booking) {
+        // Klinik hat diesen Slot gebucht → read-only Chip mit Klinik-Name.
+        // Klick öffnet Info-Dialog (Stornierung läuft über den Vorstand).
         const zone = calcZone(key, shift);
         const zoneClass = `zone-${zone}`;
         const clickable = zone !== 'past';
-        chips += `<div class="shift-chip booked ${zoneClass}" ${clickable ? `onclick="openCancel(event, '${key}', '${shift}')"` : ''} title="${clickable ? 'Klick zum Absagen' : 'Dienst liegt in der Vergangenheit'}">
+        chips += `<div class="shift-chip booked ${zoneClass}" ${clickable ? `onclick="openBookingInfo('${key}', '${shift}')"` : ''} title="${clickable ? 'Klick für Details' : 'Dienst liegt in der Vergangenheit'}">
           <span><span class="zone-dot ${zone}"></span>${SHIFTS[shift].label.substring(0,5)} ✓</span>
-          <span class="clinic">${escape(booked.clinic_name.substring(0,15))}</span>
+          <span class="clinic">${escape(booking.clinic_name.substring(0,15))}</span>
         </div>`;
       } else if (availOn) {
         chips += `<div class="shift-chip ${SHIFTS[shift].cls}" onclick="removeShift(event, '${key}', '${shift}')">
@@ -1005,26 +1035,25 @@ function renderCalendar() {
 function renderStats() {
   const session = getSession();
   if (!session) return;
-  const bookings = loadJSON(BOOK_KEY, {});
 
-  // availCount: Summe meiner Slots im aktuellen Monat (aus _dbAvail)
+  // availCount: Summe meiner Slots im aktuellen Monat (aus DB-Cache _dbAvail).
+  // _dbAvail ist immer auf den aktuell angezeigten Monat gefiltert.
   let availCount = 0;
   for (const dateStr in _dbAvail) {
     availCount += _dbAvail[dateStr].length;
   }
 
-  // bookedCount: localStorage-Bookings im aktuellen Monat
+  // bookedCount: aktive Klinik-Buchungen im aktuell angezeigten Monat (aus DB-Cache).
+  // _dbBookings enthält ALLE meine Buchungen — hier nach Monat filtern.
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
   let bookedCount = 0;
-  for (const key in bookings) {
-    const d = keyToDate(key);
-    if (d.getFullYear() === year && d.getMonth() === month) {
-      for (const shift in bookings[key]) {
-        if (bookings[key][shift].ehrenamt_email === session.email) bookedCount++;
-      }
-    }
+  for (const compoundKey in _dbBookings) {
+    const b = _dbBookings[compoundKey];
+    const d = keyToDate(b.date);
+    if (d.getFullYear() === year && d.getMonth() === month) bookedCount++;
   }
+
   document.getElementById('stat-avail').textContent = availCount;
   document.getElementById('stat-booked').textContent = bookedCount;
   document.getElementById('stat-open').textContent = Math.max(0, availCount - bookedCount);
@@ -1038,10 +1067,8 @@ let currentAddKey = null;
 function openAdd(key) {
   currentAddKey = key;
   const d = keyToDate(key);
-  const bookings = loadJSON(BOOK_KEY, {});
   // Existing shifts kommen aus dem DB-Cache
   const existing = _dbAvail[key] || [];
-  const dayBookings = bookings[key] || {};
 
   document.getElementById('add-title').textContent =
     d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
@@ -1050,7 +1077,9 @@ function openAdd(key) {
     const chk = document.getElementById('chk-' + shift);
     const opt = document.getElementById('opt-' + shift);
     chk.checked = existing.includes(shift);
-    if (dayBookings[shift]) {
+    // Schicht ist gebucht (Klinik hat Volunteer für diesen Slot bestellt) →
+    // Slot bleibt aktiv, kann hier nicht ausgetragen werden.
+    if (_dbBookings[`${key}|${shift}`]) {
       chk.checked = true;
       chk.disabled = true;
       opt.classList.add('disabled');
@@ -1112,7 +1141,7 @@ async function saveAvail() {
     }
   }
 
-  await loadAvailFromDb();
+  await Promise.all([loadAvailFromDb(), loadBookingsFromDb()]);
   renderCalendar();
   renderStats();
 }
@@ -1131,167 +1160,71 @@ async function removeShift(event, key, shift) {
     showToast('Fehler: ' + e.message, 'warn');
     return;
   }
-  await loadAvailFromDb();
+  await Promise.all([loadAvailFromDb(), loadBookingsFromDb()]);
   renderCalendar();
   renderStats();
   showToast('Schicht entfernt.');
 }
 
 // ═══════════════════════════════════════════════════════
-// ABSAGE-DIALOG (3-stufig: grün / orange / rot)
+// BOOKING-INFO-DIALOG (read-only, Stornierung läuft über Vorstand)
 // ═══════════════════════════════════════════════════════
-let cancelContext = null; // { key, shift, zone, booking }
+// Klinik-Buchungen sind aktuell read-only. Wenn ein Volunteer eine Buchung
+// nicht antreten kann, läuft die Stornierung über den Vorstand
+// (info@lebenpflegenreisen.de). Ein direkter Volunteer-Cancel-Workflow mit
+// Zone-Logik (§3 Mitwirkungsvereinbarung) ist als Etappe 3 geplant.
+let bookingInfoContext = null;
 
-function openCancel(event, key, shift) {
-  event.stopPropagation();
-  const bookings = loadJSON(BOOK_KEY, {});
-  const booking = bookings[key]?.[shift];
+function openBookingInfo(key, shift) {
+  const booking = _dbBookings[`${key}|${shift}`];
   if (!booking) return;
   const zone = calcZone(key, shift);
   if (zone === 'past') return;
 
-  cancelContext = { key, shift, zone, booking };
+  bookingInfoContext = { key, shift, zone, booking };
 
-  const dlg = document.getElementById('cancel-dialog');
-  dlg.className = ''; // reset
-  dlg.classList.add(`zone-${zone}`);
-
+  const dlg = document.getElementById('booking-info-dialog');
   const d = keyToDate(key);
   const dateStr = d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long' });
   const shiftInfo = SHIFTS[shift];
 
-  // Reset UI
-  document.getElementById('cancel-reasons').hidden = true;
-  document.getElementById('cancel-emergency').hidden = true;
-  document.getElementById('cancel-doublecheck').hidden = true;
-  document.querySelectorAll('input[name="cancel-reason"]').forEach(r => r.checked = false);
-  document.getElementById('cancel-confirm-checkbox').checked = false;
-  const btn = document.getElementById('btn-cancel-confirm');
-  btn.classList.remove('emergency');
-  btn.disabled = false;
+  document.getElementById('binfo-clinic').textContent = booking.clinic_name;
+  document.getElementById('binfo-date').textContent = dateStr;
+  document.getElementById('binfo-shift').textContent = `${shiftInfo.label} (${shiftInfo.time})`;
+  document.getElementById('binfo-room').textContent = booking.patient_room || '—';
 
-  // Sichtbarkeit einzelner Gründe je nach Zone
-  document.getElementById('reason-arbeit').style.display = (zone === 'red') ? 'none' : '';
-  document.getElementById('reason-andere').style.display = (zone === 'red') ? 'none' : '';
+  const flagsEl = document.getElementById('binfo-flags');
+  if (Array.isArray(booking.patient_flags) && booking.patient_flags.length > 0) {
+    flagsEl.innerHTML = booking.patient_flags.map(f => `<span class="binfo-flag">${escape(f)}</span>`).join(' ');
+    flagsEl.parentElement.hidden = false;
+  } else {
+    flagsEl.parentElement.hidden = true;
+  }
 
-  const zoneLbl = document.getElementById('cancel-zone-label');
+  const notesEl = document.getElementById('binfo-notes');
+  if (booking.patient_notes) {
+    notesEl.textContent = booking.patient_notes;
+    notesEl.parentElement.hidden = false;
+  } else {
+    notesEl.parentElement.hidden = true;
+  }
+
+  const zoneLbl = document.getElementById('binfo-zone-label');
   zoneLbl.className = 'cancel-zone-label zone-' + zone;
-
   if (zone === 'green') {
-    zoneLbl.textContent = 'Entspannt · mehr als 48 h Puffer';
-    document.getElementById('cancel-title').textContent = 'Dienst austragen?';
-    document.getElementById('cancel-subtitle').textContent =
-      `${shiftInfo.label} (${shiftInfo.time}) am ${dateStr} – gebucht von ${booking.clinic_name}`;
-    document.getElementById('cancel-message').innerHTML =
-      `Du möchtest diesen Dienst absagen. Das ist völlig in Ordnung — wir informieren die Klinik und kümmern uns um Ersatz.<br><br>
-       <em>Kein Grund erforderlich. Danke, dass du früh Bescheid gibst.</em>`;
-    btn.textContent = 'Ja, austragen';
-  }
-  else if (zone === 'orange') {
-    zoneLbl.textContent = 'Aufmerksam · 24 – 48 h vor Dienstbeginn';
-    document.getElementById('cancel-title').textContent = 'Dienst absagen – bitte mit Hinweis';
-    document.getElementById('cancel-subtitle').textContent =
-      `${shiftInfo.label} (${shiftInfo.time}) am ${dateStr} – gebucht von ${booking.clinic_name}`;
-    document.getElementById('cancel-message').innerHTML =
-      `Die Klinik hat diesen Dienst fest eingeplant. Bitte gib uns einen kurzen Hinweis, damit wir Ersatz finden können.<br><br>
-       <strong>Danke, dass du ehrlich bist – das hilft uns allen.</strong>`;
-    document.getElementById('cancel-reasons').hidden = false;
-    btn.textContent = 'Absage mit Hinweis senden';
-    btn.disabled = true; // erst nach Grund-Auswahl
-  }
-  else if (zone === 'red') {
-    zoneLbl.textContent = 'Notfall · weniger als 24 h';
-    document.getElementById('cancel-title').textContent = 'Notfall-Absage';
-    document.getElementById('cancel-subtitle').textContent =
-      `${shiftInfo.label} (${shiftInfo.time}) am ${dateStr} – gebucht von ${booking.clinic_name}`;
-    document.getElementById('cancel-message').innerHTML =
-      `Dein Dienst beginnt in weniger als 24 Stunden. Wenn du wirklich nicht kannst, ist das okay – aber die Klinik rechnet mit dir. Wir stehen hinter dir.`;
-    document.getElementById('cancel-emergency').hidden = false;
-    document.getElementById('cancel-phone').textContent = booking.clinic_phone || '030 – 000 00 00';
-    document.getElementById('cancel-reasons').hidden = false;
-    document.getElementById('cancel-doublecheck').hidden = false;
-    btn.textContent = 'Notfall-Absage senden';
-    btn.classList.add('emergency');
-    btn.disabled = true;
+    zoneLbl.textContent = 'Mehr als 48 h bis zum Dienst';
+  } else if (zone === 'orange') {
+    zoneLbl.textContent = 'Weniger als 48 h bis zum Dienst';
+  } else if (zone === 'red') {
+    zoneLbl.textContent = 'Weniger als 24 h bis zum Dienst — bei Absage bitte sofort melden';
   }
 
   dlg.showModal();
 }
 
-function closeCancel() {
-  document.getElementById('cancel-dialog').close();
-  cancelContext = null;
-}
-
-// Enable/disable des Absage-Buttons basierend auf Eingaben
-document.addEventListener('change', (e) => {
-  if (!cancelContext) return;
-  const { zone } = cancelContext;
-  const btn = document.getElementById('btn-cancel-confirm');
-  if (zone === 'orange') {
-    const chosen = document.querySelector('input[name="cancel-reason"]:checked');
-    btn.disabled = !chosen;
-  }
-  if (zone === 'red') {
-    const chosen = document.querySelector('input[name="cancel-reason"]:checked');
-    const confirmed = document.getElementById('cancel-confirm-checkbox').checked;
-    btn.disabled = !(chosen && confirmed);
-  }
-  // Optische Hervorhebung der Auswahl
-  document.querySelectorAll('.cancel-reason-opt').forEach(opt => {
-    const input = opt.querySelector('input');
-    opt.classList.toggle('checked', input?.checked);
-  });
-});
-
-function confirmCancel() {
-  if (!cancelContext) return;
-  const { key, shift, zone, booking } = cancelContext;
-
-  const reasonInput = document.querySelector('input[name="cancel-reason"]:checked');
-  const reason = reasonInput ? reasonInput.value : null;
-
-  // 1. Buchung entfernen
-  const bookings = loadJSON(BOOK_KEY, {});
-  if (bookings[key]?.[shift]) {
-    delete bookings[key][shift];
-    if (Object.keys(bookings[key]).length === 0) delete bookings[key];
-    saveJSON(BOOK_KEY, bookings);
-  }
-
-  // 2. Absage-Log schreiben (für Klinik sichtbar)
-  const session = getSession();
-  const cancels = loadJSON(CANCEL_KEY, []);
-  cancels.push({
-    id: Date.now(),
-    timestamp: new Date().toISOString(),
-    date_key: key,
-    shift,
-    zone,
-    reason,
-    ehrenamt_email: session.email,
-    ehrenamt_name: session.name,
-    clinic_email: booking.clinic_email,
-    clinic_name: booking.clinic_name,
-    clinic_ward: booking.clinic_ward || '',
-    patient_ref: booking.patient_ref || '',
-    seen_by_clinic: false
-  });
-  saveJSON(CANCEL_KEY, cancels);
-
-  // 3. Verfügbarkeit bleibt eingetragen → andere Ehrenamtliche oder Klinik-Portal zeigt Slot wieder frei
-  // (keine Änderung nötig, da avail separat gespeichert ist und der Dienst nur in BOOK_KEY entfernt wurde)
-
-  // 4. Bestätigung
-  closeCancel();
-
-  const msgs = {
-    green:  'Danke für deine frühe Rückmeldung. Wir informieren die Klinik und suchen Ersatz.',
-    orange: 'Absage gesendet. Die Klinik wurde benachrichtigt. Ruh dich aus – wir freuen uns auf deinen nächsten Dienst!',
-    red:    'Absage gesendet. Bitte rufe JETZT die Klinik direkt an: ' + (booking.clinic_phone || 'siehe Buchung')
-  };
-  showToast(msgs[zone], zone === 'red' ? 'warn' : 'ok');
-  render();
+function closeBookingInfo() {
+  document.getElementById('booking-info-dialog').close();
+  bookingInfoContext = null;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1326,13 +1259,9 @@ try {
   if (localStorage.getItem('lpr-contrast') === '1') toggleContrast();
 } catch(e) {}
 
-// Auto-Reload bei Storage-Änderungen (wenn kliniken.html in anderem Tab bucht)
-window.addEventListener('storage', e => {
-  if (e.key === BOOK_KEY) render();
-});
-
 render();
-// Auto-Refresh alle 15s (falls andere Tabs gleichzeitig offen)
+// Auto-Refresh alle 15s — fängt Klinik-Buchungen ab, die in einem anderen
+// Browser-Tab oder von Klinik-Seite frisch erstellt wurden.
 setInterval(() => { if (getSession()) render(); }, 15000);
 </script>
 </body>

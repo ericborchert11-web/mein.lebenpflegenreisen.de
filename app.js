@@ -251,7 +251,9 @@
           // Daten korrigieren und erneut zur Prüfung einreichen können.
           // (kliniken.html zeigt einen Reject-Banner + "Daten anpassen"-Knopf.)
           // Ehrenamtliche bleiben geblockt — für sie gibt es keinen Resubmit-Pfad.
-          if (profile.role !== 'klinik') {
+          // profile.role kommt aus der DB als englisch ('clinic'), nicht aus dem
+          // Frontend-Mapping ('klinik').
+          if (profile.role !== 'clinic') {
             await (await sb()).auth.signOut();
             return { ok: false, error: 'Ihre Registrierung wurde nicht angenommen. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
           }

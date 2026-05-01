@@ -1557,14 +1557,39 @@
 
     try {
       const client = await sb();
+
+      // Vor dem Upsert prüfen: Gibt es bereits einen Eintrag, und ist er 'rejected'?
+      // Falls ja, setzen wir bei diesem erneuten Einreichen explizit status='pending'
+      // und löschen die alte Begründung — die Klinik kommt dann wieder in die
+      // Pending-Queue für die erneute Vorstandsprüfung.
+      const { data: existing } = await client
+        .from('clinic_details')
+        .select('status')
+        .eq('id', s.id)
+        .maybeSingle();
+
+      if (existing && existing.status === 'rejected') {
+        row.status = 'pending';
+        row.rejection_reason = null;
+      }
+
       // Upsert: Beim ersten Mal Insert (status default 'pending'),
-      // danach Update (status bleibt durch Trigger geschützt).
+      // danach Update. Bei rejected→pending wird der Status explizit
+      // mitgesendet (siehe oben). Bei pending/approved schützt der DB-Trigger
+      // den Status — die Klinik kann also nicht selbst auf 'approved' wechseln.
       const { data, error } = await client
         .from('clinic_details')
         .upsert(row, { onConflict: 'id' })
         .select('id, clinic_name, status, address, postal_code, city, contact_person, phone, rejection_reason')
         .single();
       if (error) return { ok: false, error: error.message };
+
+      // Konsistenz: Bei rejected→pending auch profiles.status zurücksetzen,
+      // damit die Klinik wieder als pending sichtbar ist.
+      if (existing && existing.status === 'rejected') {
+        await client.from('profiles').update({ status: 'pending' }).eq('id', s.id);
+      }
+
       return { ok: true, details: data };
     } catch(e) {
       console.error('[LPR] submitMyClinic:', e);

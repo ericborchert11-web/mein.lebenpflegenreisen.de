@@ -163,7 +163,7 @@
     <strong>So funktioniert die Einreichung:</strong>
     Du sendest deine Dokumente per E-Mail an
     <a href="mailto:vorstand@lebenpflegenreisen.de">vorstand@lebenpflegenreisen.de</a>.
-    Der Vorstand prüft die Unterlagen und schaltet sie hier frei. Den Status deiner Dokumente siehst du immer aktuell auf dieser Seite.
+    Der Vorstand prüft die Unterlagen und schaltet sie hier frei. Den Status deiner Dokumente siehst du immer aktuell auf dieser Seite.<div id="cp-vnr-hint" style="margin-top: 10px; display:none;">Bitte gib in deiner E-Mail deine Mitgliedsnummer <strong id="cp-vnr-value"></strong> an, damit wir die Dokumente eindeutig zuordnen können.</div>
     <strong>Wichtig:</strong> Solange nicht alle fünf Dokumente freigegeben sind, kannst du noch keine Einsätze übernehmen.
   </div>
 
@@ -224,7 +224,7 @@ const VORSTAND_EMAIL = 'vorstand@lebenpflegenreisen.de';
     try { await LPR.refreshSessionCache(); } catch(e) {}
   }
   const session = LPR.getSession();
-  if (!session) { window.location.href = 'login.html'; return; }
+  if (!session) { window.location.href = 'login.html'; return; } if (session.vereinsnummer) { const _h=document.getElementById('cp-vnr-hint'); const _v=document.getElementById('cp-vnr-value'); if(_h&&_v){_v.textContent=session.vereinsnummer;_h.style.display='block';} }
   if (session.role !== 'ehrenamt') {
     document.body.innerHTML = '<div style="max-width:600px; margin:80px auto; padding:40px; text-align:center; font-family:system-ui;"><h1 style="color:#1A3A2A;">Nur für Ehrenamtliche</h1><p>Diese Seite ist nur für ehrenamtliche Mitwirkende relevant.</p><a href="mein-bereich.html" style="color:#1A3A2A;">Zurück zum Mein Bereich</a></div>';
     return;

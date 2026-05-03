@@ -132,7 +132,7 @@
       name:           profile.full_name || null,
       role:           ROLE_BE_TO_FE[profile.role] || 'ehrenamt',
       status:         profile.status || 'pending',
-      personalnummer: profile.personalnummer || null,
+      personalnummer: profile.personalnummer || null,      vereinsnummer:  profile.vereinsnummer  || null,
       loginAt:        new Date().toISOString()
     };
     save(KEYS.session, s);
@@ -148,7 +148,7 @@
       if (!sbSession) { clearSession(); return null; }
       const { data: profile, error } = await (await sb())
         .from('profiles')
-        .select('id, email, full_name, role, status, personalnummer')
+        .select('id, email, full_name, role, status, personalnummer, vereinsnummer')
         .eq('id', sbSession.user.id)
         .single();
       if (error || !profile) { clearSession(); return null; }
@@ -232,7 +232,7 @@
 
       const { data: profile, error: profileError } = await (await sb())
         .from('profiles')
-        .select('id, email, full_name, role, status, personalnummer')
+        .select('id, email, full_name, role, status, personalnummer, vereinsnummer')
         .eq('id', authData.user.id)
         .single();
 
@@ -285,14 +285,14 @@
     try {
       let query = (await sb())
         .from('profiles')
-        .select('id, email, full_name, role, status, personalnummer, phone, created_at, approved_at, approved_by, rejected_at, rejected_reason')
+        .select('id, email, full_name, role, status, personalnummer, vereinsnummer, phone, created_at, approved_at, approved_by, rejected_at, rejected_reason')
         .order('created_at', { ascending: true });
       if (status) query = query.eq('status', status);
       const { data, error } = await query;
       if (error) { console.error('[LPR] listUsersByStatus:', error); return []; }
       return (data || []).map(p => ({
         email: p.email, name: p.full_name, role: ROLE_BE_TO_FE[p.role] || p.role,
-        status: p.status, personalnummer: p.personalnummer, phone: p.phone,
+        status: p.status, personalnummer: p.personalnummer, vereinsnummer: p.vereinsnummer, phone: p.phone,
         registeredAt: p.created_at, approvedAt: p.approved_at, approvedBy: p.approved_by,
         rejectedAt: p.rejected_at, rejectedReason: p.rejected_reason, _id: p.id
       }));
@@ -1058,7 +1058,7 @@
     try {
       const { data, error } = await (await sb())
         .from('profiles')
-        .select('id, email, full_name, phone, role, status, personalnummer, iban, iban_updated_at')
+        .select('id, email, full_name, phone, role, status, personalnummer, vereinsnummer, iban, iban_updated_at')
         .eq('id', s.id)
         .single();
       if (error) return { ok: false, error: error.message };

@@ -293,7 +293,7 @@
   <section class="hub-hero">
     <div class="wrap">
       <span class="role-badge" id="role-badge">Ehrenamt</span>
-      <div class="greeting" id="greeting">Hallo!</div>
+      <div class="greeting" id="greeting">Hallo!</div>        <div class="vereinsnummer-line" id="vereinsnummer-line" style="font-size: 14px; opacity: 0.8; margin-top: 4px;"></div>
       <div class="sub" data-ls="Schön, dass du da bist.">Schön, dass du wieder da bist. Unten findest du alles, was du brauchst.</div>
     </div>
   </section>
@@ -437,7 +437,7 @@ function fmtDateLong(iso) {
   const hour = new Date().getHours();
   const tod = hour < 11 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend';
   const firstName = (session.name || session.email || 'Mitglied').split(' ')[0];
-  document.getElementById('greeting').textContent = `${tod}, ${firstName}!`;
+  document.getElementById('greeting').textContent = `${tod}, ${firstName}!`;  const vnr = session.vereinsnummer;  if (vnr) document.getElementById('vereinsnummer-line').textContent = `Mitgliedsnummer: ${vnr}`;  const vnr = session.vereinsnummer;
 
   if (location.search.includes('welcome=1')) document.getElementById('welcome').hidden = false;
 

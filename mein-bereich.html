@@ -411,7 +411,7 @@ const SHIFT_LABELS = {
 const FLAG_LABELS = {
   sturzgefahr: 'Sturzgefahr',
   delir:       'Delir',
-  demenz:      'Demenz',
+  demenz:      'Demenz',${vnr}`;
   suizidal:    'Suizidalität',
   fixiert:     'Fixiert'
 };
@@ -437,7 +437,7 @@ function fmtDateLong(iso) {
   const hour = new Date().getHours();
   const tod = hour < 11 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend';
   const firstName = (session.name || session.email || 'Mitglied').split(' ')[0];
-  document.getElementById('greeting').textContent = `${tod}, ${firstName}!`;  const vnr = session.vereinsnummer;  if (vnr) document.getElementById('vereinsnummer-line').textContent = `Mitgliedsnummer: ${vnr}`;  const vnr = session.vereinsnummer;
+  document.getElementById('greeting').textContent = `${tod}, ${firstName}!`;  const vnr = session.vereinsnummer;  if (vnr) document.getElementById('vereinsnummer-line').textContent = `Mitgliedsnummer: ${vnr}`;
 
   if (location.search.includes('welcome=1')) document.getElementById('welcome').hidden = false;
 

@@ -607,7 +607,7 @@ async function render() {
 
     return `<div class="member-row" onclick="openProfile('${escape(m._id)}','${escape(m.email)}','${escape(m.name)}')">
       <div>
-        <div class="member-name">${escape(m.name)}</div>
+        <div class="member-name">${escape(m.name)}</div>${m.vereinsnummer ? `<div class="member-vereinsnummer" style="font-size: 12px; color: var(--muted); margin-top: 2px;">${escape(m.vereinsnummer)}</div>` : ''}
         <div class="member-meta">${escape(m.email)}</div>
         <div class="member-badges">${badges.join('')}</div>
       </div>

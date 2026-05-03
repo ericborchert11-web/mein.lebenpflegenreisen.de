@@ -440,8 +440,7 @@ function fmtDateLong(iso) {
   const firstName = (session.name || session.email || 'Mitglied').split(' ')[0];
   document.getElementById('greeting').textContent = `${tod}, ${firstName}!`;  const vnr = session.vereinsnummer;  if (vnr) document.getElementById('vereinsnummer-line').textContent = `Mitgliedsnummer: ${vnr}`;
 
-  if (location.search.includes('welcome=1')) document.getElementById('welcome').hidden = false;
-
+(function(){const banner=document.getElementById('welcome');if(!banner)return;if(location.search.includes('welcome=1')){banner.hidden=false;return;}if(session.role==='ehrenamt'){LPR.getMyCompliance().then(res=>{if(!res||!res.ok||!Array.isArray(res.records))return;const approvedCount=res.records.filter(r=>r.status==='approved').length;if(approvedCount===0){banner.querySelector('.icon').textContent='📋';banner.querySelector('h3').textContent='Willkommen! Ein letzter Schritt.';banner.querySelector('p').textContent='Bevor du dich für Sitzwachen oder Reisen eintragen kannst, brauchen wir noch ein paar Dokumente von dir.';if(!banner.querySelector('.cta-compliance')){const cta=document.createElement('a');cta.href='mein-compliance.html';cta.className='cta-compliance';cta.textContent='Was muss ich einreichen? →';cta.style.cssText='display:inline-block;margin-top:10px;padding:10px 18px;background:var(--green-deep);color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:700';banner.querySelector('div:nth-child(2)').appendChild(cta);}banner.hidden=false;}});}})();
   await renderUpcomingBookings();
   await renderStats();
   if (session.role === 'ehrenamt') {

@@ -1939,7 +1939,7 @@
     try {
       let q = (await sb())
         .from('bookings')
-        .select('id, volunteer_id, date, shift, status, patient_room, patient_flags, patient_notes, created_at, profiles!bookings_volunteer_id_fkey(full_name)')
+        .select('id, volunteer_id, date, shift, status, patient_room, patient_flags, patient_notes, created_at, cancelled_at, cancelled_by_user_id, cancellation_reason, profiles!bookings_volunteer_id_fkey(full_name)')
         .eq('clinic_id', s.id)
         .order('date', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
@@ -1957,7 +1957,10 @@
         patient_room: b.patient_room,
         patient_flags: b.patient_flags || [],
         patient_notes: b.patient_notes,
-        created_at: b.created_at
+        created_at: b.created_at,
+        cancelled_at: b.cancelled_at,
+        cancelled_by_user_id: b.cancelled_by_user_id,
+        cancellation_reason: b.cancellation_reason
       }));
       return { ok: true, bookings };
     } catch(e) {
@@ -1985,6 +1988,36 @@
       return { ok: true, booking: data };
     } catch(e) {
       console.error('[LPR] cancelClinicBooking:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  // Volunteer storniert eigene Klinik-Buchung mit Begründung
+  async function cancelMyClinicBooking(bookingId, reason) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    const r = (reason || '').trim();
+    if (r.length < 10) return { ok: false, error: 'Bitte eine kurze Begründung angeben (min. 10 Zeichen).' };
+    try {
+      const client = await sb();
+      const { data, error } = await client
+        .from('bookings')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancelled_by_user_id: s.id,
+          cancellation_reason: r
+        })
+        .eq('id', bookingId)
+        .eq('volunteer_id', s.id)
+        .eq('status', 'planned')
+        .select()
+        .single();
+      if (error)  return { ok: false, error: error.message };
+      if (!data)  return { ok: false, error: 'Buchung nicht gefunden oder nicht stornierbar.' };
+      return { ok: true, booking: data };
+    } catch(e) {
+      console.error('[LPR] cancelMyClinicBooking:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
     }
   }
@@ -2048,7 +2081,7 @@
     getMyClinic, submitMyClinic,
     listClinicsByStatus, approveClinic, rejectClinic,
     // Klinik-Buchungen (Etappe 2)
-    listAvailableShifts, bookShift, getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking,
+    listAvailableShifts, bookShift, getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking, cancelMyClinicBooking,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

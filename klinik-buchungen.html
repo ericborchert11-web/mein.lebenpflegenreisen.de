@@ -122,6 +122,10 @@
 .kbl-status-pill.planned   { background: #E8F0E8; color: #1E3127; border-color: #4A7A5A; }
 .kbl-status-pill.completed { background: #DCE8E0; color: #1A3A2A; border-color: #2A5740; }
 .kbl-status-pill.cancelled { background: #F0E5E1; color: #7A3A28; border-color: #B07058; }
+    .kbl-cancel-notice { margin-top: 12px; padding: 12px 14px; background: #F0E5E1; border-left: 4px solid #B07058; border-radius: 6px; }
+    .kbl-cancel-title { font-size: 12px; font-weight: 700; color: #7A3A28; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+    .kbl-cancel-reason { font-size: 14px; color: #1E3127; line-height: 1.45; }
+    .kbl-cancel-meta { font-size: 12px; color: #666; margin-top: 6px; }
 
 .kbl-detail-grid {
   display: grid;
@@ -288,6 +292,12 @@ function renderList() {
           <dt>Hinweise</dt><dd>${flags}</dd>
           <dt>Anmerkung</dt><dd>${escape(b.patient_notes || '—')}</dd>
         </dl>
+        ${b.status === 'cancelled' && b.cancellation_reason ? `
+          <div class="kbl-cancel-notice">
+            <div class="kbl-cancel-title">Vom Ehrenamtlichen abgesagt</div>
+            <div class="kbl-cancel-reason">${escape(b.cancellation_reason)}</div>
+            ${b.cancelled_at ? `<div class="kbl-cancel-meta">Abgesagt am ${escape(fmtDate(b.cancelled_at.slice(0,10)))}</div>` : ''}
+          </div>` : ''}
         ${b.status === 'planned' ? `
           <div class="kbl-card-actions">
             <button type="button" class="kbl-btn-cancel" data-id="${escape(b.id)}">Buchung stornieren</button>

@@ -633,10 +633,10 @@ body.compliance-locked .info-box { display: none; }
 <!-- ════════════ HERO ════════════ -->
 <section class="hero">
   <div class="hero-wrap">
-    <div class="hero-eyebrow">Aufwandsentschädigung · § 3 Nr. 26 / 26a EStG</div>
+    <div class="hero-eyebrow">Aufwandsentschädigung · § 3 Nr. 26 EStG</div>
     <h1>Deine Abrechnung</h1>
     <p>
-      Reiche deinen Antrag auf Aufwandsentschädigung für abgeschlossene Reisebegleitungen ein. Die Berechnung folgt dem Vorstandsbeschluss vom 15. April 2026: 150 € je Reisetag (Anreise- und Abreisetag als halbe Tage). Die Zahlung ist als Übungsleiter- und Ehrenamtspauschale steuer- und sozialversicherungsfrei bis 4.260 € pro Jahr.
+      Reiche deinen Antrag auf Aufwandsentschädigung für abgeschlossene Reisebegleitungen ein. Die Berechnung folgt dem Vorstandsbeschluss vom 15. April 2026: 150 € je Reisetag (Anreise- und Abreisetag als halbe Tage). Die Zahlung ist als Übungsleiterpauschale steuer- und sozialversicherungsfrei bis 3.000 € pro Jahr.
     </p>
   </div>
 </section>
@@ -697,7 +697,7 @@ body.compliance-locked .info-box { display: none; }
 
     <!-- Hinweise -->
     <div class="info-box" id="budget-warning" hidden>
-      <strong>⚠️ Achtung:</strong> Du näherst dich dem jährlichen Freibetrag von 4.260 € (§ 3 Nr. 26 + 26a EStG). Darüber hinausgehende Beträge wären steuer- und ggf. sozialversicherungspflichtig. Bitte sprich vor weiteren Einsätzen mit dem Vorstand.
+      <strong>⚠️ Achtung:</strong> Du näherst dich dem jährlichen Freibetrag von 3.000 € (§ 3 Nr. 26 EStG). Darüber hinausgehende Beträge wären steuer- und ggf. sozialversicherungspflichtig. Bitte sprich vor weiteren Einsätzen mit dem Vorstand.
     </div>
 
     <!-- Loading State -->
@@ -761,7 +761,7 @@ body.compliance-locked .info-box { display: none; }
   <div class="dlg-body">
 
     <div class="info-box green" id="cd-legal-info">
-      <strong>Wichtig:</strong> Die Aufwandsentschädigung ist <em>kein Gehalt und kein Lohn</em>, sondern eine steuerfreie Pauschale nach <strong>§ 3 Nr. 26 + 26a EStG (Übungsleiter- und Ehrenamtspauschale)</strong> bis insgesamt 4.260 € pro Person und Kalenderjahr. Sie bleibt sozialversicherungsfrei.
+      <strong>Wichtig:</strong> Die Aufwandsentschädigung ist <em>kein Gehalt und kein Lohn</em>, sondern eine steuerfreie Pauschale nach <strong>§ 3 Nr. 26 EStG (Übungsleiterpauschale)</strong> bis 3.000 € pro Person und Kalenderjahr. Sie bleibt sozialversicherungsfrei.
     </div>
 
     <div class="field">
@@ -806,12 +806,7 @@ body.compliance-locked .info-box { display: none; }
 
     <label class="check">
       <input type="checkbox" class="cd-req" id="cd-chk-nicht-doppelt">
-      <div class="check-text">Ich bestätige, dass ich die <strong>Übungsleiterpauschale (3.300 €/Jahr, § 3 Nr. 26 EStG)</strong> im laufenden Kalenderjahr nicht bereits anderweitig in einer Höhe in Anspruch genommen habe, die zusammen mit dieser Zahlung den Freibetrag übersteigt.</div>
-    </label>
-
-    <label class="check">
-      <input type="checkbox" class="cd-req" id="cd-chk-nicht-doppelt-26a">
-      <div class="check-text">Ich bestätige, dass ich die <strong>Ehrenamtspauschale (960 €/Jahr, § 3 Nr. 26a EStG)</strong> im laufenden Kalenderjahr nicht bereits anderweitig in einer Höhe in Anspruch genommen habe, die zusammen mit dieser Zahlung den Freibetrag übersteigt.</div>
+      <div class="check-text">Ich bestätige, dass ich die <strong>Übungsleiterpauschale (3.000 €/Jahr, § 3 Nr. 26 EStG)</strong> im laufenden Kalenderjahr nicht bereits anderweitig in einer Höhe in Anspruch genommen habe, die zusammen mit dieser Zahlung den Freibetrag übersteigt.</div>
     </label>
 
     <label class="check">
@@ -842,7 +837,7 @@ body.compliance-locked .info-box { display: none; }
 LPR_Layout.init({ page: 'abrechnung' });
 
 // === KONFIGURATION ===
-const JAHRESFREIBETRAG = 4260;
+const JAHRESFREIBETRAG = 3000;
 const BESCHLUSS_DATUM = '2026-01-15';
 const VEREIN = { name: 'Leben Pflegen Reisen e.V.', adresse: 'Berlin', vertretung: 'Vorstand' };
 

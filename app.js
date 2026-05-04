@@ -671,13 +671,13 @@
       return { ok: true, signup: data, waitlist: status === 'waitlist' };
     } catch(e) { console.error('[LPR] signupForTrip:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
-  async function cancelSignup(tripId) {
+  async function cancelSignup(tripId, reason) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
     try {
       const { error } = await (await sb())
         .from('trip_signups')
-        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancellation_reason: (reason || '').trim() || null })
         .eq('trip_id', tripId)
         .eq('user_id', s.id);
       if (error) return { ok: false, error: error.message };
@@ -1989,6 +1989,36 @@
     }
   }
 
+  // Volunteer storniert eigene Klinik-Buchung mit Begründung
+  async function cancelMyClinicBooking(bookingId, reason) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    const r = (reason || '').trim();
+    if (r.length < 10) return { ok: false, error: 'Bitte eine kurze Begründung angeben (min. 10 Zeichen).' };
+    try {
+      const client = await sb();
+      const { data, error } = await client
+        .from('bookings')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancelled_by_user_id: s.id,
+          cancellation_reason: r
+        })
+        .eq('id', bookingId)
+        .eq('volunteer_id', s.id)
+        .eq('status', 'planned')
+        .select()
+        .single();
+      if (error)  return { ok: false, error: error.message };
+      if (!data)  return { ok: false, error: 'Buchung nicht gefunden oder nicht stornierbar.' };
+      return { ok: true, booking: data };
+    } catch(e) {
+      console.error('[LPR] cancelMyClinicBooking:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   global.LPR = {
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,
@@ -2018,7 +2048,7 @@
     getMyClinic, submitMyClinic,
     listClinicsByStatus, approveClinic, rejectClinic,
     // Klinik-Buchungen (Etappe 2)
-    listAvailableShifts, bookShift, getMyClinicBookings, cancelClinicBooking,
+    listAvailableShifts, bookShift, getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

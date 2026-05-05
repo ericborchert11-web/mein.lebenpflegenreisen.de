@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Unsere Reisen Â· Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Aktuelle und kommende barrierefreie Gruppenreisen von Leben Pflegen Reisen e.V.">
+<link rel="canonical" href="https://lebenpflegenreisen.de/reisen/">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.trips-wrap { max-width: 960px; margin: 32px auto 60px; padding: 0 24px; }
+.trips-wrap .doc-eyebrow {
+  font-size: 12px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 8px;
+}
+.trips-wrap .doc-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 38px;
+  color: var(--green-deep); margin-bottom: 8px;
+  letter-spacing: -0.02em; line-height: 1.05;
+}
+.trips-wrap .doc-sub {
+  color: var(--muted); font-size: 16px; margin-bottom: 32px;
+  max-width: 640px; line-height: 1.55;
+}
+
+.trip-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 24px;
+}
+@media (max-width: 720px) {
+  .trip-grid { grid-template-columns: 1fr; }
+}
+
+.trip-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 24px 20px;
+  display: flex; flex-direction: column;
+  box-shadow: var(--shadow);
+}
+.trip-card .trip-badge {
+  display: inline-block;
+  background: var(--lime-soft);
+  color: var(--green-deep);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 999px;
+  margin-bottom: 14px; align-self: flex-start;
+}
+.trip-card .trip-meta {
+  font-size: 14px; color: var(--muted);
+  margin-bottom: 6px;
+}
+.trip-card h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 22px;
+  color: var(--green-deep); margin: 4px 0 12px;
+  letter-spacing: -0.01em;
+}
+.trip-card p {
+  font-size: 14px; line-height: 1.55;
+  color: var(--ink); margin: 0 0 16px;
+  flex: 1;
+}
+.trip-card .trip-facts {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin: 8px 0 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft, #eee);
+}
+.trip-card .trip-fact {
+  font-size: 12px; color: var(--muted);
+  background: var(--bg-soft, #F5F5F0);
+  padding: 4px 10px; border-radius: 999px;
+}
+.trip-card .trip-cta {
+  display: inline-block;
+  background: var(--green); color: #fff;
+  text-decoration: none;
+  font-weight: 700; font-size: 14px;
+  padding: 10px 18px; border-radius: var(--radius-sm);
+  text-align: center;
+}
+.trip-card .trip-cta:hover { background: var(--green-deep); }
+
+.trips-empty, .trips-error, .trips-loading {
+  background: #fff; border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px;
+  text-align: center; color: var(--muted); font-size: 14px;
+}
+.trips-error { background: #FEF2F2; border-color: #FECACA; color: #991B1B; }
+
+.trips-info-note {
+  background: #FFF9EC; border: 1px solid #E8C968;
+  border-radius: 8px; padding: 16px 20px;
+  margin: 24px 0; font-size: 14px; line-height: 1.55;
+}
+.trips-info-note strong { color: var(--green-deep); }
+</style>
+</head>
+<body>
+
+<main class="trips-wrap">
+  <div class="doc-eyebrow">Kommende Reisen</div>
+  <h1 class="doc-title">Unsere Reisen</h1>
+  <p class="doc-sub">Hier siehst du die geplanten Reisen. Als Ehrenamtliche/r kannst du dich an Reisen interessiert anmelden â Details und Anmeldung folgen, sobald die Reisedetails feststehen.</p>
+
+  <div id="trips-container" class="trip-grid" aria-live="polite">
+    <div class="trips-loading">Reisen werden geladenâ¦</div>
+  </div>
+
+  <div class="trips-info-note">
+    <strong>Hinweis:</strong> Die Anmeldung als Reisebegleitung erfolgt zukÃ¼nftig Ã¼ber deinen Mitgliederbereich. Die Details der einzelnen Reisen (genaue Daten, Programm, Hotel) werden mit den Partnern (AWO Rerik / AWO Oberhof) finalisiert und dann hier ergÃ¤nzt.
+  </div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: 'reisen' });
+
+(async () => {
+  const container = document.getElementById('trips-container');
+  if (!container) return;
+
+  function escape(s) {
+    const d = document.createElement('div');
+    d.textContent = s ?? '';
+    return d.innerHTML;
+  }
+
+  function formatDateRange(start, end) {
+    if (!start || !end) return '';
+    const months = ['Januar','Februar','MÃ¤rz','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    const s = new Date(start);
+    const e = new Date(end);
+    if (isNaN(s) || isNaN(e)) return '';
+    const d1 = s.getDate(), m1 = s.getMonth(), y1 = s.getFullYear();
+    const d2 = e.getDate(), m2 = e.getMonth(), y2 = e.getFullYear();
+    if (y1 === y2) {
+      if (m1 === m2) return `${d1}.â${d2}. ${months[m1]} ${y1}`;
+      return `${d1}. ${months[m1]} â ${d2}. ${months[m2]} ${y1}`;
+    }
+    return `${d1}. ${months[m1]} ${y1} â ${d2}. ${months[m2]} ${y2}`;
+  }
+
+  function tripDays(start, end) {
+    if (!start || !end) return 0;
+    const s = new Date(start), e = new Date(end);
+    if (isNaN(s) || isNaN(e)) return 0;
+    return Math.round((e - s) / 86400000) + 1;
+  }
+
+  try {
+    // Wait until LPR API is loaded (app.js exports listTrips)
+    let tries = 0;
+    while ((!window.LPR || !window.LPR.listTrips) && tries < 50) {
+      await new Promise(r => setTimeout(r, 100));
+      tries++;
+    }
+    if (!window.LPR || !window.LPR.listTrips) {
+      container.innerHTML = '<div class="trips-error">Reisen-API ist gerade nicht erreichbar. Bitte spÃ¤ter erneut versuchen.</div>';
+      return;
+    }
+
+    const result = await window.LPR.listTrips({ status: 'open' });
+    if (!result.ok) {
+      container.innerHTML = '<div class="trips-error">Reisen konnten nicht geladen werden: ' + escape(result.error || '') + '</div>';
+      return;
+    }
+
+    const trips = result.trips || [];
+    if (trips.length === 0) {
+      container.innerHTML = '<div class="trips-empty">Aktuell sind keine Reisen geplant.</div>';
+      return;
+    }
+
+    const html = trips.map((t, idx) => {
+      const badge = idx === 0 ? 'NÃ¤chste Reise' : 'In Planung';
+      let meta = formatDateRange(t.start_date, t.end_date);
+      if (t.partner) meta += ' Â· mit ' + t.partner;
+      const days = tripDays(t.start_date, t.end_date);
+      const max = parseInt(t.max_spots, 10) || 0;
+      const desc = t.description || '';
+      return `
+        <article class="trip-card">
+          <span class="trip-badge">${escape(badge)}</span>
+          <div class="trip-meta">${escape(meta)}</div>
+          <h3>${escape(t.title || '')}</h3>
+          <p>${escape(desc)}</p>
+          <div class="trip-facts">
+            ${days > 0 ? `<span class="trip-fact">${days} Tage</span>` : ''}
+            ${max > 0 ? `<span class="trip-fact">Max. ${max} GÃ¤ste</span>` : ''}
+            <span class="trip-fact">Barrierefrei</span>
+          </div>
+          <a class="trip-cta" href="https://lebenpflegenreisen.de/reise-anfragen?reise=${encodeURIComponent((t.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))}">Mehr Infos â</a>
+        </article>
+      `;
+    }).join('');
+
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('[LPR] Reisen laden fehlgeschlagen:', err);
+    container.innerHTML = '<div class="trips-error">Reisen konnten nicht geladen werden. Bitte spÃ¤ter erneut versuchen.</div>';
+  }
+})();
+</script>
+</body>
+</html>

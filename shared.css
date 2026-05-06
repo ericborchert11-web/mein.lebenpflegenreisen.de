@@ -102,14 +102,14 @@ header.site {
 .brand { display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; }
 .brand-name {
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-weight: 800; font-size: 19px; letter-spacing: -0.01em; line-height: 1.1;
+    font-weight: 800; font-size: 22px; letter-spacing: -.01em; line-height: 1.1;
 }
 .brand-name em { font-style: normal; color: var(--lime); }
-.brand-sub { font-size: 11px; opacity: .65; letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+.brand-sub { font-size: 13px; opacity: .85; letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
 nav ul { list-style: none; display: flex; gap: 4px; align-items: center; }
 nav a {
   color: #fff; text-decoration: none;
-  font-weight: 500; font-size: 15px;
+    font-weight: 500; font-size: 16px;
   padding: 8px 14px; border-radius: 6px;
   transition: background .15s;
 }
@@ -120,7 +120,7 @@ nav a.cta:hover { background: #B8E028; }
 nav a.current { background: rgba(200,241,53,0.15); color: var(--lime); }
 .menu-btn {
   display: none; background: none; border: 1.5px solid #fff;
-  color: #fff; padding: 6px 10px; border-radius: 6px;
+    color: #fff; padding: 10px 14px; border-radius: 6px;
   cursor: pointer; font-family: inherit;
 }
 

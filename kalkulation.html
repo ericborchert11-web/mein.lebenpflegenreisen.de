@@ -531,7 +531,7 @@ async function init() {
     await new Promise(r => setTimeout(r, 100));
     attempts++;
   }
-  const sb = window.supabase && window.SUPABASE_URL ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY, { auth: { storageKey: 'lpr-session-v2', persistSession: true, autoRefreshToken: true } }) : null;
+  const sb = window.supabase && window.SUPABASE_URL ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY, { auth: { storageKey: 'lpr-auth-session', persistSession: true, autoRefreshToken: true } }) : null;
   if (!sb) {
     document.body.innerHTML = '<div class="access-deny"><h1>Initialisierung fehlgeschlagen</h1><p>Supabase-Client nicht verfügbar.</p></div>';
     return;

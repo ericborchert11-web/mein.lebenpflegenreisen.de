@@ -499,6 +499,7 @@
 
 <div class="kalk-toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="app.js?v20260515a"></script>
 <script src="layout.js"></script>
 <script>
@@ -524,8 +525,13 @@ const QUALIFICATIONS = [
 const RATE_MODELS = ['', 'Stundensatz (€/h)', 'Tagessatz (€/d)'];
 
 async function init() {
-  // app.js stellt global.LPRSupabase (via sb()-helper bzw direkt). Wir nutzen direkt.
-  const sb = window.LPRSupabase || (window.supabase && window.SUPABASE_URL ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY) : null);
+  // Wait for supabase global to be available (loaded via CDN)
+  let attempts = 0;
+  while (!window.supabase && attempts < 30) {
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
+  }
+  const sb = window.supabase && window.SUPABASE_URL ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY, { auth: { storageKey: 'lpr-session-v2', persistSession: true, autoRefreshToken: true } }) : null;
   if (!sb) {
     document.body.innerHTML = '<div class="access-deny"><h1>Initialisierung fehlgeschlagen</h1><p>Supabase-Client nicht verfügbar.</p></div>';
     return;

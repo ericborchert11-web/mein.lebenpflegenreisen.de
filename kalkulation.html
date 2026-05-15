@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalkulation · Leben Pflegen Reisen e.V.</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="description" content="Kostenkalkulation für Reisen · Leben Pflegen Reisen e.V.">
+<meta name="robots" content="noindex, follow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ──── Page-spezifische Styles für die Kalkulation ──── */
+:root {
+  --kalk-green:  #1A3A2A;
+  --kalk-lime:   #C8F135;
+  --kalk-muted:  #7AAA8A;
+  --kalk-border: #d8d4cc;
+  --kalk-danger: #c0392b;
+  --kalk-warn:   #d4a017;
+  --kalk-sand:   #f8f6f0;
+}
+
+.kalk-container { max-width: 1100px; margin: 0 auto; padding: 28px 24px 80px; }
+
+.kalk-view { display: none; }
+.kalk-view.active { display: block; }
+
+.kalk-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.05);
+  margin-bottom: 20px;
+}
+
+.kalk-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--kalk-green);
+  margin-bottom: 16px;
+  letter-spacing: -.01em;
+}
+
+.kalk-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--kalk-muted);
+  margin: 24px 0 12px;
+}
+.kalk-section-label:first-child { margin-top: 0; }
+
+.kalk-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.kalk-list-header h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 26px;
+  color: var(--kalk-green);
+  letter-spacing: -.01em;
+}
+.kalk-list-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.kalk-row {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.04);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+  border-left: 4px solid var(--kalk-green);
+  gap: 14px;
+}
+.kalk-row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+}
+.kalk-row.status-draft     { border-left-color: var(--kalk-warn); }
+.kalk-row.status-final     { border-left-color: var(--kalk-green); }
+.kalk-row.status-invoiced  { border-left-color: var(--kalk-lime); }
+.kalk-row.status-archived  { border-left-color: #999; opacity: .65; }
+
+.kalk-row-main { flex: 1; min-width: 0; }
+.kalk-row-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--kalk-green);
+  margin-bottom: 4px;
+}
+.kalk-row-meta { font-size: 12px; color: #888; }
+.kalk-row-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #555;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+.kalk-row-stats .stat-val { font-weight: 700; color: var(--kalk-green); }
+
+.kalk-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.kalk-pill.draft     { background: #fdf3d7; color: #8a6d10; }
+.kalk-pill.final     { background: #dceadd; color: var(--kalk-green); }
+.kalk-pill.invoiced  { background: var(--kalk-lime); color: var(--kalk-green); }
+.kalk-pill.archived  { background: #e5e1d9; color: #777; }
+
+.kalk-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+}
+.kalk-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+.kalk-field { display: flex; flex-direction: column; gap: 5px; }
+.kalk-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  letter-spacing: .03em;
+}
+.kalk-field label .hint { font-weight: 400; color: #aaa; margin-left: 6px; font-size: 10px; }
+
+.kalk-field input,
+.kalk-field select,
+.kalk-field textarea {
+  padding: 9px 12px;
+  border: 1px solid var(--kalk-border);
+  border-radius: 8px;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 14px;
+  background: #fff;
+}
+.kalk-field input:focus, .kalk-field select:focus, .kalk-field textarea:focus {
+  outline: none;
+  border-color: var(--kalk-green);
+  box-shadow: 0 0 0 3px rgba(26,58,42,.08);
+}
+.kalk-field input[readonly] { background: var(--kalk-sand); color: #777; }
+
+.staff-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.staff-table th { text-align: left; font-size: 10px; font-weight: 700; color: #888; letter-spacing: .08em; text-transform: uppercase; padding: 8px 6px; border-bottom: 1px solid var(--kalk-border); }
+.staff-table td { padding: 6px 4px; border-bottom: 1px solid #f0ece4; }
+.staff-table input, .staff-table select { width: 100%; padding: 7px 9px; border: 1px solid var(--kalk-border); border-radius: 6px; font-size: 13px; font-family: inherit; background: #fff; }
+.staff-table td.idx { width: 28px; color: #999; font-weight: 600; text-align: center; }
+.staff-table td.sum { font-weight: 700; color: var(--kalk-green); text-align: right; padding-right: 8px; }
+
+.kalk-results { background: var(--kalk-green); color: #fff; border-radius: 14px; padding: 22px 24px; margin-bottom: 20px; }
+.kalk-results h3 { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 18px; margin-bottom: 14px; color: var(--kalk-lime); }
+.kalk-results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.kalk-results-block { background: rgba(255,255,255,.06); padding: 14px 16px; border-radius: 10px; }
+.kalk-results-block h4 { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-bottom: 10px; }
+.kalk-results-block .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.kalk-results-block .row.total { border-top: 1px solid rgba(255,255,255,.15); margin-top: 6px; padding-top: 10px; font-weight: 700; }
+.kalk-results-block .row .v { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; }
+
+.kalk-bottom-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+.kalk-bottom-stat { background: rgba(255,255,255,.08); border-radius: 8px; padding: 12px; text-align: center; }
+.kalk-bottom-stat .lbl { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.55); margin-bottom: 4px; }
+.kalk-bottom-stat .val { font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 800; color: var(--kalk-lime); }
+.kalk-bottom-stat .val.neg { color: #ff8a7a; }
+
+.families-list { display: flex; flex-direction: column; gap: 8px; }
+.family-row { display: grid; grid-template-columns: auto 1fr 1fr 30px; gap: 10px; align-items: center; }
+.family-row .fidx { color: #999; font-weight: 600; font-size: 13px; min-width: 22px; }
+.family-row input { font-size: 13px; padding: 7px 9px; border: 1px solid var(--kalk-border); border-radius: 6px; font-family: inherit; }
+.family-row .del { background: none; border: none; color: var(--kalk-danger); cursor: pointer; font-size: 20px; padding: 0 4px; line-height: 1; }
+.family-row .del:hover { color: #962a1f; }
+
+── Buttons (kalk-spezifisch um shared.css nicht zu überlagern) ── */
+.kalk-btn {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Instrument Sans', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  letter-spacing: .02em;
+  transition: opacity .15s, transform .1s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.kalk-btn:hover { opacity: .87; }
+.kalk-btn:active { transform: translateY(1px); }
+.kalk-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.kalk-btn-primary { background: var(--kalk-green); color: #fff; }
+.kalk-btn-lime    { background: var(--kalk-lime); color: var(--kalk-green); font-weight: 700; }
+.kalk-btn-ghost   { background: transparent; color: var(--kalk-green); border: 1px solid var(--kalk-border); }
+.kalk-btn-danger  { background: transparent; color: var(--kalk-danger); border: 1px solid #eecaca; }
+.kalk-btn-small   { padding: 6px 12px; font-size: 12px; }
+
+.actions-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; align-items: center; }
+.actions-row .spacer { flex: 1; }
+
+.kalk-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--kalk-green); color: #fff; padding: 12px 22px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 18px rgba(0,0,0,.18); opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; z-index: 1000; max-width: 90%; text-align: center; }
+.kalk-toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+.kalk-toast.err { background: var(--kalk-danger); }
+.kalk-toast.ok  { background: #2a7a4a; }
+
+.kalk-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.25); border-top-color: #fff; border-radius: 50%; animation: kalk-spin .8s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes kalk-spin { to { transform: rotate(360deg); } }
+
+.kalk-modal-bd { position: fixed; inset: 0; background: rgba(13,28,19,.55); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+.kalk-modal-bd.show { display: flex; }
+.kalk-modal { background: #fff; border-radius: 14px; padding: 28px; max-width: 560px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+.kalk-modal h3 { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 20px; color: var(--kalk-green); margin-bottom: 12px; }
+.kalk-modal p { font-size: 14px; color: #555; line-height: 1.55; margin-bottom: 16px; }
+.kalk-modal .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+.invoice-preview { background: var(--kalk-sand); border-radius: 8px; padding: 14px; font-size: 11px; color: #555; max-height: 220px; overflow-y: auto; font-family: monospace; line-height: 1.6; border: 1px solid var(--kalk-border); white-space: pre; }
+
+.access-deny { padding: 60px 24px; text-align: center; max-width: 480px; margin: 0 auto; }
+.access-deny h1 { color: var(--kalk-green); font-family: 'Bricolage Grotesque', sans-serif; margin-bottom: 12px; }
+
+@media (max-width: 720px) {
+  .kalk-grid, .kalk-grid.cols-3 { grid-template-columns: 1fr; }
+  .kalk-results-grid { grid-template-columns: 1fr; }
+  .kalk-bottom-row { grid-template-columns: 1fr 1fr; }
+  .kalk-row { flex-direction: column; align-items: flex-start; }
+  .kalk-row-stats { justify-content: flex-start; }
+  .staff-table { font-size: 11px; }
+  .staff-table input, .staff-table select { padding: 5px 6px; }
+  .family-row { grid-template-columns: auto 1fr 30px; }
+  .family-row input.notes { grid-column: 2 / span 2; }
+}
+</style>
+</head>
+<body>
+
+<div class="kalk-container">
+
+  <div class="kalk-view active" id="viewList">
+    <div class="kalk-list-header">
+      <h1>Kostenkalkulation</h1>
+      <button class="kalk-btn kalk-btn-lime" onclick="openEditor()">+ Neue Kalkulation</button>
+    </div>
+    <div id="listBody">
+      <div class="kalk-list-empty">Lade…</div>
+    </div>
+  </div>
+
+  <div class="kalk-view" id="viewEdit">
+
+    <div class="kalk-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h2 id="editorTitle">Neue Kalkulation</h2>
+        <span id="editorPill" class="kalk-pill draft">Entwurf</span>
+      </div>
+
+      <div class="kalk-section-label">1. Reise-Stammdaten</div>
+      <div class="kalk-grid">
+        <div class="kalk-field">
+          <label>Titel der Kalkulation <span class="hint">intern</span></label>
+          <input type="text" id="f_title" placeholder="z.B. Rerik Mai 2026">
+        </div>
+        <div class="kalk-field">
+          <label>Reiseziel</label>
+          <input type="text" id="f_destination" placeholder="z.B. Rerik (Ostsee · AWO)">
+        </div>
+        <div class="kalk-field">
+          <label>Datum von</label>
+          <input type="date" id="f_date_from">
+        </div>
+        <div class="kalk-field">
+          <label>Datum bis</label>
+          <input type="date" id="f_date_to">
+        </div>
+        <div class="kalk-field">
+          <label>Anzahl Tage <span class="hint">automatisch</span></label>
+          <input type="text" id="f_days" readonly>
+        </div>
+        <div class="kalk-field">
+          <label>Anzahl Nächte <span class="hint">automatisch</span></label>
+          <input type="text" id="f_nights" readonly>
+        </div>
+        <div class="kalk-field">
+          <label>Anzahl Familien (Reisegäste)</label>
+          <input type="number" id="f_families_count" min="0" step="1" value="0">
+        </div>
+        <div class="kalk-field">
+          <label>Personelle Mindestbesetzung <span class="hint">lt. Pflegeschlüssel</span></label>
+          <input type="number" id="f_min_staff" min="0" step="1" value="2">
+        </div>
+      </div>
+
+      <div class="kalk-section-label">2. Grund-Annahmen</div>
+      <div class="kalk-grid cols-3">
+        <div class="kalk-field">
+          <label>Preis Familie/Tag (€) <span class="hint">AWO</span></label>
+          <input type="number" id="f_price_per_family_day" step="0.01" value="159">
+        </div>
+        <div class="kalk-field">
+          <label>Stunden/Tag <span class="hint">max. 7,75 h VHP §39</span></label>
+          <input type="number" id="f_standard_hours" step="0.25" value="7.75">
+        </div>
+        <div class="kalk-field">
+          <label>Halbierungs-Faktor An-/Abreise</label>
+          <input type="number" id="f_half_day_factor" step="0.05" value="0.5">
+        </div>
+        <div class="kalk-field">
+          <label>Logis pro Nacht/Person (€)</label>
+          <input type="number" id="f_lodging_per_night" step="0.01" value="30">
+        </div>
+        <div class="kalk-field">
+          <label>Materialkosten gesamt (€)</label>
+          <input type="number" id="f_material_costs" step="0.01" value="50">
+        </div>
+        <div class="kalk-field">
+          <label>Rücklage (%) <span class="hint">auf Selbstkosten</span></label>
+          <input type="number" id="f_reserve_pct" step="0.01" value="25">
+        </div>
+        <div class="kalk-field">
+          <label>km/Strecke (PKW)</label>
+          <input type="number" id="f_km_per_leg" step="0.1" value="0">
+        </div>
+        <div class="kalk-field">
+          <label>Anzahl Fahrten <span class="hint">2 = Hin+Rück</span></label>
+          <input type="number" id="f_num_trips" step="1" value="0">
+        </div>
+        <div class="kalk-field">
+          <label>Erstattung pro km (€)</label>
+          <input type="number" id="f_km_rate" step="0.01" value="0.38">
+        </div>
+        <div class="kalk-field">
+          <label>Anzahl Fahrzeuge</label>
+          <input type="number" id="f_num_vehicles" step="1" value="0">
+        </div>
+        <div class="kalk-field" style="grid-column: span 2;">
+          <label>Flixbus / ÖPNV / Sonstige Fahrt (€) <span class="hint">Pauschale Sammeltransport</span></label>
+          <input type="number" id="f_bus_other" step="0.01" value="0">
+        </div>
+      </div>
+
+      <div class="kalk-section-label">3. Personalkosten (bis zu 5 Personen)</div>
+      <table class="staff-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Name</th>
+            <th>Qualifikation</th>
+            <th>Modell</th>
+            <th style="width:90px;">Satz (€)</th>
+            <th style="width:90px;">Tage</th>
+            <th style="width:80px;">Halbtage?</th>
+            <th style="width:110px; text-align:right; padding-right:8px;">Summe (€)</th>
+          </tr>
+        </thead>
+        <tbody id="staffBody"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="7" style="text-align:right; padding-top:10px; font-weight:600; color:#555;">Summe Personalkosten:</td>
+            <td class="sum" id="sumPersonal" style="padding-top:10px;">0,00 €</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="kalk-section-label">4. Familien für Rechnungsversand <span style="color:#aaa; font-weight:400; text-transform:none; letter-spacing:0;">— Heilpraxis ergänzt Adressen</span></div>
+      <div class="families-list" id="familiesList"></div>
+      <div style="margin-top:10px;">
+        <button class="kalk-btn kalk-btn-ghost kalk-btn-small" onclick="addFamily()">+ Familie hinzufügen</button>
+        <span style="font-size:11px; color:#999; margin-left:10px;">leer lassen = kein Rechnungsversand möglich</span>
+      </div>
+
+      <div class="kalk-section-label">Notizen</div>
+      <div class="kalk-field">
+        <textarea id="f_notes" rows="3" placeholder="z.B. Besonderheiten, abweichende Abrechnungen…"></textarea>
+      </div>
+
+    </div>
+
+    <div class="kalk-results">
+      <h3>Ergebnis</h3>
+      <div class="kalk-results-grid">
+        <div class="kalk-results-block">
+          <h4>▸ Einnahmen</h4>
+          <div class="row"><span>Preis × Familien × Tage</span><span class="v" id="r_revenue_calc">— €</span></div>
+          <div class="row total"><span>Einnahmen gesamt</span><span class="v" id="r_revenue_total">0,00 €</span></div>
+        </div>
+        <div class="kalk-results-block">
+          <h4>▸ Ausgaben</h4>
+          <div class="row"><span>Personalkosten</span><span class="v" id="r_cost_personal">0,00 €</span></div>
+          <div class="row"><span>Kost & Logis</span><span class="v" id="r_cost_logis">0,00 €</span></div>
+          <div class="row"><span>Fahrtkosten</span><span class="v" id="r_cost_travel">0,00 €</span></div>
+          <div class="row"><span>Materialkosten</span><span class="v" id="r_cost_material">0,00 €</span></div>
+          <div class="row total"><span>Selbstkosten gesamt</span><span class="v" id="r_cost_total">0,00 €</span></div>
+        </div>
+      </div>
+      <div class="kalk-bottom-row">
+        <div class="kalk-bottom-stat">
+          <div class="lbl">Überschuss</div>
+          <div class="val" id="r_surplus">0,00 €</div>
+        </div>
+        <div class="kalk-bottom-stat">
+          <div class="lbl">Rücklage</div>
+          <div class="val" id="r_reserve">0,00 €</div>
+        </div>
+        <div class="kalk-bottom-stat">
+          <div class="lbl">Verein netto</div>
+          <div class="val" id="r_net_surplus">0,00 €</div>
+        </div>
+        <div class="kalk-bottom-stat">
+          <div class="lbl">Marge</div>
+          <div class="val" id="r_margin">—</div>
+        </div>
+      </div>
+      <div class="kalk-bottom-row" style="margin-top:10px;">
+        <div class="kalk-bottom-stat" style="grid-column: span 2;">
+          <div class="lbl">Selbstkosten pro Familie / Tag</div>
+          <div class="val" id="r_cost_per_family_day">— €</div>
+        </div>
+        <div class="kalk-bottom-stat" style="grid-column: span 2;">
+          <div class="lbl">Break-Even Familien</div>
+          <div class="val" id="r_breakeven">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="kalk-card">
+      <div class="actions-row">
+        <button class="kalk-btn kalk-btn-ghost" onclick="backToList()">← Zurück</button>
+        <button class="kalk-btn kalk-btn-danger kalk-btn-small" id="btnDelete" onclick="confirmDelete()" style="display:none;">Löschen</button>
+        <div class="spacer"></div>
+        <button class="kalk-btn kalk-btn-ghost" onclick="saveCalculation('draft')">Als Entwurf speichern</button>
+        <button class="kalk-btn kalk-btn-primary" onclick="saveCalculation('final')">Final speichern</button>
+        <button class="kalk-btn kalk-btn-lime" id="btnSendInvoices" onclick="openInvoiceModal()">📧 An Heilpraxis senden</button>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="kalk-modal-bd" id="invoiceModal">
+  <div class="kalk-modal">
+    <h3>Rechnungen an Heilpraxis senden</h3>
+    <p>Es wird eine E-Mail an die <strong>Heilpraxis Frommholz</strong> mit einer CSV-Liste aller Familien dieser Reise gesendet. Die Heilpraxis ergänzt anschließend Adressen und stellt die Rechnungen.</p>
+
+    <div class="kalk-field" style="margin-bottom:14px;">
+      <label>Empfänger E-Mail</label>
+      <input type="email" id="invoiceRecipient" value="info@heilpraxis-frommholz.de">
+    </div>
+
+    <div style="font-size:11px; color:#888; margin-bottom:8px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;">Vorschau der CSV-Daten:</div>
+    <div class="invoice-preview" id="invoicePreview">Lade Vorschau…</div>
+
+    <div class="actions">
+      <button class="kalk-btn kalk-btn-ghost" onclick="closeInvoiceModal()">Abbrechen</button>
+      <button class="kalk-btn kalk-btn-lime" id="btnConfirmSend" onclick="sendInvoices()">Senden</button>
+    </div>
+  </div>
+</div>
+
+<div class="kalk-modal-bd" id="deleteModal">
+  <div class="kalk-modal">
+    <h3>Kalkulation löschen?</h3>
+    <p>Die Kalkulation und alle zugehörigen Personaldaten werden dauerhaft entfernt. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    <div class="actions">
+      <button class="kalk-btn kalk-btn-ghost" onclick="closeDeleteModal()">Abbrechen</button>
+      <button class="kalk-btn kalk-btn-danger" onclick="deleteCalculation()">Endgültig löschen</button>
+    </div>
+  </div>
+</div>
+
+<div class="kalk-toast" id="toast"></div>
+
+<script src="app.js?v20260515a"></script>
+<script src="layout.js"></script>
+<script>
+/* =============================================================================
+   LPR Kalkulation · Frontend
+   Nutzt: LPR.getSession(), global.LPRSupabase, SUPABASE_URL, SUPABASE_KEY
+   ========================================================================== */
+
+let currentUser = null;
+let currentProfile = null;
+let currentCalcId = null;
+let staffRows = [];
+let familiesData = [];
+
+const QUALIFICATIONS = [
+  '',
+  'verantwortliche Fachkraft',
+  'Pflegehilfe Kategorie 0',
+  'Pflegehilfe Kategorie 1',
+  'Übungsleiter',
+  'Begleitperson'
+];
+const RATE_MODELS = ['', 'Stundensatz (€/h)', 'Tagessatz (€/d)'];
+
+async function init() {
+  // app.js stellt global.LPRSupabase (via sb()-helper bzw direkt). Wir nutzen direkt.
+  const sb = window.LPRSupabase || (window.supabase && window.SUPABASE_URL ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY) : null);
+  if (!sb) {
+    document.body.innerHTML = '<div class="access-deny"><h1>Initialisierung fehlgeschlagen</h1><p>Supabase-Client nicht verfügbar.</p></div>';
+    return;
+  }
+  window._sb = sb;
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    window.location.href = 'login.html';
+    return;
+  }
+  currentUser = session.user;
+
+  const { data: profile, error } = await sb
+    .from('profiles')
+    .select('id, full_name, role, status')
+    .eq('id', currentUser.id)
+    .single();
+
+  if (error || !profile) {
+    showAccessDenied('Profil konnte nicht geladen werden.');
+    return;
+  }
+  currentProfile = profile;
+
+  if (profile.role !== 'board' || profile.status !== 'approved') {
+    showAccessDenied('Die Kostenkalkulation ist nur für den Vorstand zugänglich.');
+    return;
+  }
+
+  await loadList();
+}
+
+function showAccessDenied(msg) {
+  document.querySelector('.kalk-container').innerHTML = `
+    <div class="access-deny">
+      <h1>Kein Zugriff</h1>
+      <p style="color:#777;">${msg}</p>
+      <p style="margin-top:20px;"><a href="mein-bereich.html" style="color:#1A3A2A;">← Zurück zum Mein-Bereich</a></p>
+    </div>`;
+}
+
+/* ───── List View ───── */
+async function loadList() {
+  showView('viewList');
+  const body = document.getElementById('listBody');
+  body.innerHTML = '<div class="kalk-list-empty">Lade…</div>';
+
+  const { data, error } = await window._sb
+    .from('trip_calculations')
+    .select('*')
+    .order('date_from', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    body.innerHTML = `<div class="kalk-list-empty" style="color:#c0392b;">Fehler: ${error.message}</div>`;
+    return;
+  }
+  if (!data || !data.length) {
+    body.innerHTML = '<div class="kalk-list-empty">Noch keine Kalkulationen angelegt.<br>Über <strong>+ Neue Kalkulation</strong> startest du.</div>';
+    return;
+  }
+
+  body.innerHTML = data.map(c => {
+    const days = (c.date_from && c.date_to)
+      ? (Math.round((new Date(c.date_to) - new Date(c.date_from)) / 86400000) + 1)
+      : 0;
+    const revenue = (Number(c.price_per_family_day) || 0) * (c.families_count || 0) * days;
+    const statusLabel = { draft: 'Entwurf', final: 'Final', invoiced: 'Versendet', archived: 'Archiviert' }[c.status] || c.status;
+    const dateStr = (c.date_from && c.date_to)
+      ? `${formatDateDE(c.date_from)} – ${formatDateDE(c.date_to)}`
+      : 'kein Datum';
+    return `
+      <div class="kalk-row status-${c.status}" onclick="openEditor('${c.id}')">
+        <div class="kalk-row-main">
+          <div class="kalk-row-title">${escapeHtml(c.title || 'Ohne Titel')}</div>
+          <div class="kalk-row-meta">${escapeHtml(c.destination || '—')} · ${dateStr} · ${c.families_count || 0} Familien</div>
+        </div>
+        <div class="kalk-row-stats">
+          <div>Einnahmen <span class="stat-val">${formatEUR(revenue)}</span></div>
+          <span class="kalk-pill ${c.status}">${statusLabel}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function showView(id) {
+  document.querySelectorAll('.kalk-view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function backToList() {
+  currentCalcId = null;
+  loadList();
+}
+
+/* ───── Editor ───── */
+async function openEditor(id) {
+  currentCalcId = id || null;
+  showView('viewEdit');
+  resetForm();
+
+  if (currentCalcId) {
+    document.getElementById('editorTitle').textContent = 'Kalkulation bearbeiten';
+    document.getElementById('btnDelete').style.display = 'inline-flex';
+    await loadCalculation(currentCalcId);
+  } else {
+    document.getElementById('editorTitle').textContent = 'Neue Kalkulation';
+    document.getElementById('btnDelete').style.display = 'none';
+    staffRows = Array.from({ length: 5 }, (_, i) => ({
+      position: i + 1, name: '', qualification: '', rate_model: '',
+      rate_amount: null, days_assigned: null, with_half_days: false
+    }));
+    renderStaffTable();
+    renderFamilies();
+  }
+  recalc();
+}
+
+function resetForm() {
+  ['f_title', 'f_destination', 'f_date_from', 'f_date_to', 'f_notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f_days').value = '';
+  document.getElementById('f_nights').value = '';
+  document.getElementById('f_families_count').value = 0;
+  document.getElementById('f_min_staff').value = 2;
+  document.getElementById('f_price_per_family_day').value = 159;
+  document.getElementById('f_standard_hours').value = 7.75;
+  document.getElementById('f_half_day_factor').value = 0.5;
+  document.getElementById('f_lodging_per_night').value = 30;
+  document.getElementById('f_material_costs').value = 50;
+  document.getElementById('f_reserve_pct').value = 25;
+  document.getElementById('f_km_per_leg').value = 0;
+  document.getElementById('f_num_trips').value = 0;
+  document.getElementById('f_km_rate').value = 0.38;
+  document.getElementById('f_num_vehicles').value = 0;
+  document.getElementById('f_bus_other').value = 0;
+  staffRows = [];
+  familiesData = [];
+  setStatusPill('draft');
+}
+
+async function loadCalculation(id) {
+  const [calcRes, staffRes] = await Promise.all([
+    window._sb.from('trip_calculations').select('*').eq('id', id).single(),
+    window._sb.from('calculation_staff').select('*').eq('calculation_id', id).order('position')
+  ]);
+
+  if (calcRes.error) {
+    toast('Kalkulation nicht gefunden', 'err');
+    backToList();
+    return;
+  }
+
+  const c = calcRes.data;
+  document.getElementById('f_title').value = c.title || '';
+  document.getElementById('f_destination').value = c.destination || '';
+  document.getElementById('f_date_from').value = c.date_from || '';
+  document.getElementById('f_date_to').value = c.date_to || '';
+  document.getElementById('f_families_count').value = c.families_count || 0;
+  document.getElementById('f_min_staff').value = c.min_staff_count || 2;
+  document.getElementById('f_price_per_family_day').value = c.price_per_family_day;
+  document.getElementById('f_standard_hours').value = c.standard_hours_per_day;
+  document.getElementById('f_half_day_factor').value = c.half_day_factor;
+  document.getElementById('f_lodging_per_night').value = c.lodging_per_night;
+  document.getElementById('f_material_costs').value = c.material_costs_total;
+  document.getElementById('f_reserve_pct').value = (Number(c.reserve_surcharge_pct) * 100).toFixed(2).replace(/\.?0+$/, '');
+  document.getElementById('f_km_per_leg').value = c.km_per_leg;
+  document.getElementById('f_num_trips').value = c.num_trips_count;
+  document.getElementById('f_km_rate').value = c.km_rate;
+  document.getElementById('f_num_vehicles').value = c.num_vehicles;
+  document.getElementById('f_bus_other').value = c.bus_other_costs;
+  document.getElementById('f_notes').value = c.notes || '';
+  setStatusPill(c.status);
+
+  staffRows = [];
+  for (let i = 1; i <= 5; i++) {
+    const existing = (staffRes.data || []).find(s => s.position === i);
+    staffRows.push(existing ? {
+      position: i,
+      name: existing.name || '',
+      qualification: existing.qualification || '',
+      rate_model: existing.rate_model || '',
+      rate_amount: existing.rate_amount,
+      days_assigned: existing.days_assigned,
+      with_half_days: existing.with_half_days || false
+    } : { position: i, name: '', qualification: '', rate_model: '', rate_amount: null, days_assigned: null, with_half_days: false });
+  }
+  renderStaffTable();
+
+  familiesData = Array.isArray(c.families_invoice_data) ? c.families_invoice_data.slice() : [];
+  renderFamilies();
+}
+
+function setStatusPill(status) {
+  const labels = { draft: 'Entwurf', final: 'Final', invoiced: 'Versendet', archived: 'Archiviert' };
+  const pill = document.getElementById('editorPill');
+  pill.className = 'kalk-pill ' + status;
+  pill.textContent = labels[status] || status;
+}
+
+/* ───── Staff Table ───── */
+function renderStaffTable() {
+  const tbody = document.getElementById('staffBody');
+  tbody.innerHTML = staffRows.map((s, i) => `
+    <tr>
+      <td class="idx">${i + 1}</td>
+      <td><input type="text" data-staff-idx="${i}" data-field="name" value="${escapeHtml(s.name || '')}" placeholder="Name"></td>
+      <td>
+        <select data-staff-idx="${i}" data-field="qualification">
+          ${QUALIFICATIONS.map(q => `<option value="${escapeHtml(q)}" ${s.qualification === q ? 'selected' : ''}>${q || '— wählen —'}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <select data-staff-idx="${i}" data-field="rate_model">
+          ${RATE_MODELS.map(m => `<option value="${escapeHtml(m)}" ${s.rate_model === m ? 'selected' : ''}>${m || '— wählen —'}</option>`).join('')}
+        </select>
+      </td>
+      <td><input type="number" step="0.01" data-staff-idx="${i}" data-field="rate_amount" value="${s.rate_amount ?? ''}"></td>
+      <td><input type="number" step="0.5" data-staff-idx="${i}" data-field="days_assigned" value="${s.days_assigned ?? ''}"></td>
+      <td>
+        <select data-staff-idx="${i}" data-field="with_half_days">
+          <option value="false" ${!s.with_half_days ? 'selected' : ''}>Nein</option>
+          <option value="true" ${s.with_half_days ? 'selected' : ''}>Ja</option>
+        </select>
+      </td>
+      <td class="sum" id="staffSum_${i}">—</td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', onStaffChange);
+    el.addEventListener('change', onStaffChange);
+  });
+}
+
+function onStaffChange(e) {
+  const idx = parseInt(e.target.dataset.staffIdx);
+  const field = e.target.dataset.field;
+  let val = e.target.value;
+  if (field === 'rate_amount' || field === 'days_assigned') {
+    val = val === '' ? null : parseFloat(val);
+  } else if (field === 'with_half_days') {
+    val = (val === 'true');
+  }
+  staffRows[idx][field] = val;
+  recalc();
+}
+
+/* ───── Families ───── */
+function renderFamilies() {
+  const wrap = document.getElementById('familiesList');
+  if (!familiesData.length) {
+    wrap.innerHTML = '<div style="font-size:12px; color:#aaa; padding:6px 0;">Noch keine Familien hinzugefügt.</div>';
+    return;
+  }
+  wrap.innerHTML = familiesData.map((f, i) => `
+    <div class="family-row">
+      <div class="fidx">${i + 1}.</div>
+      <input type="text" data-fam-idx="${i}" data-field="name" value="${escapeHtml(f.name || '')}" placeholder="Name der Familie (intern)">
+      <input type="text" data-fam-idx="${i}" data-field="notes" class="notes" value="${escapeHtml(f.notes || '')}" placeholder="Notiz (optional)">
+      <button class="del" onclick="removeFamily(${i})" title="entfernen">×</button>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('input').forEach(el => {
+    el.addEventListener('input', e => {
+      const i = parseInt(e.target.dataset.famIdx);
+      familiesData[i][e.target.dataset.field] = e.target.value;
+    });
+  });
+}
+
+function addFamily() {
+  familiesData.push({ name: '', notes: '' });
+  renderFamilies();
+}
+function removeFamily(i) {
+  familiesData.splice(i, 1);
+  renderFamilies();
+}
+
+/* ───── Live-Berechnung (1:1 Excel) ───── */
+function calcStaffSum(s, standardHours, halfDayFactor) {
+  if (!s.name || !s.rate_model || s.rate_amount == null || s.days_assigned == null) return null;
+  const baseRate = (s.rate_model === 'Stundensatz (€/h)') ? s.rate_amount * standardHours : s.rate_amount;
+  const effectiveDays = s.with_half_days
+    ? Math.max(s.days_assigned - 2, 0) + 2 * halfDayFactor
+    : s.days_assigned;
+  return baseRate * effectiveDays;
+}
+
+function recalc() {
+  const v = readInputs();
+
+  let days = 0, nights = 0;
+  if (v.date_from && v.date_to) {
+    const ms = new Date(v.date_to) - new Date(v.date_from);
+    if (!isNaN(ms) && ms >= 0) {
+      days = Math.round(ms / 86400000) + 1;
+      nights = Math.max(days - 1, 0);
+    }
+  }
+  document.getElementById('f_days').value = days || '';
+  document.getElementById('f_nights').value = nights || '';
+
+  let personalSum = 0;
+  let staffCount = 0;
+  staffRows.forEach((s, i) => {
+    const sum = calcStaffSum(s, v.standard_hours, v.half_day_factor);
+    const cell = document.getElementById('staffSum_' + i);
+    if (cell) cell.textContent = sum != null ? formatEUR(sum) : '—';
+    if (sum != null) personalSum += sum;
+    if (s.name) staffCount++;
+  });
+
+  const logisSum = staffCount * nights * v.lodging_per_night;
+  const kmSum = v.km_per_leg * v.num_trips * v.km_rate * v.num_vehicles;
+  const travelSum = kmSum + v.bus_other;
+  const materialSum = v.material_costs;
+  const costTotal = personalSum + logisSum + travelSum + materialSum;
+  const revenue = v.price_per_family_day * v.families_count * days;
+  const surplus = revenue - costTotal;
+  const reserve = costTotal * v.reserve_pct;
+  const netSurplus = surplus - reserve;
+  const margin = revenue > 0 ? (surplus / revenue) : null;
+  const costPerFamilyDay = (v.families_count > 0 && days > 0) ? (costTotal / v.families_count / days) : null;
+  const breakeven = (v.price_per_family_day * days) > 0 ? (costTotal / (v.price_per_family_day * days)) : null;
+
+  document.getElementById('sumPersonal').textContent = formatEUR(personalSum);
+  document.getElementById('r_revenue_calc').textContent = `${formatEUR(v.price_per_family_day)} × ${v.families_count} × ${days}`;
+  document.getElementById('r_revenue_total').textContent = formatEUR(revenue);
+  document.getElementById('r_cost_personal').textContent = formatEUR(personalSum);
+  document.getElementById('r_cost_logis').textContent = formatEUR(logisSum);
+  document.getElementById('r_cost_travel').textContent = formatEUR(travelSum);
+  document.getElementById('r_cost_material').textContent = formatEUR(materialSum);
+  document.getElementById('r_cost_total').textContent = formatEUR(costTotal);
+
+  setBottomStat('r_surplus', surplus, true);
+  setBottomStat('r_reserve', reserve, false);
+  setBottomStat('r_net_surplus', netSurplus, true);
+  document.getElementById('r_margin').textContent = margin != null ? `${(margin * 100).toFixed(1)} %` : '—';
+  document.getElementById('r_margin').classList.toggle('neg', margin != null && margin < 0);
+  document.getElementById('r_cost_per_family_day').textContent = costPerFamilyDay != null ? formatEUR(costPerFamilyDay) : '— €';
+  document.getElementById('r_breakeven').textContent = breakeven != null ? breakeven.toFixed(2).replace('.', ',') : '—';
+}
+
+function setBottomStat(id, value, signSensitive) {
+  const el = document.getElementById(id);
+  el.textContent = formatEUR(value);
+  el.classList.toggle('neg', signSensitive && value < 0);
+}
+
+function readInputs() {
+  return {
+    date_from: document.getElementById('f_date_from').value,
+    date_to:   document.getElementById('f_date_to').value,
+    families_count:        parseInt(document.getElementById('f_families_count').value) || 0,
+    min_staff_count:       parseInt(document.getElementById('f_min_staff').value) || 0,
+    price_per_family_day:  parseFloat(document.getElementById('f_price_per_family_day').value) || 0,
+    standard_hours:        parseFloat(document.getElementById('f_standard_hours').value) || 0,
+    half_day_factor:       parseFloat(document.getElementById('f_half_day_factor').value) || 0,
+    lodging_per_night:     parseFloat(document.getElementById('f_lodging_per_night').value) || 0,
+    material_costs:        parseFloat(document.getElementById('f_material_costs').value) || 0,
+    reserve_pct:           (parseFloat(document.getElementById('f_reserve_pct').value) || 0) / 100,
+    km_per_leg:            parseFloat(document.getElementById('f_km_per_leg').value) || 0,
+    num_trips:             parseFloat(document.getElementById('f_num_trips').value) || 0,
+    km_rate:               parseFloat(document.getElementById('f_km_rate').value) || 0,
+    num_vehicles:          parseFloat(document.getElementById('f_num_vehicles').value) || 0,
+    bus_other:             parseFloat(document.getElementById('f_bus_other').value) || 0
+  };
+}
+
+document.addEventListener('input', e => {
+  if (e.target.matches('#viewEdit input, #viewEdit select')) recalc();
+});
+
+/* ───── Save ───── */
+async function saveCalculation(status) {
+  const v = readInputs();
+  const title = document.getElementById('f_title').value.trim();
+  if (!title) { toast('Bitte Titel angeben', 'err'); return; }
+
+  const payload = {
+    title,
+    destination: document.getElementById('f_destination').value.trim() || null,
+    date_from: v.date_from || null,
+    date_to:   v.date_to || null,
+    families_count: v.families_count,
+    min_staff_count: v.min_staff_count,
+    price_per_family_day: v.price_per_family_day,
+    standard_hours_per_day: v.standard_hours,
+    half_day_factor: v.half_day_factor,
+    lodging_per_night: v.lodging_per_night,
+    material_costs_total: v.material_costs,
+    km_per_leg: v.km_per_leg,
+    num_trips_count: v.num_trips,
+    km_rate: v.km_rate,
+    num_vehicles: v.num_vehicles,
+    bus_other_costs: v.bus_other,
+    reserve_surcharge_pct: v.reserve_pct,
+    families_invoice_data: familiesData.filter(f => (f.name || '').trim()),
+    status,
+    notes: document.getElementById('f_notes').value.trim() || null
+  };
+
+  let calcId = currentCalcId;
+  if (calcId) {
+    const { error } = await window._sb.from('trip_calculations').update(payload).eq('id', calcId);
+    if (error) { toast('Fehler beim Speichern: ' + error.message, 'err'); return; }
+  } else {
+    payload.created_by = currentUser.id;
+    const { data, error } = await window._sb.from('trip_calculations').insert(payload).select().single();
+    if (error) { toast('Fehler beim Speichern: ' + error.message, 'err'); return; }
+    calcId = data.id;
+    currentCalcId = calcId;
+    document.getElementById('btnDelete').style.display = 'inline-flex';
+    document.getElementById('editorTitle').textContent = 'Kalkulation bearbeiten';
+  }
+
+  await window._sb.from('calculation_staff').delete().eq('calculation_id', calcId);
+  const staffToInsert = staffRows
+    .filter(s => s.name)
+    .map(s => ({
+      calculation_id: calcId,
+      position: s.position,
+      name: s.name,
+      qualification: s.qualification || null,
+      rate_model: s.rate_model || null,
+      rate_amount: s.rate_amount,
+      days_assigned: s.days_assigned,
+      with_half_days: s.with_half_days
+    }));
+  if (staffToInsert.length) {
+    const { error: stErr } = await window._sb.from('calculation_staff').insert(staffToInsert);
+    if (stErr) { toast('Personal-Speichern fehlgeschlagen: ' + stErr.message, 'err'); return; }
+  }
+
+  setStatusPill(status);
+  toast('Gespeichert ✓', 'ok');
+}
+
+/* ───── Delete ───── */
+function confirmDelete() {
+  document.getElementById('deleteModal').classList.add('show');
+}
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('show');
+}
+async function deleteCalculation() {
+  if (!currentCalcId) return;
+  const { error } = await window._sb.from('trip_calculations').delete().eq('id', currentCalcId);
+  closeDeleteModal();
+  if (error) { toast('Löschen fehlgeschlagen: ' + error.message, 'err'); return; }
+  toast('Gelöscht ✓', 'ok');
+  backToList();
+}
+
+/* ───── Invoices ───── */
+function openInvoiceModal() {
+  if (!currentCalcId) { toast('Bitte zuerst speichern', 'err'); return; }
+  if (!familiesData.filter(f => (f.name || '').trim()).length) {
+    toast('Bitte mindestens eine Familie hinzufügen', 'err'); return;
+  }
+  const v = readInputs();
+  const days = parseInt(document.getElementById('f_days').value) || 0;
+  const pricePerFamily = v.price_per_family_day * days;
+  const lines = ['Nr;Familie;Reiseziel;Datum von;Datum bis;Tage;Preis/Tag;Gesamt;Notiz'];
+  familiesData.filter(f => (f.name || '').trim()).forEach((f, i) => {
+    lines.push([
+      i + 1,
+      f.name,
+      document.getElementById('f_destination').value || '',
+      v.date_from || '',
+      v.date_to || '',
+      days,
+      v.price_per_family_day.toFixed(2).replace('.', ','),
+      pricePerFamily.toFixed(2).replace('.', ','),
+      f.notes || ''
+    ].join(';'));
+  });
+  document.getElementById('invoicePreview').textContent = lines.join('\n');
+  document.getElementById('invoiceModal').classList.add('show');
+}
+function closeInvoiceModal() {
+  document.getElementById('invoiceModal').classList.remove('show');
+}
+async function sendInvoices() {
+  const recipient = document.getElementById('invoiceRecipient').value.trim();
+  if (!recipient || !recipient.includes('@')) { toast('Bitte gültige E-Mail angeben', 'err'); return; }
+
+  const btn = document.getElementById('btnConfirmSend');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="kalk-spinner"></span> Sende…';
+
+  const { data: { session } } = await window._sb.auth.getSession();
+
+  try {
+    const resp = await fetch(`${window.SUPABASE_URL}/functions/v1/send-invoices-to-heilpraxis`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': window.SUPABASE_KEY
+      },
+      body: JSON.stringify({
+        calculation_id: currentCalcId,
+        recipient_email: recipient
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+
+    await window._sb.from('trip_calculations').update({
+      status: 'invoiced',
+      invoices_sent_at: new Date().toISOString(),
+      invoices_sent_to_email: recipient
+    }).eq('id', currentCalcId);
+
+    setStatusPill('invoiced');
+    closeInvoiceModal();
+    toast('Rechnungen an Heilpraxis gesendet ✓', 'ok');
+  } catch (err) {
+    toast('Senden fehlgeschlagen: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Senden';
+  }
+}
+
+/* ───── Helpers ───── */
+function formatEUR(v) {
+  if (v == null || isNaN(v)) return '— €';
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v);
+}
+function formatDateDE(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'kalk-toast show ' + (type || '');
+  setTimeout(() => t.className = 'kalk-toast', 3200);
+}
+
+// app.js exposes SUPABASE_URL/KEY as module-level consts, not globals.
+// We rely on global.LPRSupabase being set. The SUPABASE_URL/KEY for direct fetch
+// we derive from window.LPRSupabase config if needed.
+if (!window.SUPABASE_URL) window.SUPABASE_URL = 'https://makvwfznbwpjdzmuegoq.supabase.co';
+if (!window.SUPABASE_KEY) window.SUPABASE_KEY = 'sb_publishable_xF5Y004FE3Xjtl-l33cLKw_C9fVs3Y3';
+
+document.addEventListener('DOMContentLoaded', init);
+if (document.readyState !== 'loading') init();
+</script>
+</body>
+</html>

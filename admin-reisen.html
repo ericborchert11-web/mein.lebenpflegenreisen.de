@@ -165,6 +165,39 @@ main {
   align-items: flex-end;
 }
 
+/* Reise-Anmeldungen (Vorstand) */
+.signup-pill {
+  display: inline-block; margin-top: 8px;
+  font-size: 12px; font-weight: 700;
+  padding: 3px 10px; border-radius: 10px;
+  background: var(--lime-soft); color: var(--green-deep);
+}
+.signup-pill.zero { background: #F0F0F0; color: #888; }
+.trip-signups {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+  margin-top: 4px; padding-top: 12px;
+}
+.signup-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 8px 0;
+  border-bottom: 1px solid #F0EFE9;
+}
+.signup-row:last-of-type { border-bottom: none; }
+.signup-person { min-width: 0; }
+.signup-name { font-weight: 600; color: var(--text); font-size: 14px; }
+.signup-sub { font-size: 12px; color: var(--muted); margin-top: 1px; word-break: break-word; }
+.signup-meta { text-align: right; white-space: nowrap; flex-shrink: 0; }
+.signup-badge {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  padding: 3px 9px; border-radius: 9px; display: inline-block;
+}
+.badge-confirmed { background: var(--lime-soft); color: var(--green-deep); }
+.badge-waitlist  { background: #FFF3DE; color: #8E6112; }
+.signup-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.signup-note { font-size: 12px; color: var(--muted); font-style: italic; padding: 0 0 8px; }
+.signup-empty { color: var(--muted); font-size: 13px; padding: 4px 0 8px; }
+
 /* Empty state */
 .empty {
   background: #fff; border: 1px dashed var(--border);
@@ -438,6 +471,7 @@ main {
 'use strict';
 
 let _trips = [];
+let _signupsByTrip = {};
 let _editingTripId = null;  // null = create mode
 
 // ══════ AUTH GUARD ══════
@@ -460,9 +494,22 @@ async function loadTrips() {
   document.getElementById('loading-state').hidden = false;
   document.getElementById('trips-list').innerHTML = '';
   try {
-    const res = await LPR.listAllTripsAdmin();
+    const [res, sres] = await Promise.all([
+      LPR.listAllTripsAdmin(),
+      LPR.getAllTripSignupsAdmin()
+    ]);
     if (!res.ok) throw new Error(res.error || 'Reisen konnten nicht geladen werden');
     _trips = res.trips || [];
+    // Anmeldungen je Reise gruppieren (abgesagte ausgeblendet)
+    _signupsByTrip = {};
+    if (sres && sres.ok) {
+      (sres.signups || []).forEach(s => {
+        if (s.status === 'cancelled') return;
+        (_signupsByTrip[s.trip_id] = _signupsByTrip[s.trip_id] || []).push(s);
+      });
+    } else if (sres) {
+      console.warn('[admin-reisen] Anmeldungen konnten nicht geladen werden:', sres.error);
+    }
     document.getElementById('loading-state').hidden = true;
     render();
   } catch(e) {
@@ -477,7 +524,7 @@ function render() {
   const filter = document.getElementById('status-filter').value;
   const list = filter === 'all' ? _trips : _trips.filter(t => t.status === filter);
   const el = document.getElementById('trips-list');
-  
+
   if (list.length === 0) {
     el.innerHTML = `
       <div class="empty">
@@ -487,8 +534,13 @@ function render() {
       </div>`;
     return;
   }
-  
-  el.innerHTML = list.map(t => `
+
+  el.innerHTML = list.map(t => {
+    const signups = _signupsByTrip[t.id] || [];
+    const n = signups.length;
+    const pillClass = n === 0 ? 'signup-pill zero' : 'signup-pill';
+    const pillText = n === 0 ? 'Keine Anmeldungen' : (n === 1 ? '1 Anmeldung' : n + ' Anmeldungen');
+    return `
     <article class="trip-card">
       <div class="trip-info">
         <span class="trip-state state-${escapeHtml(t.status)}">${stateLabel(t.status)}</span>
@@ -499,13 +551,61 @@ function render() {
           ${t.partner ? `<span>🤝 ${escapeHtml(t.partner)}</span>` : ''}
         </div>
         <div class="trip-spots">Begleiter:innen: <strong>${t.max_spots}</strong>${t.rate_override_per_day ? ` · Tagessatz: <strong>${Number(t.rate_override_per_day).toFixed(2)} €</strong>` : ''}</div>
+        <span class="${pillClass}">👥 ${pillText}</span>
       </div>
       <div class="trip-actions">
+        <button class="btn btn-ghost btn-sm" onclick="toggleSignups('${t.id}', this)">Anmeldungen</button>
         <button class="btn btn-ghost btn-sm" onclick="openEditModal('${t.id}')">Bearbeiten</button>
         <button class="btn btn-danger-ghost btn-sm" onclick="askDelete('${t.id}')">Löschen</button>
       </div>
-    </article>
-  `).join('');
+      <div class="trip-signups" id="signups-${t.id}" hidden>${renderSignupRows(signups, t)}</div>
+    </article>`;
+  }).join('');
+}
+
+function renderSignupRows(signups, trip) {
+  if (!signups.length) {
+    return '<div class="signup-empty">Für diese Reise hat sich noch niemand eingetragen.</div>';
+  }
+  return signups.map(s => {
+    const confirmed = s.status === 'confirmed';
+    const badge = confirmed
+      ? '<span class="signup-badge badge-confirmed">Bestätigt</span>'
+      : '<span class="signup-badge badge-waitlist">Warteliste</span>';
+    const name = s.full_name ? escapeHtml(s.full_name) : '<em>Name nicht hinterlegt</em>';
+    const sub = [s.vereinsnummer ? escapeHtml(s.vereinsnummer) : '', s.email ? escapeHtml(s.email) : '']
+      .filter(Boolean).join(' · ');
+    let date = '';
+    if (s.signed_at) {
+      const d = new Date(s.signed_at);
+      if (!isNaN(d)) date = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    return `
+      <div class="signup-row">
+        <div class="signup-person">
+          <div class="signup-name">${name}</div>
+          ${sub ? `<div class="signup-sub">${sub}</div>` : ''}
+        </div>
+        <div class="signup-meta">
+          ${badge}
+          ${date ? `<div class="signup-date">eingetragen ${date}</div>` : ''}
+        </div>
+      </div>
+      ${s.note ? `<div class="signup-note">📝 ${escapeHtml(s.note)}</div>` : ''}`;
+  }).join('');
+}
+
+function toggleSignups(tripId, btn) {
+  const panel = document.getElementById('signups-' + tripId);
+  if (!panel) return;
+  const willOpen = panel.hasAttribute('hidden');
+  if (willOpen) {
+    panel.removeAttribute('hidden');
+    if (btn) btn.textContent = 'Anmeldungen ausblenden';
+  } else {
+    panel.setAttribute('hidden', '');
+    if (btn) btn.textContent = 'Anmeldungen';
+  }
 }
 
 function stateLabel(s) {

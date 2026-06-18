@@ -628,6 +628,45 @@
       return { ok: true, signups: data || [] };
     } catch(e) { console.error('[LPR] getTripSignups:', e); return { ok: false, error: 'Netzwerkfehler.', signups: [] }; }
   }
+  // Vorstand: alle Reise-Anmeldungen inkl. Namen (fuer admin-reisen.html)
+  async function getAllTripSignupsAdmin() {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur fuer den Vorstand.', signups: [] };
+    }
+    try {
+      const client = await sb();
+      const { data: signups, error: e1 } = await client
+        .from('trip_signups')
+        .select('id, trip_id, user_id, position, status, signed_at, note')
+        .order('trip_id', { ascending: true })
+        .order('position', { ascending: true });
+      if (e1) return { ok: false, error: e1.message, signups: [] };
+      const rows = signups || [];
+      const ids = [...new Set(rows.map(r => r.user_id).filter(Boolean))];
+      const nameById = {};
+      if (ids.length) {
+        const { data: profs, error: e2 } = await client
+          .from('profiles')
+          .select('id, full_name, email, vereinsnummer')
+          .in('id', ids);
+        if (e2) return { ok: false, error: e2.message, signups: [] };
+        (profs || []).forEach(p => { nameById[p.id] = p; });
+      }
+      const enriched = rows.map(r => {
+        const p = nameById[r.user_id] || {};
+        return Object.assign({}, r, {
+          full_name: p.full_name || null,
+          email: p.email || null,
+          vereinsnummer: p.vereinsnummer || null
+        });
+      });
+      return { ok: true, signups: enriched };
+    } catch(e) {
+      console.error('[LPR] getAllTripSignupsAdmin:', e);
+      return { ok: false, error: 'Netzwerkfehler.', signups: [] };
+    }
+  }
   async function getMySignup(tripId) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.', signup: null };
@@ -2008,6 +2047,7 @@
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     // Vorstand: Reise-Verwaltung
     listAllTripsAdmin, createTrip, updateTrip, deleteTrip,
+    getAllTripSignupsAdmin,
     getMyAvailability, setAvailability, removeAvailability,
     getMySignups, getMyBookings,
     getMyClaims, calculatePay,

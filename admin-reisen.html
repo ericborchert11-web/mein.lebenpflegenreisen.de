@@ -197,6 +197,22 @@ main {
 .signup-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
 .signup-note { font-size: 12px; color: var(--muted); font-style: italic; padding: 0 0 8px; }
 .signup-empty { color: var(--muted); font-size: 13px; padding: 4px 0 8px; }
+.signup-days { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.day-cov { margin: 0 0 12px; background: #FAFAF7; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.cov-head { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.cov-head.warn { color: var(--warn); }
+.cov-head.ok { color: var(--ok); }
+.cov-row { display: flex; gap: 10px; align-items: flex-start; padding: 4px 0; border-bottom: 1px solid #EFEEE8; }
+.cov-row:last-child { border-bottom: none; }
+.cov-row.cov-uncovered { background: #FBE9E2; margin: 0 -6px; padding: 4px 6px; border-radius: 4px; border-bottom: none; }
+.cov-day { font-size: 13px; font-weight: 600; color: var(--green-deep); min-width: 86px; flex-shrink: 0; }
+.cov-names { display: flex; flex-wrap: wrap; gap: 4px; }
+.cov-chip { font-size: 12px; background: var(--lime-soft); color: var(--green-deep); padding: 2px 8px; border-radius: 8px; }
+.cov-chip.wait { background: #FFF3DE; color: #8E6112; }
+.cov-warn { font-size: 12px; color: var(--warn); font-weight: 700; }
+.cov-pill { display: inline-block; margin-top: 8px; margin-left: 6px; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
+.cov-pill.warn { background: #FBE9E2; color: var(--warn); }
+.cov-pill.ok { background: #E8F0EB; color: var(--ok); }
 
 /* Empty state */
 .empty {
@@ -465,7 +481,7 @@ main {
   </div>
 </div>
 
-<script src="app.js?v20260429c"></script>
+<script src="app.js?v20260619"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -540,6 +556,8 @@ function render() {
     const n = signups.length;
     const pillClass = n === 0 ? 'signup-pill zero' : 'signup-pill';
     const pillText = n === 0 ? 'Keine Anmeldungen' : (n === 1 ? '1 Anmeldung' : n + ' Anmeldungen');
+    const cov = coverageSummary(signups, t);
+    const covPill = cov.total > 1 ? (cov.uncovered > 0 ? `<span class="cov-pill warn">\u26A0 ${cov.uncovered} Tag(e) unbesetzt</span>` : '<span class="cov-pill ok">\u2713 alle Tage besetzt</span>') : '';
     return `
     <article class="trip-card">
       <div class="trip-info">
@@ -551,22 +569,67 @@ function render() {
           ${t.partner ? `<span>🤝 ${escapeHtml(t.partner)}</span>` : ''}
         </div>
         <div class="trip-spots">Begleiter:innen: <strong>${t.max_spots}</strong>${t.rate_override_per_day ? ` · Tagessatz: <strong>${Number(t.rate_override_per_day).toFixed(2)} €</strong>` : ''}</div>
-        <span class="${pillClass}">👥 ${pillText}</span>
+        <span class="${pillClass}">👥 ${pillText}</span>${covPill}
       </div>
       <div class="trip-actions">
         <button class="btn btn-ghost btn-sm" onclick="toggleSignups('${t.id}', this)">Anmeldungen</button>
         <button class="btn btn-ghost btn-sm" onclick="openEditModal('${t.id}')">Bearbeiten</button>
         <button class="btn btn-danger-ghost btn-sm" onclick="askDelete('${t.id}')">Löschen</button>
       </div>
-      <div class="trip-signups" id="signups-${t.id}" hidden>${renderSignupRows(signups, t)}</div>
+      <div class="trip-signups" id="signups-${t.id}" hidden>${renderDayCoverage(signups, t)}${renderSignupRows(signups, t)}</div>
     </article>`;
   }).join('');
+}
+
+// ── Tages-Abdeckung (Teil-Reisen) ──
+function enumTripDays(start, end) {
+  if (!start) return [];
+  const out = [];
+  const sd = new Date(start + 'T00:00:00Z');
+  const ed = new Date((end || start) + 'T00:00:00Z');
+  if (isNaN(sd) || isNaN(ed) || ed < sd) return [start];
+  for (let d = new Date(sd); d <= ed; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0,10));
+  return out;
+}
+function fmtDay(iso) {
+  const d = new Date(iso + 'T00:00:00Z');
+  const wd = ['So','Mo','Di','Mi','Do','Fr','Sa'][d.getUTCDay()];
+  return wd + ' ' + String(d.getUTCDate()).padStart(2,'0') + '.' + String(d.getUTCMonth()+1).padStart(2,'0') + '.';
+}
+function effectiveDays(s, allDays) { return (s.days && s.days.length) ? s.days : allDays; }
+function coverageSummary(signups, trip) {
+  const allDays = enumTripDays(trip.start_date, trip.end_date);
+  if (allDays.length <= 1) return { total: allDays.length, uncovered: 0 };
+  let uncovered = 0;
+  allDays.forEach(day => {
+    const covered = signups.some(s => s.status === 'confirmed' && effectiveDays(s, allDays).indexOf(day) !== -1);
+    if (!covered) uncovered++;
+  });
+  return { total: allDays.length, uncovered };
+}
+function renderDayCoverage(signups, trip) {
+  const allDays = enumTripDays(trip.start_date, trip.end_date);
+  if (allDays.length <= 1) return '';
+  const rows = allDays.map(day => {
+    const conf = signups.filter(s => s.status === 'confirmed' && effectiveDays(s, allDays).indexOf(day) !== -1);
+    const wait = signups.filter(s => s.status === 'waitlist' && effectiveDays(s, allDays).indexOf(day) !== -1);
+    const chips = conf.map(s => `<span class="cov-chip">${s.full_name ? escapeHtml(s.full_name) : 'Mitglied'}</span>`).join('')
+      + wait.map(s => `<span class="cov-chip wait">${s.full_name ? escapeHtml(s.full_name) : 'Mitglied'} (WL)</span>`).join('');
+    const covered = conf.length > 0;
+    return `<div class="cov-row${covered ? '' : ' cov-uncovered'}"><div class="cov-day">${fmtDay(day)}</div><div class="cov-names">${(covered || wait.length) ? chips : '<span class="cov-warn">⚠ unbesetzt</span>'}</div></div>`;
+  }).join('');
+  const cov = coverageSummary(signups, trip);
+  const head = cov.uncovered > 0
+    ? `<div class="cov-head warn">⚠ ${cov.uncovered} von ${cov.total} Tagen unbesetzt</div>`
+    : `<div class="cov-head ok">✓ Alle ${cov.total} Tage besetzt</div>`;
+  return `<div class="day-cov">${head}${rows}</div>`;
 }
 
 function renderSignupRows(signups, trip) {
   if (!signups.length) {
     return '<div class="signup-empty">Für diese Reise hat sich noch niemand eingetragen.</div>';
   }
+  const allDays = enumTripDays(trip.start_date, trip.end_date);
   return signups.map(s => {
     const confirmed = s.status === 'confirmed';
     const badge = confirmed
@@ -575,6 +638,7 @@ function renderSignupRows(signups, trip) {
     const name = s.full_name ? escapeHtml(s.full_name) : '<em>Name nicht hinterlegt</em>';
     const sub = [s.vereinsnummer ? escapeHtml(s.vereinsnummer) : '', s.email ? escapeHtml(s.email) : '']
       .filter(Boolean).join(' · ');
+    const dayInfo = (allDays.length <= 1) ? '' : ((s.days && s.days.length) ? (s.days.length >= allDays.length ? 'ganze Reise' : s.days.map(fmtDay).join(', ')) : 'ganze Reise');
     let date = '';
     if (s.signed_at) {
       const d = new Date(s.signed_at);
@@ -585,6 +649,7 @@ function renderSignupRows(signups, trip) {
         <div class="signup-person">
           <div class="signup-name">${name}</div>
           ${sub ? `<div class="signup-sub">${sub}</div>` : ''}
+          ${dayInfo ? `<div class="signup-days">\uD83D\uDCC5 ${dayInfo}</div>` : ''}
         </div>
         <div class="signup-meta">
           ${badge}

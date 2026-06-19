@@ -653,12 +653,30 @@
         if (e2) return { ok: false, error: e2.message, signups: [] };
         (profs || []).forEach(p => { nameById[p.id] = p; });
       }
+      // Tage je Anmeldung laden (Teil-Reisen)
+      const daysBySignup = {};
+      const signupIds = rows.map(r => r.id);
+      if (signupIds.length) {
+        const { data: dayRows, error: e3 } = await client
+          .from('trip_signup_days')
+          .select('signup_id, day')
+          .in('signup_id', signupIds)
+          .order('day', { ascending: true });
+        if (!e3) {
+          (dayRows || []).forEach(d => {
+            (daysBySignup[d.signup_id] = daysBySignup[d.signup_id] || []).push(d.day);
+          });
+        } else {
+          console.warn('[LPR] getAllTripSignupsAdmin days:', e3.message);
+        }
+      }
       const enriched = rows.map(r => {
         const p = nameById[r.user_id] || {};
         return Object.assign({}, r, {
           full_name: p.full_name || null,
           email: p.email || null,
-          vereinsnummer: p.vereinsnummer || null
+          vereinsnummer: p.vereinsnummer || null,
+          days: daysBySignup[r.id] || []
         });
       });
       return { ok: true, signups: enriched };
@@ -681,7 +699,7 @@
       return { ok: true, signup: data };
     } catch(e) { console.error('[LPR] getMySignup:', e); return { ok: false, error: 'Netzwerkfehler.', signup: null }; }
   }
-  async function signupForTrip(tripId, note) {
+  async function signupForTrip(tripId, note, days) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
     const cc = await isComplianceComplete(s.id); if (!cc.complete) return { ok: false, error: 'Compliance unvollständig oder abgelaufen. Bitte Vorstand kontaktieren.', missing: cc.missing };
@@ -707,8 +725,68 @@
         if (error.code === '23505') return { ok: false, error: 'Sie sind bereits für diese Reise eingetragen.' };
         return { ok: false, error: error.message };
       }
-      return { ok: true, signup: data, waitlist: status === 'waitlist' };
+      // 4. Tage anlegen (Teil-Reisen). Keine Auswahl = ganze Reise.
+      const allDays = enumerateDays(tripRes.trip.start_date, tripRes.trip.end_date);
+      let chosen = (Array.isArray(days) && days.length)
+        ? days.filter(d => allDays.indexOf(d) !== -1)
+        : allDays.slice();
+      if (!chosen.length) chosen = allDays.slice();
+      let daysError = null;
+      if (chosen.length) {
+        const dayRows = chosen.map(day => ({ signup_id: data.id, trip_id: tripId, user_id: s.id, day }));
+        const { error: dErr } = await (await sb()).from('trip_signup_days').insert(dayRows);
+        if (dErr) { console.error('[LPR] signupForTrip days:', dErr); daysError = dErr.message; }
+      }
+      return { ok: true, signup: data, waitlist: status === 'waitlist', days: chosen, daysError };
     } catch(e) { console.error('[LPR] signupForTrip:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+  // Tage zwischen zwei ISO-Daten (YYYY-MM-DD) inkl. beider Enden
+  function enumerateDays(start, end) {
+    if (!start) return [];
+    const out = [];
+    const sd = new Date(start + 'T00:00:00Z');
+    const ed = new Date((end || start) + 'T00:00:00Z');
+    if (isNaN(sd) || isNaN(ed) || ed < sd) return [start];
+    for (let d = new Date(sd); d <= ed; d.setUTCDate(d.getUTCDate() + 1)) {
+      out.push(d.toISOString().slice(0, 10));
+    }
+    return out;
+  }
+  // Eigene gewählte Tage für eine Reise
+  async function getMySignupDays(tripId) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.', days: [] };
+    try {
+      const { data, error } = await (await sb())
+        .from('trip_signup_days')
+        .select('day')
+        .eq('trip_id', tripId)
+        .eq('user_id', s.id)
+        .order('day', { ascending: true });
+      if (error) return { ok: false, error: error.message, days: [] };
+      return { ok: true, days: (data || []).map(r => r.day) };
+    } catch(e) { console.error('[LPR] getMySignupDays:', e); return { ok: false, error: 'Netzwerkfehler.', days: [] }; }
+  }
+  // Eigene Tage ersetzen (nachträglich anpassen)
+  async function setMySignupDays(tripId, days) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const mine = await getMySignup(tripId);
+      if (!mine.ok || !mine.signup) return { ok: false, error: 'Keine Anmeldung für diese Reise gefunden.' };
+      const tripRes = await getTrip(tripId);
+      if (!tripRes.ok || !tripRes.trip) return { ok: false, error: 'Reise nicht gefunden.' };
+      const allDays = enumerateDays(tripRes.trip.start_date, tripRes.trip.end_date);
+      const chosen = (Array.isArray(days) ? days : []).filter(d => allDays.indexOf(d) !== -1);
+      if (!chosen.length) return { ok: false, error: 'Bitte mindestens einen Tag wählen.' };
+      const client = await sb();
+      const { error: delErr } = await client.from('trip_signup_days').delete().eq('trip_id', tripId).eq('user_id', s.id);
+      if (delErr) return { ok: false, error: delErr.message };
+      const rows = chosen.map(day => ({ signup_id: mine.signup.id, trip_id: tripId, user_id: s.id, day }));
+      const { error: insErr } = await client.from('trip_signup_days').insert(rows);
+      if (insErr) return { ok: false, error: insErr.message };
+      return { ok: true, days: chosen };
+    } catch(e) { console.error('[LPR] setMySignupDays:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
   async function cancelSignup(tripId, reason) {
     const s = getSession();
@@ -2045,6 +2123,7 @@
     // Block C
     getRates, getRate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
+    getMySignupDays, setMySignupDays,
     // Vorstand: Reise-Verwaltung
     listAllTripsAdmin, createTrip, updateTrip, deleteTrip,
     getAllTripSignupsAdmin,

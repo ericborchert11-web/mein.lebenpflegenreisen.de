@@ -480,6 +480,14 @@ body.ls .ls-tag { display: inline-block; }
   .a11y-bar, .card-actions, footer, .btn { display: none; }
   .card { break-inside: avoid; page-break-inside: avoid; }
 }
+/* Tages-Auswahl (Teil-Reisen) */
+.days-grid { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.day-chip { font-family:inherit; font-size:13px; font-weight:600; padding:6px 10px; border-radius:8px; border:1.5px solid var(--border); background:#fff; color:var(--muted,#6B7771); cursor:pointer; min-height:36px; transition:background .12s,border-color .12s; }
+.day-chip.selected { background:var(--lime-soft); border-color:var(--green,#2D4A3A); color:var(--green-deep); }
+.day-chip:focus-visible { outline:3px solid var(--lime); outline-offset:2px; }
+.days-quick { display:flex; gap:14px; margin-top:8px; }
+.days-quick button { background:transparent; border:none; color:var(--green,#2D4A3A); font-weight:600; font-size:13px; cursor:pointer; text-decoration:underline; padding:0; min-height:32px; }
+.days-count { font-size:13px; color:var(--muted,#6B7771); margin-top:6px; font-weight:600; }
 </style>
 </head>
 <body>
@@ -550,10 +558,20 @@ body.ls .ls-tag { display: inline-block; }
       <label for="f-note">Notiz (optional)</label>
       <textarea id="f-note" rows="2" placeholder="z.B. Allergien, besondere Hinweise, Sprachen…"></textarea>
     </div>
+    <div class="field" id="days-field" hidden>
+      <label>An welchen Tagen kannst du? <span class="req">*</span></label>
+      <div class="field-hint">Du musst nicht die ganze Reise begleiten – wähle die Tage, an denen du dabei bist.</div>
+      <div class="days-grid" id="day-picker"></div>
+      <div class="days-quick">
+        <button type="button" id="days-all">Alle auswählen</button>
+        <button type="button" id="days-none">Alle abwählen</button>
+      </div>
+      <div class="days-count" id="days-count"></div>
+    </div>
   </div>
   <div class="dlg-foot">
     <button class="btn btn-ghost" onclick="closeDialog()">Abbrechen</button>
-    <button class="btn btn-primary" id="submit-btn" onclick="submitSignup()">Eintragen</button>
+    <button class="btn btn-primary" id="submit-btn">Eintragen</button>
   </div>
 </dialog>
 
@@ -562,7 +580,7 @@ body.ls .ls-tag { display: inline-block; }
 
 
 
-<script src="app.js"></script>
+<script src="app.js?v20260619"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'schichtplaner' });
@@ -574,6 +592,7 @@ LPR_Layout.init({ page: 'schichtplaner' });
 let _trips = [];          // Trips aus DB
 let _signupsByTrip = {};  // tripId -> [signups]
 let _mySignupByTrip = {}; // tripId -> mein signup oder null
+let _myDaysByTrip = {};   // tripId -> [gewaehlte Tage]
 
 // ────────────────────────────────────────
 // FORMAT
@@ -601,6 +620,30 @@ function escapeHtml(str) {
 // ────────────────────────────────────────
 // LADEN
 // ────────────────────────────────────────
+// ────────────────────────────────────────
+// TAGES-AUSWAHL (Teil-Reisen)
+// ────────────────────────────────────────
+function enumerateTripDays(start, end) {
+  if (!start) return [];
+  const out = [];
+  const sd = new Date(start + 'T00:00:00Z');
+  const ed = new Date((end || start) + 'T00:00:00Z');
+  if (isNaN(sd) || isNaN(ed) || ed < sd) return [start];
+  for (let d = new Date(sd); d <= ed; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0,10));
+  return out;
+}
+function dayChipLabel(iso) {
+  const d = new Date(iso + 'T00:00:00Z');
+  const wd = ['So','Mo','Di','Mi','Do','Fr','Sa'][d.getUTCDay()];
+  return wd + ' ' + String(d.getUTCDate()).padStart(2,'0') + '.' + String(d.getUTCMonth()+1).padStart(2,'0') + '.';
+}
+function updateDaysCount() {
+  const sel = document.querySelectorAll('#day-picker .day-chip.selected').length;
+  const tot = document.querySelectorAll('#day-picker .day-chip').length;
+  const el = document.getElementById('days-count');
+  if (el) el.textContent = sel + ' von ' + tot + ' Tagen gewählt';
+}
+
 async function loadAll() {
   const tripsRes = await window.LPR.listTrips({ status: 'open' });
   if (!tripsRes.ok) {
@@ -613,6 +656,7 @@ async function loadAll() {
   // Signups je Trip parallel laden
   _signupsByTrip = {};
   _mySignupByTrip = {};
+  _myDaysByTrip = {};
   const session = window.LPR.getSession();
 
   await Promise.all(_trips.map(async (trip) => {
@@ -621,6 +665,12 @@ async function loadAll() {
     if (session) {
       const mine = _signupsByTrip[trip.id].find(s => s.user_id === session.id);
       _mySignupByTrip[trip.id] = mine || null;
+      if (mine) {
+        const dRes = await window.LPR.getMySignupDays(trip.id);
+        _myDaysByTrip[trip.id] = (dRes && dRes.ok) ? dRes.days : [];
+      } else {
+        _myDaysByTrip[trip.id] = [];
+      }
     }
   }));
 }
@@ -653,6 +703,11 @@ function renderTrips() {
     const iAmIn   = mine && mine.status === 'confirmed';
     const iAmWait = mine && mine.status === 'waitlist';
     const myPos   = mine ? mine.position : null;
+    const myDays = _myDaysByTrip[trip.id] || [];
+    const allTripDays = enumerateTripDays(trip.start_date, trip.end_date);
+    const myDaysLine = (mine && allTripDays.length > 1 && myDays.length)
+      ? `<div class="spots-info" style="font-size:13px;">\uD83D\uDCC5 Deine Tage: ${myDays.length >= allTripDays.length ? 'ganze Reise' : myDays.map(dayChipLabel).join(', ')}</div>`
+      : '';
 
     let badge = `<span class="card-badge"><span class="legend-dot dot-open"></span> ${spotsLeft} ${spotsLeft===1?'Platz':'Plätze'} frei</span>`;
     if (spotsLeft === 0) {
@@ -708,11 +763,13 @@ function renderTrips() {
     } else if (iAmIn) {
       actionHtml = `
         <div class="spots-info">✓ Sie sind <strong>fest eingetragen</strong> (Platz ${myPos})</div>
+        ${myDaysLine}
         <button class="btn btn-danger" data-cancel="${trip.id}">Abmelden</button>`;
     } else if (iAmWait) {
       const wPos = myPos - trip.max_spots;
       actionHtml = `
         <div class="spots-info">⏳ Sie stehen auf der <strong>Warteliste</strong> (Position ${wPos})</div>
+        ${myDaysLine}
         <button class="btn btn-danger" data-cancel="${trip.id}">Abmelden</button>`;
     } else if (spotsLeft > 0) {
       actionHtml = `
@@ -797,6 +854,22 @@ function openDialog(tripId, isWaitlist = false) {
     if (el) el.hidden = true;
   });
 
+  // Tages-Auswahl aufbauen (Teil-Reisen)
+  const _daysField = document.getElementById('days-field');
+  const _picker = document.getElementById('day-picker');
+  if (_picker) {
+    const allDays = enumerateTripDays(trip.start_date, trip.end_date);
+    _picker.innerHTML = '';
+    if (allDays.length > 1) {
+      if (_daysField) _daysField.hidden = false;
+      _picker.innerHTML = allDays.map(d => `<button type="button" class="day-chip selected" data-day="${d}">${dayChipLabel(d)}</button>`).join('');
+      _picker.querySelectorAll('.day-chip').forEach(ch => ch.addEventListener('click', () => { ch.classList.toggle('selected'); updateDaysCount(); }));
+      updateDaysCount();
+    } else if (_daysField) {
+      _daysField.hidden = true;
+    }
+  }
+
   dlg.showModal();
   setTimeout(() => {
     const noteEl = document.getElementById('f-note');
@@ -814,14 +887,26 @@ function closeDialog() {
 
 async function submitSignup() {
   if (!currentTripId) return;
+  const btn = document.getElementById('submit-btn');
+  if (btn && btn.disabled) return;
   const noteEl = document.getElementById('f-note');
   const note = noteEl ? noteEl.value.trim() : '';
 
-  const btn = document.getElementById('submit-btn');
+  // gewaehlte Tage einsammeln (Teil-Reisen)
+  const daysField = document.getElementById('days-field');
+  let selectedDays = [];
+  if (daysField && !daysField.hidden) {
+    selectedDays = Array.from(document.querySelectorAll('#day-picker .day-chip.selected')).map(c => c.dataset.day);
+    if (!selectedDays.length) {
+      showToast('Bitte mindestens einen Tag auswählen.', 'warn');
+      return;
+    }
+  }
+
   btn.disabled = true;
   btn.textContent = 'Wird eingetragen…';
 
-  const res = await window.LPR.signupForTrip(currentTripId, note || null);
+  const res = await window.LPR.signupForTrip(currentTripId, note || null, selectedDays);
 
   btn.disabled = false;
   btn.textContent = 'Eintragen';
@@ -877,6 +962,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Buttons im Dialog
   const submitBtn = document.getElementById('submit-btn');
   if (submitBtn) submitBtn.addEventListener('click', submitSignup);
+  const daysAllBtn = document.getElementById('days-all');
+  const daysNoneBtn = document.getElementById('days-none');
+  if (daysAllBtn) daysAllBtn.addEventListener('click', () => { document.querySelectorAll('#day-picker .day-chip').forEach(c => c.classList.add('selected')); updateDaysCount(); });
+  if (daysNoneBtn) daysNoneBtn.addEventListener('click', () => { document.querySelectorAll('#day-picker .day-chip').forEach(c => c.classList.remove('selected')); updateDaysCount(); });
   document.querySelectorAll('[data-action="close-dialog"]').forEach(b => {
     b.addEventListener('click', closeDialog);
   });

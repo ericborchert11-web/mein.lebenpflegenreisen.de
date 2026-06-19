@@ -715,12 +715,29 @@
       const nextPos = active.length + 1;
       const status = nextPos <= tripRes.trip.max_spots ? 'confirmed' : 'waitlist';
 
-      // 3. Insert
-      const { data, error } = await (await sb())
-        .from('trip_signups')
-        .insert({ trip_id: tripId, user_id: s.id, position: nextPos, status, note: note || null })
-        .select()
-        .single();
+      // 3. Bestehende Anmeldung? (auch stornierte) -> reaktivieren statt 23505-Fehler
+      const existing = await getMySignup(tripId);
+      let data, error;
+      if (existing.ok && existing.signup) {
+        if (existing.signup.status !== 'cancelled') {
+          return { ok: false, error: 'Sie sind bereits für diese Reise eingetragen.' };
+        }
+        const upd = await (await sb())
+          .from('trip_signups')
+          .update({ status, position: nextPos, note: note || null, cancelled_at: null, cancellation_reason: null })
+          .eq('id', existing.signup.id)
+          .select()
+          .single();
+        data = upd.data; error = upd.error;
+        if (!error) { await (await sb()).from('trip_signup_days').delete().eq('trip_id', tripId).eq('user_id', s.id); }
+      } else {
+        const ins = await (await sb())
+          .from('trip_signups')
+          .insert({ trip_id: tripId, user_id: s.id, position: nextPos, status, note: note || null })
+          .select()
+          .single();
+        data = ins.data; error = ins.error;
+      }
       if (error) {
         if (error.code === '23505') return { ok: false, error: 'Sie sind bereits für diese Reise eingetragen.' };
         return { ok: false, error: error.message };
@@ -787,6 +804,79 @@
       if (insErr) return { ok: false, error: insErr.message };
       return { ok: true, days: chosen };
     } catch(e) { console.error('[LPR] setMySignupDays:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+  // Vorstand: zuteilbare Mitglieder (freigegebene Ehrenamtliche)
+  async function listVolunteersAdmin() {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) return { ok: false, error: 'Nur für den Vorstand.', members: [] };
+    try {
+      const { data, error } = await (await sb())
+        .from('profiles')
+        .select('id, full_name, vereinsnummer, email, role, status')
+        .eq('role', 'volunteer')
+        .eq('status', 'approved')
+        .order('full_name', { ascending: true });
+      if (error) return { ok: false, error: error.message, members: [] };
+      return { ok: true, members: data || [] };
+    } catch(e) { console.error('[LPR] listVolunteersAdmin:', e); return { ok: false, error: 'Netzwerkfehler.', members: [] }; }
+  }
+  // Vorstand: Mitglied manuell zu einer Reise eintragen (board policy)
+  async function addSignupAdmin(tripId, userId, note) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) return { ok: false, error: 'Nur für den Vorstand.' };
+    if (!tripId || !userId) return { ok: false, error: 'Ungültige Parameter.' };
+    try {
+      const tripRes = await getTrip(tripId);
+      if (!tripRes.ok || !tripRes.trip) return { ok: false, error: 'Reise nicht gefunden.' };
+      const client = await sb();
+      const { data: ex, error: exErr } = await client
+        .from('trip_signups')
+        .select('id, status')
+        .eq('trip_id', tripId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (exErr) return { ok: false, error: exErr.message };
+      if (ex && ex.status !== 'cancelled') return { ok: false, error: 'Diese Person ist bereits eingetragen.' };
+      const sRes = await getTripSignups(tripId);
+      const active = (sRes.signups || []).filter(x => x.status !== 'cancelled');
+      const nextPos = active.length + 1;
+      let signup;
+      if (ex) {
+        const { data, error } = await client.from('trip_signups')
+          .update({ status: 'confirmed', position: nextPos, note: note || null, cancelled_at: null, cancellation_reason: null })
+          .eq('id', ex.id).select().single();
+        if (error) return { ok: false, error: error.message };
+        signup = data;
+      } else {
+        const { data, error } = await client.from('trip_signups')
+          .insert({ trip_id: tripId, user_id: userId, position: nextPos, status: 'confirmed', note: note || null })
+          .select().single();
+        if (error) return { ok: false, error: error.message };
+        signup = data;
+      }
+      return { ok: true, signup };
+    } catch(e) { console.error('[LPR] addSignupAdmin:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+  // Vorstand: Tage einer Anmeldung final zuteilen/anpassen (board policy)
+  async function setSignupDaysAdmin(signupId, tripId, userId, days) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) return { ok: false, error: 'Nur für den Vorstand.' };
+    if (!signupId || !tripId || !userId) return { ok: false, error: 'Ungültige Parameter.' };
+    try {
+      const tripRes = await getTrip(tripId);
+      if (!tripRes.ok || !tripRes.trip) return { ok: false, error: 'Reise nicht gefunden.' };
+      const allDays = enumerateDays(tripRes.trip.start_date, tripRes.trip.end_date);
+      const chosen = (Array.isArray(days) ? days : []).filter(d => allDays.indexOf(d) !== -1);
+      const client = await sb();
+      const { error: delErr } = await client.from('trip_signup_days').delete().eq('trip_id', tripId).eq('user_id', userId);
+      if (delErr) return { ok: false, error: delErr.message };
+      if (chosen.length) {
+        const rows = chosen.map(day => ({ signup_id: signupId, trip_id: tripId, user_id: userId, day }));
+        const { error: insErr } = await client.from('trip_signup_days').insert(rows);
+        if (insErr) return { ok: false, error: insErr.message };
+      }
+      return { ok: true, days: chosen };
+    } catch(e) { console.error('[LPR] setSignupDaysAdmin:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
   async function cancelSignup(tripId, reason) {
     const s = getSession();
@@ -2123,7 +2213,7 @@
     // Block C
     getRates, getRate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
-    getMySignupDays, setMySignupDays,
+    getMySignupDays, setMySignupDays, setSignupDaysAdmin, listVolunteersAdmin, addSignupAdmin,
     // Vorstand: Reise-Verwaltung
     listAllTripsAdmin, createTrip, updateTrip, deleteTrip,
     getAllTripSignupsAdmin,

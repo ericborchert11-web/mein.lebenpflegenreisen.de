@@ -213,6 +213,21 @@ main {
 .cov-pill { display: inline-block; margin-top: 8px; margin-left: 6px; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
 .cov-pill.warn { background: #FBE9E2; color: var(--warn); }
 .cov-pill.ok { background: #E8F0EB; color: var(--ok); }
+.assign-wrap { margin: 6px 0 10px; }
+.assign-toggle { background:transparent; border:1px solid var(--border); color:var(--green); font-weight:600; font-size:12px; padding:5px 12px; border-radius:8px; cursor:pointer; min-height:32px; }
+.assign-toggle:hover { background:var(--lime-soft); }
+.assign-edit { margin-top:8px; padding:10px 12px; background:#fff; border:1px solid var(--border); border-radius:8px; }
+.assign-hint { font-size:12px; color:var(--muted); margin-bottom:8px; }
+.assign-grid { display:flex; flex-wrap:wrap; gap:6px; }
+.assign-chip { font-size:12px; font-weight:600; padding:5px 9px; border-radius:8px; border:1.5px solid var(--border); background:#fff; color:var(--muted); cursor:pointer; min-height:32px; }
+.assign-chip.selected { background:var(--lime-soft); border-color:var(--green); color:var(--green-deep); }
+.assign-actions { display:flex; align-items:center; gap:12px; margin-top:10px; flex-wrap:wrap; }
+.assign-status { font-size:12px; font-weight:600; }
+.addmember { margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); }
+.addmember-hint { font-size:12px; color:var(--muted); margin-bottom:8px; }
+.addmember-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.addmember-select { font-family:inherit; font-size:13px; padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:#fff; color:var(--text); min-height:36px; max-width:100%; }
+.addmember-status { font-size:12px; font-weight:600; }
 
 /* Empty state */
 .empty {
@@ -481,13 +496,14 @@ main {
   </div>
 </div>
 
-<script src="app.js?v20260619"></script>
+<script src="app.js?v20260619c"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
 
 let _trips = [];
 let _signupsByTrip = {};
+let _allVolunteers = [];
 let _editingTripId = null;  // null = create mode
 
 // ══════ AUTH GUARD ══════
@@ -510,9 +526,10 @@ async function loadTrips() {
   document.getElementById('loading-state').hidden = false;
   document.getElementById('trips-list').innerHTML = '';
   try {
-    const [res, sres] = await Promise.all([
+    const [res, sres, vres] = await Promise.all([
       LPR.listAllTripsAdmin(),
-      LPR.getAllTripSignupsAdmin()
+      LPR.getAllTripSignupsAdmin(),
+      LPR.listVolunteersAdmin()
     ]);
     if (!res.ok) throw new Error(res.error || 'Reisen konnten nicht geladen werden');
     _trips = res.trips || [];
@@ -526,6 +543,7 @@ async function loadTrips() {
     } else if (sres) {
       console.warn('[admin-reisen] Anmeldungen konnten nicht geladen werden:', sres.error);
     }
+    _allVolunteers = (vres && vres.ok) ? (vres.members || []) : [];
     document.getElementById('loading-state').hidden = true;
     render();
   } catch(e) {
@@ -576,7 +594,7 @@ function render() {
         <button class="btn btn-ghost btn-sm" onclick="openEditModal('${t.id}')">Bearbeiten</button>
         <button class="btn btn-danger-ghost btn-sm" onclick="askDelete('${t.id}')">Löschen</button>
       </div>
-      <div class="trip-signups" id="signups-${t.id}" hidden>${renderDayCoverage(signups, t)}${renderSignupRows(signups, t)}</div>
+      <div class="trip-signups" id="signups-${t.id}" hidden>${renderDayCoverage(signups, t)}${renderSignupRows(signups, t)}${renderAddMember(t, signups)}</div>
     </article>`;
   }).join('');
 }
@@ -639,6 +657,20 @@ function renderSignupRows(signups, trip) {
     const sub = [s.vereinsnummer ? escapeHtml(s.vereinsnummer) : '', s.email ? escapeHtml(s.email) : '']
       .filter(Boolean).join(' · ');
     const dayInfo = (allDays.length <= 1) ? '' : ((s.days && s.days.length) ? (s.days.length >= allDays.length ? 'ganze Reise' : s.days.map(fmtDay).join(', ')) : 'ganze Reise');
+    const eff = (s.days && s.days.length) ? s.days : allDays;
+    const assignChips = allDays.map(d => `<span class="assign-chip${eff.indexOf(d)!==-1?' selected':''}" data-day="${d}" onclick="adminToggleDay(this)">${fmtDay(d)}</span>`).join('');
+    const assignBlock = (allDays.length > 1) ? `
+      <div class="assign-wrap">
+        <button class="assign-toggle" onclick="toggleAssign('${s.id}', this)">Tage zuteilen</button>
+        <div class="assign-edit" id="assign-${s.id}" hidden>
+          <div class="assign-hint">Tage, die diese Person final übernimmt. Keine Auswahl = ganze Reise.</div>
+          <div class="assign-grid">${assignChips}</div>
+          <div class="assign-actions">
+            <button class="btn btn-primary btn-sm" onclick="saveDayAssign('${s.id}','${trip.id}','${s.user_id}', this)">Speichern</button>
+            <span class="assign-status" id="assign-status-${s.id}"></span>
+          </div>
+        </div>
+      </div>` : '';
     let date = '';
     if (s.signed_at) {
       const d = new Date(s.signed_at);
@@ -656,10 +688,62 @@ function renderSignupRows(signups, trip) {
           ${date ? `<div class="signup-date">eingetragen ${date}</div>` : ''}
         </div>
       </div>
-      ${s.note ? `<div class="signup-note">📝 ${escapeHtml(s.note)}</div>` : ''}`;
+      ${s.note ? `<div class="signup-note">📝 ${escapeHtml(s.note)}</div>` : ''}
+      ${assignBlock}`;
   }).join('');
 }
 
+function renderAddMember(trip, signups) {
+  const taken = new Set((signups || []).map(s => s.user_id));
+  const avail = (_allVolunteers || []).filter(m => !taken.has(m.id));
+  if (!avail.length) {
+    return `<div class="addmember"><div class="addmember-hint">Alle freigegebenen Mitglieder sind bereits eingetragen.</div></div>`;
+  }
+  const opts = avail.map(m => `<option value="${m.id}">${escapeHtml(m.full_name || m.email || m.id)}${m.vereinsnummer ? ' · ' + escapeHtml(m.vereinsnummer) : ''}</option>`).join('');
+  return `<div class="addmember">
+    <div class="addmember-hint">Mitglied manuell eintragen (für Personen, die sich nicht selbst anmelden):</div>
+    <div class="addmember-row">
+      <select class="addmember-select" id="addmember-${trip.id}"><option value="">— Mitglied wählen —</option>${opts}</select>
+      <button class="btn btn-primary btn-sm" onclick="addMemberToTrip('${trip.id}', this)">Hinzufügen</button>
+      <span class="addmember-status" id="addmember-status-${trip.id}"></span>
+    </div>
+  </div>`;
+}
+async function addMemberToTrip(tripId, btn) {
+  const sel = document.getElementById('addmember-' + tripId);
+  const statusEl = document.getElementById('addmember-status-' + tripId);
+  if (!sel || !sel.value) { if (statusEl) { statusEl.textContent = 'Bitte ein Mitglied wählen.'; statusEl.style.color = 'var(--warn)'; } return; }
+  const userId = sel.value;
+  btn.disabled = true; const oldTxt = btn.textContent; btn.textContent = 'Fügt hinzu…';
+  const res = await LPR.addSignupAdmin(tripId, userId, 'Vom Vorstand eingetragen');
+  btn.disabled = false; btn.textContent = oldTxt;
+  if (!res.ok) { if (statusEl) { statusEl.textContent = '⚠ ' + (res.error || 'Fehler'); statusEl.style.color = 'var(--warn)'; } return; }
+  await loadTrips();
+  const panel = document.getElementById('signups-' + tripId);
+  if (panel) panel.hidden = false;
+}
+function toggleAssign(signupId, btn) {
+  const el = document.getElementById('assign-' + signupId);
+  if (!el) return;
+  el.hidden = !el.hidden;
+  btn.textContent = el.hidden ? 'Tage zuteilen' : 'Zuteilung schließen';
+}
+function adminToggleDay(el) { el.classList.toggle('selected'); }
+async function saveDayAssign(signupId, tripId, userId, btn) {
+  const wrap = document.getElementById('assign-' + signupId);
+  const days = wrap ? Array.from(wrap.querySelectorAll('.assign-chip.selected')).map(c => c.dataset.day) : [];
+  const statusEl = document.getElementById('assign-status-' + signupId);
+  btn.disabled = true; const oldTxt = btn.textContent; btn.textContent = 'Speichert…';
+  const res = await LPR.setSignupDaysAdmin(signupId, tripId, userId, days);
+  btn.disabled = false; btn.textContent = oldTxt;
+  if (!res.ok) { if (statusEl) { statusEl.textContent = '⚠ ' + (res.error || 'Fehler'); statusEl.style.color = 'var(--warn)'; } return; }
+  const list = _signupsByTrip[tripId] || [];
+  const sObj = list.find(x => x.id === signupId);
+  if (sObj) sObj.days = res.days || days;
+  const trip = _trips.find(t => t.id === tripId);
+  const panel = document.getElementById('signups-' + tripId);
+  if (panel && trip) { panel.innerHTML = renderDayCoverage(list, trip) + renderSignupRows(list, trip) + renderAddMember(trip, list); panel.hidden = false; }
+}
 function toggleSignups(tripId, btn) {
   const panel = document.getElementById('signups-' + tripId);
   if (!panel) return;

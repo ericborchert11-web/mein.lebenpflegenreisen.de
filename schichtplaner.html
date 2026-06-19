@@ -580,7 +580,7 @@ body.ls .ls-tag { display: inline-block; }
 
 
 
-<script src="app.js?v20260619"></script>
+<script src="app.js?v20260619c"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'schichtplaner' });
@@ -708,6 +708,9 @@ function renderTrips() {
     const myDaysLine = (mine && allTripDays.length > 1 && myDays.length)
       ? `<div class="spots-info" style="font-size:13px;">\uD83D\uDCC5 Deine Tage: ${myDays.length >= allTripDays.length ? 'ganze Reise' : myDays.map(dayChipLabel).join(', ')}</div>`
       : '';
+    const editDaysBtn = (mine && allTripDays.length > 1)
+      ? `<button class="btn btn-ghost" data-editdays="${trip.id}">Tage ändern</button>`
+      : '';
 
     let badge = `<span class="card-badge"><span class="legend-dot dot-open"></span> ${spotsLeft} ${spotsLeft===1?'Platz':'Plätze'} frei</span>`;
     if (spotsLeft === 0) {
@@ -764,12 +767,14 @@ function renderTrips() {
       actionHtml = `
         <div class="spots-info">✓ Sie sind <strong>fest eingetragen</strong> (Platz ${myPos})</div>
         ${myDaysLine}
+        ${editDaysBtn}
         <button class="btn btn-danger" data-cancel="${trip.id}">Abmelden</button>`;
     } else if (iAmWait) {
       const wPos = myPos - trip.max_spots;
       actionHtml = `
         <div class="spots-info">⏳ Sie stehen auf der <strong>Warteliste</strong> (Position ${wPos})</div>
         ${myDaysLine}
+        ${editDaysBtn}
         <button class="btn btn-danger" data-cancel="${trip.id}">Abmelden</button>`;
     } else if (spotsLeft > 0) {
       actionHtml = `
@@ -818,6 +823,9 @@ function renderTrips() {
   container.querySelectorAll('[data-cancel]').forEach(btn => {
     btn.addEventListener('click', () => cancelSignup(btn.dataset.cancel));
   });
+  container.querySelectorAll('[data-editdays]').forEach(btn => {
+    btn.addEventListener('click', () => openEditDays(btn.dataset.editdays));
+  });
 }
 
 // ────────────────────────────────────────
@@ -825,6 +833,7 @@ function renderTrips() {
 // ────────────────────────────────────────
 let currentTripId = null;
 let currentIsWaitlist = false;
+let dialogMode = 'signup'; // 'signup' | 'edit'
 
 function openDialog(tripId, isWaitlist = false) {
   const session = window.LPR.getSession();
@@ -834,6 +843,9 @@ function openDialog(tripId, isWaitlist = false) {
   }
   currentTripId = tripId;
   currentIsWaitlist = isWaitlist;
+  dialogMode = 'signup';
+  ['f-name','f-email','f-phone','f-note'].forEach(id => { const el=document.getElementById(id); if(el){ const f=el.closest('.field'); if(f) f.hidden = false; } });
+  const _sbtn = document.getElementById('submit-btn'); if (_sbtn) _sbtn.textContent = 'Eintragen';
   const trip = _trips.find(t => t.id === tripId);
   if (!trip) return;
   const dlg = document.getElementById('signup-dialog');
@@ -883,6 +895,36 @@ function closeDialog() {
   if (note) note.value = '';
   currentTripId = null;
   currentIsWaitlist = false;
+  dialogMode = 'signup';
+  ['f-name','f-email','f-phone','f-note'].forEach(id => { const el=document.getElementById(id); if(el){ const f=el.closest('.field'); if(f) f.hidden = false; } });
+}
+
+function openEditDays(tripId) {
+  const session = window.LPR.getSession();
+  if (!session) { showToast('Bitte zuerst einloggen.', 'warn'); return; }
+  dialogMode = 'edit';
+  currentTripId = tripId;
+  currentIsWaitlist = false;
+  const trip = _trips.find(t => t.id === tripId);
+  if (!trip) return;
+  const dlg = document.getElementById('signup-dialog');
+  document.getElementById('dlg-title').textContent = 'Tage ändern';
+  document.getElementById('dlg-sub').textContent = `${trip.title} · ${formatDateRange(trip.start_date, trip.end_date)}`;
+  ['f-name','f-email','f-phone','f-note'].forEach(id => { const el=document.getElementById(id); if(el){ const f=el.closest('.field'); if(f) f.hidden = true; } });
+  const daysField = document.getElementById('days-field');
+  const picker = document.getElementById('day-picker');
+  const allDays = enumerateTripDays(trip.start_date, trip.end_date);
+  const myDays = _myDaysByTrip[tripId] || [];
+  const selected = myDays.length ? myDays : allDays;
+  if (picker) {
+    picker.innerHTML = allDays.map(d => `<button type="button" class="day-chip${selected.indexOf(d)!==-1?' selected':''}" data-day="${d}">${dayChipLabel(d)}</button>`).join('');
+    picker.querySelectorAll('.day-chip').forEach(ch => ch.addEventListener('click', () => { ch.classList.toggle('selected'); updateDaysCount(); }));
+  }
+  if (daysField) daysField.hidden = (allDays.length <= 1);
+  updateDaysCount();
+  const btn = document.getElementById('submit-btn');
+  if (btn) btn.textContent = 'Speichern';
+  dlg.showModal();
 }
 
 async function submitSignup() {
@@ -904,6 +946,20 @@ async function submitSignup() {
   }
 
   btn.disabled = true;
+
+  if (dialogMode === 'edit') {
+    btn.textContent = 'Speichert…';
+    const resE = await window.LPR.setMySignupDays(currentTripId, selectedDays);
+    btn.disabled = false;
+    btn.textContent = 'Speichern';
+    if (!resE.ok) { showToast(resE.error || 'Speichern fehlgeschlagen.', 'warn'); return; }
+    closeDialog();
+    await loadAll();
+    renderTrips();
+    showToast('Tage aktualisiert.');
+    return;
+  }
+
   btn.textContent = 'Wird eingetragen…';
 
   const res = await window.LPR.signupForTrip(currentTripId, note || null, selectedDays);
@@ -920,11 +976,15 @@ async function submitSignup() {
   await loadAll();
   renderTrips();
 
-  showToast(
-    res.waitlist
-      ? 'Auf Warteliste gesetzt.'
-      : `Eingetragen! Platz ${res.signup ? res.signup.position : ''}.`
-  );
+  if (res.daysError) {
+    showToast('Eingetragen, aber die Tage konnten nicht gespeichert werden. Bitte „Tage ändern" erneut versuchen.', 'warn');
+  } else {
+    showToast(
+      res.waitlist
+        ? 'Auf Warteliste gesetzt.'
+        : `Eingetragen! Platz ${res.signup ? res.signup.position : ''}.`
+    );
+  }
 }
 
 async function cancelSignup(tripId) {
@@ -971,6 +1031,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   // Auch falls inline-onclick noch existiert: window-Funktionen exportieren
   window.openDialog = openDialog;
+  window.openEditDays = openEditDays;
   window.closeDialog = closeDialog;
   window.submitSignup = submitSignup;
   window.cancelSignup = cancelSignup;

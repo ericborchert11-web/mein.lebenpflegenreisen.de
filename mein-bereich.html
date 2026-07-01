@@ -183,6 +183,34 @@
   text-decoration: none;
 }
 .compliance-block .cb-cta:hover { background: #0F2419; }
+
+/* Kennenlern-Hinweis (Ehrenamt) */
+.kennenlern-note {
+  display: flex; gap: 14px; align-items: flex-start;
+  background: var(--lime-soft);
+  border: 1.5px solid var(--lime);
+  border-radius: var(--radius);
+  padding: 18px 20px; margin: 0 0 22px;
+}
+.kennenlern-note[hidden] { display: none !important; }
+.kennenlern-note .kn-icon { font-size: 26px; flex-shrink: 0; line-height: 1.1; }
+.kennenlern-note h3 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+  font-size: 17px; color: var(--green-deep); margin: 0 0 6px;
+}
+.kennenlern-note p { font-size: 14px; line-height: 1.55; color: #26332B; margin: 0 0 10px; }
+.kennenlern-note .kn-cta {
+  display: inline-block; padding: 9px 16px;
+  background: var(--green-deep); color: #fff;
+  text-decoration: none; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 700;
+}
+.kennenlern-note .kn-cta:hover { background: #0F2419; }
+.kennenlern-note .kn-close {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  font-size: 22px; color: var(--green-deep); line-height: 1;
+  padding: 0 2px; flex-shrink: 0;
+}
 .tile.locked { opacity: 0.55; pointer-events: none; position: relative; }
 .tile.locked::after {
   content: '🔒 Erst nach Freigabe der Unterlagen';
@@ -308,6 +336,17 @@
         <p data-ls="Du bist jetzt angemeldet. Du kannst dich für Reisen eintragen und sagen, wann du für Sitz-Wachen Zeit hast.">Du bist jetzt Mitglied im geschützten Bereich. Trag dich unten für Reisen ein, sag uns, wann du für Sitzwachen Zeit hast, oder schau alles erst in Ruhe an.</p>
       </div>
       <button onclick="this.closest('.welcome-banner').remove()" aria-label="Schließen">×</button>
+    </div>
+
+    <!-- Kennenlern-Hinweis (nur Ehrenamt, bis weggeklickt) -->
+    <div class="kennenlern-note" id="kennenlern-note" hidden>
+      <span class="kn-icon">🤝</span>
+      <div>
+        <h3 data-ls="Erst lernen wir uns kennen">Kurz vorab: persönliches Kennenlernen</h3>
+        <p data-ls="Bevor du bei Reisen oder Sitz-Wachen mitmachst, treffen wir uns einmal persönlich. Deine Unterlagen kannst du jetzt schon hochladen.">Bevor du zu Einsätzen (Reisen &amp; Sitzwachen) eingeteilt wirst, findet ein persönliches Kennenlerngespräch statt. Deine Unterlagen kannst du aber schon jetzt vorbereitend hochladen.</p>
+        <a href="mein-compliance.html" class="kn-cta">Zu meinen Unterlagen →</a>
+      </div>
+      <button class="kn-close" onclick="dismissKennenlern()" aria-label="Hinweis schließen">×</button>
     </div>
 
     <!-- Du wurdest gebucht-Sektion (nur sichtbar wenn anstehende Klinik-Buchungen vorhanden sind) -->
@@ -441,12 +480,30 @@ function fmtDateLong(iso) {
   document.getElementById('greeting').textContent = `${tod}, ${firstName}!`;  const vnr = session.vereinsnummer;  if (vnr) document.getElementById('vereinsnummer-line').textContent = `Mitgliedsnummer: ${vnr}`;
 
 (function(){const banner=document.getElementById('welcome');if(!banner)return;if(location.search.includes('welcome=1')){banner.hidden=false;return;}if(session.role==='ehrenamt'){LPR.getMyCompliance().then(res=>{if(!res||!res.ok||!Array.isArray(res.records))return;const approvedCount=res.records.filter(r=>r.status==='approved').length;if(approvedCount===0){banner.querySelector('.icon').textContent='📋';banner.querySelector('h3').textContent='Willkommen! Ein letzter Schritt.';banner.querySelector('p').textContent='Bevor du dich für Sitzwachen oder Reisen eintragen kannst, brauchen wir noch ein paar Dokumente von dir.';if(!banner.querySelector('.cta-compliance')){const cta=document.createElement('a');cta.href='mein-compliance.html';cta.className='cta-compliance';cta.textContent='Was muss ich einreichen? →';cta.style.cssText='display:inline-block;margin-top:10px;padding:10px 18px;background:var(--green-deep);color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:700';banner.querySelector('div:nth-child(2)').appendChild(cta);}banner.hidden=false;}});}})();
+  // Kennenlern-Hinweis (Ehrenamt, bis weggeklickt)
+  if (session.role === 'ehrenamt') showKennenlernNote(session);
+
   await renderUpcomingBookings();
   await renderStats();
   if (session.role === 'ehrenamt') {
     await checkCompliance();
   }
 })();
+
+function showKennenlernNote(session) {
+  const note = document.getElementById('kennenlern-note');
+  if (!note) return;
+  const key = 'lpr_km_dismissed_' + (session && session.id ? session.id : 'anon');
+  try { if (localStorage.getItem(key) === '1') return; } catch(e) {}
+  note.dataset.key = key;
+  note.hidden = false;
+}
+function dismissKennenlern() {
+  const note = document.getElementById('kennenlern-note');
+  if (!note) return;
+  note.hidden = true;
+  try { if (note.dataset.key) localStorage.setItem(note.dataset.key, '1'); } catch(e) {}
+}
 
 async function renderUpcomingBookings() {
   try {

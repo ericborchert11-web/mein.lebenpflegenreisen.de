@@ -89,6 +89,60 @@
   font-size: 13px; color: var(--muted);
 }
 .conf-contact a { color: var(--green-deep); font-weight: 600; }
+
+/* Kennenlern-Hinweis (nur Ehrenamt) */
+.kennenlern-box {
+  background: var(--lime-soft);
+  border: 1.5px solid var(--lime);
+  border-radius: var(--radius-sm);
+  padding: 18px 22px; margin: 24px 0;
+  text-align: left;
+}
+.kennenlern-box h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 16px;
+  color: var(--green-deep); margin: 0 0 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+.kennenlern-box p { font-size: 14px; line-height: 1.6; color: #26332B; margin: 0 0 8px; }
+.kennenlern-box p:last-child { margin: 0; }
+.kennenlern-box strong { color: var(--green-deep); }
+
+/* Kennenlern-Popup */
+.km-overlay {
+  position: fixed; inset: 0;
+  background: rgba(13,28,19,0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; z-index: 1000;
+  animation: km-fade .18s ease;
+}
+.km-overlay[hidden] { display: none; }
+@keyframes km-fade { from { opacity: 0; } to { opacity: 1; } }
+.km-dialog {
+  background: #fff; border-radius: var(--radius);
+  max-width: 460px; width: 100%;
+  padding: 32px 30px; box-shadow: var(--shadow-lg);
+  text-align: center;
+  animation: km-pop .22s cubic-bezier(.2,.8,.3,1.1);
+}
+@keyframes km-pop {
+  from { transform: translateY(12px) scale(.97); opacity: .6; }
+  to   { transform: none; opacity: 1; }
+}
+.km-icon {
+  width: 56px; height: 56px; background: var(--lime);
+  border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center;
+  font-size: 28px; margin-bottom: 16px;
+}
+.km-dialog h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 21px; line-height: 1.25;
+  color: var(--green-deep); margin: 0 0 12px;
+}
+.km-dialog p { font-size: 14.5px; line-height: 1.6; color: #333; margin: 0 0 12px; text-align: left; }
+.km-dialog p:last-of-type { margin-bottom: 22px; }
+.km-dialog .btn { width: 100%; }
 </style>
 </head>
 <body>
@@ -118,6 +172,12 @@
       </ol>
     </div>
 
+    <div class="kennenlern-box" id="kennenlern-box" hidden>
+      <h3>🤝 Bevor es losgeht: ein persönliches Kennenlernen</h3>
+      <p>Bevor du zum ersten Mal bei einer <strong>Reise oder Sitzwache</strong> dabei bist, lernen wir uns in einem kurzen persönlichen Gespräch kennen. So klären wir gemeinsam alle Fragen und finden heraus, welche Einsätze gut zu dir passen.</p>
+      <p>Deine Unterlagen kannst du – sobald dein Konto freigeschaltet ist – schon <strong>vorbereitend hochladen</strong>.</p>
+    </div>
+
     <div class="conf-actions">
       <a href="index.html" class="btn btn-ghost">Zur Startseite</a>
       <a href="login.html" class="btn btn-dark">Zum Login</a>
@@ -126,6 +186,17 @@
     <div class="conf-contact">
       Fragen? Schreiben Sie an <a href="mailto:vorstand@lebenpflegenreisen.de">vorstand@lebenpflegenreisen.de</a>
     </div>
+  </div>
+</div>
+
+<!-- Kennenlern-Popup (nur Ehrenamt, poppt beim Laden auf) -->
+<div class="km-overlay" id="kennenlern-modal" hidden role="dialog" aria-modal="true" aria-labelledby="km-title">
+  <div class="km-dialog">
+    <div class="km-icon">🤝</div>
+    <h2 id="km-title">Bevor es losgeht: ein persönliches Kennenlernen</h2>
+    <p>Bevor du zum ersten Mal bei einer Reise oder Sitzwache dabei bist, lernen wir uns in einem kurzen persönlichen Gespräch kennen. So klären wir alle Fragen und finden heraus, welche Einsätze gut zu dir passen.</p>
+    <p>Deine Unterlagen kannst du – sobald dein Konto freigeschaltet ist – schon vorbereitend hochladen.</p>
+    <button type="button" class="btn btn-primary" id="km-close">Verstanden</button>
   </div>
 </div>
 
@@ -145,6 +216,20 @@ LPR_Layout.init({ page: 'registrierung' });
   if (role) {
     const labels = { ehrenamt: '🤝 Ehrenamtliche:r', klinik: '🏥 Klinik' };
     document.getElementById('meta-role').textContent = labels[role] || role;
+  }
+
+  // Kennenlern-Hinweis + Popup nur für Ehrenamtliche
+  if (role === 'ehrenamt') {
+    const box = document.getElementById('kennenlern-box');
+    if (box) box.hidden = false;
+    const modal = document.getElementById('kennenlern-modal');
+    if (modal) {
+      modal.hidden = false;
+      const close = () => { modal.hidden = true; };
+      document.getElementById('km-close').addEventListener('click', close);
+      modal.addEventListener('click', e => { if (e.target === modal) close(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) close(); });
+    }
   }
   if (!name && !email) {
     document.getElementById('conf-meta').style.display = 'none';

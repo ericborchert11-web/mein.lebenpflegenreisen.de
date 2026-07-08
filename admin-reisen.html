@@ -517,10 +517,12 @@ main {
   </div>
 </div>
 
-<script src="app.js?v20260619c"></script>
+<script src="app.js?v20260708a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
+
+LPR_Layout.init({ page: 'reisen-admin' });
 
 let _trips = [];
 let _signupsByTrip = {};
@@ -713,18 +715,22 @@ function pauschaleInfo(userId, year) {
 
 function renderPauschBadge(userId, year) {
   const info = pauschaleInfo(userId, year);
-  if (info.total === 0) return '';
-  let cls = '', extra = '';
+  const frei = Math.max(0, info.rest);
+  let cls = '', text;
   if (info.total > PAUSCHALE_LIMIT) {
     cls = ' over';
-    extra = ' · ⚠ Limit um ' + LPR.formatEUR(info.total - PAUSCHALE_LIMIT) + ' überschritten';
+    text = `Pauschale ${year}: ${LPR.formatEUR(info.total)} / ${LPR.formatEUR(PAUSCHALE_LIMIT)} · ⚠ Limit um ${LPR.formatEUR(info.total - PAUSCHALE_LIMIT)} überschritten`;
   } else if (info.total >= PAUSCHALE_WARN) {
     cls = ' warn';
-    extra = ' · nur noch ' + LPR.formatEUR(info.rest) + ' frei';
+    text = `Pauschale ${year}: ${LPR.formatEUR(info.total)} / ${LPR.formatEUR(PAUSCHALE_LIMIT)} · nur noch ${LPR.formatEUR(frei)} frei`;
+  } else {
+    text = `Pauschale ${year}: ${LPR.formatEUR(info.total)} belegt · ${LPR.formatEUR(frei)} frei`;
   }
   const rpcHint = _pauschRpcOk ? '' : ' (ohne Abrechnungsdaten)';
-  return `<div class="pausch${cls}">Pauschale ${year}: ${LPR.formatEUR(info.total)} / ${LPR.formatEUR(PAUSCHALE_LIMIT)}${extra}</div>
-    <div class="pausch-detail">${LPR.formatEUR(info.abgerechnet)} beantragt/abgerechnet · ${LPR.formatEUR(info.planned)} verplant inkl. dieser Reise${rpcHint}</div>`;
+  const detail = info.total > 0
+    ? `<div class="pausch-detail">${LPR.formatEUR(info.abgerechnet)} beantragt/abgerechnet · ${LPR.formatEUR(info.planned)} verplant inkl. dieser Reise${rpcHint}</div>`
+    : '';
+  return `<div class="pausch${cls}">${text}</div>${detail}`;
 }
 function coverageSummary(signups, trip) {
   const allDays = enumTripDays(trip.start_date, trip.end_date);

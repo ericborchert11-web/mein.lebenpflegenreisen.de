@@ -685,6 +685,30 @@
       return { ok: false, error: 'Netzwerkfehler.', signups: [] };
     }
   }
+  /**
+   * Vorstand: Pauschalen-Übersicht (Übungsleiterpauschale § 3 Nr. 26 EStG)
+   * je Mitglied für ein Kalenderjahr. Nutzt die SECURITY-DEFINER-RPC
+   * admin_pauschale_overview in Supabase (RLS auf claims erlaubt sonst nur
+   * eigene Zeilen). Liefert je user_id:
+   *  - claimed  = Summe genehmigt/ausgezahlt (approved, paid)
+   *  - pending  = Summe eingereicht (submitted)
+   *  - claimed_signup_ids = trip_signup_ids mit bereits vorhandenem Antrag
+   */
+  async function getPauschaleOverviewAdmin(year) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur fuer den Vorstand.', rows: [] };
+    }
+    try {
+      const client = await sb();
+      const { data, error } = await client.rpc('admin_pauschale_overview', { p_year: year });
+      if (error) return { ok: false, error: error.message, rows: [] };
+      return { ok: true, rows: data || [] };
+    } catch(e) {
+      console.error('[LPR] getPauschaleOverviewAdmin:', e);
+      return { ok: false, error: 'Netzwerkfehler.', rows: [] };
+    }
+  }
   async function getMySignup(tripId) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.', signup: null };
@@ -2216,7 +2240,7 @@
     getMySignupDays, setMySignupDays, setSignupDaysAdmin, listVolunteersAdmin, addSignupAdmin,
     // Vorstand: Reise-Verwaltung
     listAllTripsAdmin, createTrip, updateTrip, deleteTrip,
-    getAllTripSignupsAdmin,
+    getAllTripSignupsAdmin, getPauschaleOverviewAdmin,
     getMyAvailability, setAvailability, removeAvailability,
     getMySignups, getMyBookings,
     getMyClaims, calculatePay,

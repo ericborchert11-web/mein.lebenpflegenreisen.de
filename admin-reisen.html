@@ -198,6 +198,25 @@ main {
 .signup-note { font-size: 12px; color: var(--muted); font-style: italic; padding: 0 0 8px; }
 .signup-empty { color: var(--muted); font-size: 13px; padding: 4px 0 8px; }
 .signup-days { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+/* Zurück-Link */
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 18px 0 0; font-size: 14px; font-weight: 600;
+  color: var(--green); text-decoration: none;
+}
+.back-link:hover { text-decoration: underline; }
+
+/* Pauschalen-Anzeige (§ 3 Nr. 26 EStG) */
+.pausch {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 5px; padding: 2px 9px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600;
+  background: #EAF3EC; color: #2C6B45;
+}
+.pausch.warn { background: #FFF3D6; color: #8A6200; }
+.pausch.over { background: #FDE3E0; color: #B4231A; }
+.pausch-detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .day-cov { margin: 0 0 12px; background: #FAFAF7; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
 .cov-head { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
 .cov-head.warn { color: var(--warn); }
@@ -383,6 +402,8 @@ main {
 
 <main id="main">
 
+  <a class="back-link" href="admin-mitwirkende.html">← Zurück zur Verwaltung</a>
+
   <!-- Login-Prompt -->
   <div id="login-view" hidden style="background:#fff; border-radius:12px; padding:32px; box-shadow:0 2px 12px rgba(0,0,0,.05); text-align:center; max-width:520px; margin:40px auto;">
     <div style="font-size:44px; margin-bottom:12px;">🔒</div>
@@ -506,6 +527,13 @@ let _signupsByTrip = {};
 let _allVolunteers = [];
 let _editingTripId = null;  // null = create mode
 
+// ══════ Pauschalen-Übersicht (Übungsleiterpauschale § 3 Nr. 26 EStG) ══════
+const PAUSCHALE_LIMIT = 3300;      // €/Jahr, Rechtsstand 2026
+const PAUSCHALE_WARN  = 2800;      // ab hier gelb markieren
+let _rates = {};                   // compensation_rates (travel_per_day)
+let _pauschByYear = {};            // Jahr -> { userId -> {claimed, pending, claimedSignupIds:Set} }
+let _pauschRpcOk = true;           // false, wenn RPC fehlt/fehlschlägt (dann nur "verplant")
+
 // ══════ AUTH GUARD ══════
 async function init() {
   const session = LPR.getSession();
@@ -544,6 +572,7 @@ async function loadTrips() {
       console.warn('[admin-reisen] Anmeldungen konnten nicht geladen werden:', sres.error);
     }
     _allVolunteers = (vres && vres.ok) ? (vres.members || []) : [];
+    await loadPauschaleData();
     document.getElementById('loading-state').hidden = true;
     render();
   } catch(e) {
@@ -615,6 +644,88 @@ function fmtDay(iso) {
   return wd + ' ' + String(d.getUTCDate()).padStart(2,'0') + '.' + String(d.getUTCMonth()+1).padStart(2,'0') + '.';
 }
 function effectiveDays(s, allDays) { return (s.days && s.days.length) ? s.days : allDays; }
+
+// ══════ Pauschalen-Logik ══════
+async function loadPauschaleData() {
+  try {
+    _rates = await LPR.getRates();
+  } catch(e) { _rates = {}; }
+  // Alle Kalenderjahre, in denen Reisen liegen
+  const years = [...new Set(_trips.map(t => t.start_date ? Number(t.start_date.slice(0,4)) : null).filter(Boolean))];
+  _pauschByYear = {};
+  _pauschRpcOk = true;
+  const results = await Promise.all(years.map(y => LPR.getPauschaleOverviewAdmin(y)));
+  years.forEach((y, i) => {
+    const res = results[i];
+    const map = {};
+    if (res && res.ok) {
+      (res.rows || []).forEach(r => {
+        map[r.user_id] = {
+          claimed: parseFloat(r.claimed) || 0,
+          pending: parseFloat(r.pending) || 0,
+          claimedSignupIds: new Set(r.claimed_signup_ids || [])
+        };
+      });
+    } else {
+      _pauschRpcOk = false;
+      if (res) console.warn('[admin-reisen] Pauschale-RPC:', res.error);
+    }
+    _pauschByYear[y] = map;
+  });
+}
+
+function tripPerDay(t) {
+  const base = (_rates.travel_per_day && _rates.travel_per_day.amount) ? Number(_rates.travel_per_day.amount) : 150;
+  return t.rate_override_per_day != null ? Number(t.rate_override_per_day) : base;
+}
+
+// Prognose-Betrag einer Zuteilung: An-/Abreisetag = halber Tag, sonst voller Tag.
+// Eintägige Reise = 1 voller Tag (entspricht der Abrechnungslogik 0,5 + 0,5).
+function signupPlannedAmount(s, t) {
+  const allDays = enumTripDays(t.start_date, t.end_date);
+  const eff = effectiveDays(s, allDays);
+  const perDay = tripPerDay(t);
+  if (allDays.length <= 1) return perDay;
+  const endDay = t.end_date || t.start_date;
+  let sum = 0;
+  eff.forEach(d => { sum += (d === t.start_date || d === endDay) ? perDay / 2 : perDay; });
+  return sum;
+}
+
+// Jahres-Stand einer Person: abgerechnet/beantragt (claims) + verplant (bestätigte
+// Zuteilungen ohne bereits gestellten Antrag) → Prognose gegen das Limit.
+function pauschaleInfo(userId, year) {
+  const p = (_pauschByYear[year] || {})[userId] || { claimed: 0, pending: 0, claimedSignupIds: new Set() };
+  let planned = 0;
+  _trips.forEach(t => {
+    if (!t.start_date || t.status === 'cancelled' || t.status === 'draft') return;
+    if (Number(t.start_date.slice(0,4)) !== year) return;
+    (_signupsByTrip[t.id] || []).forEach(s => {
+      if (s.user_id !== userId || s.status !== 'confirmed') return;
+      if (p.claimedSignupIds.has(s.id)) return; // dafür existiert schon ein Antrag
+      planned += signupPlannedAmount(s, t);
+    });
+  });
+  const abgerechnet = p.claimed + p.pending;
+  const total = abgerechnet + planned;
+  return { abgerechnet, planned, total, rest: PAUSCHALE_LIMIT - total };
+}
+
+function renderPauschBadge(userId, year) {
+  const info = pauschaleInfo(userId, year);
+  if (info.total === 0) return '';
+  let cls = '', extra = '';
+  if (info.total > PAUSCHALE_LIMIT) {
+    cls = ' over';
+    extra = ' · ⚠ Limit um ' + LPR.formatEUR(info.total - PAUSCHALE_LIMIT) + ' überschritten';
+  } else if (info.total >= PAUSCHALE_WARN) {
+    cls = ' warn';
+    extra = ' · nur noch ' + LPR.formatEUR(info.rest) + ' frei';
+  }
+  const rpcHint = _pauschRpcOk ? '' : ' (ohne Abrechnungsdaten)';
+  return `<div class="pausch${cls}">Pauschale ${year}: ${LPR.formatEUR(info.total)} / ${LPR.formatEUR(PAUSCHALE_LIMIT)}${extra}</div>
+    <div class="pausch-detail">${LPR.formatEUR(info.abgerechnet)} beantragt/abgerechnet · ${LPR.formatEUR(info.planned)} verplant inkl. dieser Reise${rpcHint}</div>`;
+}
 function coverageSummary(signups, trip) {
   const allDays = enumTripDays(trip.start_date, trip.end_date);
   if (allDays.length <= 1) return { total: allDays.length, uncovered: 0 };
@@ -682,6 +793,7 @@ function renderSignupRows(signups, trip) {
           <div class="signup-name">${name}</div>
           ${sub ? `<div class="signup-sub">${sub}</div>` : ''}
           ${dayInfo ? `<div class="signup-days">\uD83D\uDCC5 ${dayInfo}</div>` : ''}
+          ${confirmed ? renderPauschBadge(s.user_id, Number(trip.start_date.slice(0,4))) : ''}
         </div>
         <div class="signup-meta">
           ${badge}
@@ -699,7 +811,13 @@ function renderAddMember(trip, signups) {
   if (!avail.length) {
     return `<div class="addmember"><div class="addmember-hint">Alle freigegebenen Mitglieder sind bereits eingetragen.</div></div>`;
   }
-  const opts = avail.map(m => `<option value="${m.id}">${escapeHtml(m.full_name || m.email || m.id)}${m.vereinsnummer ? ' · ' + escapeHtml(m.vereinsnummer) : ''}</option>`).join('');
+  const tripYear = trip.start_date ? Number(trip.start_date.slice(0,4)) : new Date().getFullYear();
+  const opts = avail.map(m => {
+    const info = pauschaleInfo(m.id, tripYear);
+    const frei = Math.max(0, info.rest);
+    const budget = info.total > 0 ? ' · frei: ' + LPR.formatEUR(frei) : '';
+    return `<option value="${m.id}">${escapeHtml(m.full_name || m.email || m.id)}${m.vereinsnummer ? ' · ' + escapeHtml(m.vereinsnummer) : ''}${budget}</option>`;
+  }).join('');
   return `<div class="addmember">
     <div class="addmember-hint">Mitglied manuell eintragen (für Personen, die sich nicht selbst anmelden):</div>
     <div class="addmember-row">

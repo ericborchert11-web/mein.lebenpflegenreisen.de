@@ -902,6 +902,26 @@
       return { ok: true, days: chosen };
     } catch(e) { console.error('[LPR] setSignupDaysAdmin:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
+  // Vorstand: Mitglied von einer Reise entfernen (Storno durch Vorstand, board policy).
+  // Soft-Cancel statt DELETE: Historie bleibt erhalten, Reaktivierung über
+  // addSignupAdmin/signupForTrip funktioniert weiterhin (cancelled-Pfad).
+  async function removeSignupAdmin(signupId, tripId, userId, reason) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) return { ok: false, error: 'Nur für den Vorstand.' };
+    if (!signupId || !tripId || !userId) return { ok: false, error: 'Ungültige Parameter.' };
+    try {
+      const client = await sb();
+      const { error } = await client
+        .from('trip_signups')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancellation_reason: (reason || '').trim() || 'Vom Vorstand entfernt' })
+        .eq('id', signupId);
+      if (error) return { ok: false, error: error.message };
+      // Zugeteilte Tage aufräumen, damit Abdeckung/Pauschalen-Planung stimmen
+      const { error: dErr } = await client.from('trip_signup_days').delete().eq('trip_id', tripId).eq('user_id', userId);
+      if (dErr) console.warn('[LPR] removeSignupAdmin days:', dErr.message);
+      return { ok: true };
+    } catch(e) { console.error('[LPR] removeSignupAdmin:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
   async function cancelSignup(tripId, reason) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
@@ -2279,7 +2299,7 @@
     // Block C
     getRates, getRate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
-    getMySignupDays, setMySignupDays, setSignupDaysAdmin, listVolunteersAdmin, addSignupAdmin,
+    getMySignupDays, setMySignupDays, setSignupDaysAdmin, listVolunteersAdmin, addSignupAdmin, removeSignupAdmin,
     // Vorstand: Reise-Verwaltung
     listAllTripsAdmin, createTrip, updateTrip, deleteTrip,
     getAllTripSignupsAdmin, getPauschaleOverviewAdmin,

@@ -188,6 +188,7 @@ main {
 .signup-name { font-weight: 600; color: var(--text); font-size: 14px; }
 .signup-sub { font-size: 12px; color: var(--muted); margin-top: 1px; word-break: break-word; }
 .signup-meta { text-align: right; white-space: nowrap; flex-shrink: 0; }
+.signup-remove { margin-top: 8px; display: inline-block; }
 .signup-badge {
   font-size: 11px; font-weight: 700; letter-spacing: .04em;
   padding: 3px 9px; border-radius: 9px; display: inline-block;
@@ -806,6 +807,7 @@ function renderSignupRows(signups, trip) {
         <div class="signup-meta">
           ${badge}
           ${date ? `<div class="signup-date">eingetragen ${date}</div>` : ''}
+          <button class="btn btn-danger-ghost btn-sm signup-remove" onclick="removeSignup('${s.id}','${trip.id}','${s.user_id}', this)">Entfernen</button>
         </div>
       </div>
       ${s.note ? `<div class="signup-note">📝 ${escapeHtml(s.note)}</div>` : ''}
@@ -869,6 +871,19 @@ async function saveDayAssign(signupId, tripId, userId, btn) {
   const trip = _trips.find(t => t.id === tripId);
   const panel = document.getElementById('signups-' + tripId);
   if (panel && trip) { panel.innerHTML = renderDayCoverage(list, trip) + renderSignupRows(list, trip) + renderAddMember(trip, list); panel.hidden = false; }
+}
+async function removeSignup(signupId, tripId, userId, btn) {
+  const list = _signupsByTrip[tripId] || [];
+  const sObj = list.find(x => x.id === signupId);
+  const name = (sObj && sObj.full_name) ? sObj.full_name : 'diese Person';
+  if (!confirm(name + ' wirklich von der Reise entfernen?\n\nDie Anmeldung wird storniert und zugeteilte Tage werden gelöscht. Die Person kann später wieder eingetragen werden.')) return;
+  btn.disabled = true; const oldTxt = btn.textContent; btn.textContent = 'Entfernt…';
+  const res = await LPR.removeSignupAdmin(signupId, tripId, userId);
+  btn.disabled = false; btn.textContent = oldTxt;
+  if (!res.ok) { alert('Fehler beim Entfernen: ' + (res.error || 'Unbekannter Fehler')); return; }
+  await loadTrips();
+  const panel = document.getElementById('signups-' + tripId);
+  if (panel) panel.hidden = false;
 }
 function toggleSignups(tripId, btn) {
   const panel = document.getElementById('signups-' + tripId);

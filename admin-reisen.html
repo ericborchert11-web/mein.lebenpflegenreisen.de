@@ -681,16 +681,18 @@ function tripPerDay(t) {
   return t.rate_override_per_day != null ? Number(t.rate_override_per_day) : base;
 }
 
-// Prognose-Betrag einer Zuteilung: An-/Abreisetag = halber Tag, sonst voller Tag.
-// Eintägige Reise = 1 voller Tag (entspricht der Abrechnungslogik 0,5 + 0,5).
+// Prognose-Betrag einer Zuteilung: der PERSÖNLICHE An- und Abreisetag der
+// Person = halber Tag (auch bei Wechsel mitten in der Reise), sonst voller Tag.
+// Eintägiger Einsatz = 1 voller Tag (entspricht der Abrechnungslogik 0,5 + 0,5).
 function signupPlannedAmount(s, t) {
   const allDays = enumTripDays(t.start_date, t.end_date);
-  const eff = effectiveDays(s, allDays);
+  const eff = effectiveDays(s, allDays).slice().sort();
   const perDay = tripPerDay(t);
-  if (allDays.length <= 1) return perDay;
-  const endDay = t.end_date || t.start_date;
+  if (!eff.length) return 0;
+  if (eff.length === 1) return perDay;
+  const first = eff[0], last = eff[eff.length - 1];
   let sum = 0;
-  eff.forEach(d => { sum += (d === t.start_date || d === endDay) ? perDay / 2 : perDay; });
+  eff.forEach(d => { sum += (d === first || d === last) ? perDay / 2 : perDay; });
   return sum;
 }
 

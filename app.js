@@ -988,7 +988,25 @@
                   if (filter && filter.status) q = q.eq('status', filter.status);
                   const { data, error } = await q;
                   if (error) return { ok: false, error: error.message, signups: [] };
-                  return { ok: true, signups: data || [] };
+                  const rows = data || [];
+                  // Individuelle Tage (Teil-Reisen) je Anmeldung mitladen
+                  const daysBySignup = {};
+                  const ids = rows.map(r => r.id);
+                  if (ids.length) {
+                    const { data: dayRows, error: dErr } = await (await sb())
+                      .from('trip_signup_days')
+                      .select('signup_id, day')
+                      .in('signup_id', ids)
+                      .order('day', { ascending: true });
+                    if (!dErr) {
+                      (dayRows || []).forEach(d => {
+                        (daysBySignup[d.signup_id] = daysBySignup[d.signup_id] || []).push(d.day);
+                      });
+                    } else {
+                      console.warn('[LPR] getMySignups days:', dErr.message);
+                    }
+                  }
+                  return { ok: true, signups: rows.map(r => Object.assign({}, r, { days: daysBySignup[r.id] || [] })) };
           } catch(e) { console.error('[LPR] getMySignups:', e); return { ok: false, error: 'Netzwerkfehler.', signups: [] }; }
     }
 
@@ -1076,17 +1094,30 @@
       
       // 2) Reise-Pfad
       if (ctx.activity === 'reise') {
-        if (!ctx.start_date || !ctx.end_date) return { ok: false, error: 'Reise braucht start_date und end_date' };
-        const days = Math.round((new Date(ctx.end_date) - new Date(ctx.start_date)) / 86400000) + 1;
-        if (days < 1) return { ok: false, error: 'Ungültige Reisedauer' };
+        // Individuelle Tage (Teil-Reise, ctx.days) haben Vorrang; sonst gesamter
+        // Reisezeitraum. Der 0,5-Faktor gilt für den PERSÖNLICHEN An- und
+        // Abreisetag der Person (Vorstandsbeschluss 15.04.2026) – auch bei
+        // An-/Abreise mitten in der Reise.
+        let dayList = null;
+        if (Array.isArray(ctx.days) && ctx.days.length) {
+          dayList = ctx.days.slice().sort();
+        } else {
+          if (!ctx.start_date || !ctx.end_date) return { ok: false, error: 'Reise braucht start_date und end_date' };
+          const n = Math.round((new Date(ctx.end_date) - new Date(ctx.start_date)) / 86400000) + 1;
+          if (n < 1) return { ok: false, error: 'Ungültige Reisedauer' };
+          dayList = [];
+          const t0 = Date.parse(ctx.start_date + 'T00:00:00Z');
+          for (let i = 0; i < n; i++) dayList.push(new Date(t0 + i * 86400000).toISOString().slice(0, 10));
+        }
+        const days = dayList.length;
         const halfAmount = Number((baseAmount / 2).toFixed(2));
         const breakdown = [];
         let total = 0;
         if (days === 1) {
-          breakdown.push({ label: 'Reisetag', date: ctx.start_date, base: baseAmount, factor: 1, amount: baseAmount });
+          breakdown.push({ label: 'Reisetag', date: dayList[0], base: baseAmount, factor: 1, amount: baseAmount });
           total = baseAmount;
         } else {
-          breakdown.push({ label: 'Anreisetag (halber Tag)', date: ctx.start_date, base: baseAmount, factor: 0.5, amount: halfAmount });
+          breakdown.push({ label: 'Anreisetag (halber Tag)', date: dayList[0], base: baseAmount, factor: 0.5, amount: halfAmount });
           total += halfAmount;
           const midDays = days - 2;
           if (midDays > 0) {
@@ -1094,11 +1125,11 @@
             breakdown.push({ label: 'Volltage', count: midDays, base: baseAmount, factor: 1, amount: midAmount });
             total += midAmount;
           }
-          breakdown.push({ label: 'Abreisetag (halber Tag)', date: ctx.end_date, base: baseAmount, factor: 0.5, amount: halfAmount });
+          breakdown.push({ label: 'Abreisetag (halber Tag)', date: dayList[days - 1], base: baseAmount, factor: 0.5, amount: halfAmount });
           total += halfAmount;
         }
         total = Number(total.toFixed(2));
-        return { ok: true, base_source: baseSource, base_amount: baseAmount, supplements_applied: [], breakdown, total, currency: 'EUR' };
+        return { ok: true, base_source: baseSource, base_amount: baseAmount, supplements_applied: [], breakdown, total, currency: 'EUR', period_start: dayList[0], period_end: dayList[days - 1], days_count: days };
       }
       
       // 3) Sitzwache-Pfad
@@ -1190,13 +1221,24 @@
       const blocking = (existingClaims || []).find(c => c.status !== 'rejected' && c.status !== 'draft');
       if (blocking) return { ok: false, error: 'Für diese Reise existiert bereits ein Antrag (Status: ' + blocking.status + ').' };
       
+      // Individuelle Tage der Anmeldung laden (Teil-Reise). Ohne Einträge in
+      // trip_signup_days gilt der gesamte Reisezeitraum.
+      const { data: dayRows, error: dayErr } = await client
+        .from('trip_signup_days')
+        .select('day')
+        .eq('signup_id', signupId)
+        .order('day', { ascending: true });
+      if (dayErr) return { ok: false, error: 'Reisetage konnten nicht geladen werden: ' + dayErr.message };
+      const personalDays = (dayRows || []).map(r => r.day);
+      
       const calc = await calculatePay({
         activity: 'reise',
         shift_type: 'day',
         role: 'ehrenamt',
         override_amount: trip.rate_override_per_day,
         start_date: trip.start_date,
-        end_date: trip.end_date
+        end_date: trip.end_date,
+        days: personalDays
       });
       if (!calc.ok) return { ok: false, error: calc.error };
       
@@ -1208,8 +1250,8 @@
           trip_signup_id: signupId,
           amount: calc.total,
           amount_breakdown: calc.breakdown,
-          period_start: trip.start_date,
-          period_end: trip.end_date,
+          period_start: calc.period_start || trip.start_date,
+          period_end: calc.period_end || trip.end_date,
           status: 'submitted',
           notes: notes || null
         })

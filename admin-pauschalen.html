@@ -152,7 +152,7 @@
     <p class="ap-note">
       <strong>Abgerechnet/Beantragt</strong> = eingereichte, genehmigte und ausgezahlte Anträge aus der Abrechnung.
       <strong>Verplant</strong> = bestätigte Reise-Zuteilungen des Jahres, für die noch kein Antrag gestellt wurde
-      (An-/Abreisetag als halber Tag, Tagessatz je Reise). Rechtsstand Juli 2026 · Freibetrag 3.300 €/Jahr.
+      (persönlicher An-/Abreisetag als halber Tag – auch bei Wechsel mitten in der Reise, Tagessatz je Reise). Rechtsstand Juli 2026 · Freibetrag 3.300 €/Jahr.
     </p>
 
   </div>
@@ -256,14 +256,17 @@ function tripPerDay(t) {
   const base = (_rates.travel_per_day && _rates.travel_per_day.amount) ? Number(_rates.travel_per_day.amount) : 150;
   return t.rate_override_per_day != null ? Number(t.rate_override_per_day) : base;
 }
+// Persönlicher An-/Abreisetag der Person = halber Tag (auch bei Wechsel
+// mitten in der Reise), sonst voller Tag. Eintägiger Einsatz = 1 voller Tag.
 function signupPlannedAmount(s, t) {
   const allDays = enumTripDays(t.start_date, t.end_date);
-  const eff = (s.days && s.days.length) ? s.days : allDays;
+  const eff = ((s.days && s.days.length) ? s.days : allDays).slice().sort();
   const perDay = tripPerDay(t);
-  if (allDays.length <= 1) return perDay;
-  const endDay = t.end_date || t.start_date;
+  if (!eff.length) return 0;
+  if (eff.length === 1) return perDay;
+  const first = eff[0], last = eff[eff.length - 1];
   let sum = 0;
-  eff.forEach(d => { sum += (d === t.start_date || d === endDay) ? perDay / 2 : perDay; });
+  eff.forEach(d => { sum += (d === first || d === last) ? perDay / 2 : perDay; });
   return sum;
 }
 

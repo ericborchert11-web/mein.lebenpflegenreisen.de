@@ -636,7 +636,7 @@ body.compliance-locked .info-box { display: none; }
     <div class="hero-eyebrow">Aufwandsentschädigung · § 3 Nr. 26 EStG</div>
     <h1>Deine Abrechnung</h1>
     <p>
-      Reiche deinen Antrag auf Aufwandsentschädigung für abgeschlossene Reisebegleitungen ein. Die Berechnung folgt dem Vorstandsbeschluss vom 15. April 2026: 150 € je Reisetag (Anreise- und Abreisetag als halbe Tage). Die Zahlung ist als Übungsleiterpauschale steuer- und sozialversicherungsfrei bis 3.300 € pro Jahr.
+      Reiche deinen Antrag auf Aufwandsentschädigung für abgeschlossene Reisebegleitungen ein. Die Berechnung folgt dem Vorstandsbeschluss vom 15. April 2026: 150 € je Reisetag – dein persönlicher An- und Abreisetag zählt als halber Tag, auch wenn du mitten in der Reise an- oder abreist. Die Zahlung ist als Übungsleiterpauschale steuer- und sozialversicherungsfrei bis 3.300 € pro Jahr.
     </p>
   </div>
 </section>
@@ -867,14 +867,28 @@ function formatIbanDisplay(iban) {
 function diffDays(start, end) {
   return Math.round((new Date(end) - new Date(start)) / 86400000) + 1;
 }
-function calcTripBreakdown(trip, perDay) {
-  const days = diffDays(trip.start_date, trip.end_date);
-  const effective = Math.max(1, days - 1);
+function calcTripBreakdown(trip, perDay, signupDays) {
+  // Persönliche Tage (Teil-Reise) haben Vorrang; sonst gesamter Reisezeitraum.
+  // Der persönliche An- und Abreisetag zählt als halber Tag – auch bei
+  // An-/Abreise mitten in der Reise. Eintägiger Einsatz = 1 voller Tag.
+  let dayList;
+  if (signupDays && signupDays.length) {
+    dayList = signupDays.slice().sort();
+  } else {
+    const n = diffDays(trip.start_date, trip.end_date);
+    dayList = [];
+    const t0 = Date.parse(trip.start_date + 'T00:00:00Z');
+    for (let i = 0; i < Math.max(1, n); i++) dayList.push(new Date(t0 + i * 86400000).toISOString().slice(0, 10));
+  }
+  const days = dayList.length;
+  const effective = days === 1 ? 1 : days - 1;
   return {
     days, effective, perDay,
+    firstDay: dayList[0],
+    lastDay: dayList[days - 1],
     halfAmount: perDay / 2,
-    midDays: Math.max(0, effective - 2),
-    midAmount: Math.max(0, effective - 2) * perDay,
+    midDays: Math.max(0, days - 2),
+    midAmount: Math.max(0, days - 2) * perDay,
     total: Number((effective * perDay).toFixed(2))
   };
 }
@@ -1034,8 +1048,8 @@ function renderTripsSection() {
   el.innerHTML = candidates.map(su => {
     const trip = su.trips;
     const perDay = trip.rate_override_per_day != null ? Number(trip.rate_override_per_day) : ratePerDay;
-    const b = calcTripBreakdown(trip, perDay);
-    return '<div class="trip-card"><div><span class="type-badge trip">Reise</span><div class="trip-info-title">' + escape(trip.title) + '</div><div class="trip-info-meta"><span>📍 ' + escape(trip.location || '') + '</span><span>📅 ' + formatDateRange(trip.start_date, trip.end_date) + '</span><span><strong>' + b.days + ' Tage</strong></span>' + (trip.partner ? '<span>🤝 mit ' + escape(trip.partner) + '</span>' : '') + '</div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(b.total) + '</div><button class="btn btn-primary" onclick="openTripClaim(\'' + su.id + '\')">Abrechnen →</button></div></div>';
+    const b = calcTripBreakdown(trip, perDay, su.days);
+    return '<div class="trip-card"><div><span class="type-badge trip">Reise</span><div class="trip-info-title">' + escape(trip.title) + '</div><div class="trip-info-meta"><span>📍 ' + escape(trip.location || '') + '</span><span>📅 ' + formatDateRange(b.firstDay, b.lastDay) + '</span><span><strong>' + b.days + ' Tage</strong></span>' + (trip.partner ? '<span>🤝 mit ' + escape(trip.partner) + '</span>' : '') + '</div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(b.total) + '</div><button class="btn btn-primary" onclick="openTripClaim(\'' + su.id + '\')">Abrechnen →</button></div></div>';
   }).join('');
 }
 
@@ -1082,19 +1096,23 @@ function openTripClaim(signupId) {
   const trip = su.trips;
   const ratePerDay = _rates.travel_per_day?.amount ? Number(_rates.travel_per_day.amount) : 150;
   const perDay = trip.rate_override_per_day != null ? Number(trip.rate_override_per_day) : ratePerDay;
-  const b = calcTripBreakdown(trip, perDay);
+  const b = calcTripBreakdown(trip, perDay, su.days);
   _activeContext = { type: 'trip', signup: su, breakdown: b, total: b.total };
 
   document.getElementById('cd-title').textContent = 'Antrag: Reisebegleitung';
   document.getElementById('cd-sub').textContent = trip.title;
   document.getElementById('cd-activity').value = 'Reisebegleitung – ' + trip.title;
   document.getElementById('cd-activity-hint').textContent = 'Reisebegleitung im Rahmen der gemeinnützigen Vereinstätigkeit (pflegerisch-betreuend)';
-  document.getElementById('cd-period').value = formatDateRange(trip.start_date, trip.end_date) + ' (' + b.days + ' Tage)';
+  document.getElementById('cd-period').value = formatDateRange(b.firstDay, b.lastDay) + ' (' + b.days + ' Tage)';
 
   const rows = [];
-  rows.push('<div class="calc-row"><span>Anreisetag (halber Tag)</span><span>0,5 × ' + formatEUR(perDay) + ' = <strong>' + formatEUR(perDay/2) + '</strong></span></div>');
-  if (b.midDays > 0) rows.push('<div class="calc-row"><span>Volltage</span><span>' + b.midDays + ' × ' + formatEUR(perDay) + ' = <strong>' + formatEUR(b.midAmount) + '</strong></span></div>');
-  rows.push('<div class="calc-row"><span>Abreisetag (halber Tag)</span><span>0,5 × ' + formatEUR(perDay) + ' = <strong>' + formatEUR(perDay/2) + '</strong></span></div>');
+  if (b.days === 1) {
+    rows.push('<div class="calc-row"><span>Reisetag</span><span>1 × ' + formatEUR(perDay) + ' = <strong>' + formatEUR(perDay) + '</strong></span></div>');
+  } else {
+    rows.push('<div class="calc-row"><span>Anreisetag (halber Tag)</span><span>0,5 × ' + formatEUR(perDay) + ' = <strong>' + formatEUR(perDay/2) + '</strong></span></div>');
+    if (b.midDays > 0) rows.push('<div class="calc-row"><span>Volltage</span><span>' + b.midDays + ' × ' + formatEUR(perDay) + ' = <strong>' + formatEUR(b.midAmount) + '</strong></span></div>');
+    rows.push('<div class="calc-row"><span>Abreisetag (halber Tag)</span><span>0,5 × ' + formatEUR(perDay) + ' = <strong>' + formatEUR(perDay/2) + '</strong></span></div>');
+  }
   document.getElementById('cd-calc-rows').innerHTML = rows.join('');
   document.getElementById('cd-total').textContent = formatEUR(b.total);
 

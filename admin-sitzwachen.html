@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Sitzwachen-Verwaltung · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.as-wrap { max-width: 1120px; margin: 32px auto 60px; padding: 0 24px; }
+.back-link { display:inline-flex; align-items:center; gap:6px; color:var(--muted); text-decoration:none; font-size:14px; margin-bottom:16px; }
+.back-link:hover { color:var(--green); }
+.as-tabs { display:flex; gap:8px; flex-wrap:wrap; margin:20px 0 8px; border-bottom:1px solid #E0DACE; }
+.as-tab { background:none; border:none; padding:10px 18px; font-size:15px; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-1px; }
+.as-tab.active { color:var(--green); border-bottom-color:var(--green); }
+.as-tab-count { display:inline-block; min-width:20px; padding:0 6px; margin-left:6px; font-size:12px; background:#EFE9DC; color:#5A6650; border-radius:10px; }
+.as-panel { display:none; padding-top:18px; }
+.as-panel.active { display:block; }
+.as-filters { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; font-size:14px; }
+.as-filters select, .as-filters input { padding:7px 10px; border:1px solid #CFC8B8; border-radius:7px; font-size:14px; }
+.as-table { width:100%; border-collapse:collapse; font-size:14px; }
+.as-table th { text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:#7A8270; padding:8px 10px; border-bottom:2px solid #E0DACE; }
+.as-table td { padding:10px; border-bottom:1px solid #EEE9DD; vertical-align:top; }
+.as-table tr:hover td { background:#FAF8F2; }
+.pill { display:inline-block; padding:2px 9px; border-radius:20px; font-size:12px; font-weight:700; }
+.pill.planned   { background:#EAF2FB; color:#2C5A8C; }
+.pill.confirmed { background:#E7F3EA; color:#2E7D46; }
+.pill.completed { background:#E4EEE6; color:#1E5B36; }
+.pill.no_show   { background:#FBEAEA; color:#9B2C2C; }
+.pill.cancelled { background:#F0E5E1; color:#7A3A28; }
+.pill.submitted { background:#EAF2FB; color:#2C5A8C; }
+.pill.approved  { background:#E7F3EA; color:#2E7D46; }
+.pill.paid      { background:#E4EEE6; color:#1E5B36; }
+.pill.rejected  { background:#F0E5E1; color:#7A3A28; }
+.as-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.as-btn { padding:6px 12px; font-size:13px; font-weight:600; border-radius:7px; border:1px solid var(--green); background:#fff; color:var(--green); cursor:pointer; }
+.as-btn:hover { background:#F0F6EE; }
+.as-btn.warn { border-color:#B07058; color:#8A3A22; }
+.as-btn.warn:hover { background:#FCEEDD; }
+.as-btn:disabled { opacity:.5; cursor:not-allowed; }
+.as-warn48 { color:#9B2C2C; font-weight:700; font-size:12px; }
+.ampel { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+.ampel.g { background:#2E7D46; } .ampel.y { background:#D9A400; } .ampel.r { background:#C0392B; }
+.as-empty { padding:28px; text-align:center; color:var(--muted); }
+.as-hint { background:#FBF3E4; border-left:4px solid #D9A400; padding:12px 14px; border-radius:6px; font-size:14px; margin-bottom:14px; }
+.rate-card { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; padding:14px; border:1px solid #E4DFD2; border-radius:10px; margin-bottom:12px; }
+.rate-card .cur { font-size:14px; color:var(--muted); min-width:220px; }
+.rate-card label { display:block; font-size:12px; color:#7A8270; margin-bottom:3px; }
+h1 { margin:0 0 4px; }
+.sub { color:var(--muted); font-size:15px; margin:0 0 8px; }
+</style>
+</head>
+<body>
+<main>
+<div class="as-wrap">
+  <a href="admin-mitwirkende.html" class="back-link">← Zurück zum Admin-Bereich</a>
+
+  <div id="login-view" hidden>
+    <h1>Sitzwachen-Verwaltung</h1>
+    <p class="sub">Dieser Bereich ist dem Vorstand vorbehalten. Bitte mit einem Vorstands-Konto anmelden.</p>
+    <p><a href="login.html?next=admin-sitzwachen.html" class="btn btn-primary">Zur Anmeldung</a></p>
+  </div>
+
+  <div id="admin-view" hidden>
+    <h1>Sitzwachen-Verwaltung</h1>
+    <p class="sub">Dienste abschließen, Aufwandsentschädigungen freigeben und auszahlen, Sätze pflegen.</p>
+
+    <div class="as-tabs" role="tablist">
+      <button class="as-tab active" data-tab="buchungen" role="tab">Buchungen <span class="as-tab-count" id="cnt-buchungen">0</span></button>
+      <button class="as-tab" data-tab="antraege" role="tab">Anträge <span class="as-tab-count" id="cnt-antraege">0</span></button>
+      <button class="as-tab" data-tab="saetze" role="tab">Sätze</button>
+    </div>
+
+    <!-- ===== Tab: Buchungen ===== -->
+    <section class="as-panel active" id="panel-buchungen" role="tabpanel">
+      <div class="as-filters">
+        <label>Status:
+          <select id="f-booking-status">
+            <option value="">alle</option>
+            <option value="planned">geplant</option>
+            <option value="confirmed">bestätigt</option>
+            <option value="completed">abgeschlossen</option>
+            <option value="no_show">nicht erschienen</option>
+            <option value="cancelled">storniert</option>
+          </select>
+        </label>
+        <label>ab: <input type="date" id="f-booking-from"></label>
+        <label>bis: <input type="date" id="f-booking-to"></label>
+        <button class="as-btn" id="f-booking-apply">Filtern</button>
+      </div>
+      <div id="booking-list"></div>
+    </section>
+
+    <!-- ===== Tab: Anträge ===== -->
+    <section class="as-panel" id="panel-antraege" role="tabpanel">
+      <div class="as-hint" id="antraege-hint" hidden></div>
+      <div id="claim-list"></div>
+    </section>
+
+    <!-- ===== Tab: Sätze ===== -->
+    <section class="as-panel" id="panel-saetze" role="tabpanel">
+      <div class="as-hint" id="rate-lock-hint" hidden>
+        <strong>Noch kein Beschluss hinterlegt.</strong> Solange kein Satz eingetragen ist, bleibt die
+        Sitzwachen-Abrechnung für alle gesperrt. Trage hier den vom Vorstand beschlossenen Betrag ein.
+      </div>
+      <div id="rate-cards"></div>
+    </section>
+  </div>
+</div>
+</main>
+
+<script src="app.js?v20260721b"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+LPR_Layout.init({ page: 'sitzwachen-admin' });
+
+const SHIFT_LABEL = { morning:'Frühdienst (06:00–14:00)', afternoon:'Spätdienst (14:00–22:00)', night:'Nachtdienst (22:00–06:00)' };
+const SHIFT_SHORT = { morning:'Frühdienst', afternoon:'Spätdienst', night:'Nachtdienst' };
+const SHIFT_START_HOUR = { morning:6, afternoon:14, night:22 };
+const BOOKING_STATUS_LABEL = { planned:'geplant', confirmed:'bestätigt', completed:'abgeschlossen', no_show:'nicht erschienen', cancelled:'storniert' };
+const CLAIM_STATUS_LABEL   = { draft:'Entwurf', submitted:'eingereicht', approved:'freigegeben', paid:'ausgezahlt', rejected:'abgelehnt' };
+const FREIBETRAG = { '26':3300, '26a':960 };
+
+let _bookings = [];
+let _claims = [];
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+function eur(n) { return (window.LPR && LPR.formatEUR) ? LPR.formatEUR(Number(n||0)) : (Number(n||0).toFixed(2) + ' €'); }
+function fmtDate(iso) { if (!iso) return '—'; const d = new Date(iso.length <= 10 ? iso + 'T00:00:00' : iso); return d.toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' }); }
+function toast(msg, type) { if (window.LPR && LPR.showToast) LPR.showToast(msg, type); else alert(msg); }
+function todayISO() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+
+// weniger als 48 h bis Schichtbeginn und noch unbestätigt?
+function within48hUnconfirmed(b) {
+  if (b.status !== 'planned') return false;
+  const h = SHIFT_START_HOUR[b.shift]; if (h == null) return false;
+  const [y,m,d] = b.date.split('-').map(Number);
+  const start = new Date(y, m-1, d, h, 0, 0);
+  const diff = start.getTime() - Date.now();
+  return diff > 0 && diff < 48*3600*1000;
+}
+
+async function init() {
+  const session = LPR.getSession();
+  if (!session) { location.href = 'login.html?next=admin-sitzwachen.html'; return; }
+  if (session.role !== 'admin') { document.getElementById('login-view').hidden = false; return; }
+  document.getElementById('admin-view').hidden = false;
+
+  document.querySelectorAll('.as-tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  document.getElementById('f-booking-apply').addEventListener('click', loadBookings);
+
+  await Promise.all([loadBookings(), loadClaims(), loadRates()]);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.as-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.as-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+}
+
+// ===================== Buchungen =====================
+async function loadBookings() {
+  const from = document.getElementById('f-booking-from').value || null;
+  const to   = document.getElementById('f-booking-to').value || null;
+  const res = await LPR.adminListBookings(from, to);
+  if (!res.ok) { toast(res.error || 'Fehler beim Laden der Buchungen.', 'warn'); return; }
+  _bookings = res.bookings || [];
+  renderBookings();
+}
+
+function renderBookings() {
+  const filter = document.getElementById('f-booking-status').value;
+  const rows = _bookings.filter(b => !filter || b.status === filter);
+  document.getElementById('cnt-buchungen').textContent = _bookings.length;
+  const el = document.getElementById('booking-list');
+  if (!rows.length) { el.innerHTML = '<div class="as-empty">Keine Buchungen für diese Auswahl.</div>'; return; }
+
+  el.innerHTML = '<table class="as-table"><thead><tr>' +
+    '<th>Datum</th><th>Schicht</th><th>Ehrenamtliche:r</th><th>Klinik</th><th>Zimmer</th><th>Std.</th><th>Entsch.</th><th>Status</th><th></th>' +
+    '</tr></thead><tbody>' +
+    rows.map(b => {
+      const open = (b.status === 'planned' || b.status === 'confirmed');
+      const warn = within48hUnconfirmed(b) ? ' <span class="as-warn48" title="Unbestätigt, Einsatz in unter 48 h – bitte nachfassen">⚠ &lt;48h</span>' : '';
+      let actions = '';
+      if (open) {
+        actions =
+          '<button class="as-btn" data-act="complete" data-id="' + b.id + '">Abschließen</button>' +
+          '<button class="as-btn warn" data-act="noshow" data-id="' + b.id + '">No-Show</button>' +
+          '<button class="as-btn warn" data-act="cancel" data-id="' + b.id + '">Stornieren</button>';
+      } else if (b.status === 'completed' && b.compensation_eur == null) {
+        actions = '<button class="as-btn" data-act="snapshot" data-id="' + b.id + '" title="Betrag aus aktuellem Satz nachtragen">Satz nachtragen</button>';
+      }
+      return '<tr>' +
+        '<td>' + fmtDate(b.date) + warn + '</td>' +
+        '<td>' + esc(SHIFT_SHORT[b.shift] || b.shift) + '</td>' +
+        '<td>' + esc(b.volunteer_name) + '</td>' +
+        '<td>' + esc(b.clinic_name) + '</td>' +
+        '<td>' + esc(b.patient_room || '—') + '</td>' +
+        '<td>' + (b.hours != null ? esc(String(b.hours)) : '—') + '</td>' +
+        '<td>' + (b.compensation_eur != null ? eur(b.compensation_eur) : '<span style="color:#9B2C2C">offen</span>') + '</td>' +
+        '<td><span class="pill ' + b.status + '">' + (BOOKING_STATUS_LABEL[b.status] || b.status) + '</span></td>' +
+        '<td><div class="as-actions">' + actions + '</div></td>' +
+      '</tr>';
+    }).join('') +
+    '</tbody></table>';
+
+  el.querySelectorAll('button[data-act]').forEach(btn => btn.addEventListener('click', () => onBookingAction(btn)));
+}
+
+async function onBookingAction(btn) {
+  const id = btn.dataset.id, act = btn.dataset.act;
+  const b = _bookings.find(x => x.id === id); if (!b) return;
+  let status, hours = null;
+
+  if (act === 'complete' || act === 'snapshot') {
+    const input = prompt('Tatsächlich geleistete Stunden (Stundennachweis – unabhängig vom Rechnungsbetrag an die Klinik):', String(b.hours || 8));
+    if (input == null) return;
+    hours = Number(input.replace(',', '.'));
+    if (!(hours > 0)) { toast('Bitte eine gültige Stundenzahl angeben.', 'warn'); return; }
+    status = 'completed';
+  } else if (act === 'noshow') {
+    if (!confirm('Diesen Dienst als „nicht erschienen" (No-Show) markieren? Das fließt in die Controlling-Kennzahlen ein.')) return;
+    status = 'no_show';
+  } else if (act === 'cancel') {
+    if (!confirm('Diese Buchung wirklich stornieren?')) return;
+    status = 'cancelled';
+  } else return;
+
+  btn.disabled = true;
+  const res = await LPR.adminSetBookingStatus(id, status, hours, null);
+  if (!res.ok) { toast(res.error || 'Aktion fehlgeschlagen.', 'warn'); btn.disabled = false; return; }
+  if (status === 'completed' && res.booking && res.booking.compensation_eur == null) {
+    toast('Abgeschlossen. Hinweis: Es ist noch kein Sitz-Satz beschlossen – die Entschädigung bleibt offen, bis der Satz im Tab „Sätze" gesetzt ist.', 'warn');
+  } else {
+    toast('Buchung aktualisiert.');
+  }
+  await loadBookings();
+}
+
+// ===================== Anträge =====================
+async function loadClaims() {
+  const res = await LPR.adminListClaims();
+  if (!res.ok) { toast(res.error || 'Fehler beim Laden der Anträge.', 'warn'); return; }
+  _claims = res.claims || [];
+  renderClaims();
+}
+
+// Jahressumme approved+paid je (user, pauschale_art, Jahr) – für die Ampel.
+function yearSum(userId, art, year, excludeId) {
+  return _claims
+    .filter(c => c.user_id === userId && (c.pauschale_art || '26') === art
+      && (c.status === 'approved' || c.status === 'paid')
+      && c.id !== excludeId
+      && (new Date(c.submitted_at || Date.now())).getFullYear() === year)
+    .reduce((s, c) => s + Number(c.amount || 0), 0);
+}
+
+function renderClaims() {
+  document.getElementById('cnt-antraege').textContent = _claims.filter(c => c.status === 'submitted').length;
+  const el = document.getElementById('claim-list');
+  const rows = _claims.filter(c => c.status !== 'draft');
+  if (!rows.length) { el.innerHTML = '<div class="as-empty">Noch keine Anträge.</div>'; return; }
+
+  el.innerHTML = '<table class="as-table"><thead><tr>' +
+    '<th>Eingereicht</th><th>Person</th><th>Art</th><th>Betrag</th><th>Freibetrag (Jahr)</th><th>Status</th><th>Beleg-Nr.</th><th></th>' +
+    '</tr></thead><tbody>' +
+    rows.map(c => {
+      const art = c.pauschale_art || '26';
+      const limit = FREIBETRAG[art];
+      const year = (new Date(c.submitted_at || Date.now())).getFullYear();
+      const sum = yearSum(c.user_id, art, year, c.id);
+      const withThis = sum + Number(c.amount || 0);
+      const over = withThis > limit;
+      const near = !over && withThis > limit * 0.85;
+      const ampel = over ? 'r' : (near ? 'y' : 'g');
+      let actions = '';
+      if (c.status === 'submitted') {
+        actions =
+          '<button class="as-btn" data-act="approve" data-id="' + c.id + '"' + (over ? ' disabled title="Freibetrag überschritten"' : '') + '>Freigeben</button>' +
+          '<button class="as-btn warn" data-act="reject" data-id="' + c.id + '">Ablehnen</button>';
+      } else if (c.status === 'approved') {
+        actions = '<button class="as-btn" data-act="pay" data-id="' + c.id + '">Als ausgezahlt markieren</button>';
+      }
+      return '<tr>' +
+        '<td>' + fmtDate(c.submitted_at) + '</td>' +
+        '<td>' + esc(c.user_name) + '</td>' +
+        '<td>§ 3 Nr. ' + esc(art) + '</td>' +
+        '<td>' + eur(c.amount) + '</td>' +
+        '<td><span class="ampel ' + ampel + '"></span>' + eur(withThis) + ' / ' + eur(limit) + '</td>' +
+        '<td><span class="pill ' + c.status + '">' + (CLAIM_STATUS_LABEL[c.status] || c.status) + '</span>' +
+          (c.status === 'rejected' && c.rejected_reason ? '<div style="font-size:12px;color:#7A3A28;margin-top:3px">' + esc(c.rejected_reason) + '</div>' : '') + '</td>' +
+        '<td>' + esc(c.beleg_nr || '—') + '</td>' +
+        '<td><div class="as-actions">' + actions + '</div></td>' +
+      '</tr>';
+    }).join('') +
+    '</tbody></table>';
+
+  el.querySelectorAll('button[data-act]').forEach(btn => btn.addEventListener('click', () => onClaimAction(btn)));
+}
+
+async function onClaimAction(btn) {
+  const id = btn.dataset.id, act = btn.dataset.act;
+  let status, reason = null;
+  if (act === 'approve') {
+    if (!confirm('Diesen Antrag freigeben? Danach ist er zur Auszahlung bereit.')) return;
+    status = 'approved';
+  } else if (act === 'pay') {
+    if (!confirm('Bestätigen, dass die Überweisung erfolgt ist? Es wird eine Auszahlungs-Belegnummer vergeben.')) return;
+    status = 'paid';
+  } else if (act === 'reject') {
+    reason = prompt('Grund der Ablehnung (wird der Person angezeigt):');
+    if (reason == null) return;
+    if (reason.trim().length < 3) { toast('Bitte einen Grund angeben.', 'warn'); return; }
+    reason = reason.trim();
+    status = 'rejected';
+  } else return;
+
+  btn.disabled = true;
+  const res = await LPR.adminSetClaimStatus(id, status, reason);
+  if (!res.ok) { toast(res.error || 'Aktion fehlgeschlagen.', 'warn'); btn.disabled = false; return; }
+  toast(status === 'paid' ? ('Als ausgezahlt markiert. Beleg-Nr.: ' + (res.claim && res.claim.beleg_nr || '—')) : 'Antrag aktualisiert.');
+  await loadClaims();
+}
+
+// ===================== Sätze =====================
+async function loadRates() {
+  const rates = (await LPR.getRates(true)) || {};
+  const shifts = ['morning', 'afternoon', 'night'];
+  const anyRate = shifts.some(s => rates['sitz_' + s] && rates['sitz_' + s].amount != null);
+  document.getElementById('rate-lock-hint').hidden = anyRate;
+
+  const cont = document.getElementById('rate-cards');
+  cont.innerHTML = shifts.map(s => {
+    const r = rates['sitz_' + s];
+    const cur = (r && r.amount != null)
+      ? ('Aktuell: <strong>' + eur(r.amount) + '</strong>' + (r.effective_from ? ' (gültig ab ' + esc(r.effective_from) + ')' : ''))
+      : 'Aktuell: <strong style="color:#9B2C2C">kein Satz</strong>';
+    return '<div class="rate-card">' +
+      '<div class="cur"><div style="font-weight:700;color:var(--green);margin-bottom:4px">' + esc(SHIFT_LABEL[s]) + '</div>' + cur + '</div>' +
+      '<div><label>Betrag (€)</label><input type="number" step="0.01" min="0" id="rate-amount-' + s + '" style="width:110px" placeholder="z. B. 125"></div>' +
+      '<div><label>gültig ab</label><input type="date" id="rate-from-' + s + '" value="' + todayISO() + '"></div>' +
+      '<div style="flex:1;min-width:180px"><label>Vorstandsbeschluss vom</label><input type="text" id="rate-beschluss-' + s + '" style="width:100%" placeholder="z. B. 25.07.2026"></div>' +
+      '<div><button class="as-btn" data-shift="' + s + '">Satz setzen</button></div>' +
+    '</div>';
+  }).join('');
+
+  cont.querySelectorAll('button[data-shift]').forEach(btn => btn.addEventListener('click', () => onSetRate(btn.dataset.shift)));
+}
+
+async function onSetRate(shift) {
+  const amount = Number((document.getElementById('rate-amount-' + shift).value || '').replace(',', '.'));
+  const from = document.getElementById('rate-from-' + shift).value;
+  const beschluss = document.getElementById('rate-beschluss-' + shift).value.trim();
+  if (!(amount > 0)) { toast('Bitte einen gültigen Betrag angeben.', 'warn'); return; }
+  if (!from) { toast('Bitte ein Gültigkeitsdatum angeben.', 'warn'); return; }
+  if (!confirm('Satz für ' + SHIFT_SHORT[shift] + ' auf ' + eur(amount) + ' setzen (gültig ab ' + from + ')?')) return;
+  const res = await LPR.adminSetSitzRate(shift, amount, from, beschluss || null);
+  if (!res.ok) { toast(res.error || 'Konnte den Satz nicht setzen.', 'warn'); return; }
+  toast('Satz gesetzt.');
+  await loadRates();
+}
+
+init();
+</script>
+</body>
+</html>

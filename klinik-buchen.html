@@ -335,6 +335,19 @@
   </div>
 </div>
 
+<!-- Bestätigungs-Modal nach erfolgreicher Buchung -->
+<div class="kb-modal-bg" id="kb-success-bg">
+  <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-success-title">
+    <h2 id="kb-success-title" style="color:var(--green-deep)">✓ Sitzwache gebucht</h2>
+    <div class="kb-modal-summary" id="kb-success-summary"></div>
+    <p style="font-size:14px;color:var(--muted);margin:12px 0 0">Die ehrenamtliche Person wird automatisch per E-Mail informiert. Die Buchung finden Sie jederzeit unter „Meine Buchungen".</p>
+    <div class="kb-modal-actions">
+      <button type="button" class="kb-btn-cancel" id="kb-success-ics">📅 In Kalender übernehmen</button>
+      <button type="button" class="kb-btn-confirm" id="kb-success-done">Fertig</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="app.js"></script>
@@ -512,9 +525,9 @@ async function confirmBooking() {
     return;
   }
 
-  LPR.showToast('Buchung bestätigt — die Sitzwache wird beim nächsten Login informiert.', 'ok');
+  const bookedSlot = { ...activeBooking, room };
   closeBookingModal();
-  setTimeout(load, 400);
+  showBookingSuccess(bookedSlot);
 }
 
 async function load() {
@@ -533,11 +546,15 @@ async function load() {
   }
   document.getElementById('kb-list').innerHTML = '<div class="kb-loading">Lade Verfügbarkeiten…</div>';
 
-  // Default-Filter: ab heute
+  // Default-Filter: heute bis +21 Tage
   const fromInput = document.getElementById('kb-from');
   if (!fromInput.value) {
-    const today = new Date().toISOString().slice(0, 10);
-    fromInput.value = today;
+    fromInput.value = new Date().toISOString().slice(0, 10);
+  }
+  const toInputPre = document.getElementById('kb-to');
+  if (!toInputPre.value) {
+    const d = new Date(); d.setDate(d.getDate() + 21);
+    toInputPre.value = d.toISOString().slice(0, 10);
   }
 
   const res = await LPR.listAvailableShifts({ from: fromInput.value || undefined, to: document.getElementById('kb-to').value || undefined });
@@ -563,6 +580,60 @@ document.getElementById('kb-cancel').addEventListener('click', closeBookingModal
 document.getElementById('kb-confirm').addEventListener('click', confirmBooking);
 document.getElementById('kb-modal-bg').addEventListener('click', e => {
   if (e.target.id === 'kb-modal-bg') closeBookingModal();
+});
+
+// ── Bestätigungsansicht nach Buchung + ICS-Download ──────────────────────
+const KB_SHIFT_HOURS = { morning: {s:6,e:14,ov:false}, afternoon: {s:14,e:22,ov:false}, night: {s:22,e:6,ov:true} };
+function pad2(n) { return String(n).padStart(2, '0'); }
+function icsLocalKB(dateISO, hour, plus) {
+  const [y,m,d] = dateISO.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m-1, d + (plus || 0)));
+  return `${dt.getUTCFullYear()}${pad2(dt.getUTCMonth()+1)}${pad2(dt.getUTCDate())}T${pad2(hour)}0000`;
+}
+function buildClinicICS(slot) {
+  const sh = KB_SHIFT_HOURS[slot.shift]; if (!sh) return '';
+  const label = (SHIFT_LABELS[slot.shift] || {}).label || slot.shift;
+  const stamp = new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}Z$/, 'Z');
+  return [
+    'BEGIN:VCALENDAR','PRODID:-//Leben Pflegen Reisen//Sitzwachen//DE','VERSION:2.0','CALSCALE:GREGORIAN','METHOD:PUBLISH',
+    'BEGIN:VTIMEZONE','TZID:Europe/Berlin',
+    'BEGIN:DAYLIGHT','TZOFFSETFROM:+0100','TZOFFSETTO:+0200','TZNAME:CEST','DTSTART:19700329T020000','RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU','END:DAYLIGHT',
+    'BEGIN:STANDARD','TZOFFSETFROM:+0200','TZOFFSETTO:+0100','TZNAME:CET','DTSTART:19701025T030000','RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU','END:STANDARD',
+    'END:VTIMEZONE',
+    'BEGIN:VEVENT',
+    `UID:booking-${slot.date}-${slot.shift}-${slot.volunteer_id}@lebenpflegenreisen.de`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;TZID=Europe/Berlin:${icsLocalKB(slot.date, sh.s)}`,
+    `DTEND;TZID=Europe/Berlin:${icsLocalKB(slot.date, sh.e, sh.ov ? 1 : 0)}`,
+    `SUMMARY:Sitzwache ${label} · ${slot.volunteer_name}`,
+    `LOCATION:${slot.room ? 'Zimmer ' + slot.room : ''}`,
+    'STATUS:CONFIRMED','END:VEVENT','END:VCALENDAR'
+  ].join('\r\n');
+}
+function downloadICS(slot) {
+  const ics = buildClinicICS(slot); if (!ics) return;
+  const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'sitzwache.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+let _successSlot = null;
+function showBookingSuccess(slot) {
+  _successSlot = slot;
+  const sh = SHIFT_LABELS[slot.shift] || { label: slot.shift, time: '' };
+  document.getElementById('kb-success-summary').innerHTML =
+    `<strong>${escape(slot.volunteer_name)}</strong> · ${escape(fmtDateShort(slot.date))}<br>${escape(sh.label)} (${escape(sh.time)})` +
+    (slot.room ? `<br>Zimmer: ${escape(slot.room)}` : '');
+  document.getElementById('kb-success-bg').classList.add('show');
+}
+document.getElementById('kb-success-ics').addEventListener('click', () => { if (_successSlot) downloadICS(_successSlot); });
+document.getElementById('kb-success-done').addEventListener('click', () => {
+  document.getElementById('kb-success-bg').classList.remove('show');
+  load();
+});
+document.getElementById('kb-success-bg').addEventListener('click', e => {
+  if (e.target.id === 'kb-success-bg') { document.getElementById('kb-success-bg').classList.remove('show'); load(); }
 });
 
 renderFlagChips();

@@ -2385,6 +2385,8 @@
   }
 
   global.LPR = {
+    // Freibetrag § 3 Nr. 26 EStG (zentral, statt mehrfach hartkodiert)
+    PAUSCHALE_LIMIT: 3300, PAUSCHALE_WARN: 2800,
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,
     getSession, setSession, clearSession, refreshSessionCache,

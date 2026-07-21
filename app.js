@@ -2200,30 +2200,10 @@
   }
 
   // Klinik storniert eine eigene Buchung (nur planned, nicht completed).
-  async function cancelClinicBooking(bookingId) {
-    const s = getSession();
-    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
-    try {
-      const client = await sb();
-      const { data, error } = await client
-        .from('bookings')
-        .update({ status: 'cancelled' })
-        .eq('id', bookingId)
-        .eq('clinic_id', s.id)
-        .eq('status', 'planned')
-        .select()
-        .single();
-      if (error) return { ok: false, error: error.message };
-      if (!data)  return { ok: false, error: 'Buchung nicht gefunden oder nicht stornierbar.' };
-      return { ok: true, booking: data };
-    } catch(e) {
-      console.error('[LPR] cancelClinicBooking:', e);
-      return { ok: false, error: 'Netzwerkfehler.' };
-    }
-  }
-
-  // Volunteer storniert eigene Klinik-Buchung mit Begründung
-  async function cancelMyClinicBooking(bookingId, reason) {
+  // Begründung ist Pflicht und wird — wie bei der Volunteer-Variante — samt
+  // Metadaten protokolliert. Die kostenpflichtige Kurzfrist-Markierung
+  // (late_cancellation) folgt mit AP2 (DB-Migration).
+  async function cancelClinicBooking(bookingId, reason) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
     const r = (reason || '').trim();
@@ -2239,15 +2219,15 @@
           cancellation_reason: r
         })
         .eq('id', bookingId)
-        .eq('volunteer_id', s.id)
+        .eq('clinic_id', s.id)
         .eq('status', 'planned')
         .select()
         .single();
-      if (error)  return { ok: false, error: error.message };
+      if (error) return { ok: false, error: error.message };
       if (!data)  return { ok: false, error: 'Buchung nicht gefunden oder nicht stornierbar.' };
       return { ok: true, booking: data };
     } catch(e) {
-      console.error('[LPR] cancelMyClinicBooking:', e);
+      console.error('[LPR] cancelClinicBooking:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
     }
   }
@@ -2313,7 +2293,7 @@
     getMyClinic, submitMyClinic,
     listClinicsByStatus, approveClinic, rejectClinic,
     // Klinik-Buchungen (Etappe 2)
-    listAvailableShifts, bookShift, getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking, cancelMyClinicBooking,
+    listAvailableShifts, bookShift, getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

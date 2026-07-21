@@ -697,7 +697,7 @@ footer a { color: var(--lime); text-decoration: none; }
     </div>
 
     <p style="margin-top:20px; font-size:13px; color: var(--muted); max-width: 760px;">
-      <strong>Hinweis:</strong> Sobald eine Klinik einen deiner Dienste bucht, erhältst du eine automatische Bestätigung mit Ort, Patient-Kennung und Klinikkontakt. Die Aufwandsentschädigung (200 € pro 8-Stunden-Dienst laut Vorstandsbeschluss) wird nach dem Dienst im Abrechnungstool beantragt.
+      <strong>Hinweis:</strong> Sobald eine Klinik einen deiner Dienste bucht, siehst du hier die Einsatzdetails (Ort, Patient-Kennung, Klinikkontakt). Deine Aufwandsentschädigung<span id="sitz-rate-hint"></span> (Übungsleiterfreibetrag § 3 Nr. 26 EStG) beantragst du nach dem Dienst mit wenigen Klicks im Abrechnungstool.
     </p>
 
   </div>
@@ -953,6 +953,22 @@ async function render() {
   await Promise.all([loadAvailFromDb(), loadBookingsFromDb()]);
   renderCalendar();
   renderStats();
+  renderSitzRateHint();
+}
+
+// Betrag der Aufwandsentschädigung NIE fest verdrahten: dynamisch aus den
+// beschlossenen Sätzen. Solange keine sitz_*-Rate existiert, bleibt der
+// Betrag unerwähnt (Satz steht noch unter Vorstandsbeschluss).
+async function renderSitzRateHint() {
+  const el = document.getElementById('sitz-rate-hint');
+  if (!el || !(window.LPR && window.LPR.getRates)) return;
+  try {
+    const rates = await window.LPR.getRates();
+    const r = rates['sitz_morning'] || rates['sitz_afternoon'] || rates['sitz_night'];
+    el.textContent = (r && r.amount != null)
+      ? ' (' + window.LPR.formatEUR(Number(r.amount)) + ' pro 8-Stunden-Dienst)'
+      : '';
+  } catch (e) { /* Betrag bleibt unerwähnt */ }
 }
 
 function renderCalendar() {

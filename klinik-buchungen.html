@@ -234,6 +234,28 @@ const FLAG_LABELS = {
 let allBookings = [];
 let activeTab = 'planned';
 
+const MY_ID = (LPR.getSession() || {}).id;
+const SHIFT_START_HOUR = { morning: 6, afternoon: 14, night: 22 };
+
+// Weniger als 24 h bis Schichtbeginn? (lokale Zeit genügt für die Warnung)
+function isLateCancel(dateIso, shift) {
+  const h = SHIFT_START_HOUR[shift];
+  if (!dateIso || h == null) return false;
+  const [y, m, d] = dateIso.split('-').map(Number);
+  const start = new Date(y, m - 1, d, h, 0, 0);
+  return (start.getTime() - Date.now()) < 24 * 3600 * 1000;
+}
+
+// Pflicht-Begründung abfragen; wiederholt bis gültig oder Abbruch (null).
+function promptCancelReason() {
+  while (true) {
+    const r = prompt('Bitte geben Sie einen Grund für die Stornierung an (min. 10 Zeichen).\nDie Sitzwache sieht diesen Hinweis.');
+    if (r == null) return null;
+    if (r.trim().length >= 10) return r.trim();
+    alert('Bitte einen etwas ausführlicheren Grund angeben (min. 10 Zeichen).');
+  }
+}
+
 function escape(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 function fmtDate(iso) {
   const d = new Date(iso + 'T00:00:00');
@@ -296,13 +318,13 @@ function renderList() {
         </dl>
         ${b.status === 'cancelled' && b.cancellation_reason ? `
           <div class="kbl-cancel-notice">
-            <div class="kbl-cancel-title">Vom Ehrenamtlichen abgesagt</div>
+            <div class="kbl-cancel-title">${b.cancelled_by_user_id && b.cancelled_by_user_id === MY_ID ? 'Von Ihnen storniert' : 'Vom Ehrenamtlichen abgesagt'}</div>
             <div class="kbl-cancel-reason">${escape(b.cancellation_reason)}</div>
             ${b.cancelled_at ? `<div class="kbl-cancel-meta">Abgesagt am ${escape(fmtDate(b.cancelled_at.slice(0,10)))}</div>` : ''}
           </div>` : ''}
         ${b.status === 'planned' ? `
           <div class="kbl-card-actions">
-            <button type="button" class="kbl-btn-cancel" data-id="${escape(b.id)}">Buchung stornieren</button>
+            <button type="button" class="kbl-btn-cancel" data-id="${escape(b.id)}" data-date="${escape(b.date)}" data-shift="${escape(b.shift)}">Buchung stornieren</button>
           </div>` : ''}
       </div>`;
   }
@@ -311,12 +333,16 @@ function renderList() {
   // Storno-Buttons
   listEl.querySelectorAll('.kbl-btn-cancel').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Diese Buchung wirklich stornieren? Die Sitzwache bekommt das beim nächsten Login mit.')) return;
+      const reason = promptCancelReason();
+      if (reason == null) return;
+      if (isLateCancel(btn.dataset.date, btn.dataset.shift)) {
+        if (!confirm('Kurzfristige Stornierung: weniger als 24 h vor Schichtbeginn.\nLaut Konditionen kann diese Schicht kostenpflichtig sein. Trotzdem stornieren?')) return;
+      }
       btn.disabled = true;
       btn.textContent = 'Wird storniert…';
-      const res = await LPR.cancelClinicBooking(btn.dataset.id);
+      const res = await LPR.cancelClinicBooking(btn.dataset.id, reason);
       if (!res.ok) {
-        LPR.showToast(res.error || 'Stornierung fehlgeschlagen.', 'err');
+        LPR.showToast(res.error || 'Stornierung fehlgeschlagen.', 'warn');
         btn.disabled = false;
         btn.textContent = 'Buchung stornieren';
         return;

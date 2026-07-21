@@ -1053,6 +1053,14 @@ function renderTripsSection() {
   }).join('');
 }
 
+// Betrag einer Sitzwache: Snapshot der Buchung, sonst aktueller Satz.
+// Gibt null zurück, wenn (noch) kein Satz beschlossen ist — KEIN stiller Default.
+function sitzAmount(bk) {
+  if (bk.compensation_eur != null) return Number(bk.compensation_eur);
+  const rate = _rates['sitz_' + bk.shift];
+  return (rate && rate.amount != null) ? Number(rate.amount) : null;
+}
+
 function renderSitzSection() {
   const sec = document.getElementById('sitz-section');
   const el = document.getElementById('open-sitz');
@@ -1065,9 +1073,14 @@ function renderSitzSection() {
     return;
   }
   el.innerHTML = candidates.map(bk => {
-    const amount = bk.compensation_eur != null ? Number(bk.compensation_eur) : Number(_rates['sitz_' + bk.shift]?.amount || 100);
+    const amount = sitzAmount(bk);
     const shiftLabel = ({morning:'Frühdienst', afternoon:'Spätdienst', night:'Nachtdienst'})[bk.shift] || bk.shift;
-    return '<div class="trip-card"><div><span class="type-badge sitz">Sitzwache</span><div class="trip-info-title">' + shiftLabel + ' · ' + formatDateRange(bk.date, bk.date) + '</div><div class="trip-info-meta"><span>⏱ ' + (bk.hours || '?') + ' Std.</span><span>Status: abgeschlossen</span></div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(amount) + '</div><button class="btn btn-primary" onclick="openSitzClaim(\'' + bk.id + '\')">Abrechnen →</button></div></div>';
+    const head = '<div><span class="type-badge sitz">Sitzwache</span><div class="trip-info-title">' + shiftLabel + ' · ' + formatDateRange(bk.date, bk.date) + '</div><div class="trip-info-meta"><span>⏱ ' + (bk.hours || '?') + ' Std.</span><span>Status: abgeschlossen</span></div></div>';
+    if (amount == null) {
+      // Kein beschlossener Satz und kein Snapshot → Abrechnung gesperrt (kein stiller Default!)
+      return '<div class="trip-card">' + head + '<div class="trip-action"><div class="muted" style="max-width:280px;font-size:13px;text-align:right;line-height:1.4">Der Satz für Sitzwachen wird derzeit vom Vorstand beschlossen — die Abrechnung wird danach freigeschaltet.</div></div></div>';
+    }
+    return '<div class="trip-card">' + head + '<div class="trip-action"><div class="trip-amount">' + formatEUR(amount) + '</div><button class="btn btn-primary" onclick="openSitzClaim(\'' + bk.id + '\')">Abrechnen →</button></div></div>';
   }).join('');
 }
 
@@ -1123,7 +1136,12 @@ function openTripClaim(signupId) {
 function openSitzClaim(bookingId) {
   const bk = _bookings.find(b => b.id === bookingId);
   if (!bk) return;
-  const amount = bk.compensation_eur != null ? Number(bk.compensation_eur) : Number(_rates['sitz_' + bk.shift]?.amount || 100);
+  const amount = sitzAmount(bk);
+  if (amount == null) {
+    const msg = 'Der Satz für Sitzwachen wird derzeit vom Vorstand beschlossen — die Abrechnung wird danach freigeschaltet.';
+    if (window.LPR && window.LPR.showToast) window.LPR.showToast(msg, 'warn'); else alert(msg);
+    return;
+  }
   const shiftLabel = ({morning:'Frühdienst (06:00–14:00)', afternoon:'Spätdienst (14:00–22:00)', night:'Nachtdienst (22:00–06:00)'})[bk.shift] || bk.shift;
   _activeContext = { type: 'sitz', booking: bk, breakdown: { amount, shift: bk.shift }, total: amount };
 

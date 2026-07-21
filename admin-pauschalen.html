@@ -166,8 +166,8 @@
 
 LPR_Layout.init({ page: 'pauschalen-admin' });
 
-const PAUSCHALE_LIMIT = 3300;   // €/Jahr, § 3 Nr. 26 EStG, Rechtsstand 2026
-const PAUSCHALE_WARN  = 2800;
+const PAUSCHALE_LIMIT = (window.LPR && LPR.PAUSCHALE_LIMIT) || 3300;   // €/Jahr, § 3 Nr. 26 EStG (zentral in app.js)
+const PAUSCHALE_WARN  = (window.LPR && LPR.PAUSCHALE_WARN)  || 2800;
 
 let _members = [];
 let _trips = [];

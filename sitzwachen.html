@@ -689,6 +689,13 @@ footer a { color: var(--lime); text-decoration: none; }
       <span class="legend-item"><span class="legend-box booked"></span> Von Klinik gebucht</span>
     </div>
 
+    <section id="upcoming-section" style="margin: 0 0 26px;" hidden>
+      <h2 style="font-size:18px; margin:0 0 12px; display:flex; align-items:center; gap:10px;">
+        Meine nächsten Einsätze <span id="upcoming-badge"></span>
+      </h2>
+      <div id="upcoming-list"></div>
+    </section>
+
     <div class="calendar">
       <div class="cal-head">
         <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
@@ -950,10 +957,86 @@ async function render() {
   document.getElementById('month-title').textContent =
     `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
 
+  await processConfirmParam();
   await Promise.all([loadAvailFromDb(), loadBookingsFromDb()]);
   renderCalendar();
   renderStats();
   renderSitzRateHint();
+  renderUpcoming();
+}
+
+// Bestätigungslink aus der E-Mail: ?confirm={booking_id}
+async function processConfirmParam() {
+  const cid = new URLSearchParams(location.search).get('confirm');
+  if (!cid || !(window.LPR && window.LPR.confirmMyBooking)) return;
+  const res = await window.LPR.confirmMyBooking(cid);
+  if (res.ok) showToast('Einsatz bestätigt — danke!');
+  else showToast(res.error || 'Bestätigung nicht möglich.', 'warn');
+  history.replaceState(null, '', location.pathname);
+}
+
+const UPCOMING_SHIFT = { frueh: 'Frühdienst (06:00–14:00)', spaet: 'Spätdienst (14:00–22:00)', nacht: 'Nachtdienst (22:00–06:00)' };
+const UPCOMING_STATUS = { planned: 'offen — bitte bestätigen', confirmed: 'bestätigt', completed: 'abgeschlossen' };
+
+function renderUpcoming() {
+  const section = document.getElementById('upcoming-section');
+  const list = document.getElementById('upcoming-list');
+  const badge = document.getElementById('upcoming-badge');
+  if (!section || !list) return;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const items = Object.values(_dbBookings)
+    .filter(b => new Date(b.date + 'T00:00:00') >= today)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.shift_de.localeCompare(b.shift_de));
+
+  if (!items.length) { section.hidden = true; list.innerHTML = ''; badge.textContent = ''; return; }
+  section.hidden = false;
+
+  const openCount = items.filter(b => b.status === 'planned').length;
+  badge.innerHTML = openCount
+    ? `<span style="background:#F6E0D6;color:#9B2C2C;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;">${openCount} wartet auf Bestätigung</span>`
+    : '';
+
+  list.innerHTML = items.map(b => {
+    const dstr = new Date(b.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+    const pillColor = b.status === 'confirmed' ? '#2E7D46' : (b.status === 'completed' ? '#1E5B36' : '#9B2C2C');
+    const actions = b.status === 'planned'
+      ? `<button type="button" class="up-confirm" data-id="${b.id}" style="background:#2E5E3A;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Bestätigen</button>
+         <button type="button" class="up-cancel" data-id="${b.id}" style="background:#fff;color:#8A3A22;border:1px solid #B07058;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Absagen</button>`
+      : (b.status === 'confirmed'
+          ? `<button type="button" class="up-cancel" data-id="${b.id}" style="background:#fff;color:#8A3A22;border:1px solid #B07058;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Absagen</button>`
+          : '');
+    return `<div style="border:1px solid #E4DFD2;border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:#fff">
+      <div>
+        <div style="font-weight:700">${dstr} · ${UPCOMING_SHIFT[b.shift_de] || b.shift_de}</div>
+        <div style="font-size:14px;color:#555;margin-top:2px">${b.clinic_name}${b.patient_room ? ' · Zimmer ' + b.patient_room : ''} · <span style="color:${pillColor};font-weight:600">${UPCOMING_STATUS[b.status] || b.status}</span></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${actions}</div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.up-confirm').forEach(btn => btn.addEventListener('click', () => onUpcomingConfirm(btn)));
+  list.querySelectorAll('.up-cancel').forEach(btn => btn.addEventListener('click', () => onUpcomingCancel(btn)));
+}
+
+async function onUpcomingConfirm(btn) {
+  btn.disabled = true;
+  const res = await window.LPR.confirmMyBooking(btn.dataset.id);
+  if (!res.ok) { showToast(res.error || 'Bestätigung fehlgeschlagen.', 'warn'); btn.disabled = false; return; }
+  showToast('Einsatz bestätigt — danke!');
+  await Promise.all([loadAvailFromDb(), loadBookingsFromDb()]);
+  renderCalendar(); renderUpcoming();
+}
+
+async function onUpcomingCancel(btn) {
+  const reason = prompt('Bitte kurz begründen, warum du absagst (min. 10 Zeichen). Die Klinik sieht diesen Hinweis.');
+  if (reason == null) return;
+  if (reason.trim().length < 10) { showToast('Bitte eine etwas ausführlichere Begründung (min. 10 Zeichen).', 'warn'); return; }
+  btn.disabled = true;
+  const res = await window.LPR.cancelMyClinicBooking(btn.dataset.id, reason.trim());
+  if (!res.ok) { showToast(res.error || 'Absage fehlgeschlagen.', 'warn'); btn.disabled = false; return; }
+  showToast('Einsatz abgesagt. Die Klinik wird informiert.');
+  await Promise.all([loadAvailFromDb(), loadBookingsFromDb()]);
+  renderCalendar(); renderUpcoming();
 }
 
 // Betrag der Aufwandsentschädigung NIE fest verdrahten: dynamisch aus den

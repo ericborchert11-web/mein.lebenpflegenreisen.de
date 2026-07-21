@@ -2262,6 +2262,21 @@
     }
   }
 
+  // Ehrenamtliche:r bestätigt eigenen Einsatz (planned -> confirmed) via RPC.
+  async function confirmMyBooking(bookingId) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const client = await sb();
+      const { data, error } = await client.rpc('confirm_my_booking', { p_booking_id: bookingId });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, booking: Array.isArray(data) ? data[0] : data };
+    } catch(e) {
+      console.error('[LPR] confirmMyBooking:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   // ───────────────────────────────────────────────────────
   // AP2 — Vorstand: Sitzwachen Abschluss-/Auszahlungsworkflow
   // Lesen direkt via board-RLS (bookings/claims: is_board()),
@@ -2401,6 +2416,7 @@
     listClinicsByStatus, approveClinic, rejectClinic,
     // Klinik-Buchungen (Etappe 2)
     listAvailableShifts, bookShift, getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking,
+    confirmMyBooking,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
     // UI

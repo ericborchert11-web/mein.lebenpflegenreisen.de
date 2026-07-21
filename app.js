@@ -1072,7 +1072,7 @@
     try {
       let q = (await sb())
         .from('claims')
-        .select('id, source_type, trip_signup_id, booking_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, rejected_reason, notes')
+        .select('id, source_type, trip_signup_id, booking_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, rejected_reason, notes, beleg_nr, pauschale_art, submitted_to_payroll_at')
         .eq('user_id', s.id)
         .order('submitted_at', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);

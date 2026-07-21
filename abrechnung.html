@@ -804,9 +804,14 @@ body.compliance-locked .info-box { display: none; }
       <div class="check-text">Ich erkläre, dass ich diese Tätigkeit <strong>nebenberuflich</strong> ausübe — sie beansprucht nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit (ca. 13,3 Std./Woche).</div>
     </label>
 
-    <label class="check">
+    <label class="check" id="cd-chk-26-wrap">
       <input type="checkbox" class="cd-req" id="cd-chk-nicht-doppelt">
       <div class="check-text">Ich bestätige, dass ich die <strong>Übungsleiterpauschale (3.300 €/Jahr, § 3 Nr. 26 EStG)</strong> im laufenden Kalenderjahr nicht bereits anderweitig in einer Höhe in Anspruch genommen habe, die zusammen mit dieser Zahlung den Freibetrag übersteigt.</div>
+    </label>
+
+    <label class="check" id="cd-chk-26a-wrap" hidden>
+      <input type="checkbox" id="cd-chk-26a">
+      <div class="check-text">Ich bestätige, dass ich die <strong>Ehrenamtspauschale (960 €/Jahr, § 3 Nr. 26a EStG)</strong> im laufenden Kalenderjahr nicht bereits anderweitig in einer Höhe in Anspruch genommen habe, die zusammen mit dieser Zahlung den Freibetrag übersteigt, und dass ich für dieselbe Tätigkeit nicht zugleich den Übungsleiterfreibetrag beanspruche.</div>
     </label>
 
     <label class="check">
@@ -815,7 +820,7 @@ body.compliance-locked .info-box { display: none; }
     </label>
 
     <div class="info-box">
-      <strong>Hinweis:</strong> Nach Prüfung durch den Vorstand erhältst du eine Bestätigung per E-Mail. Die Überweisung erfolgt in der Regel innerhalb von 14 Tagen. Dein Auszahlungsbeleg steht dir direkt nach dem Einreichen zum Download zur Verfügung.
+      <strong>Hinweis:</strong> Deine <strong>Antragsbestätigung</strong> steht direkt nach dem Einreichen zum Download bereit. Nach Prüfung durch den Vorstand erhältst du eine Bestätigung per E-Mail; die Überweisung erfolgt in der Regel innerhalb von 14 Tagen. Den <strong>Auszahlungsbeleg</strong> mit Belegnummer erhältst du automatisch per E-Mail, sobald die Überweisung ausgeführt ist.
     </div>
 
   </div>
@@ -863,6 +868,11 @@ function formatDateRange(start, end) {
 }
 function formatIbanDisplay(iban) {
   return (iban || '').replace(/\s+/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim();
+}
+function maskIban(iban) {
+  const s = (iban || '').replace(/\s+/g, '').toUpperCase();
+  if (s.length < 8) return formatIbanDisplay(iban);
+  return s.slice(0, 4) + ' •••• •••• ' + s.slice(-4);
 }
 function diffDays(start, end) {
   return Math.round((new Date(end) - new Date(start)) / 86400000) + 1;
@@ -977,6 +987,7 @@ async function loadAll() {
     renderSitzSection();
     renderClaimsSection();
     renderBudget();
+    openBelegFromHash();
   } catch(e) {
     console.error('[abrechnung] loadAll:', e);
     document.getElementById('loading-state').innerHTML = '<p style="color:var(--warn)">Fehler beim Laden: ' + escape(e.message) + '</p>';
@@ -1171,7 +1182,32 @@ function prepareDialog() {
     submitBtn.disabled = true;
   }
   document.getElementById('cd-note').value = '';
+
+  // Freibetrag-Art umschalten: § 3 Nr. 26 (Standard, pflegerisch) vs. § 3 Nr. 26a (Ehrenamt/Orga)
+  const art = (_activeContext && _activeContext.pauschale_art === '26a') ? '26a' : '26';
+  const is26a = art === '26a';
+  const wrap26 = document.getElementById('cd-chk-26-wrap');
+  const wrap26a = document.getElementById('cd-chk-26a-wrap');
+  const chk26 = document.getElementById('cd-chk-nicht-doppelt');
+  const chk26a = document.getElementById('cd-chk-26a');
+  if (wrap26 && wrap26a && chk26 && chk26a) {
+    wrap26.hidden = is26a; chk26.classList.toggle('cd-req', !is26a);
+    wrap26a.hidden = !is26a; chk26a.classList.toggle('cd-req', is26a);
+  }
+  const legal = document.getElementById('cd-legal-info');
+  if (legal) legal.innerHTML = is26a
+    ? '<strong>Wichtig:</strong> Die Aufwandsentschädigung ist <em>kein Gehalt und kein Lohn</em>, sondern eine steuerfreie Pauschale nach <strong>§ 3 Nr. 26a EStG (Ehrenamtspauschale)</strong> bis 960 € pro Person und Kalenderjahr. Sie bleibt sozialversicherungsfrei.'
+    : '<strong>Wichtig:</strong> Die Aufwandsentschädigung ist <em>kein Gehalt und kein Lohn</em>, sondern eine steuerfreie Pauschale nach <strong>§ 3 Nr. 26 EStG (Übungsleiterpauschale)</strong> bis 3.300 € pro Person und Kalenderjahr. Sie bleibt sozialversicherungsfrei.';
+
   document.querySelectorAll('.cd-req').forEach(c => { c.checked = false; c.parentElement.classList.remove('required-not-checked'); });
+}
+
+// Öffnet aus einer E-Mail heraus direkt den Beleg: abrechnung.html#beleg-{claimId}
+function openBelegFromHash() {
+  const m = (location.hash || '').match(/^#beleg-([0-9a-fA-F-]{6,})$/);
+  if (!m) return;
+  const claim = (_claims || []).find(x => x.id === m[1] || x.id.startsWith(m[1]));
+  if (claim) showBeleg(claim.id);
 }
 
 function closeDialog() {
@@ -1369,7 +1405,54 @@ function showBeleg(claimId) {
   
   const totalColspan = isSitz ? 1 : 3;
   const aktivitaet = isSitz ? 'Ehrenamtliche Sitzwache' : 'Ehrenamtliche Reisebegleitung';
-  const html = '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(VEREIN.name) + '</div><div class="beleg-logo-sub">' + escape(VEREIN.adresse) + '</div></div><div class="beleg-nr">Beleg-ID <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong><br>Ausgestellt am ' + new Date(c.submitted_at).toLocaleDateString('de-DE') + '</div></div><div class="beleg-title">Aufwandsentschädigung</div><div class="beleg-subtitle">Übungsleiterpauschale gemäß § 3 Nr. 26 EStG · steuer- und sozialversicherungsfrei bis 3.300 € pro Jahr</div><div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(_profile?.full_name || '') + '</strong><br>' + escape(_profile?.email || '') + '<br>IBAN: ' + escape(formatIbanDisplay(_profile?.iban || '')) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(VEREIN.name) + '</strong><br>' + escape(VEREIN.adresse) + '<br>' + escape(VEREIN.register) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>Tätigkeit</h4><p>' + aktivitaet + '<br><span class="muted">pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins</span></p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + formatDateRange(c.period_start, c.period_end) + '</strong></p></div></div><table class="beleg-table"><thead>' + columnsHeader + '</thead><tbody>' + positionsHtml + '<tr class="beleg-total-row"><td colspan="' + totalColspan + '">Summe Aufwandsentschädigung</td><td class="num">' + formatEUR(c.amount) + '</td></tr></tbody></table><div class="beleg-declaration"><h4>Erklärungen der/des Ehrenamtlichen</h4><ul><li>Die angegebenen Zeiten und Tätigkeiten wurden tatsächlich und in der genannten Form erbracht.</li><li>Die Tätigkeit wird nebenberuflich ausgeübt (nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit).</li><li>Die Übungsleiterpauschale nach § 3 Nr. 26 EStG wurde im laufenden Kalenderjahr nicht anderweitig so in Anspruch genommen, dass der Jahresfreibetrag von 3.300 € überschritten wird.</li><li>Der/die Ehrenamtliche wurde über die Verarbeitung und zehnjährige Aufbewahrung der Angaben gemäß § 147 AO informiert (Art. 6 Abs. 1 lit. c DSGVO).</li></ul>' + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '') + '</div><div class="beleg-foot"><p class="muted">Status: ' + escape(c.status) + (c.submitted_to_payroll_at ? ' · An Buchhaltung gesendet am ' + new Date(c.submitted_to_payroll_at).toLocaleDateString('de-DE') : '') + ' · Vereinsbeschluss vom ' + new Date(BESCHLUSS_DATUM).toLocaleDateString('de-DE') + '</p></div>';
+
+  const isPaid = c.status === 'paid';
+  const art = c.pauschale_art === '26a' ? '26a' : '26';
+  const limit = art === '26a' ? 960 : JAHRESFREIBETRAG;
+  const paragraf = art === '26a' ? '§ 3 Nr. 26a EStG (Ehrenamtspauschale)' : '§ 3 Nr. 26 EStG (Übungsleiterpauschale)';
+  const belegTitle = isPaid ? 'Auszahlungsbeleg' : 'Antragsbestätigung';
+  const nrBlock = isPaid
+    ? 'Beleg-Nr. <strong>' + escape(c.beleg_nr || '—') + '</strong><br>Auszahlung am ' + (c.paid_at ? new Date(c.paid_at).toLocaleDateString('de-DE') : '—')
+    : 'Antrag-ID <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong><br>Eingereicht am ' + (c.submitted_at ? new Date(c.submitted_at).toLocaleDateString('de-DE') : '—');
+  const ibanShown = isPaid ? maskIban(_profile?.iban || '') : formatIbanDisplay(_profile?.iban || '');
+
+  // Jahressummen-Balken nur auf dem Auszahlungsbeleg (Summe ausgezahlter Beträge gleicher Art, inkl. dieser Zahlung)
+  let yearBar = '';
+  if (isPaid) {
+    const yr = (c.paid_at ? new Date(c.paid_at) : new Date()).getFullYear();
+    const paidSum = (_claims || []).filter(x => (x.pauschale_art === '26a' ? '26a' : '26') === art && x.status === 'paid' && x.paid_at && new Date(x.paid_at).getFullYear() === yr).reduce((s, x) => s + Number(x.amount || 0), 0);
+    const pct = Math.min(100, limit ? (paidSum / limit) * 100 : 0);
+    const over = paidSum > limit;
+    yearBar = '<div class="beleg-block" style="grid-column:1/-1;margin-top:4px"><h4>Freibetrag ' + yr + ' bei ' + escape(VEREIN.name) + '</h4>'
+      + '<div style="background:#EDE8DB;border-radius:6px;height:14px;overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct.toFixed(0) + '%;background:' + (over ? '#C0392B' : '#2E7D46') + '"></div></div>'
+      + '<p style="font-size:14px">' + formatEUR(paidSum) + ' von ' + formatEUR(limit) + ' ausgeschöpft' + (over ? ' <strong style="color:#C0392B">— Freibetrag überschritten</strong>' : '') + '</p>'
+      + '<p class="muted" style="font-size:13px">Diese Übersicht zählt nur Zahlungen von ' + escape(VEREIN.name) + '. Gleichartige Vergütungen anderer Vereine oder Auftraggeber musst du selbst hinzurechnen.</p></div>';
+  }
+
+  let declBlock;
+  if (isPaid) {
+    declBlock = '<div class="beleg-declaration"><h4>Steuerlicher Hinweis <span style="font-weight:400;color:#9B2C2C;font-size:12px">(ENTWURF — bitte durch Vorstand / Steuerberatung prüfen)</span></h4><ul>'
+      + '<li>Diese Zahlung ist eine Aufwandsentschädigung nach ' + escape(paragraf) + ' und bis zum Jahresfreibetrag von ' + formatEUR(limit) + ' steuer- und sozialversicherungsfrei.</li>'
+      + '<li>Die Überwachung des Freibetrags liegt in deiner Verantwortung — auch über mehrere Vereine oder Auftraggeber hinweg. ' + escape(VEREIN.name) + ' kennt nur die hier gezahlten Beträge.</li>'
+      + '<li>Beträge, die den Jahresfreibetrag übersteigen, sind von dir als Einkünfte zu versteuern (Angabe in der Einkommensteuererklärung, Anlage N bzw. Anlage S) und können sozialversicherungspflichtig sein.</li>'
+      + '<li>Die Auszahlung erfolgt auf Grundlage deiner Selbstauskunft im Antrag. Für die Richtigkeit und Vollständigkeit deiner Angaben bist du selbst verantwortlich.</li>'
+      + '<li>Dieser Beleg ersetzt keine Steuerberatung. Der Verein übernimmt keine Haftung für die individuelle steuerliche oder sozialversicherungsrechtliche Behandlung dieser Zahlung; bei Fragen wende dich an dein Finanzamt oder eine:n Steuerberater:in.</li>'
+      + '</ul>' + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '') + '</div>';
+  } else {
+    declBlock = '<div class="beleg-declaration"><h4>Erklärungen der/des Ehrenamtlichen</h4><ul><li>Die angegebenen Zeiten und Tätigkeiten wurden tatsächlich und in der genannten Form erbracht.</li><li>Die Tätigkeit wird nebenberuflich ausgeübt (nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit).</li><li>Die Übungsleiterpauschale nach § 3 Nr. 26 EStG wurde im laufenden Kalenderjahr nicht anderweitig so in Anspruch genommen, dass der Jahresfreibetrag von 3.300 € überschritten wird.</li><li>Der/die Ehrenamtliche wurde über die Verarbeitung und zehnjährige Aufbewahrung der Angaben gemäß § 147 AO informiert (Art. 6 Abs. 1 lit. c DSGVO).</li></ul>' + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '') + '</div>';
+  }
+
+  const footInfo = isPaid
+    ? 'Status: ausgezahlt · Auszahlung am ' + (c.paid_at ? new Date(c.paid_at).toLocaleDateString('de-DE') : '—') + (c.approved_at ? ' · Freigegeben am ' + new Date(c.approved_at).toLocaleDateString('de-DE') : '')
+    : 'Status: ' + escape(c.status) + (c.submitted_to_payroll_at ? ' · An Buchhaltung gesendet am ' + new Date(c.submitted_to_payroll_at).toLocaleDateString('de-DE') : '');
+
+  const html = '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(VEREIN.name) + '</div><div class="beleg-logo-sub">' + escape(VEREIN.adresse) + '</div></div><div class="beleg-nr">' + nrBlock + '</div></div>'
+    + '<div class="beleg-title">' + belegTitle + '</div>'
+    + '<div class="beleg-subtitle">Aufwandsentschädigung · ' + escape(paragraf) + ' · steuer- und sozialversicherungsfrei bis ' + formatEUR(limit) + ' pro Jahr</div>'
+    + '<div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(_profile?.full_name || '') + '</strong><br>' + escape(_profile?.email || '') + '<br>IBAN: ' + escape(ibanShown) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(VEREIN.name) + '</strong><br>' + escape(VEREIN.adresse) + '<br>' + escape(VEREIN.register) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>Tätigkeit</h4><p>' + aktivitaet + '<br><span class="muted">pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins</span></p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + formatDateRange(c.period_start, c.period_end) + '</strong></p></div>' + yearBar + '</div>'
+    + '<table class="beleg-table"><thead>' + columnsHeader + '</thead><tbody>' + positionsHtml + '<tr class="beleg-total-row"><td colspan="' + totalColspan + '">Summe Aufwandsentschädigung</td><td class="num">' + formatEUR(c.amount) + '</td></tr></tbody></table>'
+    + declBlock
+    + '<div class="beleg-foot"><p class="muted">' + footInfo + ' · Vereinsbeschluss vom ' + new Date(BESCHLUSS_DATUM).toLocaleDateString('de-DE') + '</p></div>';
 
   document.getElementById('beleg-content').innerHTML = html;
   ['loading-state','iban-info','trips-section','sitz-section','claims-section'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; });

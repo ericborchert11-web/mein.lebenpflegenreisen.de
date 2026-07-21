@@ -470,8 +470,8 @@
 
   // --- Tarife ---
   let _ratesCache = null;
-  async function getRates() {
-    if (_ratesCache) return _ratesCache;
+  async function getRates(force) {
+    if (_ratesCache && !force) return _ratesCache;
     try {
       const { data, error } = await (await sb())
         .from('compensation_rates')
@@ -2262,6 +2262,113 @@
     }
   }
 
+  // ───────────────────────────────────────────────────────
+  // AP2 — Vorstand: Sitzwachen Abschluss-/Auszahlungsworkflow
+  // Lesen direkt via board-RLS (bookings/claims: is_board()),
+  // Statusänderungen ausschließlich über SECURITY-DEFINER-RPCs.
+  // ───────────────────────────────────────────────────────
+
+  // Alle Buchungen (board) inkl. aufgelöster Namen. Klinikname kanonisch aus
+  // clinic_details.clinic_name (NICHT profiles.full_name = Ansprechperson!).
+  async function adminListBookings(fromDate, toDate) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.', bookings: [] };
+    try {
+      const client = await sb();
+      let q = client.from('bookings')
+        .select('id, volunteer_id, clinic_id, date, shift, hours, compensation_eur, status, completed_at, late_cancellation, patient_room, patient_flags, patient_notes, cancellation_reason, cancelled_at, cancelled_by_user_id')
+        .order('date', { ascending: false });
+      if (fromDate) q = q.gte('date', fromDate);
+      if (toDate)   q = q.lte('date', toDate);
+      const { data: bks, error } = await q;
+      if (error) return { ok: false, error: error.message, bookings: [] };
+      const rows = bks || [];
+      const volIds = [...new Set(rows.map(b => b.volunteer_id).filter(Boolean))];
+      const cliIds = [...new Set(rows.map(b => b.clinic_id).filter(Boolean))];
+      const [profRes, cdRes] = await Promise.all([
+        volIds.length ? client.from('profiles').select('id, full_name').in('id', volIds) : Promise.resolve({ data: [] }),
+        cliIds.length ? client.from('clinic_details').select('id, clinic_name').in('id', cliIds) : Promise.resolve({ data: [] })
+      ]);
+      const volMap = {}; (profRes.data || []).forEach(p => { volMap[p.id] = p.full_name; });
+      const cliMap = {}; (cdRes.data  || []).forEach(c => { cliMap[c.id] = c.clinic_name; });
+      return { ok: true, bookings: rows.map(b => ({
+        ...b,
+        volunteer_name: volMap[b.volunteer_id] || '—',
+        clinic_name:    cliMap[b.clinic_id]    || '—'
+      })) };
+    } catch(e) {
+      console.error('[LPR] adminListBookings:', e);
+      return { ok: false, error: 'Netzwerkfehler.', bookings: [] };
+    }
+  }
+
+  // Alle Anträge (board) inkl. Antragsteller-Name.
+  async function adminListClaims() {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.', claims: [] };
+    try {
+      const client = await sb();
+      const { data, error } = await client.from('claims')
+        .select('id, user_id, source_type, booking_id, amount, status, submitted_at, approved_at, paid_at, pauschale_art, beleg_nr, notes, rejected_reason')
+        .order('submitted_at', { ascending: false, nullsFirst: false });
+      if (error) return { ok: false, error: error.message, claims: [] };
+      const rows = data || [];
+      const uids = [...new Set(rows.map(c => c.user_id).filter(Boolean))];
+      const profRes = uids.length ? await client.from('profiles').select('id, full_name').in('id', uids) : { data: [] };
+      const nameMap = {}; (profRes.data || []).forEach(p => { nameMap[p.id] = p.full_name; });
+      return { ok: true, claims: rows.map(c => ({ ...c, user_name: nameMap[c.user_id] || '—' })) };
+    } catch(e) {
+      console.error('[LPR] adminListClaims:', e);
+      return { ok: false, error: 'Netzwerkfehler.', claims: [] };
+    }
+  }
+
+  function _rpcRow(data) { return Array.isArray(data) ? data[0] : data; }
+
+  async function adminSetBookingStatus(bookingId, status, hours, completedAt) {
+    try {
+      const client = await sb();
+      const { data, error } = await client.rpc('admin_set_booking_status', {
+        p_booking_id: bookingId, p_status: status,
+        p_hours: (hours ?? null), p_completed_at: (completedAt ?? null)
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, booking: _rpcRow(data) };
+    } catch(e) {
+      console.error('[LPR] adminSetBookingStatus:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function adminSetClaimStatus(claimId, status, reason) {
+    try {
+      const client = await sb();
+      const { data, error } = await client.rpc('admin_set_claim_status', {
+        p_claim_id: claimId, p_status: status, p_reason: (reason || null)
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, claim: _rpcRow(data) };
+    } catch(e) {
+      console.error('[LPR] adminSetClaimStatus:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function adminSetSitzRate(shift, amount, effectiveFrom, beschluss) {
+    try {
+      const client = await sb();
+      const { data, error } = await client.rpc('admin_set_sitz_rate', {
+        p_shift: shift, p_amount: amount,
+        p_effective_from: effectiveFrom, p_beschluss: (beschluss || null)
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, rate: _rpcRow(data) };
+    } catch(e) {
+      console.error('[LPR] adminSetSitzRate:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   global.LPR = {
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,
@@ -2294,6 +2401,8 @@
     listClinicsByStatus, approveClinic, rejectClinic,
     // Klinik-Buchungen (Etappe 2)
     listAvailableShifts, bookShift, getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking,
+    // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
+    adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

@@ -1139,7 +1139,7 @@ function openSitzClaim(bookingId) {
   const amount = sitzAmount(bk);
   if (amount == null) {
     const msg = 'Der Satz für Sitzwachen wird derzeit vom Vorstand beschlossen — die Abrechnung wird danach freigeschaltet.';
-    if (window.LPR && window.LPR.showToast) window.LPR.showToast(msg, 'err'); else alert(msg);
+    if (window.LPR && window.LPR.showToast) window.LPR.showToast(msg, 'warn'); else alert(msg);
     return;
   }
   const shiftLabel = ({morning:'Frühdienst (06:00–14:00)', afternoon:'Spätdienst (14:00–22:00)', night:'Nachtdienst (22:00–06:00)'})[bk.shift] || bk.shift;

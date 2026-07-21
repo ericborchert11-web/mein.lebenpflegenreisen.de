@@ -342,7 +342,7 @@ function renderList() {
       btn.textContent = 'Wird storniert…';
       const res = await LPR.cancelClinicBooking(btn.dataset.id, reason);
       if (!res.ok) {
-        LPR.showToast(res.error || 'Stornierung fehlgeschlagen.', 'err');
+        LPR.showToast(res.error || 'Stornierung fehlgeschlagen.', 'warn');
         btn.disabled = false;
         btn.textContent = 'Buchung stornieren';
         return;

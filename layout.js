@@ -175,7 +175,7 @@
         </div>
         <div class="footer-bottom">
           <div>© 2026 Leben Pflegen Reisen e.V. · Berlin</div>
-          <div>Kontakt: <a href="mailto:info@lebenpflegenreisen.de" style="color:var(--lime);">info@lebenpflegenreisen.de</a></div>
+          <div>Kontakt: <a href="tel:+491743409116" style="color:var(--lime);">0174 3409116</a> · <a href="https://wa.me/491743409116" target="_blank" rel="noopener" style="color:var(--lime);">WhatsApp</a> · <a href="mailto:info@lebenpflegenreisen.de" style="color:var(--lime);">info@lebenpflegenreisen.de</a></div>
         </div>
       </div>
     `;

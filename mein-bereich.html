@@ -430,7 +430,7 @@
 </div>
 </main>
 
-<script src="app.js"></script>
+<script src="app.js?v20260729a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'mein-bereich' });
@@ -629,18 +629,16 @@ async function renderStats() {
     }
   } catch(e) {}
 
-  // Pauschalen-Summe des Jahres (nur approved/paid)
-  let usedAmount = 0;
+  // Pauschalen-Summe des Jahres: NUR tatsächlich angewiesene Auszahlungen.
+  // Eingereichte/genehmigte Anträge stehen separat als "offen" — sonst sieht
+  // eine Reise nach Antragstellung aus wie bereits abgerechnetes Geld.
+  let paidAmount = 0, openAmount = 0;
   try {
     const cRes = await LPR.getMyClaims();
     if (cRes.ok) {
-      usedAmount = (cRes.claims || [])
-        .filter(c => (c.status === 'approved' || c.status === 'paid'))
-        .filter(c => {
-          const d = new Date(c.submitted_at || c.created_at);
-          return d.getFullYear() === year;
-        })
-        .reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+      const totals = LPR.claimTotals(cRes.claims, year);
+      paidAmount = totals.paid;
+      openAmount = totals.pending;
     }
   } catch(e) {}
 
@@ -648,7 +646,7 @@ async function renderStats() {
     <div class="stat-card"><div class="num">${availCount}</div><div class="lbl">Anstehende Verfügbarkeit</div></div>
     <div class="stat-card"><div class="num accent">${bookedCount}</div><div class="lbl">Anstehende Dienste</div></div>
     <div class="stat-card"><div class="num">${tripCount}</div><div class="lbl">Reisen eingetragen</div></div>
-    <div class="stat-card"><div class="num ${usedAmount > 2800 ? 'warn-col' : 'accent'}">${LPR.formatEUR(usedAmount)}</div><div class="lbl">Pauschale ${year}</div></div>
+    <div class="stat-card"><div class="num ${(paidAmount + openAmount) > 2800 ? 'warn-col' : 'accent'}">${LPR.formatEUR(paidAmount)}</div><div class="lbl">Pauschale ${year} ausgezahlt${openAmount > 0 ? ` · ${LPR.formatEUR(openAmount)} offen` : ''}</div></div>
   `;
 }
 

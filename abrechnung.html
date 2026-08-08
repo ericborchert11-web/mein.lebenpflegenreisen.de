@@ -260,6 +260,10 @@ main {
 .state-done    { background: #E8F0EB; color: var(--ok); }
 .state-pending { background: #FFF3DE; color: #8E6112; }
 .state-paid    { background: var(--lime-soft); color: var(--green-deep); }
+/* Offene Stadien optisch klar von "ausgezahlt" trennen */
+.state-submitted { background: #FFF3DE; color: #8E6112; }
+.state-approved  { background: #E4EEF6; color: #1D5273; }
+.state-rejected  { background: #F7E2DC; color: #9B3B22; }
 
 /* ══════════ BUTTONS ══════════ */
 .btn {
@@ -712,7 +716,7 @@ body.compliance-locked .info-box { display: none; }
     <div id="trips-section" hidden>
       <div class="section-label">
         <h2>Abzurechnende Reisen</h2>
-        <p>Nur abgeschlossene Reisen, an denen du als Ehrenamtliche:r teilgenommen hast.</p>
+        <p>Nur abgeschlossene Reisen, an denen du als Ehrenamtliche:r teilgenommen hast. Diese Reisen sind <strong>noch nicht abgerechnet</strong> — erst dein Antrag und die Auszahlung durch den Vorstand schließen sie ab.</p>
       </div>
       <div id="open-trips"></div>
     </div>
@@ -732,7 +736,7 @@ body.compliance-locked .info-box { display: none; }
       <div class="section-divider"></div>
       <div class="section-label">
         <h2>Meine Anträge</h2>
-        <p>Alle bereits eingereichten Abrechnungen mit Status.</p>
+        <p>Alle bereits eingereichten Abrechnungen mit Status. Als abgerechnet gilt ein Antrag erst, wenn der Vorstand die Auszahlung angewiesen hat.</p>
       </div>
       <div id="submitted-claims"></div>
     </div>
@@ -836,7 +840,7 @@ body.compliance-locked .info-box { display: none; }
 
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
-<script src="app.js?v20260429a"></script>
+<script src="app.js?v20260729a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'abrechnung' });
@@ -1019,14 +1023,18 @@ function renderIbanInfo() {
   }
 }
 
+// "Dieses Jahr ausgezahlt" zeigt ausschliesslich angewiesene Auszahlungen
+// (status 'paid'). Eingereichte und genehmigte Antraege stehen getrennt unter
+// "Offene Antraege" — sonst liest sich ein frisch gestellter Antrag wie
+// bereits abgerechnetes Geld.
 function renderBudget() {
   const yearNow = new Date().getFullYear();
-  const yearClaims = _claims.filter(c => new Date(c.submitted_at).getFullYear() === yearNow && c.status !== 'rejected');
-  const used = yearClaims.reduce((s, c) => s + Number(c.amount || 0), 0);
-  const left = Math.max(0, JAHRESFREIBETRAG - used);
-  const pct = Math.min(100, (used / JAHRESFREIBETRAG) * 100);
+  const totals = LPR.claimTotals(_claims, yearNow);
+  const left = Math.max(0, totals.rest);
+  const pct = Math.min(100, (totals.total / JAHRESFREIBETRAG) * 100);
   const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-  setText('budget-used', formatEUR(used));
+  setText('budget-used', formatEUR(totals.paid));
+  setText('budget-pending', formatEUR(totals.pending));
   setText('budget-left', formatEUR(left));
   setText('budget-total', formatEUR(JAHRESFREIBETRAG));
   const barEl = document.getElementById('budget-bar');
@@ -1105,11 +1113,17 @@ function renderClaimsSection() {
   }
   const sorted = [..._claims].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
   el.innerHTML = sorted.map(c => {
+    // Nur 'paid' darf als erledigt gelesen werden — bis zur Anweisung durch den
+    // Vorstand steht ausdruecklich "noch nicht ausgezahlt" am Antrag.
     const stateLabel = c.status === 'paid' ? 'Ausgezahlt' : c.status === 'approved' ? 'Genehmigt' : c.status === 'rejected' ? 'Abgelehnt' : c.status === 'draft' ? 'Entwurf' : 'Eingereicht';
+    const stateNote = c.status === 'paid'
+      ? 'ausgezahlt am ' + (c.paid_at ? new Date(c.paid_at).toLocaleDateString('de-DE') : '—')
+      : (c.status === 'approved' || c.status === 'submitted' || !c.status) ? 'noch nicht ausgezahlt'
+      : '';
     const stateClass = c.status === 'paid' ? 'state-paid' : c.status === 'approved' ? 'state-approved' : c.status === 'rejected' ? 'state-rejected' : 'state-submitted';
     const typeBadge = c.source_type === 'sitzwache' ? '<span class="type-badge sitz">Sitzwache</span>' : '<span class="type-badge trip">Reise</span>';
     const title = c.source_type === 'sitzwache' ? 'Sitzwache vom ' + formatDateRange(c.period_start, c.period_end) : 'Reise: ' + formatDateRange(c.period_start, c.period_end);
-    return '<div class="trip-card"><div>' + typeBadge + '<div class="trip-info-title">' + escape(title) + '</div><div class="trip-info-meta"><span>Beleg-ID: <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong></span><span>Eingereicht: ' + new Date(c.submitted_at).toLocaleDateString('de-DE') + '</span><span class="trip-state ' + stateClass + '">' + stateLabel + '</span></div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(c.amount) + '</div><button class="btn btn-ghost" onclick="showBeleg(\'' + c.id + '\')">Beleg ansehen</button></div></div>';
+    return '<div class="trip-card"><div>' + typeBadge + '<div class="trip-info-title">' + escape(title) + '</div><div class="trip-info-meta"><span>Beleg-ID: <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong></span><span>Eingereicht: ' + new Date(c.submitted_at).toLocaleDateString('de-DE') + '</span><span class="trip-state ' + stateClass + '">' + stateLabel + '</span>' + (stateNote ? '<span>' + stateNote + '</span>' : '') + '</div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(c.amount) + '</div><button class="btn btn-ghost" onclick="showBeleg(\'' + c.id + '\')">Beleg ansehen</button></div></div>';
   }).join('');
 }
 
@@ -1227,7 +1241,7 @@ async function submitClaim() {
   if (!allChecked) { showToast('Bitte alle Erklärungen bestätigen.', 'warn'); return; }
 
   const yearNow = new Date().getFullYear();
-  const yearTotal = _claims.filter(c => new Date(c.submitted_at).getFullYear() === yearNow && c.status !== 'rejected').reduce((s, c) => s + Number(c.amount || 0), 0);
+  const yearTotal = LPR.claimTotals(_claims, yearNow).total;
   if (yearTotal + _activeContext.total > JAHRESFREIBETRAG) {
     if (!confirm('Achtung: Mit diesem Antrag würdest du den Jahresfreibetrag von ' + formatEUR(JAHRESFREIBETRAG) + ' überschreiten.\n\nBisher: ' + formatEUR(yearTotal) + '\nDieser Antrag: ' + formatEUR(_activeContext.total) + '\n\nMöchtest du trotzdem einreichen?')) return;
   }

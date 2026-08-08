@@ -1065,7 +1065,9 @@
   }
 
   // --- Abrechnung (claims) ---
-  // claims werden aus signups oder bookings auto-generiert
+  // Ein claim entsteht ausschliesslich dadurch, dass die/der Ehrenamtliche
+  // selbst einen Antrag stellt (submitTripClaim/submitSitzClaim) — weder der
+  // Abschluss einer Reise noch der einer Sitzwache erzeugt automatisch einen.
   async function getMyClaims(filter) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.', claims: [] };
@@ -1080,6 +1082,42 @@
       if (error) return { ok: false, error: error.message, claims: [] };
       return { ok: true, claims: data || [] };
     } catch(e) { console.error('[LPR] getMyClaims:', e); return { ok: false, error: 'Netzwerkfehler.', claims: [] }; }
+  }
+
+  // Freibetrag § 3 Nr. 26 EStG (zentral, statt mehrfach hartkodiert)
+  const PAUSCHALE_LIMIT = 3300;
+  const PAUSCHALE_WARN  = 2800;
+
+  /**
+   * Jahres-Stand der eigenen Antraege. Vorstandsregel: Als abgerechnet bzw.
+   * ausgezahlt gilt ein Betrag ERST, wenn die Auszahlung angewiesen wurde
+   * (status 'paid'). Eingereichte und genehmigte Antraege sind "offen",
+   * Entwuerfe und abgelehnte zaehlen nirgends mit.
+   *  - paid    → Jahr der Anweisung (paid_at = Zufluss, steuerlich massgeblich)
+   *  - pending → Jahr der Einreichung (submitted_at)
+   */
+  function claimTotals(claims, year) {
+    const y = Number(year);
+    const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+    const yearOf = (...candidates) => {
+      for (let i = 0; i < candidates.length; i++) {
+        if (!candidates[i]) continue;
+        const d = new Date(candidates[i]);
+        if (!isNaN(d.getTime())) return d.getFullYear();
+      }
+      return null;
+    };
+    let paid = 0, pending = 0;
+    (claims || []).forEach(c => {
+      if (!c) return;
+      if (c.status === 'paid') {
+        if (yearOf(c.paid_at, c.approved_at, c.submitted_at, c.created_at) === y) paid += num(c.amount);
+      } else if (c.status === 'submitted' || c.status === 'approved') {
+        if (yearOf(c.submitted_at, c.created_at) === y) pending += num(c.amount);
+      }
+    });
+    const total = paid + pending;
+    return { paid, pending, total, rest: PAUSCHALE_LIMIT - total };
   }
 
   function _diffDays(startIso, endIso) {
@@ -2386,7 +2424,7 @@
 
   global.LPR = {
     // Freibetrag § 3 Nr. 26 EStG (zentral, statt mehrfach hartkodiert)
-    PAUSCHALE_LIMIT: 3300, PAUSCHALE_WARN: 2800,
+    PAUSCHALE_LIMIT, PAUSCHALE_WARN,
     KEYS, load, save, del,
     escape, formatEUR, dateKey, keyToDate, formatDateRange,
     getSession, setSession, clearSession, refreshSessionCache,
@@ -2409,7 +2447,7 @@
     getAllTripSignupsAdmin, getPauschaleOverviewAdmin,
     getMyAvailability, setAvailability, removeAvailability,
     getMySignups, getMyBookings,
-    getMyClaims, calculatePay,
+    getMyClaims, claimTotals, calculatePay,
     submitTripClaim, submitSitzClaim,
     // Block C2: Payroll
     uploadClaimPdf, sendClaimToPayroll,

@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sitzwachen – Einsatz (Prototyp) · LPR e.V.</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --green:#1A3A2A;
+  --green-deep:#0D1C13;
+  --lime:#C8F135;
+  --paper:#F5F5F0;
+  --sand:#E8E4DC;
+  --line:#DAD5CB;
+  --ink:#182420;
+  --muted:#51655A;
+  --amber-bg:#FBF3DC;
+  --amber-ink:#7A5B14;
+}
+
+html{font-size:100%}
+body{
+  background:var(--sand);
+  font-family:'Instrument Sans',system-ui,sans-serif;
+  color:var(--ink);
+  min-height:100dvh;
+}
+
+/* ── App-Rahmen ── */
+.app{
+  max-width:27rem;
+  margin:0 auto;
+  min-height:100dvh;
+  background:var(--paper);
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 0 40px rgba(0,0,0,.07);
+}
+
+/* ── Kopfzeile ── */
+.top{
+  display:flex;align-items:center;gap:.6rem;
+  padding:.85rem 1.1rem;
+  background:var(--green);
+  color:#fff;
+}
+.top svg{flex-shrink:0}
+.top .t-name{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-weight:800;font-size:1.1rem;letter-spacing:-.01em;
+}
+.top .t-badge{
+  margin-left:auto;
+  background:var(--lime);color:var(--green);
+  font-size:.68rem;font-weight:700;letter-spacing:.1em;
+  padding:.25rem .55rem;border-radius:99px;
+}
+
+/* ── Screens ── */
+.screen{display:none;flex:1;flex-direction:column;padding:1.35rem 1.1rem 1.6rem}
+.screen.on{display:flex}
+
+.eyebrow{
+  font-size:.78rem;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);
+  margin-bottom:.45rem;
+}
+h1{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-weight:800;font-size:1.65rem;line-height:1.15;
+  color:var(--green);letter-spacing:-.015em;
+  margin-bottom:.6rem;
+}
+p.lead{font-size:1.15rem;line-height:1.5;color:var(--ink)}
+.step-hint{font-size:.85rem;font-weight:600;color:var(--muted);margin-bottom:.35rem}
+
+/* ── Karten ── */
+.card{
+  background:#fff;border:1px solid var(--line);border-radius:1rem;
+  padding:1.1rem 1.15rem;margin:1rem 0;
+}
+.card .c-label{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.c-row{display:flex;justify-content:space-between;gap:.8rem;padding:.42rem 0;border-bottom:1px dashed var(--line);font-size:1.08rem}
+.c-row:last-child{border-bottom:0}
+.c-row .k{color:var(--muted)}
+.c-row .v{font-weight:600;text-align:right}
+
+/* ── Buttons ── */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:.6rem;
+  width:100%;min-height:4rem;
+  border:none;border-radius:1rem;
+  font-family:'Instrument Sans',sans-serif;
+  font-size:1.3rem;font-weight:700;
+  cursor:pointer;
+  margin-top:.8rem;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn:focus-visible{outline:3px solid var(--green);outline-offset:3px}
+.btn-primary{background:var(--green);color:#fff}
+.btn-primary:active{background:var(--green-deep)}
+.btn-primary:disabled{background:#B9C2BC;color:#F2F2EE;cursor:default}
+.btn-secondary{background:#fff;color:var(--green);border:2px solid var(--green)}
+.btn-quiet{background:transparent;color:var(--muted);min-height:3.2rem;font-size:1.05rem;font-weight:600}
+.btn .chev{flex-shrink:0}
+
+/* ── Laufender Einsatz ── */
+.run-card{
+  background:var(--green);color:#fff;border-radius:1.15rem;
+  padding:1.5rem 1.2rem;text-align:center;margin:.9rem 0 .4rem;
+}
+.run-card .r-label{font-size:.8rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--lime);margin-bottom:.6rem}
+.run-card .r-time{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-weight:800;font-size:3.1rem;line-height:1;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;
+}
+.run-card .r-sub{font-size:1rem;color:rgba(255,255,255,.75);margin-top:.55rem}
+.run-card .r-chev{margin-top:.9rem}
+.pulse2{animation:pl 2.4s ease-in-out infinite}
+@keyframes pl{0%,100%{opacity:.35}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.pulse2{animation:none;opacity:.7}}
+.run-card.is-paused{background:#5C6E63}
+.run-card.is-paused .r-label{color:#fff}
+
+.pauseinfo{font-size:.98rem;color:var(--muted);text-align:center;min-height:1.4rem;margin-top:.35rem}
+
+/* ── Hinweisboxen ── */
+.note{
+  background:#fff;border:1px solid var(--line);border-left:.35rem solid var(--green);
+  border-radius:.7rem;padding:.85rem 1rem;font-size:1.05rem;line-height:1.5;margin:.9rem 0;
+}
+.note.amber{background:var(--amber-bg);border-color:#E4D6A6;border-left-color:#C9A227;color:var(--amber-ink);font-weight:600}
+.note.lime{background:#F4FBDD;border-color:#DCE9B5;border-left-color:var(--lime)}
+
+/* ── Chips (Kategorien) ── */
+.chips{display:flex;flex-wrap:wrap;gap:.6rem;margin:.8rem 0 .4rem}
+.chip{
+  min-height:3.4rem;padding:.55rem 1.05rem;
+  border:2px solid var(--line);border-radius:.85rem;background:#fff;
+  font-size:1.12rem;font-weight:600;color:var(--ink);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.chip:focus-visible{outline:3px solid var(--green);outline-offset:2px}
+.chip.sel{background:var(--green);border-color:var(--green);color:#fff}
+.chip.sel::before{content:"✓ ";color:var(--lime)}
+
+/* ── Eingaben ── */
+.field{margin:.9rem 0}
+.field label{display:block;font-size:1rem;font-weight:600;color:var(--muted);margin-bottom:.4rem}
+.field input[type=text]{
+  width:100%;min-height:3.6rem;padding:.6rem .9rem;
+  border:2px solid var(--line);border-radius:.8rem;
+  font:inherit;font-size:1.15rem;background:#fff;color:var(--ink);
+}
+.field input[type=text]:focus{outline:none;border-color:var(--green)}
+.hint{font-size:.92rem;color:var(--muted);margin-top:.35rem}
+
+/* ── Checkliste ── */
+.check{
+  display:flex;align-items:center;gap:.9rem;
+  background:#fff;border:2px solid var(--line);border-radius:.9rem;
+  padding:.9rem 1rem;margin:.55rem 0;cursor:pointer;
+  font-size:1.16rem;font-weight:600;
+}
+.check input{position:absolute;opacity:0;width:1px;height:1px}
+.check .box{
+  flex-shrink:0;width:2rem;height:2rem;border-radius:.5rem;
+  border:2.5px solid var(--green);background:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.25rem;color:#fff;font-weight:800;
+}
+.check input:checked ~ .box{background:var(--green)}
+.check input:checked ~ .box::after{content:"✓"}
+.check input:focus-visible ~ .box{outline:3px solid var(--green);outline-offset:2px}
+.check.locked{background:var(--paper);border-style:dashed;cursor:default}
+.check.locked .tag{margin-left:auto;font-size:.78rem;font-weight:700;color:var(--muted);letter-spacing:.06em}
+
+/* ── Übergabe-Liste ── */
+.evlist{margin:.4rem 0 0}
+.ev{
+  display:flex;gap:.7rem;align-items:baseline;
+  padding:.55rem 0;border-bottom:1px dashed var(--line);font-size:1.05rem;
+}
+.ev:last-child{border-bottom:0}
+.ev .t{font-weight:700;font-variant-numeric:tabular-nums;color:var(--green);flex-shrink:0}
+
+/* ── Unterschrift ── */
+.sigwrap{margin:.9rem 0 .2rem}
+canvas#sig{
+  width:100%;height:12rem;display:block;
+  background:#fff;border:2px dashed var(--green);border-radius:.9rem;
+  touch-action:none;
+}
+.sigrow{display:flex;justify-content:space-between;align-items:center;margin-top:.4rem}
+.sigrow .lbl{font-size:.95rem;color:var(--muted);font-weight:600}
+.link{background:none;border:none;color:var(--green);font:inherit;font-size:1rem;font-weight:700;text-decoration:underline;cursor:pointer;padding:.4rem}
+
+/* ── Fertig ── */
+.done-badge{
+  width:6rem;height:6rem;border-radius:50%;
+  background:var(--lime);color:var(--green);
+  display:flex;align-items:center;justify-content:center;
+  font-size:3rem;font-weight:800;margin:1.5rem auto .8rem;
+}
+.center{text-align:center}
+
+/* ── Toast ── */
+#toast{
+  position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%) translateY(1rem);
+  background:var(--green-deep);color:#fff;
+  padding:.8rem 1.2rem;border-radius:.8rem;
+  font-size:1.05rem;font-weight:600;
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
+  max-width:90%;text-align:center;z-index:50;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── Demo-Fußzeile ── */
+.demobar{
+  margin-top:auto;padding-top:1.2rem;
+  display:flex;gap:1rem;justify-content:center;align-items:center;
+  font-size:.85rem;color:#9AA49C;
+}
+.demobar button{background:none;border:1px solid var(--line);border-radius:.5rem;color:var(--muted);font:inherit;padding:.3rem .6rem;cursor:pointer}
+
+.spacer{flex:1}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Kopfzeile -->
+  <header class="top">
+    <svg viewBox="0 0 48 56" width="22" height="26" aria-hidden="true">
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6,8 24,28 6,48" stroke="#C8F135" stroke-width="6"/>
+        <polyline points="22,8 40,28 22,48" stroke="#C8F135" stroke-width="6" opacity="0.42"/>
+      </g>
+    </svg>
+    <span class="t-name">Sitzwachen</span>
+    <span class="t-badge">PROTOTYP</span>
+  </header>
+
+  <!-- ═══ 1 · Start ═══ -->
+  <section class="screen on" id="scr-home">
+    <div class="eyebrow">Leben Pflegen Reisen e.V.</div>
+    <h1>Guten Tag, Renate!</h1>
+    <p class="lead">Schön, dass Sie da sind.</p>
+
+    <div class="card">
+      <div class="c-label">Ihr Einsatz heute</div>
+      <div class="c-row"><span class="k">Klinik</span><span class="v">Sana Klinikum</span></div>
+      <div class="c-row"><span class="k">Station</span><span class="v">Station 12</span></div>
+      <div class="c-row"><span class="k">Uhrzeit</span><span class="v">14:00 – 18:00 Uhr</span></div>
+      <div class="c-row"><span class="k">Fall-Nr.</span><span class="v">2026-48213</span></div>
+    </div>
+
+    <button class="btn btn-primary" onclick="askStart()">
+      Einsatz beginnen
+      <svg class="chev" viewBox="0 0 48 56" width="16" height="19" aria-hidden="true"><g fill="none" stroke="#C8F135" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,8 24,28 6,48"/><polyline points="22,8 40,28 22,48" opacity=".45"/></g></svg>
+    </button>
+
+    <div class="demobar">
+      <span>Demo-Modus · nichts wird gespeichert</span>
+      <button onclick="resetAll()">Zurücksetzen</button>
+    </div>
+  </section>
+
+  <!-- ═══ 1b · Start bestätigen ═══ -->
+  <section class="screen" id="scr-confirm-start">
+    <h1>Einsatz jetzt beginnen?</h1>
+    <div class="card center">
+      <div class="c-label">Beginn wird gespeichert um</div>
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:2.4rem;color:var(--green)" id="startTime">14:02 Uhr</div>
+    </div>
+    <button class="btn btn-primary" onclick="doStart()">Ja, Einsatz beginnen</button>
+    <button class="btn btn-quiet" onclick="show('scr-home')">Zurück</button>
+  </section>
+
+  <!-- ═══ 2 · Einsatz läuft ═══ -->
+  <section class="screen" id="scr-run">
+    <div class="run-card" id="runCard">
+      <div class="r-label" id="runLabel">Einsatz läuft</div>
+      <div class="r-time" id="elapsed">0:00</div>
+      <div class="r-sub" id="runSub">seit 14:02 Uhr · Station 12</div>
+      <div class="r-chev">
+        <svg viewBox="0 0 48 56" width="20" height="23" aria-hidden="true"><g fill="none" stroke="#C8F135" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,8 24,28 6,48"/><polyline class="pulse2" points="22,8 40,28 22,48"/></g></svg>
+      </div>
+    </div>
+    <div class="pauseinfo" id="pauseInfo"></div>
+
+    <button class="btn btn-secondary" id="btnPause" onclick="togglePause()">Pause</button>
+    <button class="btn btn-secondary" onclick="openEvent()">Besonderheit an Pflege übergeben</button>
+
+    <div class="spacer"></div>
+    <button class="btn btn-primary" onclick="askEnd()">Einsatz beenden</button>
+
+    <div class="demobar">
+      <span>Demo:</span>
+      <button onclick="demoPlusHour()">+ 1 Stunde</button>
+    </div>
+  </section>
+
+  <!-- ═══ 2b · Besonderheit ═══ -->
+  <section class="screen" id="scr-event">
+    <h1>Besonderheit</h1>
+    <div class="note amber">Im Notfall zuerst die Pflege rufen (Patientenklingel) – die App kommt danach.</div>
+
+    <p class="lead">Was haben Sie beobachtet?</p>
+    <div class="chips" id="chips">
+      <button class="chip" data-cat="Unruhe">Unruhe</button>
+      <button class="chip" data-cat="Schmerzäußerung">Schmerzäußerung</button>
+      <button class="chip" data-cat="Übelkeit / Unwohlsein">Übelkeit / Unwohlsein</button>
+      <button class="chip" data-cat="Wollte aufstehen / Sturzgefahr">Wollte aufstehen</button>
+      <button class="chip" data-cat="Gerät hat alarmiert">Gerät hat alarmiert</button>
+      <button class="chip" data-cat="Wunsch des Patienten">Wunsch des Patienten</button>
+      <button class="chip" data-cat="Sonstiges">Sonstiges</button>
+    </div>
+
+    <div class="field">
+      <label for="evNote">Stichwort (nicht Pflicht)</label>
+      <input type="text" id="evNote" maxlength="60" placeholder="z. B. „möchte Seelsorge“">
+    </div>
+
+    <div class="note lime"><strong>Bitte sagen Sie es jetzt der Pflegekraft persönlich.</strong><br>Die Pflegekraft schreibt die Einzelheiten in die Patientenakte. Die App merkt sich nur, dass Sie übergeben haben.</div>
+
+    <button class="btn btn-primary" id="btnEvOk" disabled onclick="saveEvent()">✓ Pflege wurde informiert</button>
+    <button class="btn btn-quiet" onclick="cancelEvent()">Abbrechen – zurück zum Einsatz</button>
+  </section>
+
+  <!-- ═══ 3 · Beenden bestätigen ═══ -->
+  <section class="screen" id="scr-confirm-end">
+    <h1>Einsatz beenden?</h1>
+    <div class="card center">
+      <div class="c-label">Ende wird gespeichert um</div>
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:2.4rem;color:var(--green)" id="endTime">17:58 Uhr</div>
+    </div>
+    <button class="btn btn-primary" onclick="doEnd()">Ja, Einsatz beenden</button>
+    <button class="btn btn-quiet" onclick="show('scr-run')">Zurück – Einsatz läuft weiter</button>
+  </section>
+
+  <!-- ═══ 4 · Tätigkeiten ═══ -->
+  <section class="screen" id="scr-check">
+    <div class="step-hint">Schritt 1 von 3</div>
+    <h1>Was haben Sie gemacht?</h1>
+    <p class="lead">Bitte antippen, was zutrifft.</p>
+
+    <div style="margin-top:.6rem">
+      <label class="check locked">
+        <input type="checkbox" checked disabled>
+        <span class="box"></span>
+        <span>Anwesenheit &amp; Sichtkontakt</span>
+        <span class="tag">IMMER</span>
+      </label>
+      <label class="check"><input type="checkbox" data-act="Gespräche geführt"><span class="box"></span><span>Gespräche geführt</span></label>
+      <label class="check"><input type="checkbox" data-act="Vorgelesen"><span class="box"></span><span>Vorgelesen</span></label>
+      <label class="check"><input type="checkbox" data-act="Orientierung gegeben"><span class="box"></span><span>Orientierung gegeben</span></label>
+      <label class="check"><input type="checkbox" data-act="Beruhigt"><span class="box"></span><span>Beruhigt</span></label>
+      <label class="check"><input type="checkbox" data-act="Gesellschaft bei der Mahlzeit"><span class="box"></span><span>Gesellschaft bei der Mahlzeit</span></label>
+    </div>
+
+    <div class="card" id="clEventsCard">
+      <div class="c-label">An die Pflege übergeben</div>
+      <div class="evlist" id="clEvents"></div>
+    </div>
+
+    <button class="btn btn-primary" onclick="toSign()">Weiter</button>
+  </section>
+
+  <!-- ═══ 5 · Übersicht + Unterschrift ═══ -->
+  <section class="screen" id="scr-sign">
+    <div class="step-hint">Schritt 2 von 3</div>
+    <h1>Bestätigung der Pflege</h1>
+
+    <div class="card">
+      <div class="c-label">Ihr Einsatz im Überblick</div>
+      <div id="sumRows"></div>
+    </div>
+
+    <div class="note"><strong>Bitte geben Sie das Telefon jetzt der Pflegekraft.</strong><br>Sie bestätigt mit ihrer Unterschrift die Zeiten und die Übergaben.</div>
+
+    <div class="sigwrap">
+      <canvas id="sig"></canvas>
+      <div class="sigrow">
+        <span class="lbl">Unterschrift Pflegekraft</span>
+        <button class="link" onclick="clearSig()">Löschen</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="nurseName">Name oder Handzeichen (nicht Pflicht)</label>
+      <input type="text" id="nurseName" maxlength="40" placeholder="z. B. „Schw. M.“">
+    </div>
+
+    <button class="btn btn-primary" id="btnConfirm" disabled onclick="finish()">Einsatz bestätigen</button>
+    <button class="btn btn-quiet" onclick="show('scr-check')">Zurück</button>
+  </section>
+
+  <!-- ═══ 6 · Fertig ═══ -->
+  <section class="screen" id="scr-done">
+    <div class="done-badge">✓</div>
+    <div class="center">
+      <h1>Vielen Dank, Renate!</h1>
+      <p class="lead">Ihr Einsatz ist erfasst.</p>
+    </div>
+    <div class="card center">
+      <div class="c-label">Einsatzzeit</div>
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:2.2rem;color:var(--green)" id="doneDur">3 Std. 56 Min.</div>
+      <div class="hint" id="doneSub" style="margin-top:.3rem"></div>
+    </div>
+    <p class="lead center" style="font-size:1.05rem;color:var(--muted)">Kommen Sie gut nach Hause.</p>
+    <div class="spacer"></div>
+    <div class="note">Demo-Hinweis: Es wurde nichts gespeichert und nichts versendet.</div>
+    <button class="btn btn-secondary" onclick="resetAll()">Neuer Durchlauf</button>
+  </section>
+
+</div>
+
+<div id="toast" role="status"></div>
+
+<script>
+/* ───────── Zustand (nur im Speicher – Demo) ───────── */
+let S;
+function freshState(){
+  return { start:null, end:null, pauses:[], events:[], acts:[], offset:0 };
+}
+S = freshState();
+
+const $ = id => document.getElementById(id);
+function now(){ return new Date(Date.now() + S.offset); }
+function fmtT(d){ return d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) + ' Uhr'; }
+function fmtDur(ms){
+  const m = Math.max(0, Math.floor(ms/60000));
+  const h = Math.floor(m/60), r = m%60;
+  return h > 0 ? `${h} Std. ${r} Min.` : `${r} Min.`;
+}
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  $(id).classList.add('on');
+  window.scrollTo(0,0);
+}
+
+let toastTimer=null;
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+/* ───────── Start ───────── */
+function askStart(){
+  $('startTime').textContent = fmtT(now());
+  show('scr-confirm-start');
+}
+function doStart(){
+  S.start = now();
+  $('runSub').textContent = 'seit ' + fmtT(S.start) + ' · Station 12';
+  show('scr-run');
+  toast('Beginn gespeichert ✓ ' + fmtT(S.start));
+}
+
+/* ───────── Laufender Einsatz ───────── */
+function openPause(){ return S.pauses.length && !S.pauses[S.pauses.length-1].e ? S.pauses[S.pauses.length-1] : null; }
+
+function elapsedMs(){
+  if(!S.start) return 0;
+  const end = S.end || now();
+  let ms = end - S.start;
+  for(const p of S.pauses){ ms -= ((p.e || now()) - p.s); }
+  return ms;
+}
+
+function tick(){
+  if(!S.start || S.end) return;
+  const m = Math.floor(elapsedMs()/60000);
+  $('elapsed').textContent = Math.floor(m/60) + ':' + String(m%60).padStart(2,'0');
+  const closed = S.pauses.filter(p=>p.e);
+  const op = openPause();
+  let info = '';
+  if(op) info = 'Pause läuft seit ' + fmtT(op.s);
+  else if(closed.length){
+    const pm = Math.round(closed.reduce((a,p)=>a+(p.e-p.s),0)/60000);
+    info = closed.length + (closed.length===1?' Pause':' Pausen') + ' · ' + pm + ' Min.';
+  }
+  $('pauseInfo').textContent = info;
+}
+setInterval(tick, 1000);
+
+function togglePause(){
+  const op = openPause();
+  if(op){
+    op.e = now();
+    $('btnPause').textContent = 'Pause';
+    $('runCard').classList.remove('is-paused');
+    $('runLabel').textContent = 'Einsatz läuft';
+    toast('Pause beendet ✓');
+  } else {
+    S.pauses.push({ s: now(), e: null });
+    $('btnPause').textContent = 'Pause beenden';
+    $('runCard').classList.add('is-paused');
+    $('runLabel').textContent = 'Pause';
+    toast('Pause vermerkt ✓ – bitte Ablösung mit der Pflege absprechen');
+  }
+  tick();
+}
+
+/* ───────── Besonderheit ───────── */
+let evCat = null;
+document.querySelectorAll('#chips .chip').forEach(ch=>{
+  ch.addEventListener('click', ()=>{
+    document.querySelectorAll('#chips .chip').forEach(c=>c.classList.remove('sel'));
+    ch.classList.add('sel');
+    evCat = ch.dataset.cat;
+    $('btnEvOk').disabled = false;
+  });
+});
+function openEvent(){
+  evCat = null;
+  document.querySelectorAll('#chips .chip').forEach(c=>c.classList.remove('sel'));
+  $('evNote').value = '';
+  $('btnEvOk').disabled = true;
+  show('scr-event');
+}
+function saveEvent(){
+  const t = now();
+  S.events.push({ t, cat: evCat, note: $('evNote').value.trim() });
+  show('scr-run');
+  toast('Übergabe vermerkt ✓ ' + fmtT(t));
+}
+function cancelEvent(){ show('scr-run'); }
+
+/* ───────── Beenden ───────── */
+function askEnd(){
+  $('endTime').textContent = fmtT(now());
+  show('scr-confirm-end');
+}
+function doEnd(){
+  const op = openPause();
+  if(op) op.e = now();          /* offene Pause automatisch schließen */
+  S.end = now();
+  renderEvList('clEvents');
+  show('scr-check');
+}
+function renderEvList(target){
+  const box = $(target);
+  if(S.events.length === 0){
+    box.innerHTML = '<div class="ev"><span>Keine Besonderheiten – nichts zu übergeben.</span></div>';
+    return;
+  }
+  box.innerHTML = S.events.map(e =>
+    `<div class="ev"><span class="t">${fmtT(e.t)}</span><span>${e.cat}${e.note ? ' – „' + e.note + '“' : ''}</span></div>`
+  ).join('') +
+  '<div class="hint" style="padding-top:.5rem">Einzelheiten dokumentiert die Pflegekraft in der Patientenakte.</div>';
+}
+
+/* ───────── Übersicht + Unterschrift ───────── */
+function toSign(){
+  S.acts = ['Anwesenheit & Sichtkontakt'];
+  document.querySelectorAll('#scr-check input[data-act]:checked')
+    .forEach(i => S.acts.push(i.dataset.act));
+
+  const closed = S.pauses.filter(p=>p.e);
+  const pm = Math.round(closed.reduce((a,p)=>a+(p.e-p.s),0)/60000);
+  const rows = [
+    ['Beginn', fmtT(S.start)],
+    ['Ende', fmtT(S.end)],
+    ['Pausen', closed.length ? (closed.length + ' · ' + pm + ' Min.') : 'keine'],
+    ['Einsatzzeit', fmtDur(elapsedMs())],
+    ['Tätigkeiten', String(S.acts.length)],
+    ['Übergaben an Pflege', String(S.events.length)]
+  ];
+  $('sumRows').innerHTML = rows.map(r =>
+    `<div class="c-row"><span class="k">${r[0]}</span><span class="v">${r[1]}</span></div>`
+  ).join('');
+
+  show('scr-sign');
+  initSig();
+}
+
+/* Unterschrift */
+let sigCtx = null, sigInk = false, sigReady = false;
+function initSig(){
+  if(sigReady) return;
+  const c = $('sig');
+  const rect = c.getBoundingClientRect();
+  const d = window.devicePixelRatio || 1;
+  c.width = rect.width * d;
+  c.height = rect.height * d;
+  sigCtx = c.getContext('2d');
+  sigCtx.scale(d, d);
+  sigCtx.lineWidth = 2.6;
+  sigCtx.lineCap = 'round';
+  sigCtx.lineJoin = 'round';
+  sigCtx.strokeStyle = '#1A3A2A';
+
+  let draw=false, px=0, py=0;
+  const pos = e => {
+    const b = c.getBoundingClientRect();
+    return [e.clientX - b.left, e.clientY - b.top];
+  };
+  c.addEventListener('pointerdown', e=>{
+    e.preventDefault();
+    draw = true; [px,py] = pos(e);
+    c.setPointerCapture(e.pointerId);
+  });
+  c.addEventListener('pointermove', e=>{
+    if(!draw) return;
+    e.preventDefault();
+    const [x,y] = pos(e);
+    sigCtx.beginPath(); sigCtx.moveTo(px,py); sigCtx.lineTo(x,y); sigCtx.stroke();
+    px=x; py=y;
+    if(!sigInk){ sigInk = true; $('btnConfirm').disabled = false; }
+  });
+  ['pointerup','pointercancel'].forEach(ev => c.addEventListener(ev, ()=>{ draw=false; }));
+  sigReady = true;
+}
+function clearSig(){
+  if(!sigCtx) return;
+  const c = $('sig');
+  sigCtx.clearRect(0, 0, c.width, c.height);
+  sigInk = false;
+  $('btnConfirm').disabled = true;
+}
+
+/* ───────── Abschluss ───────── */
+function finish(){
+  $('doneDur').textContent = fmtDur(elapsedMs());
+  const n = $('nurseName').value.trim();
+  $('doneSub').textContent = 'Bestätigt durch Pflege' + (n ? ' (' + n + ')' : '') + ' um ' + fmtT(now());
+  show('scr-done');
+}
+
+/* ───────── Demo-Werkzeuge ───────── */
+function demoPlusHour(){
+  S.offset += 3600000;
+  tick();
+  toast('Demo: 1 Stunde vorgespult');
+}
+function resetAll(){
+  S = freshState();
+  evCat = null;
+  $('elapsed').textContent = '0:00';
+  $('pauseInfo').textContent = '';
+  $('btnPause').textContent = 'Pause';
+  $('runCard').classList.remove('is-paused');
+  $('runLabel').textContent = 'Einsatz läuft';
+  document.querySelectorAll('#scr-check input[data-act]').forEach(i => i.checked = false);
+  document.querySelectorAll('#chips .chip').forEach(c => c.classList.remove('sel'));
+  $('evNote').value = '';
+  $('nurseName').value = '';
+  if(sigCtx){ const c=$('sig'); sigCtx.clearRect(0,0,c.width,c.height); }
+  sigInk = false;
+  $('btnConfirm').disabled = true;
+  show('scr-home');
+}
+</script>
+</body>
+</html>

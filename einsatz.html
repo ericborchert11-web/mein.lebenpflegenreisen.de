@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sitzwache – Einsatz · LPR e.V.</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="shared.css">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   Einsatz-Seite.
+
+   Bewusst in rem statt der px-Skala aus shared.css: hier wirkt die
+   Systemschriftgroesse des Telefons durch. shared.css ist trotzdem geladen —
+   fuer die A11y-Leiste (Text groesser, Kontrast) und deren Variablen, die
+   diese Seite mitnimmt. Die Palette ist an das Portal angeglichen; wo unten
+   feste Werte stehen, sind es Fallbacks fuer den Fall, dass shared.css nicht
+   laedt.
+
+   Keine Portal-Navigation: eine Aktion pro Screen. Der Rueckweg steht am
+   Ende, nicht in einer Menuezeile, die man versehentlich trifft.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { font-size: 100%; }
+
+/* Body ist die Spalte: A11y-Leiste oben, App fuellt exakt den Rest.
+   Mit .app { min-height:100dvh } lag der letzte Button unter der Falz —
+   Leiste plus App waren zusammen hoeher als das Fenster. */
+body.einsatz {
+  background: var(--sand, #E8E4DC);
+  font-family: 'Instrument Sans', system-ui, sans-serif;
+  color: var(--text, #182420);
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+body.einsatz .a11y-bar { font-size: .95rem; flex-shrink: 0; }
+
+.app {
+  width: 100%;
+  max-width: 27rem;
+  margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+  background: var(--white, #F5F5F0);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 40px rgba(0,0,0,.07);
+}
+
+/* ── Kopfzeile ── */
+.top {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .85rem 1.1rem;
+  background: var(--green, #2D4A3A);
+  color: #fff;
+}
+.top svg { flex-shrink: 0; }
+.top .t-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 1.1rem; letter-spacing: -.01em;
+}
+.top .t-badge {
+  margin-left: auto;
+  background: var(--lime, #C8F135); color: var(--green, #2D4A3A);
+  font-size: .68rem; font-weight: 700; letter-spacing: .1em;
+  padding: .25rem .55rem; border-radius: 99px;
+}
+
+/* ── Screens ── */
+.screen { display: none; flex: 1; flex-direction: column; padding: 1.35rem 1.1rem 1.6rem; }
+.screen.on { display: flex; }
+
+.eyebrow {
+  font-size: .78rem; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted, #51655A);
+  margin-bottom: .45rem;
+}
+.app h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 1.65rem; line-height: 1.15;
+  color: var(--green, #2D4A3A); letter-spacing: -.015em;
+  margin: 0 0 .6rem;
+}
+p.lead { font-size: 1.15rem; line-height: 1.5; color: var(--text, #182420); margin: 0; }
+.step-hint { font-size: .85rem; font-weight: 600; color: var(--muted, #51655A); margin-bottom: .35rem; }
+
+/* ── Karten ── */
+.card {
+  background: #fff; border: 1px solid var(--border, #DAD5CB); border-radius: 1rem;
+  padding: 1.1rem 1.15rem; margin: 1rem 0;
+}
+.card .c-label {
+  font-size: .78rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted, #51655A); margin-bottom: .5rem;
+}
+.c-row {
+  display: flex; justify-content: space-between; gap: .8rem;
+  padding: .42rem 0; border-bottom: 1px dashed var(--border, #DAD5CB); font-size: 1.08rem;
+}
+.c-row:last-child { border-bottom: 0; }
+.c-row .k { color: var(--muted, #51655A); }
+.c-row .v { font-weight: 600; text-align: right; }
+
+/* ── Buttons ── */
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: .6rem;
+  width: 100%; min-height: 4rem;
+  border: none; border-radius: 1rem;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 1.3rem; font-weight: 700;
+  cursor: pointer; margin-top: .8rem;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:focus-visible { outline: 3px solid var(--green, #2D4A3A); outline-offset: 3px; }
+.btn-primary { background: var(--green, #2D4A3A); color: #fff; }
+.btn-primary:active { background: var(--green-deep, #1E3127); }
+.btn-primary:disabled { background: #B9C2BC; color: #F2F2EE; cursor: default; }
+.btn-secondary { background: #fff; color: var(--green, #2D4A3A); border: 2px solid var(--green, #2D4A3A); }
+.btn-quiet {
+  background: transparent; color: var(--muted, #51655A);
+  min-height: 3.2rem; font-size: 1.05rem; font-weight: 600;
+}
+.btn .chev { flex-shrink: 0; }
+
+/* ── Laufender Einsatz ── */
+.run-card {
+  background: var(--green, #2D4A3A); color: #fff; border-radius: 1.15rem;
+  padding: 1.5rem 1.2rem; text-align: center; margin: .9rem 0 .4rem;
+}
+.run-card .r-label {
+  font-size: .8rem; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--lime, #C8F135); margin-bottom: .6rem;
+}
+.run-card .r-time {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 3.1rem; line-height: 1; letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.run-card .r-sub { font-size: 1rem; color: rgba(255,255,255,.75); margin-top: .55rem; }
+.run-card .r-chev { margin-top: .9rem; }
+.pulse2 { animation: pl 2.4s ease-in-out infinite; }
+@keyframes pl { 0%,100% { opacity:.35 } 50% { opacity:1 } }
+@media (prefers-reduced-motion: reduce) { .pulse2 { animation: none; opacity: .7 } }
+.run-card.is-paused { background: #5C6E63; }
+.run-card.is-paused .r-label { color: #fff; }
+
+.pauseinfo {
+  font-size: .98rem; color: var(--muted, #51655A);
+  text-align: center; min-height: 1.4rem; margin-top: .35rem;
+}
+
+/* ── Hinweisboxen ── */
+.note {
+  background: #fff; border: 1px solid var(--border, #DAD5CB);
+  border-left: .35rem solid var(--green, #2D4A3A);
+  border-radius: .7rem; padding: .85rem 1rem;
+  font-size: 1.05rem; line-height: 1.5; margin: .9rem 0;
+}
+.note.amber {
+  background: #FBF3DC; border-color: #E4D6A6; border-left-color: #C9A227;
+  color: #7A5B14; font-weight: 600;
+}
+.note.lime { background: #F4FBDD; border-color: #DCE9B5; border-left-color: var(--lime, #C8F135); }
+.note.warn { background: #FBE9E2; border-color: #EFC9B8; border-left-color: var(--warn, #C85B30); color: #8A3A18; }
+
+/* ── Chips ── */
+.chips { display: flex; flex-wrap: wrap; gap: .6rem; margin: .8rem 0 .4rem; }
+.chip {
+  min-height: 3.4rem; padding: .55rem 1.05rem;
+  border: 2px solid var(--border, #DAD5CB); border-radius: .85rem; background: #fff;
+  font-size: 1.12rem; font-weight: 600; color: var(--text, #182420); cursor: pointer;
+  font-family: inherit; -webkit-tap-highlight-color: transparent;
+}
+.chip:focus-visible { outline: 3px solid var(--green, #2D4A3A); outline-offset: 2px; }
+.chip.sel { background: var(--green, #2D4A3A); border-color: var(--green, #2D4A3A); color: #fff; }
+.chip.sel::before { content: "✓ "; color: var(--lime, #C8F135); }
+
+/* ── Eingaben ── */
+.field { margin: .9rem 0; }
+.field label { display: block; font-size: 1rem; font-weight: 600; color: var(--muted, #51655A); margin-bottom: .4rem; }
+.field input[type=text] {
+  width: 100%; min-height: 3.6rem; padding: .6rem .9rem;
+  border: 2px solid var(--border, #DAD5CB); border-radius: .8rem;
+  font: inherit; font-size: 1.15rem; background: #fff; color: var(--text, #182420);
+}
+.field input[type=text]:focus { outline: none; border-color: var(--green, #2D4A3A); }
+.hint { font-size: .92rem; color: var(--muted, #51655A); margin-top: .35rem; }
+
+/* ── Checkliste ── */
+.check {
+  display: flex; align-items: center; gap: .9rem;
+  background: #fff; border: 2px solid var(--border, #DAD5CB); border-radius: .9rem;
+  padding: .9rem 1rem; margin: .55rem 0; cursor: pointer;
+  font-size: 1.16rem; font-weight: 600;
+}
+.check input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.check .box {
+  flex-shrink: 0; width: 2rem; height: 2rem; border-radius: .5rem;
+  border: 2.5px solid var(--green, #2D4A3A); background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem; color: #fff; font-weight: 800;
+}
+.check input:checked ~ .box { background: var(--green, #2D4A3A); }
+.check input:checked ~ .box::after { content: "✓"; }
+.check input:focus-visible ~ .box { outline: 3px solid var(--green, #2D4A3A); outline-offset: 2px; }
+.check.locked { background: var(--white, #F5F5F0); border-style: dashed; cursor: default; }
+.check.locked .tag { margin-left: auto; font-size: .78rem; font-weight: 700; color: var(--muted, #51655A); letter-spacing: .06em; }
+
+/* ── Übergabe-Liste ── */
+.evlist { margin: .4rem 0 0; }
+.ev {
+  display: flex; gap: .7rem; align-items: baseline;
+  padding: .55rem 0; border-bottom: 1px dashed var(--border, #DAD5CB); font-size: 1.05rem;
+}
+.ev:last-child { border-bottom: 0; }
+.ev .t { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--green, #2D4A3A); flex-shrink: 0; }
+
+/* ── Unterschrift ── */
+.sigwrap { margin: .9rem 0 .2rem; }
+canvas#sig {
+  width: 100%; height: 12rem; display: block;
+  background: #fff; border: 2px dashed var(--green, #2D4A3A); border-radius: .9rem;
+  touch-action: none;
+}
+.sigrow { display: flex; justify-content: space-between; align-items: center; margin-top: .4rem; }
+.sigrow .lbl { font-size: .95rem; color: var(--muted, #51655A); font-weight: 600; }
+.link {
+  background: none; border: none; color: var(--green, #2D4A3A);
+  font: inherit; font-size: 1rem; font-weight: 700;
+  text-decoration: underline; cursor: pointer; padding: .4rem;
+}
+
+/* ── Fertig ── */
+.done-badge {
+  width: 6rem; height: 6rem; border-radius: 50%;
+  background: var(--lime, #C8F135); color: var(--green, #2D4A3A);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 3rem; font-weight: 800; margin: 1.5rem auto .8rem;
+}
+.center { text-align: center; }
+.spacer { flex: 1; }
+
+/* ── Auswahl bei mehreren Diensten ── */
+.pick {
+  display: block; width: 100%; text-align: left;
+  background: #fff; border: 2px solid var(--border, #DAD5CB); border-radius: 1rem;
+  padding: 1rem 1.1rem; margin: .6rem 0; cursor: pointer; font: inherit;
+  min-height: 4rem;
+}
+.pick:focus-visible { outline: 3px solid var(--green, #2D4A3A); outline-offset: 2px; }
+.pick .p-top { font-size: 1.15rem; font-weight: 700; color: var(--green, #2D4A3A); }
+.pick .p-sub { font-size: 1rem; color: var(--muted, #51655A); margin-top: .2rem; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; left: 50%; bottom: 1.4rem; transform: translateX(-50%) translateY(1rem);
+  background: var(--green-deep, #1E3127); color: #fff;
+  padding: .8rem 1.2rem; border-radius: .8rem;
+  font-size: 1.05rem; font-weight: 600;
+  opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s;
+  max-width: 90%; text-align: center; z-index: 50;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Kontrastmodus: die Karten brauchen sichtbare Kanten */
+body.contrast .card, body.contrast .note, body.contrast .chip,
+body.contrast .check, body.contrast .pick { border: 2px solid #000; }
+</style>
+</head>
+<body class="einsatz">
+
+<div class="app">
+
+  <header class="top">
+    <svg viewBox="0 0 48 56" width="22" height="26" aria-hidden="true">
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6,8 24,28 6,48" stroke="#C8F135" stroke-width="6"/>
+        <polyline points="22,8 40,28 22,48" stroke="#C8F135" stroke-width="6" opacity="0.42"/>
+      </g>
+    </svg>
+    <span class="t-name">Sitzwachen</span>
+    <span class="t-badge" id="modus-badge" hidden>ÜBUNG</span>
+  </header>
+
+  <!-- ═══ Laden ═══ -->
+  <section class="screen on" id="scr-laden">
+    <p class="lead center" style="margin-top:3rem">Einen Moment…</p>
+  </section>
+
+  <!-- ═══ Kein Dienst ═══ -->
+  <section class="screen" id="scr-keiner">
+    <div class="eyebrow">Leben Pflegen Reisen e.V.</div>
+    <h1 id="keiner-gruss">Guten Tag!</h1>
+    <p class="lead">Für heute ist kein Dienst eingetragen.</p>
+    <div class="note">Wenn das nicht stimmt, melde dich bitte im Vereinsbüro — dann klären wir das gemeinsam.</div>
+    <div class="spacer"></div>
+    <button class="btn btn-secondary" onclick="uebungStarten()">Ablauf einmal üben</button>
+    <button class="btn btn-quiet" onclick="location.href='mein-bereich.html'">Zurück zu Mein Bereich</button>
+  </section>
+
+  <!-- ═══ Auswahl bei mehreren Diensten ═══ -->
+  <section class="screen" id="scr-auswahl">
+    <h1>Welcher Dienst?</h1>
+    <p class="lead">Für dich sind mehrere Dienste eingetragen. Bitte den antippen, den du jetzt beginnst.</p>
+    <div id="auswahl-liste" style="margin-top:1rem"></div>
+    <div class="spacer"></div>
+    <button class="btn btn-quiet" onclick="location.href='mein-bereich.html'">Zurück zu Mein Bereich</button>
+  </section>
+
+  <!-- ═══ 1 · Start ═══ -->
+  <section class="screen" id="scr-home">
+    <div class="eyebrow">Leben Pflegen Reisen e.V.</div>
+    <h1 id="gruss">Guten Tag!</h1>
+    <p class="lead">Schön, dass Sie da sind.</p>
+
+    <div class="card">
+      <div class="c-label">Ihr Einsatz heute</div>
+      <div class="c-row"><span class="k">Klinik</span><span class="v" id="i-klinik">—</span></div>
+      <div class="c-row"><span class="k">Station</span><span class="v" id="i-station">—</span></div>
+      <div class="c-row"><span class="k">Uhrzeit</span><span class="v" id="i-zeit">—</span></div>
+      <div class="c-row" id="i-fall-row"><span class="k">Fall-Nr.</span><span class="v" id="i-fall">—</span></div>
+    </div>
+
+    <div class="field" id="fall-eingabe" hidden>
+      <label for="fall-input">Fall-Nummer (steht auf der Station)</label>
+      <input type="text" id="fall-input" maxlength="40" placeholder="z. B. 2026-48213" inputmode="text">
+      <div class="hint">Die Klinik hat sie noch nicht eingetragen. Sie steht am Bett oder in der Übergabe.</div>
+    </div>
+
+    <div class="note amber" id="erinnerung" hidden></div>
+
+    <button class="btn btn-primary" onclick="askStart()">
+      Einsatz beginnen
+      <svg class="chev" viewBox="0 0 48 56" width="16" height="19" aria-hidden="true"><g fill="none" stroke="#C8F135" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,8 24,28 6,48"/><polyline points="22,8 40,28 22,48" opacity=".45"/></g></svg>
+    </button>
+    <button class="btn btn-quiet" onclick="location.href='mein-bereich.html'">Zurück zu Mein Bereich</button>
+  </section>
+
+  <!-- ═══ 1b · Start bestätigen ═══ -->
+  <section class="screen" id="scr-confirm-start">
+    <h1>Einsatz jetzt beginnen?</h1>
+    <div class="card center">
+      <div class="c-label">Beginn wird gespeichert um</div>
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:2.4rem;color:var(--green,#2D4A3A)" id="startTime">—</div>
+    </div>
+    <button class="btn btn-primary" id="btn-do-start" onclick="doStart()">Ja, Einsatz beginnen</button>
+    <button class="btn btn-quiet" onclick="show('scr-home')">Zurück</button>
+  </section>
+
+  <!-- ═══ 2 · Einsatz läuft ═══ -->
+  <section class="screen" id="scr-run">
+    <div class="run-card" id="runCard">
+      <div class="r-label" id="runLabel">Einsatz läuft</div>
+      <div class="r-time" id="elapsed">0:00</div>
+      <div class="r-sub" id="runSub">—</div>
+      <div class="r-chev">
+        <svg viewBox="0 0 48 56" width="20" height="23" aria-hidden="true"><g fill="none" stroke="#C8F135" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,8 24,28 6,48"/><polyline class="pulse2" points="22,8 40,28 22,48"/></g></svg>
+      </div>
+    </div>
+    <div class="pauseinfo" id="pauseInfo"></div>
+
+    <button class="btn btn-secondary" id="btnPause" onclick="togglePause()">Pause</button>
+    <button class="btn btn-secondary" onclick="openEvent()">Besonderheit an Pflege übergeben</button>
+
+    <div class="spacer"></div>
+    <button class="btn btn-primary" onclick="askEnd()">Einsatz beenden</button>
+  </section>
+
+  <!-- ═══ 2b · Besonderheit ═══ -->
+  <section class="screen" id="scr-event">
+    <h1>Besonderheit</h1>
+    <div class="note amber">Im Notfall zuerst die Pflege rufen (Patientenklingel) – die App kommt danach.</div>
+
+    <p class="lead">Was haben Sie beobachtet?</p>
+    <div class="chips" id="chips">
+      <button class="chip" data-key="unruhe">Unruhe</button>
+      <button class="chip" data-key="schmerzaeusserung">Schmerzäußerung</button>
+      <button class="chip" data-key="uebelkeit">Übelkeit / Unwohlsein</button>
+      <button class="chip" data-key="aufstehen_sturzgefahr">Wollte aufstehen</button>
+      <button class="chip" data-key="geraet_alarm">Gerät hat alarmiert</button>
+      <button class="chip" data-key="patientenwunsch">Wunsch des Patienten</button>
+      <button class="chip" data-key="sonstiges">Sonstiges</button>
+    </div>
+
+    <div class="field">
+      <label for="evNote">Stichwort (nicht Pflicht)</label>
+      <input type="text" id="evNote" maxlength="60" placeholder="z. B. „möchte Seelsorge“">
+    </div>
+
+    <div class="note lime"><strong>Bitte sagen Sie es jetzt der Pflegekraft persönlich.</strong><br>Die Pflegekraft schreibt die Einzelheiten in die Patientenakte. Die App merkt sich nur, dass Sie übergeben haben.</div>
+
+    <button class="btn btn-primary" id="btnEvOk" disabled onclick="saveEvent()">✓ Pflege wurde informiert</button>
+    <button class="btn btn-quiet" onclick="show('scr-run')">Abbrechen – zurück zum Einsatz</button>
+  </section>
+
+  <!-- ═══ 3 · Beenden bestätigen ═══ -->
+  <section class="screen" id="scr-confirm-end">
+    <h1>Einsatz beenden?</h1>
+    <div class="card center">
+      <div class="c-label">Ende wird gespeichert um</div>
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:2.4rem;color:var(--green,#2D4A3A)" id="endTime">—</div>
+    </div>
+    <button class="btn btn-primary" onclick="doEnd()">Ja, Einsatz beenden</button>
+    <button class="btn btn-quiet" onclick="show('scr-run')">Zurück – Einsatz läuft weiter</button>
+  </section>
+
+  <!-- ═══ 4 · Tätigkeiten ═══ -->
+  <section class="screen" id="scr-check">
+    <div class="step-hint">Schritt 1 von 3</div>
+    <h1>Was haben Sie gemacht?</h1>
+    <p class="lead">Bitte antippen, was zutrifft.</p>
+
+    <div style="margin-top:.6rem">
+      <label class="check locked">
+        <input type="checkbox" checked disabled>
+        <span class="box"></span>
+        <span>Anwesenheit &amp; Sichtkontakt</span>
+        <span class="tag">IMMER</span>
+      </label>
+      <label class="check"><input type="checkbox" data-act="gespraech"><span class="box"></span><span>Gespräche geführt</span></label>
+      <label class="check"><input type="checkbox" data-act="vorgelesen"><span class="box"></span><span>Vorgelesen</span></label>
+      <label class="check"><input type="checkbox" data-act="orientierung"><span class="box"></span><span>Orientierung gegeben</span></label>
+      <label class="check"><input type="checkbox" data-act="beruhigt"><span class="box"></span><span>Beruhigt</span></label>
+      <label class="check"><input type="checkbox" data-act="mahlzeit_gesellschaft"><span class="box"></span><span>Gesellschaft bei der Mahlzeit</span></label>
+    </div>
+
+    <div class="card">
+      <div class="c-label">An die Pflege übergeben</div>
+      <div class="evlist" id="clEvents"></div>
+    </div>
+
+    <button class="btn btn-primary" onclick="toSign()">Weiter</button>
+  </section>
+
+  <!-- ═══ 5 · Übersicht + Unterschrift ═══ -->
+  <section class="screen" id="scr-sign">
+    <div class="step-hint">Schritt 2 von 3</div>
+    <h1>Bestätigung der Pflege</h1>
+
+    <div class="card">
+      <div class="c-label">Ihr Einsatz im Überblick</div>
+      <div id="sumRows"></div>
+    </div>
+
+    <div class="note"><strong>Bitte geben Sie das Telefon jetzt der Pflegekraft.</strong><br>Sie bestätigt mit ihrer Unterschrift die Zeiten und die Übergaben.</div>
+
+    <div class="sigwrap">
+      <canvas id="sig" aria-label="Unterschriftfeld"></canvas>
+      <div class="sigrow">
+        <span class="lbl">Unterschrift Pflegekraft</span>
+        <button class="link" onclick="clearSig()">Löschen</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="nurseName">Name oder Handzeichen (nicht Pflicht)</label>
+      <input type="text" id="nurseName" maxlength="40" placeholder="z. B. „Schw. M.“">
+    </div>
+
+    <div class="note warn" id="sign-fehler" hidden></div>
+
+    <button class="btn btn-primary" id="btnConfirm" disabled onclick="finish()">Einsatz bestätigen</button>
+    <button class="btn btn-quiet" onclick="show('scr-check')">Zurück</button>
+  </section>
+
+  <!-- ═══ 6 · Fertig ═══ -->
+  <section class="screen" id="scr-done">
+    <div class="step-hint">Schritt 3 von 3</div>
+    <div class="done-badge">✓</div>
+    <div class="center">
+      <h1 id="dank">Vielen Dank!</h1>
+      <p class="lead">Ihr Einsatz ist erfasst.</p>
+    </div>
+    <div class="card center">
+      <div class="c-label">Einsatzzeit</div>
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:2.2rem;color:var(--green,#2D4A3A)" id="doneDur">—</div>
+      <div class="hint" id="doneSub" style="margin-top:.3rem"></div>
+    </div>
+    <p class="lead center" style="font-size:1.05rem;color:var(--muted,#51655A)">Kommen Sie gut nach Hause.</p>
+    <div class="spacer"></div>
+    <div class="note" id="uebung-hinweis" hidden>Übung beendet: Es wurde nichts gespeichert und nichts versendet.</div>
+    <button class="btn btn-secondary" onclick="location.href='mein-bereich.html'">Zurück zu Mein Bereich</button>
+  </section>
+
+  <!-- ═══ Fehler ═══ -->
+  <section class="screen" id="scr-fehler">
+    <h1>Das hat nicht geklappt</h1>
+    <div class="note warn" id="fehler-text">Unbekannter Fehler.</div>
+    <p class="lead">Ihre Eingaben sind nicht verloren. Versuchen Sie es noch einmal — oder melden Sie sich im Vereinsbüro.</p>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" onclick="location.reload()">Noch einmal versuchen</button>
+    <button class="btn btn-quiet" onclick="location.href='mein-bereich.html'">Zurück zu Mein Bereich</button>
+  </section>
+
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js?v20260808a"></script>
+<script src="layout.js"></script>
+<script>
+// Nur die A11y-Leiste: keine Navigation, kein Footer, kein Chatbot.
+// "Eine Aktion pro Screen" vertraegt keine Menuezeile, die man versehentlich trifft.
+LPR_Layout.init({ header: false, footer: false, chatbot: false });
+
+const $ = id => document.getElementById(id);
+
+const SCHICHT = {
+  morning:   { label: 'Frühdienst',  zeit: '06:00 – 14:00 Uhr', start: 6 },
+  afternoon: { label: 'Spätdienst',  zeit: '14:00 – 22:00 Uhr', start: 14 },
+  night:     { label: 'Nachtdienst', zeit: '22:00 – 06:00 Uhr', start: 22 }
+};
+
+const TAETIGKEIT_LABEL = {
+  anwesenheit_sichtkontakt: 'Anwesenheit & Sichtkontakt',
+  gespraech: 'Gespräche geführt',
+  vorgelesen: 'Vorgelesen',
+  orientierung: 'Orientierung gegeben',
+  beruhigt: 'Beruhigt',
+  mahlzeit_gesellschaft: 'Gesellschaft bei der Mahlzeit'
+};
+
+const KATEGORIE_LABEL = {
+  unruhe: 'Unruhe',
+  schmerzaeusserung: 'Schmerzäußerung',
+  uebelkeit: 'Übelkeit / Unwohlsein',
+  aufstehen_sturzgefahr: 'Wollte aufstehen / Sturzgefahr',
+  geraet_alarm: 'Gerät hat alarmiert',
+  patientenwunsch: 'Wunsch des Patienten',
+  sonstiges: 'Sonstiges'
+};
+
+// Zustand des laufenden Einsatzes
+let S = { einsatzId: null, buchung: null, beginn: null, ereignisse: [], uebung: false };
+
+/* ───────── Anzeige ───────── */
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+  $(id).classList.add('on');
+  window.scrollTo(0, 0);
+}
+function fmtT(d) { return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr'; }
+function fmtDauer(min) {
+  const m = Math.max(0, Math.round(min));
+  const h = Math.floor(m / 60), r = m % 60;
+  return h > 0 ? `${h} Std. ${r} Min.` : `${r} Min.`;
+}
+let toastTimer = null;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function zeigeFehler(text) { $('fehler-text').textContent = text; show('scr-fehler'); }
+
+/* ───────── Start ───────── */
+document.addEventListener('DOMContentLoaded', init);
+
+async function init() {
+  const session = LPR.getSession();
+  if (!session) { location.href = 'login.html'; return; }
+  if (session.role !== 'ehrenamt') {
+    zeigeFehler('Diese Seite ist für ehrenamtliche Sitzwachen. Mit diesem Konto lässt sich kein Einsatz erfassen.');
+    return;
+  }
+
+  const vorname = (session.name || '').trim().split(' ')[0];
+  if (vorname) {
+    $('gruss').textContent = 'Guten Tag, ' + vorname + '!';
+    $('keiner-gruss').textContent = 'Guten Tag, ' + vorname + '!';
+    $('dank').textContent = 'Vielen Dank, ' + vorname + '!';
+  }
+
+  const res = await LPR.getEinsatzKontext();
+  if (!res.ok) { zeigeFehler(res.error || 'Die Daten konnten nicht geladen werden.'); return; }
+
+  // Ein laufender Einsatz hat immer Vorrang — auch nach Reload oder Absturz.
+  if (res.laufend) {
+    S.einsatzId = res.laufend.id;
+    S.buchung = res.laufendeBuchung || { klinik: '—', station: res.laufend.station, shift: null };
+    S.beginn = new Date(res.laufend.beginn_ts);
+    const ev = await LPR.getEinsatzEreignisse(S.einsatzId);
+    S.ereignisse = ev.ok ? ev.ereignisse : [];
+    puffern();
+    zeigeLauf();
+    return;
+  }
+
+  if (!res.buchungen.length) { show('scr-keiner'); return; }
+  if (res.buchungen.length > 1) { zeigeAuswahl(res.buchungen); return; }
+  waehleBuchung(res.buchungen[0]);
+}
+
+function zeigeAuswahl(buchungen) {
+  $('auswahl-liste').innerHTML = buchungen.map((b, i) => {
+    const sh = SCHICHT[b.shift] || { label: b.shift, zeit: '' };
+    const d = new Date(b.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' });
+    return `<button class="pick" data-i="${i}">
+      <div class="p-top">${LPR.escape(sh.label)} · ${LPR.escape(sh.zeit)}</div>
+      <div class="p-sub">${LPR.escape(d)} · ${LPR.escape(b.klinik)}${b.station ? ' · ' + LPR.escape(b.station) : ''}</div>
+    </button>`;
+  }).join('');
+  $('auswahl-liste').querySelectorAll('.pick').forEach(el => {
+    el.addEventListener('click', () => waehleBuchung(buchungen[Number(el.dataset.i)]));
+  });
+  show('scr-auswahl');
+}
+
+function waehleBuchung(b) {
+  S.buchung = b;
+  const sh = SCHICHT[b.shift] || { label: b.shift, zeit: '—' };
+  $('i-klinik').textContent = b.klinik || '—';
+  $('i-station').textContent = b.station || 'nicht angegeben';
+  $('i-zeit').textContent = sh.zeit;
+
+  if (b.fallnummer) {
+    $('i-fall').textContent = b.fallnummer;
+    $('i-fall-row').hidden = false;
+    $('fall-eingabe').hidden = true;
+  } else {
+    // Die Klinik hat sie nicht eingetragen — dann traegt die Sitzwache sie ein.
+    $('i-fall-row').hidden = true;
+    $('fall-eingabe').hidden = false;
+  }
+
+  zeigeErinnerung(b, sh);
+  show('scr-home');
+}
+
+/**
+ * Sanfte Erinnerung: liegt der Schichtbeginn mehr als 15 Minuten zurueck und
+ * es laeuft noch nichts, sagen wir das freundlich. Kein Push, kein Zwang.
+ */
+function zeigeErinnerung(b, sh) {
+  if (typeof sh.start !== 'number') return;
+  const beginn = new Date(b.date + 'T00:00:00');
+  beginn.setHours(sh.start, 0, 0, 0);
+  const minuten = (Date.now() - beginn.getTime()) / 60000;
+  if (minuten >= 15 && minuten < 60 * 14) {
+    $('erinnerung').textContent =
+      'Ihr Dienst hat um ' + String(sh.start).padStart(2, '0') + ':00 Uhr begonnen. '
+      + 'Sie können jetzt starten — die Zeit wird ab dem Antippen gezählt.';
+    $('erinnerung').hidden = false;
+  }
+}
+
+/* ───────── Einsatz starten ───────── */
+function askStart() {
+  if (!$('fall-eingabe').hidden && !$('fall-input').value.trim()) {
+    toast('Bitte die Fall-Nummer eintragen.');
+    $('fall-input').focus();
+    return;
+  }
+  $('startTime').textContent = fmtT(new Date());
+  show('scr-confirm-start');
+}
+
+async function doStart() {
+  const btn = $('btn-do-start');
+  btn.disabled = true; btn.textContent = 'Wird gespeichert…';
+
+  if (S.uebung) {
+    S.einsatzId = 'uebung';
+    S.beginn = new Date();
+    S.ereignisse = [];
+    btn.disabled = false; btn.textContent = 'Ja, Einsatz beginnen';
+    zeigeLauf();
+    toast('Übung: Beginn vermerkt ✓');
+    return;
+  }
+
+  const fall = $('fall-eingabe').hidden ? null : $('fall-input').value.trim();
+  const res = await LPR.einsatzStarten(S.buchung.id, fall, null);
+  btn.disabled = false; btn.textContent = 'Ja, Einsatz beginnen';
+
+  if (!res.ok) { toast(res.error); show('scr-home'); return; }
+
+  S.einsatzId = res.einsatz.id;
+  S.beginn = new Date(res.einsatz.beginn_ts);
+  S.ereignisse = [];
+  puffern();
+  zeigeLauf();
+  toast('Beginn gespeichert ✓ ' + fmtT(S.beginn));
+}
+
+function zeigeLauf() {
+  const sh = SCHICHT[S.buchung && S.buchung.shift] || { label: 'Sitzwache' };
+  $('runSub').textContent = 'seit ' + fmtT(S.beginn)
+    + (S.buchung && S.buchung.station ? ' · ' + S.buchung.station : '');
+  aktualisiereLauf();
+  show('scr-run');
+}
+
+/* ───────── Laufender Einsatz ───────── */
+function offenePause() {
+  const starts = S.ereignisse.filter(e => e.typ === 'pause_start').length;
+  const enden  = S.ereignisse.filter(e => e.typ === 'pause_ende').length;
+  return starts > enden;
+}
+function pausenMinuten() {
+  const p = S.ereignisse.filter(e => e.typ === 'pause_start' || e.typ === 'pause_ende')
+    .sort((a, b) => new Date(a.server_ts) - new Date(b.server_ts));
+  let summe = 0;
+  for (let i = 0; i < p.length - 1; i++) {
+    if (p[i].typ === 'pause_start' && p[i + 1].typ === 'pause_ende') {
+      summe += (new Date(p[i + 1].server_ts) - new Date(p[i].server_ts)) / 60000;
+      i++;
+    }
+  }
+  // Eine noch offene Pause zaehlt ab ihrem Beginn mit.
+  if (offenePause()) {
+    const letzte = p.filter(e => e.typ === 'pause_start').pop();
+    if (letzte) summe += (Date.now() - new Date(letzte.server_ts)) / 60000;
+  }
+  return summe;
+}
+function nettoMinuten() {
+  if (!S.beginn) return 0;
+  return Math.max(0, (Date.now() - S.beginn.getTime()) / 60000 - pausenMinuten());
+}
+
+function aktualisiereLauf() {
+  if (!S.beginn) return;
+  const m = Math.floor(nettoMinuten());
+  $('elapsed').textContent = Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
+
+  const offen = offenePause();
+  $('btnPause').textContent = offen ? 'Pause beenden' : 'Pause';
+  $('runCard').classList.toggle('is-paused', offen);
+  $('runLabel').textContent = offen ? 'Pause' : 'Einsatz läuft';
+
+  const geschlossen = S.ereignisse.filter(e => e.typ === 'pause_ende').length;
+  if (offen) {
+    const letzte = S.ereignisse.filter(e => e.typ === 'pause_start').pop();
+    $('pauseInfo').textContent = letzte ? 'Pause läuft seit ' + fmtT(new Date(letzte.server_ts)) : 'Pause läuft';
+  } else if (geschlossen) {
+    $('pauseInfo').textContent = geschlossen + (geschlossen === 1 ? ' Pause' : ' Pausen')
+      + ' · ' + Math.round(pausenMinuten()) + ' Min.';
+  } else {
+    $('pauseInfo').textContent = '';
+  }
+}
+setInterval(() => { if ($('scr-run').classList.contains('on')) aktualisiereLauf(); }, 1000);
+
+async function togglePause() {
+  const btn = $('btnPause');
+  const typ = offenePause() ? 'pause_ende' : 'pause_start';
+  btn.disabled = true;
+  const res = await ereignisSenden(typ);
+  btn.disabled = false;
+  if (!res.ok) { toast(res.error); return; }
+  aktualisiereLauf();
+  toast(typ === 'pause_start'
+    ? 'Pause vermerkt ✓ – bitte Ablösung mit der Pflege absprechen'
+    : 'Pause beendet ✓');
+}
+
+async function ereignisSenden(typ, kategorie, stichwort) {
+  if (S.uebung) {
+    S.ereignisse.push({ typ, kategorie: kategorie || null, stichwort: stichwort || null, server_ts: new Date().toISOString() });
+    return { ok: true };
+  }
+  const res = await LPR.einsatzEreignis(S.einsatzId, typ, kategorie, stichwort);
+  if (res.ok) { S.ereignisse.push(res.ereignis); puffern(); }
+  return res;
+}
+
+/* ───────── Besonderheit ───────── */
+let evKey = null;
+document.querySelectorAll('#chips .chip').forEach(ch => {
+  ch.addEventListener('click', () => {
+    document.querySelectorAll('#chips .chip').forEach(c => c.classList.remove('sel'));
+    ch.classList.add('sel');
+    evKey = ch.dataset.key;
+    $('btnEvOk').disabled = false;
+  });
+});
+function openEvent() {
+  evKey = null;
+  document.querySelectorAll('#chips .chip').forEach(c => c.classList.remove('sel'));
+  $('evNote').value = '';
+  $('btnEvOk').disabled = true;
+  show('scr-event');
+}
+async function saveEvent() {
+  const btn = $('btnEvOk');
+  btn.disabled = true; btn.textContent = 'Wird vermerkt…';
+  const res = await ereignisSenden('uebergabe_pflege', evKey, $('evNote').value.trim());
+  btn.disabled = false; btn.textContent = '✓ Pflege wurde informiert';
+  if (!res.ok) { toast(res.error); return; }
+  show('scr-run');
+  toast('Übergabe vermerkt ✓ ' + fmtT(new Date()));
+}
+
+/* ───────── Beenden ───────── */
+function askEnd() {
+  $('endTime').textContent = fmtT(new Date());
+  show('scr-confirm-end');
+}
+async function doEnd() {
+  // Eine offene Pause schliesst der Server beim Abschluss ohnehin; wir tun es
+  // hier sichtbar, damit die Uebersicht gleich stimmt.
+  if (offenePause()) await ereignisSenden('pause_ende');
+  zeigeUebergaben();
+  show('scr-check');
+}
+
+function zeigeUebergaben() {
+  const liste = S.ereignisse.filter(e => e.typ === 'uebergabe_pflege');
+  const box = $('clEvents');
+  if (!liste.length) {
+    box.innerHTML = '<div class="ev"><span>Keine Besonderheiten – nichts zu übergeben.</span></div>';
+    return;
+  }
+  box.innerHTML = liste.map(e =>
+    `<div class="ev"><span class="t">${LPR.escape(fmtT(new Date(e.server_ts)))}</span>` +
+    `<span>${LPR.escape(KATEGORIE_LABEL[e.kategorie] || e.kategorie || '')}` +
+    `${e.stichwort ? ' – „' + LPR.escape(e.stichwort) + '“' : ''}</span></div>`
+  ).join('') +
+  '<div class="hint" style="padding-top:.5rem">Einzelheiten dokumentiert die Pflegekraft in der Patientenakte.</div>';
+}
+
+/* ───────── Übersicht + Unterschrift ───────── */
+let gewaehlteTaetigkeiten = [];
+
+function toSign() {
+  gewaehlteTaetigkeiten = ['anwesenheit_sichtkontakt'];
+  document.querySelectorAll('#scr-check input[data-act]:checked')
+    .forEach(i => gewaehlteTaetigkeiten.push(i.dataset.act));
+
+  const pausen = S.ereignisse.filter(e => e.typ === 'pause_ende').length;
+  const zeilen = [
+    ['Beginn', fmtT(S.beginn)],
+    ['Ende', fmtT(new Date())],
+    ['Pausen', pausen ? (pausen + ' · ' + Math.round(pausenMinuten()) + ' Min.') : 'keine'],
+    ['Einsatzzeit', fmtDauer(nettoMinuten())],
+    ['Tätigkeiten', String(gewaehlteTaetigkeiten.length)],
+    ['Übergaben an Pflege', String(S.ereignisse.filter(e => e.typ === 'uebergabe_pflege').length)]
+  ];
+  $('sumRows').innerHTML = zeilen.map(r =>
+    `<div class="c-row"><span class="k">${LPR.escape(r[0])}</span><span class="v">${LPR.escape(r[1])}</span></div>`
+  ).join('');
+
+  $('sign-fehler').hidden = true;
+  show('scr-sign');
+  initSig();
+}
+
+/* Unterschrift */
+let sigCtx = null, sigInk = false, sigReady = false;
+function initSig() {
+  if (sigReady) return;
+  const c = $('sig');
+  const rect = c.getBoundingClientRect();
+  const d = window.devicePixelRatio || 1;
+  c.width = rect.width * d;
+  c.height = rect.height * d;
+  sigCtx = c.getContext('2d');
+  sigCtx.scale(d, d);
+  sigCtx.lineWidth = 2.6;
+  sigCtx.lineCap = 'round';
+  sigCtx.lineJoin = 'round';
+  sigCtx.strokeStyle = '#1A241E';
+
+  let zeichnet = false, px = 0, py = 0;
+  const pos = e => { const b = c.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+  c.addEventListener('pointerdown', e => {
+    e.preventDefault(); zeichnet = true; [px, py] = pos(e); c.setPointerCapture(e.pointerId);
+  });
+  c.addEventListener('pointermove', e => {
+    if (!zeichnet) return;
+    e.preventDefault();
+    const [x, y] = pos(e);
+    sigCtx.beginPath(); sigCtx.moveTo(px, py); sigCtx.lineTo(x, y); sigCtx.stroke();
+    px = x; py = y;
+    if (!sigInk) { sigInk = true; $('btnConfirm').disabled = false; }
+  });
+  ['pointerup', 'pointercancel'].forEach(ev => c.addEventListener(ev, () => { zeichnet = false; }));
+  sigReady = true;
+}
+function clearSig() {
+  if (!sigCtx) return;
+  const c = $('sig');
+  const d = window.devicePixelRatio || 1;
+  sigCtx.clearRect(0, 0, c.width / d, c.height / d);
+  sigInk = false;
+  $('btnConfirm').disabled = true;
+}
+function sigBlob() {
+  return new Promise(resolve => $('sig').toBlob(resolve, 'image/png'));
+}
+
+/* ───────── Abschluss ───────── */
+async function finish() {
+  const btn = $('btnConfirm');
+  const name = $('nurseName').value.trim();
+  $('sign-fehler').hidden = true;
+  btn.disabled = true; btn.textContent = 'Wird gespeichert…';
+
+  const fertig = (minuten) => {
+    $('doneDur').textContent = fmtDauer(minuten);
+    $('doneSub').textContent = 'Bestätigt durch Pflege' + (name ? ' (' + name + ')' : '') + ' um ' + fmtT(new Date());
+    show('scr-done');
+  };
+
+  if (S.uebung) {
+    $('uebung-hinweis').hidden = false;
+    btn.disabled = false; btn.textContent = 'Einsatz bestätigen';
+    fertig(nettoMinuten());
+    return;
+  }
+
+  try {
+    const blob = await sigBlob();
+    if (!blob) throw new Error('Die Unterschrift konnte nicht gelesen werden.');
+
+    const up = await LPR.uploadUnterschrift(S.einsatzId, blob);
+    if (!up.ok) throw new Error(up.error);
+
+    const res = await LPR.einsatzAbschliessen(S.einsatzId, gewaehlteTaetigkeiten, up.pfad, name, null);
+    if (!res.ok) throw new Error(res.error);
+
+    const netto = nettoMinuten();
+    LPR.einsatzPufferLeeren();
+    fertig(netto);
+  } catch (e) {
+    // Nichts geht verloren: der Einsatz laeuft weiter, die Unterschrift steht
+    // noch auf dem Schirm, es laesst sich einfach noch einmal antippen.
+    $('sign-fehler').textContent = (e && e.message ? e.message : 'Unbekannter Fehler.')
+      + ' Ihr Einsatz läuft weiter — bitte noch einmal antippen.';
+    $('sign-fehler').hidden = false;
+    btn.disabled = false; btn.textContent = 'Einsatz bestätigen';
+  }
+}
+
+/* ───────── Übungsmodus ───────── */
+function uebungStarten() {
+  S = {
+    einsatzId: null, uebung: true, ereignisse: [], beginn: null,
+    buchung: { id: null, klinik: 'Beispielklinik', station: 'Station 12',
+               shift: 'afternoon', fallnummer: '2026-48213' }
+  };
+  $('modus-badge').hidden = false;
+  waehleBuchung(S.buchung);
+  toast('Übung: Nichts wird gespeichert.');
+}
+
+/* ───────── Sicherheitsnetz ───────── */
+function puffern() {
+  if (S.uebung) return;
+  LPR.einsatzPufferSchreiben({
+    einsatzId: S.einsatzId,
+    beginn: S.beginn ? S.beginn.toISOString() : null,
+    buchung: S.buchung,
+    gespeichert: new Date().toISOString()
+  });
+}
+</script>
+</body>
+</html>

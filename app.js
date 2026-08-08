@@ -1271,6 +1271,163 @@
          + 'aufgehoben wird. Bei Fragen bitte im Vereinsbüro melden.';
   }
 
+  // ════════════════════════════════════════════════════════════════════════
+  // Sitzwachen-Einsatzdoku
+  //
+  // Geschrieben wird ausschliesslich ueber RPCs — auf einsaetze,
+  // einsatz_ereignisse und einsatz_abschluss gibt es bewusst keine
+  // Schreib-Policies. Die Funktionen hier sind nur Zustellung; jede Regel
+  // (Compliance, Pausen-Paarung, Unterschriftspflicht, GoBD) steht in der
+  // Datenbank und gilt auch dann, wenn dieser Client sich irrt.
+  // ════════════════════════════════════════════════════════════════════════
+
+  const EINSATZ_PUFFER = 'lpr-einsatz-puffer-v1';
+
+  /**
+   * Was heute ansteht. Liefert einen bereits laufenden Einsatz (der hat immer
+   * Vorrang) und die Buchungen, zu denen sich einer starten laesst.
+   *
+   * Fenster ist heute ±1 Tag, weil der Nachtdienst ueber Mitternacht laeuft —
+   * dieselbe Spanne, die einsatz_starten serverseitig akzeptiert.
+   */
+  async function getEinsatzKontext() {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const client = await sb();
+      const heute = new Date();
+      const tag = d => new Date(heute.getFullYear(), heute.getMonth(), heute.getDate() + d)
+        .toLocaleDateString('sv-SE'); // sv-SE liefert YYYY-MM-DD
+
+      const [einsRes, bkRes] = await Promise.all([
+        client.from('einsaetze')
+          .select('id, booking_id, station, fallnummer, fallnummer_quelle, beginn_ts, ende_ts, status, offline_sync')
+          .eq('volunteer_id', s.id).eq('status', 'laufend').limit(1),
+        client.from('bookings')
+          .select('id, date, shift, status, station, fallnummer, clinic_id, profiles!bookings_clinic_id_fkey(full_name)')
+          .eq('volunteer_id', s.id)
+          .gte('date', tag(-1)).lte('date', tag(1))
+          .in('status', ['planned', 'confirmed'])
+          .order('date')
+      ]);
+
+      if (einsRes.error) return { ok: false, error: einsRes.error.message };
+      if (bkRes.error)   return { ok: false, error: bkRes.error.message };
+
+      const laufend = (einsRes.data || [])[0] || null;
+      let laufendeBuchung = null;
+      if (laufend) {
+        const { data } = await client.from('bookings')
+          .select('id, date, shift, station, fallnummer, profiles!bookings_clinic_id_fkey(full_name)')
+          .eq('id', laufend.booking_id).maybeSingle();
+        laufendeBuchung = data || null;
+      }
+
+      const map = b => ({
+        id: b.id, date: b.date, shift: b.shift, status: b.status,
+        station: b.station, fallnummer: b.fallnummer,
+        klinik: (b.profiles && b.profiles.full_name) || 'Klinik'
+      });
+
+      return {
+        ok: true,
+        laufend,
+        laufendeBuchung: laufendeBuchung ? map(laufendeBuchung) : null,
+        buchungen: (bkRes.data || []).map(map)
+      };
+    } catch(e) {
+      console.error('[LPR] getEinsatzKontext:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function einsatzStarten(bookingId, fallnummer, clientTs) {
+    try {
+      const { data, error } = await (await sb()).rpc('einsatz_starten', {
+        p_booking_id: bookingId,
+        p_fallnummer: fallnummer || null,
+        p_client_ts:  clientTs || null
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, einsatz: Array.isArray(data) ? data[0] : data };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  async function einsatzEreignis(einsatzId, typ, kategorie, stichwort, clientTs) {
+    try {
+      const { data, error } = await (await sb()).rpc('einsatz_ereignis', {
+        p_einsatz_id: einsatzId,
+        p_typ:        typ,
+        p_kategorie:  kategorie || null,
+        p_stichwort:  stichwort || null,
+        p_client_ts:  clientTs || new Date().toISOString()
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, ereignis: Array.isArray(data) ? data[0] : data };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  async function getEinsatzEreignisse(einsatzId) {
+    try {
+      const { data, error } = await (await sb())
+        .from('einsatz_ereignisse')
+        .select('id, typ, server_ts, kategorie, stichwort')
+        .eq('einsatz_id', einsatzId)
+        .order('server_ts');
+      if (error) return { ok: false, error: error.message, ereignisse: [] };
+      return { ok: true, ereignisse: data || [] };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.', ereignisse: [] }; }
+  }
+
+  /**
+   * Unterschrift in den privaten Bucket. Pfad {user_id}/{einsatz_id}.png —
+   * dieselbe Konvention wie claim-pdfs, und einsatz_abschliessen prueft
+   * serverseitig, dass der Pfad im eigenen Ordner liegt.
+   */
+  async function uploadUnterschrift(einsatzId, blob) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const pfad = s.id + '/' + einsatzId + '.png';
+      const { error } = await (await sb()).storage
+        .from('einsatz-unterschriften')
+        .upload(pfad, blob, { contentType: 'image/png', upsert: false });
+      if (error) return { ok: false, error: 'Unterschrift konnte nicht gespeichert werden: ' + error.message };
+      return { ok: true, pfad };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler beim Hochladen.' }; }
+  }
+
+  async function einsatzAbschliessen(einsatzId, taetigkeiten, unterschriftPfad, pflegeName, clientTs) {
+    try {
+      const { data, error } = await (await sb()).rpc('einsatz_abschliessen', {
+        p_einsatz_id:        einsatzId,
+        p_taetigkeiten:      taetigkeiten || [],
+        p_unterschrift_path: unterschriftPfad,
+        p_pflege_name:       pflegeName || null,
+        p_client_ts:         clientTs || null
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, einsatz: Array.isArray(data) ? data[0] : data };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /**
+   * Kleines Sicherheitsnetz gegen Reload, Absturz und kurze Funkloecher:
+   * der Stand des laufenden Einsatzes liegt zusaetzlich lokal. Das ersetzt
+   * KEINEN echten Offline-Betrieb — es sorgt nur dafuer, dass ein
+   * geschlossener Browser nicht die Arbeit einer Nachtschicht kostet.
+   */
+  function einsatzPufferLesen() {
+    try { return JSON.parse(localStorage.getItem(EINSATZ_PUFFER) || 'null'); }
+    catch(e) { return null; }
+  }
+  function einsatzPufferSchreiben(zustand) {
+    try { localStorage.setItem(EINSATZ_PUFFER, JSON.stringify(zustand || {})); } catch(e) {}
+  }
+  function einsatzPufferLeeren() {
+    try { localStorage.removeItem(EINSATZ_PUFFER); } catch(e) {}
+  }
+
   async function submitTripClaim(signupId, notes) {
     try {
       const session = getSession();
@@ -2483,6 +2640,10 @@
     submitTripClaim, submitSitzClaim,
     // Block C2: Payroll
     uploadClaimPdf, sendClaimToPayroll,
+    // Sitzwachen-Einsatzdoku
+    getEinsatzKontext, einsatzStarten, einsatzEreignis, getEinsatzEreignisse,
+    uploadUnterschrift, einsatzAbschliessen,
+    einsatzPufferLesen, einsatzPufferSchreiben, einsatzPufferLeeren,
     // Klinik-Self-Service (Etappe 1)
     getMyClinic, submitMyClinic,
     listClinicsByStatus, approveClinic, rejectClinic,

@@ -205,6 +205,12 @@
   letter-spacing: .02em;
   text-transform: uppercase;
 }
+.kb-field-hint {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  margin-top: 6px;
+}
 .kb-modal input[type="text"], .kb-modal textarea {
   width: 100%;
   border: 1.5px solid var(--border);
@@ -314,8 +320,22 @@
     <div class="kb-modal-summary" id="kb-modal-summary"></div>
 
     <div class="kb-modal-section">
-      <label class="kb-section-label" for="kb-room">Zimmer / Station</label>
-      <input type="text" id="kb-room" placeholder="z.B. Zimmer 312, Station 4B" maxlength="80">
+      <label class="kb-section-label" for="kb-station">Station</label>
+      <input type="text" id="kb-station" placeholder="z.B. Station 4B" maxlength="60">
+    </div>
+
+    <div class="kb-modal-section">
+      <label class="kb-section-label" for="kb-room">Zimmer</label>
+      <input type="text" id="kb-room" placeholder="z.B. Zimmer 312" maxlength="80">
+    </div>
+
+    <div class="kb-modal-section">
+      <label class="kb-section-label" for="kb-fallnummer">Fallnummer</label>
+      <input type="text" id="kb-fallnummer" placeholder="z.B. 2026-48213" maxlength="40">
+      <div class="kb-field-hint">
+        Steht auf dem Nachweis, den die Sitzwache am Ende von der Pflege bestätigen lässt.
+        Bleibt das Feld leer, trägt die Sitzwache die Nummer vor Ort selbst ein.
+      </div>
     </div>
 
     <div class="kb-modal-section">
@@ -479,7 +499,9 @@ function openBookingModal(slot) {
     ${escape(sh.label)} (${escape(sh.time)})
   `;
   // Reset form
+  document.getElementById('kb-station').value = '';
   document.getElementById('kb-room').value = '';
+  document.getElementById('kb-fallnummer').value = '';
   document.getElementById('kb-notes').value = '';
   document.querySelectorAll('#kb-flags input[type="checkbox"]').forEach(cb => {
     cb.checked = false;
@@ -488,7 +510,7 @@ function openBookingModal(slot) {
   document.getElementById('kb-confirm').disabled = false;
   document.getElementById('kb-confirm').textContent = 'Verbindlich buchen';
   document.getElementById('kb-modal-bg').classList.add('show');
-  setTimeout(() => document.getElementById('kb-room').focus(), 50);
+  setTimeout(() => document.getElementById('kb-station').focus(), 50);
 }
 function closeBookingModal() {
   document.getElementById('kb-modal-bg').classList.remove('show');
@@ -497,7 +519,9 @@ function closeBookingModal() {
 
 async function confirmBooking() {
   if (!activeBooking) return;
+  const station = document.getElementById('kb-station').value.trim();
   const room = document.getElementById('kb-room').value.trim();
+  const fallnummer = document.getElementById('kb-fallnummer').value.trim();
   const notes = document.getElementById('kb-notes').value.trim();
   const flags = [...document.querySelectorAll('#kb-flags input[type="checkbox"]:checked')].map(cb => cb.value);
 
@@ -509,6 +533,8 @@ async function confirmBooking() {
     volunteer_id: activeBooking.volunteer_id,
     date: activeBooking.date,
     shift: activeBooking.shift,
+    station: station,
+    fallnummer: fallnummer,
     patient_room: room,
     patient_flags: flags,
     patient_notes: notes

@@ -1039,7 +1039,7 @@
     try {
       let q = (await sb())
         .from('bookings')
-        .select('id, request_id, clinic_id, date, shift, hours, compensation_eur, status, patient_room, patient_flags, patient_notes, created_at, profiles!bookings_clinic_id_fkey(full_name)')
+        .select('id, request_id, clinic_id, date, shift, hours, compensation_eur, status, station, fallnummer, patient_room, patient_flags, patient_notes, created_at, profiles!bookings_clinic_id_fkey(full_name)')
         .eq('volunteer_id', s.id)
         .order('date', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
@@ -1055,6 +1055,8 @@
         hours: b.hours,
         compensation_eur: b.compensation_eur,
         status: b.status,
+        station: b.station,
+        fallnummer: b.fallnummer,
         patient_room: b.patient_room,
         patient_flags: b.patient_flags || [],
         patient_notes: b.patient_notes,
@@ -1251,6 +1253,24 @@
     }
   }
 
+  /**
+   * §11a-Riegel: Vorstandsmitglieder duerfen Einsaetze fahren, aber solange die
+   * Satzungsfrage offen ist keine Pauschale beantragen. Der Schalter ist
+   * profiles.pauschale_berechtigt — ein UPDATE macht die Sperre wieder auf.
+   *
+   * Gesperrt wird nur bei explizitem false. Fehlt die Spalte im Profil-Read,
+   * soll niemand versehentlich ausgesperrt werden.
+   *
+   * Liefert null (frei) oder den Text, der der Person angezeigt wird.
+   */
+  function pauschaleGesperrt(profile) {
+    if (!profile || profile.pauschale_berechtigt !== false) return null;
+    return 'Für Vorstandsmitglieder sind Aufwandsentschädigungen derzeit ausgesetzt, '
+         + 'bis die Satzungsfrage nach § 11a geklärt ist. Dein Einsatz ist vollständig '
+         + 'erfasst und bleibt es — der Antrag lässt sich nachholen, sobald die Sperre '
+         + 'aufgehoben wird. Bei Fragen bitte im Vereinsbüro melden.';
+  }
+
   async function submitTripClaim(signupId, notes) {
     try {
       const session = getSession();
@@ -1258,6 +1278,8 @@
       
       const profileResp = await getMyProfile();
       if (!profileResp.ok) return { ok: false, error: 'Profil konnte nicht geladen werden.' };
+      const gesperrt = pauschaleGesperrt(profileResp.profile);
+      if (gesperrt) return { ok: false, error: gesperrt };
       if (!profileResp.profile.iban) return { ok: false, error: 'Bitte erst IBAN im Profil hinterlegen.' };
       
       const client = await sb();
@@ -1331,6 +1353,8 @@
       
       const profileResp = await getMyProfile();
       if (!profileResp.ok) return { ok: false, error: 'Profil konnte nicht geladen werden.' };
+      const gesperrt = pauschaleGesperrt(profileResp.profile);
+      if (gesperrt) return { ok: false, error: gesperrt };
       if (!profileResp.profile.iban) return { ok: false, error: 'Bitte erst IBAN im Profil hinterlegen.' };
       
       const client = await sb();
@@ -1389,7 +1413,7 @@
     try {
       const { data, error } = await (await sb())
         .from('profiles')
-        .select('id, email, full_name, phone, role, status, personalnummer, vereinsnummer, iban, iban_updated_at')
+        .select('id, email, full_name, phone, role, status, personalnummer, vereinsnummer, iban, iban_updated_at, pauschale_berechtigt')
         .eq('id', s.id)
         .single();
       if (error) return { ok: false, error: error.message };
@@ -2163,6 +2187,10 @@
     const flags = Array.isArray(payload.patient_flags) ? payload.patient_flags : [];
     const room  = (payload.patient_room || '').trim() || null;
     const notes = (payload.patient_notes || '').trim() || null;
+    // Station und Fallnummer stehen getrennt, weil der Einsatznachweis sie
+    // getrennt ausweist. patient_room traegt nur noch die Zimmernummer.
+    const station    = (payload.station || '').trim() || null;
+    const fallnummer = (payload.fallnummer || '').trim() || null;
 
     try {
       const client = await sb();
@@ -2180,6 +2208,8 @@
           date: payload.date,
           shift: payload.shift,
           status: 'planned',
+          station: station,
+          fallnummer: fallnummer,
           patient_room: room,
           patient_flags: flags,
           patient_notes: notes
@@ -2207,7 +2237,7 @@
     try {
       let q = (await sb())
         .from('bookings')
-        .select('id, volunteer_id, date, shift, status, patient_room, patient_flags, patient_notes, created_at, cancelled_at, cancelled_by_user_id, cancellation_reason, profiles!bookings_volunteer_id_fkey(full_name)')
+        .select('id, volunteer_id, date, shift, status, station, fallnummer, patient_room, patient_flags, patient_notes, created_at, cancelled_at, cancelled_by_user_id, cancellation_reason, profiles!bookings_volunteer_id_fkey(full_name)')
         .eq('clinic_id', s.id)
         .order('date', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
@@ -2222,6 +2252,8 @@
         date: b.date,
         shift: b.shift,
         status: b.status,
+        station: b.station,
+        fallnummer: b.fallnummer,
         patient_room: b.patient_room,
         patient_flags: b.patient_flags || [],
         patient_notes: b.patient_notes,

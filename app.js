@@ -1430,7 +1430,7 @@
     try {
       const { data, error } = await (await sb())
         .from('einsatz_ereignisse')
-        .select('id, typ, server_ts, kategorie, stichwort')
+        .select('id, typ, server_ts, client_ts, kategorie, stichwort')
         .eq('einsatz_id', einsatzId)
         .order('server_ts');
       if (error) return { ok: false, error: error.message, ereignisse: [] };
@@ -1477,6 +1477,19 @@
       });
       if (error) return { ok: false, error: error.message };
       return { ok: true, einsatz: Array.isArray(data) ? data[0] : data };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /**
+   * Netto-Minuten aus der Datenbank. Dieselbe Funktion, aus der auch
+   * bookings.hours entsteht — damit zeigt der Abschluss-Bildschirm exakt das,
+   * was spaeter auf der Rechnung steht. Die Rundung im Browser wich davon ab.
+   */
+  async function einsatzNettoMinuten(einsatzId) {
+    try {
+      const { data, error } = await (await sb()).rpc('einsatz_netto_minuten', { p_einsatz_id: einsatzId });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, minuten: Number(data) };
     } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
   }
 
@@ -2712,7 +2725,7 @@
     // Sitzwachen-Einsatzdoku
     getEinsatzKontext, einsatzStarten, einsatzEreignis, getEinsatzEreignisse,
     getEinsatzInfoFuerBuchungen, KEINE_UNTERSCHRIFT_LABEL,
-    uploadUnterschrift, einsatzAbschliessen,
+    uploadUnterschrift, einsatzAbschliessen, einsatzNettoMinuten,
     einsatzPufferLesen, einsatzPufferSchreiben, einsatzPufferLeeren,
     // Klinik-Self-Service (Etappe 1)
     getMyClinic, submitMyClinic,

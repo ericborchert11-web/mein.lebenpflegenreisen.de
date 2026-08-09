@@ -548,14 +548,16 @@ async function renderUpcomingBookings() {
             </div>
             <span class="bb-shift-pill ${escape(b.shift)}">${escape(sh.label)} · ${escape(sh.time)}</span>
           </div>
-          ${(b.patient_room || flags || b.patient_notes) ? `
+          ${(b.station || b.patient_room || b.fallnummer || flags || b.patient_notes) ? `
             <dl class="bb-detail-grid">
+              ${b.station ? `<dt>Station</dt><dd>${escape(b.station)}</dd>` : ''}
               ${b.patient_room ? `<dt>Zimmer</dt><dd>${escape(b.patient_room)}</dd>` : ''}
+              ${b.fallnummer ? `<dt>Fall-Nr.</dt><dd>${escape(b.fallnummer)}</dd>` : ''}
               ${flags ? `<dt>Hinweise</dt><dd>${flags}</dd>` : ''}
               ${b.patient_notes ? `<dt>Anmerkung</dt><dd class="bb-anmerkung">${escape(b.patient_notes)}</dd>` : ''}
             </dl>` : ''}
         <div class="bb-card-actions">
-          ${(b.date === today || laeuftUeberMitternacht(b)) ? `<a class="bb-einsatz-btn" href="einsatz.html">Einsatz öffnen →</a>` : ''}
+          ${(b.date === today || laeuftUeberMitternacht(b)) ? `<a class="bb-einsatz-btn" href="einsatz.html?buchung=${escape(b.id)}">Einsatz öffnen →</a>` : ''}
           <button class="bb-cancel-btn" data-booking-id="${escape(b.id)}" data-clinic-name="${escape(b.clinic_name || 'Klinik')}" data-date="${escape(fmtDateLong(b.date))}">Schicht absagen</button>
         </div>
         </div>`;

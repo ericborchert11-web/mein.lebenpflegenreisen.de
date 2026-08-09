@@ -362,7 +362,11 @@ canvas#sig {
 
 /* ── Toast ── */
 #toast {
-  position: fixed; left: 50%; bottom: calc(1.4rem + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(1rem);
+  position: fixed; left: 50%;
+  /* Ueber der unteren Aktionsleiste: ein Primaerbutton ist 4rem hoch, dazu
+     Abstand und die iOS-Homebar. Vorher lag der Toast auf "Einsatz beenden". */
+  bottom: calc(5.6rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(1rem);
   background: var(--green-deep, #1E3127); color: #fff;
   padding: .8rem 1.2rem; border-radius: .8rem;
   font-size: 1.05rem; font-weight: 600;
@@ -529,6 +533,7 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
       <div class="hint">
         <strong>Keine Namen, keine Diagnosen.</strong>
         Einzelheiten gehören in die Patientenakte, nicht hierher.
+        <span id="ev-rest">60</span> Zeichen frei.
       </div>
     </div>
 
@@ -758,7 +763,8 @@ let toastTimer = null;
 function toast(msg) {
   const t = $('toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  // 4,5 s statt 2,6: die Zielgruppe liest langsamer, als Entwickler annehmen.
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4500);
 }
 function zeigeFehler(text) { $('fehler-text').textContent = text; show('scr-fehler'); }
 
@@ -796,6 +802,19 @@ async function init() {
   }
 
   if (!res.buchungen.length) { show('scr-keiner'); return; }
+
+  // Kam der Aufruf von einer bestimmten Buchungskarte (?buchung=<id>), gehen
+  // wir direkt in deren Startbildschirm. Der Waehler bleibt der Weg fuer den
+  // Einstieg ohne Parameter — und der Rueckfall, wenn die ID nicht (mehr) zu
+  // einer eigenen, heute offenen Buchung gehoert.
+  const gewuenscht = new URLSearchParams(location.search).get('buchung');
+  if (gewuenscht) {
+    const treffer = res.buchungen.find(b => b.id === gewuenscht);
+    if (treffer) { waehleBuchung(treffer); return; }
+    // Ungueltig oder nicht mehr offen: nicht kommentarlos woanders landen.
+    toast('Dieser Dienst lässt sich gerade nicht öffnen.');
+  }
+
   if (res.buchungen.length > 1) { zeigeAuswahl(res.buchungen); return; }
   waehleBuchung(res.buchungen[0]);
 }
@@ -989,6 +1008,10 @@ async function ereignisSenden(typ, kategorie, stichwort, clientTs) {
 let evKeys = new Set();
 let evVerbucht = new Set();   // in diesem Vorgang bereits erfolgreich geschrieben
 let evClientTs = null;
+// Das Stichwort gehoert zur Uebergabe, nicht zu jeder einzelnen Kategorie —
+// es wird genau einmal geschrieben. Beim Funkloch-Retry wandert es an die
+// erste Kategorie, die durchgeht: weder verloren noch doppelt.
+let evStichwortVerbucht = false;
 
 document.querySelectorAll('#chips .chip').forEach(ch => {
   ch.addEventListener('click', () => {
@@ -1001,16 +1024,26 @@ document.querySelectorAll('#chips .chip').forEach(ch => {
   });
 });
 
+// Der 60er-Schnitt war unsichtbar und endete mitten im Wort. Gleiche Anzeige
+// wie am Vermerkfeld, und derselbe harte Riegel: maxlength bremst nur Tippen.
+$('evNote').addEventListener('input', () => {
+  const f = $('evNote');
+  if (f.value.length > 60) f.value = f.value.slice(0, 60);
+  $('ev-rest').textContent = String(60 - f.value.length);
+});
+
 function openEvent() {
   evKeys = new Set();
   evVerbucht = new Set();
   evClientTs = null;
+  evStichwortVerbucht = false;
   document.querySelectorAll('#chips .chip').forEach(c => {
     c.classList.remove('sel', 'gebucht');
     c.setAttribute('aria-pressed', 'false');
     c.disabled = false;
   });
   $('evNote').value = '';
+  $('ev-rest').textContent = '60';
   $('btnEvOk').disabled = true;
   $('ev-fehler').hidden = true;
   $('btnEvOk').textContent = '✓ Pflege wurde informiert';
@@ -1032,8 +1065,10 @@ async function saveEvent() {
 
   const gescheitert = [];
   for (const key of offen) {
-    const res = await ereignisSenden('uebergabe_pflege', key, stichwort, evClientTs);
+    const stichwortFuerDiese = evStichwortVerbucht ? null : stichwort;
+    const res = await ereignisSenden('uebergabe_pflege', key, stichwortFuerDiese, evClientTs);
     if (res.ok) {
+      if (stichwortFuerDiese) evStichwortVerbucht = true;
       evVerbucht.add(key);
       const chip = document.querySelector(`#chips .chip[data-key="${key}"]`);
       if (chip) { chip.classList.add('gebucht'); chip.disabled = true; }
@@ -1079,6 +1114,26 @@ async function doEnd() {
   show('scr-check');
 }
 
+/**
+ * Eine Uebergabe kann mehrere Kategorien haben — in der Datenbank je eine
+ * Zeile, verbunden durch denselben client_ts. Hier wieder zu einer Zeile
+ * zusammengefasst, sonst liest sich eine Uebergabe wie mehrere.
+ */
+function gruppiereUebergaben(liste) {
+  const gruppen = new Map();
+  liste.forEach(e => {
+    const schluessel = e.client_ts || e.server_ts;
+    if (!gruppen.has(schluessel)) {
+      gruppen.set(schluessel, { zeit: e.server_ts, kategorien: [], stichwort: null });
+    }
+    const g = gruppen.get(schluessel);
+    g.kategorien.push(KATEGORIE_LABEL[e.kategorie] || e.kategorie || '');
+    if (e.stichwort && !g.stichwort) g.stichwort = e.stichwort;
+    if (new Date(e.server_ts) < new Date(g.zeit)) g.zeit = e.server_ts;
+  });
+  return [...gruppen.values()].sort((a, b) => new Date(a.zeit) - new Date(b.zeit));
+}
+
 function zeigeUebergaben() {
   const liste = S.ereignisse.filter(e => e.typ === 'uebergabe_pflege');
   const box = $('clEvents');
@@ -1086,10 +1141,10 @@ function zeigeUebergaben() {
     box.innerHTML = '<div class="ev"><span>Keine Besonderheiten – nichts zu übergeben.</span></div>';
     return;
   }
-  box.innerHTML = liste.map(e =>
-    `<div class="ev"><span class="t">${LPR.escape(fmtT(new Date(e.server_ts)))}</span>` +
-    `<span>${LPR.escape(KATEGORIE_LABEL[e.kategorie] || e.kategorie || '')}` +
-    `${e.stichwort ? ' – „' + LPR.escape(e.stichwort) + '“' : ''}</span></div>`
+  box.innerHTML = gruppiereUebergaben(liste).map(g =>
+    `<div class="ev"><span class="t">${LPR.escape(fmtT(new Date(g.zeit)))}</span>` +
+    `<span>${LPR.escape(g.kategorien.join(' + '))}` +
+    `${g.stichwort ? ' – „' + LPR.escape(g.stichwort) + '“' : ''}</span></div>`
   ).join('') +
   '<div class="hint" style="padding-top:.5rem">Einzelheiten dokumentiert die Pflegekraft in der Patientenakte.</div>';
 }
@@ -1118,7 +1173,8 @@ function toSign() {
     ['Pausen', pausen ? (pausen + ' · ' + Math.round(pausenMinuten()) + ' Min.') : 'keine'],
     ['Einsatzzeit', fmtDauer(nettoMinuten())],
     ['Tätigkeiten', String(gewaehlteTaetigkeiten.length + 1)],
-    ['Übergaben an Pflege', String(S.ereignisse.filter(e => e.typ === 'uebergabe_pflege').length)]
+    ['Übergaben an Pflege',
+      String(gruppiereUebergaben(S.ereignisse.filter(e => e.typ === 'uebergabe_pflege')).length)]
   ];
   $('sumRows').innerHTML = zeilen.map(r =>
     `<div class="c-row"><span class="k">${LPR.escape(r[0])}</span><span class="v">${LPR.escape(r[1])}</span></div>`
@@ -1253,10 +1309,13 @@ async function finish() {
     const res = await LPR.einsatzAbschliessen(S.einsatzId, gewaehlteTaetigkeiten, up.pfad, name, null);
     if (!res.ok) throw new Error(res.error);
 
-    const netto = nettoMinuten();
+    // Anzeige aus der DB, nicht aus der Browser-Uhr: das ist derselbe Wert,
+    // der als bookings.hours in die Abrechnung geht. Klappt der Abruf nicht,
+    // zeigen wir die lokale Rechnung — daran soll kein Abschluss haengen.
+    const serverNetto = await LPR.einsatzNettoMinuten(S.einsatzId);
     LPR.einsatzPufferLeeren();
     trinkAufraeumen();   // bewusst fluechtig: nach dem Abschluss ist die Zahl weg
-    fertig(netto);
+    fertig(serverNetto.ok ? serverNetto.minuten : nettoMinuten());
   } catch (e) {
     // Nichts geht verloren: der Einsatz laeuft weiter, die Unterschrift steht
     // noch auf dem Schirm, es laesst sich einfach noch einmal antippen.
@@ -1373,10 +1432,10 @@ async function finishOhneUnterschrift() {
       S.einsatzId, gewaehlteTaetigkeiten, null, null, null,
       { kategorie: kusKategorie, vermerk: vermerk || null });
     if (!res.ok) throw new Error(res.error);
-    const netto = nettoMinuten();
+    const serverNetto = await LPR.einsatzNettoMinuten(S.einsatzId);
     LPR.einsatzPufferLeeren();
     trinkAufraeumen();
-    fertigstellen(netto);
+    fertigstellen(serverNetto.ok ? serverNetto.minuten : nettoMinuten());
   } catch (e) {
     // Wie beim normalen Abschluss: der Einsatz laeuft weiter, nichts ist weg.
     $('kus-ok-fehler').textContent = (e && e.message ? e.message : 'Unbekannter Fehler.')

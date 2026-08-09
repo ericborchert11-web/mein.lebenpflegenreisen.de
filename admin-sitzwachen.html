@@ -54,6 +54,15 @@
   font-size:11.5px; font-weight:700; white-space:nowrap;
 }
 .as-ohne-us-grund { display:block; font-size:11.5px; color:#6B7771; margin-top:2px; }
+.as-e-pill {
+  display:inline-block; margin-top:3px; padding:2px 8px; border-radius:99px;
+  font-size:11.5px; font-weight:700; white-space:nowrap; border:1px solid;
+}
+.as-e-laeuft { background:#E4F2E8; color:#1E5B33; border-color:#A9CFB6; }
+.as-e-fertig { background:#EFEFEA; color:#55605A; border-color:#D6D6CE; }
+.as-e-papier { background:#EDF1F6; color:#3C5670; border-color:#C9D6E4; }
+.as-e-reakt  { background:#FBF3DC; color:#7A5B14; border-color:#E4D6A6; }
+.as-e-storno { background:#F7E2DC; color:#8A2E14; border-color:#E3B7A8; }
 .ampel { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:middle; }
 .ampel.g { background:#2E7D46; } .ampel.y { background:#D9A400; } .ampel.r { background:#C0392B; }
 .as-empty { padding:28px; text-align:center; color:var(--muted); }
@@ -63,6 +72,51 @@
 .rate-card label { display:block; font-size:12px; color:#7A8270; margin-bottom:3px; }
 h1 { margin:0 0 4px; }
 .sub { color:var(--muted); font-size:15px; margin:0 0 8px; }
+.ev-overlay {
+  position: fixed; inset: 0; background: rgba(20,28,24,.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; z-index: 60;
+}
+.ev-overlay[hidden] { display: none; }
+.ev-dialog {
+  background: #fff; border-radius: 14px; padding: 22px 24px;
+  max-width: 460px; width: 100%; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+.ev-dialog.breit { max-width: 620px; }
+.ev-dialog h2 { margin: 0 0 6px; font-size: 20px; color: var(--green-deep); }
+.ev-sub { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
+.ev-info {
+  margin: 0 0 14px; font-size: 13.5px; line-height: 1.5;
+  background: #FBF3DC; border: 1px solid #E4D6A6; border-left: 4px solid #C9A227;
+  color: #7A5B14; border-radius: 8px; padding: 10px 12px;
+}
+.ev-label { display: block; font-size: 13px; font-weight: 700; color: var(--green-deep); margin-bottom: 5px; }
+.ev-dialog textarea, .ev-dialog input {
+  width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 9px 11px; font: inherit; font-size: 14px; background: #fff;
+}
+.ev-dialog textarea:focus, .ev-dialog input:focus { outline: none; border-color: var(--green); }
+.ev-fehler {
+  margin-top: 10px; font-size: 13.5px; color: #9B2C2C;
+  background: #FBE9E2; border: 1px solid #EFC9B8; border-radius: 8px; padding: 9px 11px;
+}
+.ev-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+.nf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .nf-grid { grid-template-columns: 1fr; } }
+/* Raster statt Flow: gleich breite Kacheln brechen sauber um, statt je nach
+   Textlaenge unterschiedlich hohe Zeilen zu bilden. */
+.nf-taet { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.nf-taet label {
+  display: flex; align-items: center; gap: 8px;
+  border: 1.5px solid var(--border); border-radius: 8px; padding: 9px 11px;
+  font-size: 13.5px; cursor: pointer; line-height: 1.3;
+}
+.nf-taet input { width: auto; flex-shrink: 0; }
+.nf-hinweis { font-size: 12.5px; color: var(--muted); margin: 8px 0 0; }
+.nf-netto {
+  margin-top: 12px; font-weight: 700; color: var(--green-deep); font-size: 15px;
+}
 </style>
 </head>
 <body>
@@ -190,6 +244,23 @@ async function loadBookings() {
 let _einsatzInfo = {};
 
 /** Kennzeichnung, wenn der Einsatz ohne Unterschrift der Pflege abgeschlossen wurde. */
+const EINSATZ_LABEL = {
+  laufend:       ['Einsatz läuft',        'as-e-laeuft'],
+  abgeschlossen: ['Einsatz erfasst',      'as-e-fertig'],
+  nacherfasst:   ['nacherfasst (Papier)', 'as-e-papier'],
+  reaktiviert:   ['reaktiviert',          'as-e-reakt'],
+  storniert:     ['Einsatz storniert',    'as-e-storno']
+};
+
+/** Zustand des Einsatzes zur Buchung — steht neben dem Buchungsstatus. */
+function einsatzHinweis(b) {
+  const i = _einsatzInfo[b.id];
+  if (!i || !i.einsatz_status) return '';
+  const l = EINSATZ_LABEL[i.einsatz_status];
+  if (!l) return '';
+  return '<span class="as-e-pill ' + l[1] + '">' + esc(l[0]) + '</span>';
+}
+
 function ohneUnterschriftHinweis(b) {
   const i = _einsatzInfo[b.id];
   if (!i || i.unterschrift_status !== 'nicht_geleistet') return '';
@@ -212,14 +283,37 @@ function renderBookings() {
     rows.map(b => {
       const open = (b.status === 'planned' || b.status === 'confirmed');
       const warn = within48hUnconfirmed(b) ? ' <span class="as-warn48" title="Unbestätigt, Einsatz in unter 48 h – bitte nachfassen">⚠ &lt;48h</span>' : '';
+      const i = _einsatzInfo[b.id];
+      const hatEinsatz = !!i;
+      const einsatzOffen = i && i.einsatz_status === 'laufend';
+      const einsatzFertig = i && (i.einsatz_status === 'abgeschlossen' || i.einsatz_status === 'nacherfasst');
+
       let actions = '';
       if (open) {
         actions =
           '<button class="as-btn" data-act="complete" data-id="' + b.id + '">Abschließen</button>' +
           '<button class="as-btn warn" data-act="noshow" data-id="' + b.id + '">No-Show</button>' +
           '<button class="as-btn warn" data-act="cancel" data-id="' + b.id + '">Stornieren</button>';
+        // Papier-Stundenzettel: nur fuer vergangene Dienste ohne eigenen Einsatz.
+        if (!hatEinsatz && b.date < new Date().toLocaleDateString('sv-SE')) {
+          actions += '<button class="as-btn" data-act="nacherfassen" data-id="' + b.id + '" ' +
+                     'title="Papier-Stundenzettel eintragen">Nacherfassen</button>';
+        }
       } else if (b.status === 'completed' && b.compensation_eur == null) {
         actions = '<button class="as-btn" data-act="snapshot" data-id="' + b.id + '" title="Betrag aus aktuellem Satz nachtragen">Satz nachtragen</button>';
+      }
+
+      // Aktionen auf dem Einsatz selbst — unabhaengig vom Buchungsstatus.
+      if (einsatzFertig) {
+        actions +=
+          '<button class="as-btn" data-act="reaktivieren" data-id="' + b.id + '" ' +
+          'title="Abschluss aufheben, Zeiten bleiben als Beleg stehen">Einsatz reaktivieren</button>' +
+          '<button class="as-btn warn" data-act="einsatz-storno" data-id="' + b.id + '" ' +
+          'title="Nachweis aufheben — Korrektur nur per Neueintrag">Einsatz stornieren</button>';
+      } else if (einsatzOffen) {
+        actions +=
+          '<button class="as-btn warn" data-act="einsatz-storno" data-id="' + b.id + '" ' +
+          'title="Laufenden Einsatz aufheben">Einsatz stornieren</button>';
       }
       return '<tr>' +
         '<td>' + fmtDate(b.date) + warn + '</td>' +
@@ -229,7 +323,7 @@ function renderBookings() {
         '<td>' + esc(b.patient_room || '—') + '</td>' +
         '<td>' + (b.hours != null ? esc(String(b.hours)) : '—') + '</td>' +
         '<td>' + (b.compensation_eur != null ? eur(b.compensation_eur) : '<span style="color:#9B2C2C">offen</span>') + '</td>' +
-        '<td><span class="pill ' + b.status + '">' + (BOOKING_STATUS_LABEL[b.status] || b.status) + '</span>' + ohneUnterschriftHinweis(b) + '</td>' +
+        '<td><span class="pill ' + b.status + '">' + (BOOKING_STATUS_LABEL[b.status] || b.status) + '</span>' + einsatzHinweis(b) + ohneUnterschriftHinweis(b) + '</td>' +
         '<td><div class="as-actions">' + actions + '</div></td>' +
       '</tr>';
     }).join('') +
@@ -238,9 +332,162 @@ function renderBookings() {
   el.querySelectorAll('button[data-act]').forEach(btn => btn.addEventListener('click', () => onBookingAction(btn)));
 }
 
+// ════════ Vorstands-Aktionen auf Einsaetzen ════════
+//
+// Storno und Reaktivierung verlangen beide einen Grund. Die Regeln (nur
+// Vorstand, Mindestlaenge, kein offener Antrag) stehen in der RPC — hier wird
+// nur gefragt und die Antwort weitergereicht.
+
+let _evAktion = null;   // { art, einsatzId, buchung }
+
+function evOeffnen(art, b, i) {
+  _evAktion = { art, einsatzId: i.einsatz_id, buchung: b };
+  const istStorno = art === 'storno';
+  document.getElementById('ev-titel').textContent =
+    istStorno ? 'Einsatz stornieren?' : 'Einsatz reaktivieren?';
+  document.getElementById('ev-sub').textContent =
+    b.volunteer_name + ' · ' + fmtDate(b.date) + ' · ' + (SHIFT_SHORT[b.shift] || b.shift);
+  document.getElementById('ev-info').innerHTML = istStorno
+    ? 'Der Nachweis wird aufgehoben. Zeiten und Unterschrift <strong>bleiben als Beleg stehen</strong> — '
+      + 'korrigiert wird nur durch einen neuen Eintrag. Die Buchung wird wieder frei.'
+    : 'Der Abschluss wird aufgehoben, damit die Sitzwache weitermachen kann. '
+      + 'Der bisherige Nachweis <strong>bleibt unverändert bestehen</strong>; der neue Einsatz '
+      + 'braucht am Ende wieder eine Unterschrift oder einen dokumentierten Grund.';
+  document.getElementById('ev-grund').value = '';
+  document.getElementById('ev-fehler').hidden = true;
+  document.getElementById('ev-ok').textContent = istStorno ? 'Stornieren' : 'Reaktivieren';
+  document.getElementById('ev-ok').className = istStorno ? 'as-btn warn' : 'as-btn';
+  document.getElementById('ev-overlay').hidden = false;
+  setTimeout(() => document.getElementById('ev-grund').focus(), 50);
+}
+
+function evSchliessen() { document.getElementById('ev-overlay').hidden = true; _evAktion = null; }
+
+async function evBestaetigen() {
+  if (!_evAktion) return;
+  const grund = document.getElementById('ev-grund').value.trim();
+  const fehler = document.getElementById('ev-fehler');
+  if (grund.length < 5) {
+    fehler.textContent = 'Bitte einen Grund angeben (mindestens 5 Zeichen).';
+    fehler.hidden = false; return;
+  }
+  const btn = document.getElementById('ev-ok');
+  btn.disabled = true; const alt = btn.textContent; btn.textContent = 'Wird gespeichert…';
+  fehler.hidden = true;
+
+  const res = _evAktion.art === 'storno'
+    ? await LPR.einsatzStornieren(_evAktion.einsatzId, grund)
+    : await LPR.einsatzReaktivieren(_evAktion.einsatzId, grund);
+
+  btn.disabled = false; btn.textContent = alt;
+  if (!res.ok) { fehler.textContent = res.error || 'Aktion fehlgeschlagen.'; fehler.hidden = false; return; }
+  // Die Art vor dem Schliessen merken — evSchliessen() setzt _evAktion auf null.
+  const warStorno = _evAktion.art === 'storno';
+  evSchliessen();
+  toast(warStorno
+    ? 'Einsatz storniert. Die Buchung ist wieder frei.'
+    : 'Einsatz reaktiviert. Die Sitzwache kann neu starten.');
+  await loadBookings();
+}
+
+// ── Nacherfassung ────────────────────────────────────────────────────────
+let _nfBuchung = null;
+
+function nfOeffnen(b) {
+  _nfBuchung = b;
+  document.getElementById('nf-sub').textContent =
+    b.volunteer_name + ' · ' + fmtDate(b.date) + ' · ' + (SHIFT_SHORT[b.shift] || b.shift);
+
+  // Vorbelegung aus der Schicht — spart Tippen und ist der Normalfall.
+  const start = SHIFT_START_HOUR[b.shift];
+  if (start != null) {
+    const p = n => String(n).padStart(2, '0');
+    document.getElementById('nf-beginn').value = b.date + 'T' + p(start) + ':00';
+    const endeD = new Date(b.date + 'T00:00:00');
+    endeD.setHours(start + 8);
+    document.getElementById('nf-ende').value =
+      endeD.getFullYear() + '-' + p(endeD.getMonth()+1) + '-' + p(endeD.getDate())
+      + 'T' + p(endeD.getHours()) + ':00';
+  } else {
+    document.getElementById('nf-beginn').value = '';
+    document.getElementById('nf-ende').value = '';
+  }
+  document.getElementById('nf-pause').value = '0';
+  document.getElementById('nf-pflege').value = '';
+
+  const labels = (window.LPR && LPR.TAETIGKEIT_LABEL) || {};
+  document.getElementById('nf-taet').innerHTML = Object.keys(labels)
+    .filter(k => k !== 'anwesenheit_sichtkontakt')
+    .map(k => '<label><input type="checkbox" value="' + k + '"> ' + esc(labels[k]) + '</label>')
+    .join('');
+
+  document.getElementById('nf-fehler').hidden = true;
+  nfNetto();
+  document.getElementById('nf-overlay').hidden = false;
+}
+
+function nfSchliessen() { document.getElementById('nf-overlay').hidden = true; _nfBuchung = null; }
+
+/** Laufende Vorschau, damit vor dem Speichern sichtbar ist, was gerechnet wird. */
+function nfNetto() {
+  const b = document.getElementById('nf-beginn').value;
+  const e = document.getElementById('nf-ende').value;
+  const p = Number(document.getElementById('nf-pause').value) || 0;
+  const el = document.getElementById('nf-netto');
+  if (!b || !e) { el.textContent = 'Netto: —'; return; }
+  const min = (new Date(e) - new Date(b)) / 60000 - p;
+  if (!(min > 0)) { el.textContent = 'Netto: — (bitte Zeiten prüfen)'; return; }
+  el.textContent = 'Netto: ' + Math.floor(min/60) + ' Std. ' + Math.round(min%60) + ' Min.'
+                 + '  →  ' + (Math.round(min/60*100)/100).toFixed(2).replace('.', ',') + ' Std. auf dem Nachweis';
+}
+
+async function nfSpeichern() {
+  if (!_nfBuchung) return;
+  const fehler = document.getElementById('nf-fehler');
+  const beginn = document.getElementById('nf-beginn').value;
+  const ende   = document.getElementById('nf-ende').value;
+  const pause  = Number(document.getElementById('nf-pause').value) || 0;
+  if (!beginn || !ende) {
+    fehler.textContent = 'Bitte Beginn und Ende eintragen.'; fehler.hidden = false; return;
+  }
+  const taet = [...document.querySelectorAll('#nf-taet input:checked')].map(x => x.value);
+  const btn = document.getElementById('nf-ok');
+  btn.disabled = true; btn.textContent = 'Wird gespeichert…'; fehler.hidden = true;
+
+  const res = await LPR.einsatzNacherfassen(
+    _nfBuchung.id, new Date(beginn).toISOString(), new Date(ende).toISOString(),
+    taet, pause, document.getElementById('nf-pflege').value.trim(), null);
+
+  btn.disabled = false; btn.textContent = 'Nachtragen';
+  if (!res.ok) { fehler.textContent = res.error || 'Nachtragen fehlgeschlagen.'; fehler.hidden = false; return; }
+  nfSchliessen();
+  toast('Papier-Stundenzettel nachgetragen.');
+  await loadBookings();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('ev-abbrechen').onclick = evSchliessen;
+  document.getElementById('ev-ok').onclick = evBestaetigen;
+  document.getElementById('ev-overlay').onclick = e => { if (e.target.id === 'ev-overlay') evSchliessen(); };
+  document.getElementById('nf-abbrechen').onclick = nfSchliessen;
+  document.getElementById('nf-ok').onclick = nfSpeichern;
+  document.getElementById('nf-overlay').onclick = e => { if (e.target.id === 'nf-overlay') nfSchliessen(); };
+  ['nf-beginn','nf-ende','nf-pause'].forEach(id =>
+    document.getElementById(id).addEventListener('input', nfNetto));
+});
+
 async function onBookingAction(btn) {
   const id = btn.dataset.id, act = btn.dataset.act;
   const b = _bookings.find(x => x.id === id); if (!b) return;
+
+  if (act === 'einsatz-storno' || act === 'reaktivieren') {
+    const i = _einsatzInfo[id];
+    if (!i || !i.einsatz_id) { toast('Zu dieser Buchung gibt es keinen Einsatz.', 'warn'); return; }
+    evOeffnen(act === 'einsatz-storno' ? 'storno' : 'reaktivieren', b, i);
+    return;
+  }
+  if (act === 'nacherfassen') { nfOeffnen(b); return; }
+
   let status, hours = null;
 
   if (act === 'complete' || act === 'snapshot') {
@@ -393,5 +640,63 @@ async function onSetRate(shift) {
 
 init();
 </script>
+<!-- ═══ Grundeingabe: Storno und Reaktivierung ═══ -->
+<div id="ev-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog" role="dialog" aria-labelledby="ev-titel">
+    <h2 id="ev-titel">—</h2>
+    <p class="ev-sub" id="ev-sub"></p>
+    <p class="ev-info" id="ev-info"></p>
+    <label class="ev-label" for="ev-grund">Grund (Pflichtangabe)</label>
+    <textarea id="ev-grund" rows="3" maxlength="300" placeholder="Was ist vorgefallen?"></textarea>
+    <div class="ev-fehler" id="ev-fehler" hidden></div>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="ev-abbrechen">Abbrechen</button>
+      <button type="button" class="as-btn warn" id="ev-ok">Bestätigen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Nacherfassung vom Papier-Stundenzettel ═══ -->
+<div id="nf-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog breit" role="dialog" aria-labelledby="nf-titel">
+    <h2 id="nf-titel">Papier-Stundenzettel nachtragen</h2>
+    <p class="ev-sub" id="nf-sub"></p>
+    <p class="ev-info">
+      Der Einsatz wird als <strong>nacherfasst</strong> gespeichert — ohne digitale
+      Unterschrift, weil sie auf dem Papier steht. Das Original gehört abgeheftet.
+    </p>
+
+    <div class="nf-grid">
+      <div>
+        <label class="ev-label" for="nf-beginn">Beginn</label>
+        <input type="datetime-local" id="nf-beginn">
+      </div>
+      <div>
+        <label class="ev-label" for="nf-ende">Ende</label>
+        <input type="datetime-local" id="nf-ende">
+      </div>
+      <div>
+        <label class="ev-label" for="nf-pause">Pause (Minuten)</label>
+        <input type="number" id="nf-pause" inputmode="numeric" min="0" step="5" value="0">
+      </div>
+      <div>
+        <label class="ev-label" for="nf-pflege">Handzeichen der Pflege (optional)</label>
+        <input type="text" id="nf-pflege" maxlength="40" placeholder="z. B. Schw. M.">
+      </div>
+    </div>
+
+    <label class="ev-label" style="margin-top:12px">Tätigkeiten</label>
+    <div class="nf-taet" id="nf-taet"></div>
+    <p class="nf-hinweis">„Anwesenheit &amp; Sichtkontakt" wird immer mitgespeichert.</p>
+
+    <div class="nf-netto" id="nf-netto">Netto: —</div>
+    <div class="ev-fehler" id="nf-fehler" hidden></div>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="nf-abbrechen">Abbrechen</button>
+      <button type="button" class="as-btn" id="nf-ok">Nachtragen</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

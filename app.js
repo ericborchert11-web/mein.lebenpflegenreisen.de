@@ -1494,6 +1494,62 @@
     } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
   }
 
+  // ── Vorstands-Aktionen auf Einsaetzen ────────────────────────────────────
+  // Alle drei sind board-only; die Pruefung sitzt in der jeweiligen RPC, nicht
+  // hier. Diese Funktionen stellen nur zu.
+
+  async function einsatzStornieren(einsatzId, grund) {
+    try {
+      const { data, error } = await (await sb()).rpc('einsatz_stornieren', {
+        p_einsatz_id: einsatzId, p_grund: grund
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, einsatz: Array.isArray(data) ? data[0] : data };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  async function einsatzReaktivieren(einsatzId, grund) {
+    try {
+      const { data, error } = await (await sb()).rpc('einsatz_reaktivieren', {
+        p_einsatz_id: einsatzId, p_grund: grund
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, einsatz: Array.isArray(data) ? data[0] : data };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /**
+   * Papier-Stundenzettel nachtragen. beginn/ende als ISO-Zeitstempel,
+   * pausenMinuten als ganze Zahl. Die RPC prueft Plausibilitaet (Ende nach
+   * Beginn, nicht in der Zukunft, Pause kuerzer als der Einsatz).
+   */
+  async function einsatzNacherfassen(bookingId, beginnIso, endeIso, taetigkeiten,
+                                     pausenMinuten, pflegeName, fallnummer) {
+    try {
+      const { data, error } = await (await sb()).rpc('einsatz_nacherfassen', {
+        p_booking_id:     bookingId,
+        p_beginn_ts:      beginnIso,
+        p_ende_ts:        endeIso,
+        p_taetigkeiten:   taetigkeiten || [],
+        p_pausen_minuten: pausenMinuten || 0,
+        p_pflege_name:    pflegeName || null,
+        p_fallnummer:     fallnummer || null
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, einsatz: Array.isArray(data) ? data[0] : data };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Anzeigetexte der Positivliste — an einer Stelle fuer alle Oberflaechen. */
+  const TAETIGKEIT_LABEL = {
+    anwesenheit_sichtkontakt: 'Anwesenheit & Sichtkontakt',
+    gespraech:                'Gespräche geführt',
+    vorgelesen:               'Vorgelesen',
+    orientierung:             'Orientierung gegeben',
+    beruhigt:                 'Beruhigt',
+    mahlzeit_gesellschaft:    'Gesellschaft bei der Mahlzeit'
+  };
+
   /**
    * Kleines Sicherheitsnetz gegen Reload, Absturz und kurze Funkloecher:
    * der Stand des laufenden Einsatzes liegt zusaetzlich lokal. Das ersetzt
@@ -2725,7 +2781,8 @@
     uploadClaimPdf, sendClaimToPayroll,
     // Sitzwachen-Einsatzdoku
     getEinsatzKontext, einsatzStarten, einsatzEreignis, getEinsatzEreignisse,
-    getEinsatzInfoFuerBuchungen, KEINE_UNTERSCHRIFT_LABEL,
+    getEinsatzInfoFuerBuchungen, KEINE_UNTERSCHRIFT_LABEL, TAETIGKEIT_LABEL,
+    einsatzStornieren, einsatzReaktivieren, einsatzNacherfassen,
     uploadUnterschrift, einsatzAbschliessen, einsatzNettoMinuten,
     einsatzPufferLesen, einsatzPufferSchreiben, einsatzPufferLeeren,
     // Klinik-Self-Service (Etappe 1)

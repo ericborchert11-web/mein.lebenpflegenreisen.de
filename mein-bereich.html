@@ -509,10 +509,13 @@ async function renderUpcomingBookings() {
   try {
     const res = await LPR.getMyBookings();
     if (!res.ok) return;
-    const today = new Date().toISOString().slice(0, 10);
-    // Nur kommende Buchungen (heute oder in der Zukunft), Status 'planned', mit clinic_id (Klinik-Buchungen)
+    // Lokales Datum, nicht toISOString() — das rechnet in UTC und liegt in
+    // Berlin nachts einen Tag daneben. Genau dann faengt der Nachtdienst an.
+    const today = new Date().toLocaleDateString('sv-SE');
+    // Kommende Klinik-Buchungen. 'confirmed' gehoert dazu: nach der Bestaetigung
+    // verschwand die Buchung sonst aus dieser Karte, obwohl der Dienst steht.
     const upcoming = (res.bookings || [])
-      .filter(b => b.clinic_id && b.status === 'planned' && b.date >= today)
+      .filter(b => b.clinic_id && (b.status === 'planned' || b.status === 'confirmed') && b.date >= today)
       .sort((a, b) => a.date.localeCompare(b.date));
 
     if (upcoming.length === 0) return;
@@ -538,9 +541,7 @@ async function renderUpcomingBookings() {
               ${b.patient_notes ? `<dt>Anmerkung</dt><dd class="bb-anmerkung">${escape(b.patient_notes)}</dd>` : ''}
             </dl>` : ''}
         <div class="bb-card-actions">
-          <button class="bb-cancel-btn" data-booking-id="${escape(b.id)}" data-clinic-name="${escape(b.clinic_name || 'Klinik')}" data-date="${escape(fmtDateLong(b.date))}">Schicht absagen</button>
-        </div>
-        <div class="bb-card-actions">
+          ${b.date === today ? `<a class="bb-einsatz-btn" href="einsatz.html">Einsatz öffnen →</a>` : ''}
           <button class="bb-cancel-btn" data-booking-id="${escape(b.id)}" data-clinic-name="${escape(b.clinic_name || 'Klinik')}" data-date="${escape(fmtDateLong(b.date))}">Schicht absagen</button>
         </div>
         </div>`;
@@ -548,9 +549,6 @@ async function renderUpcomingBookings() {
 
     document.getElementById('bookings-list').innerHTML = html;
     document.getElementById('bookings-block').hidden = false;
-    document.querySelectorAll('.bb-cancel-btn').forEach(btn => {
-      btn.onclick = () => openCancelBookingDialog(btn.dataset.bookingId, btn.dataset.clinicName, btn.dataset.date);
-    });
     document.querySelectorAll('.bb-cancel-btn').forEach(btn => {
       btn.onclick = () => openCancelBookingDialog(btn.dataset.bookingId, btn.dataset.clinicName, btn.dataset.date);
     });
@@ -691,6 +689,19 @@ async function doLogout() {
   .bb-card-actions { margin-top: 14px; padding-top: 12px; border-top: 1px solid #e8e4dc; display: flex; justify-content: flex-end; }
   .bb-cancel-btn { background: transparent; color: #b00020; border: 1.5px solid #b00020; padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
   .bb-cancel-btn:hover { background: #b00020; color: #fff; }
+  /* Der Weg in den Einsatz ist die Hauptsache auf dieser Karte — entsprechend
+     gross und als einziger gefuellter Button. Mindestens 48px hoch (Android),
+     damit er auch mit unsicherer Hand zu treffen ist. */
+  .bb-einsatz-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--green); color: #fff; border: none;
+    min-height: 48px; padding: 12px 22px; border-radius: 10px;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    font-family: inherit; text-decoration: none;
+  }
+  .bb-einsatz-btn:hover { background: var(--green-deep); }
+  .bb-card-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  body.contrast .bb-einsatz-btn { border: 2px solid #000; }
 </style>
 <script>
 (function () {
@@ -740,70 +751,5 @@ async function doLogout() {
 })();
 </script>
 
-<!-- Storno-Dialog (Klinik-Buchung) -->
-<div id="cancel-booking-overlay" class="cb-overlay" hidden>
-  <div class="cb-dialog" role="dialog" aria-labelledby="cb-title">
-    <h2 id="cb-title">Schicht absagen?</h2>
-    <p class="cb-sub" id="cb-sub"></p>
-    <p class="cb-info">Bitte gib eine kurze Begründung an. Die Klinik wird über deine Absage informiert.</p>
-    <textarea id="cb-reason" rows="4" placeholder="z.B. Kurzfristige Erkrankung, dringender Termin..."></textarea>
-    <div id="cb-error" class="cb-error" hidden></div>
-    <div class="cb-actions">
-      <button id="cb-close" class="cb-btn cb-btn-ghost">Abbrechen</button>
-      <button id="cb-submit" class="cb-btn cb-btn-warn">Schicht absagen</button>
-    </div>
-  </div>
-</div>
-<style>
-  .cb-overlay { position: fixed; inset: 0; background: rgba(13,28,19,0.65); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
-  .cb-overlay[hidden] { display: none; }
-  .cb-dialog { background: #fff; border-radius: 14px; padding: 28px; max-width: 480px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-  .cb-dialog h2 { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 22px; color: #1A3A2A; margin: 0 0 6px; }
-  .cb-sub { font-size: 14px; color: #666; margin: 0 0 14px; }
-  .cb-info { font-size: 13px; color: #444; line-height: 1.5; margin: 0 0 12px; }
-  .cb-dialog textarea { width: 100%; padding: 12px; border: 1.5px solid #d4d4cc; border-radius: 8px; font-family: inherit; font-size: 14px; resize: vertical; min-height: 90px; box-sizing: border-box; }
-  .cb-dialog textarea:focus { outline: none; border-color: #1A3A2A; }
-  .cb-error { color: #b00020; font-size: 13px; padding: 8px 12px; background: #fdecea; border-radius: 6px; margin-top: 10px; }
-  .cb-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
-  .cb-btn { padding: 10px 18px; border: none; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; }
-  .cb-btn-ghost { background: transparent; color: #666; }
-  .cb-btn-ghost:hover { background: #f0ede5; }
-  .cb-btn-warn { background: #b00020; color: #fff; }
-  .cb-btn-warn:hover { background: #8c0019; }
-  .cb-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .bb-card-actions { margin-top: 14px; padding-top: 12px; border-top: 1px solid #e8e4dc; display: flex; justify-content: flex-end; }
-  .bb-cancel-btn { background: transparent; color: #b00020; border: 1.5px solid #b00020; padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
-  .bb-cancel-btn:hover { background: #b00020; color: #fff; }
-</style>
-<script>
-(function () {
-  let _bookingId = null;
-  window.openCancelBookingDialog = function (id, clinicName, dateStr) {
-    _bookingId = id;
-    document.getElementById('cb-sub').textContent = clinicName + ' · ' + dateStr;
-    document.getElementById('cb-reason').value = '';
-    document.getElementById('cb-error').hidden = true;
-    document.getElementById('cb-submit').disabled = false;
-    document.getElementById('cb-submit').textContent = 'Schicht absagen';
-    document.getElementById('cancel-booking-overlay').hidden = false;
-    setTimeout(() => document.getElementById('cb-reason').focus(), 100);
-  };
-  function closeDlg() { document.getElementById('cancel-booking-overlay').hidden = true; _bookingId = null; }
-  document.getElementById('cb-close').onclick = closeDlg;
-  document.getElementById('cancel-booking-overlay').onclick = (e) => { if (e.target.id === 'cancel-booking-overlay') closeDlg(); };
-  document.getElementById('cb-submit').onclick = async () => {
-    const reason = document.getElementById('cb-reason').value.trim();
-    const errEl = document.getElementById('cb-error');
-    if (reason.length < 10) { errEl.textContent = 'Bitte gib mindestens 10 Zeichen ein.'; errEl.hidden = false; return; }
-    errEl.hidden = true;
-    const btn = document.getElementById('cb-submit'); btn.disabled = true; btn.textContent = 'Wird gesendet...';
-    const res = await LPR.cancelMyClinicBooking(_bookingId, reason);
-    if (!res.ok) { errEl.textContent = res.error || 'Fehler beim Absagen.'; errEl.hidden = false; btn.disabled = false; btn.textContent = 'Schicht absagen'; return; }
-    closeDlg();
-    if (window.showToast) showToast('Schicht abgesagt.', 'ok');
-    setTimeout(() => location.reload(), 800);
-  };
-})();
-</script>
 </body>
 </html>

@@ -456,6 +456,9 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
       <div class="c-label">Beginn wird gespeichert um</div>
       <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:2.4rem;color:var(--green,#2D4A3A)" id="startTime">—</div>
     </div>
+
+    <div class="note amber" id="start-frueh" hidden></div>
+
     <button class="btn btn-primary" id="btn-do-start" onclick="doStart()">Ja, Einsatz beginnen</button>
     <button class="btn btn-quiet" onclick="show('scr-home')">Zurück</button>
   </section>
@@ -873,6 +876,42 @@ function zeigeErinnerung(b, sh) {
 }
 
 /* ───────── Einsatz starten ───────── */
+/**
+ * Hinweis, wenn deutlich VOR dem Schichtbeginn gestartet wird.
+ *
+ * Nur zu frueh wird angesprochen, nie zu spaet: durch spontane Buchungen
+ * fangen Dienste regelmaessig spaeter an als im Plan, und das ist voellig in
+ * Ordnung — dafuer eine Rueckfrage zu stellen waere eine Bevormundung.
+ *
+ * Eine Stunde Vorlauf bleibt unkommentiert (frueh da sein, Uebergabe). Erst
+ * darueber hinaus fragen wir nach: die Zeit laeuft ab dem Antippen, ein
+ * versehentlicher Start Stunden zu frueh landet spaeter in der Abrechnung.
+ *
+ * Es bleibt eine Frage, keine Sperre — wer weiterdrueckt, beginnt.
+ */
+function pruefeFruehstart() {
+  const box = $('start-frueh');
+  box.hidden = true;
+  const b = S.buchung;
+  const sh = SCHICHT[b && b.shift];
+  if (!b || !b.date || !sh || typeof sh.start !== 'number') return;
+
+  const geplant = new Date(b.date + 'T00:00:00');
+  geplant.setHours(sh.start, 0, 0, 0);
+  const minutenZuFrueh = (geplant.getTime() - Date.now()) / 60000;
+  if (minutenZuFrueh <= 60) return;
+
+  const std = Math.floor(minutenZuFrueh / 60);
+  const min = Math.round(minutenZuFrueh % 60);
+  const vorlauf = (std > 0 ? std + ' Std.' : '') + (std > 0 && min > 0 ? ' ' : '')
+                + (min > 0 ? min + ' Min.' : '');
+  box.innerHTML = 'Ihr Dienst beginnt erst um <strong>'
+    + String(sh.start).padStart(2, '0') + ':00 Uhr</strong> — das ist in '
+    // "Min." traegt seinen Punkt schon — kein zweiter hinterher.
+    + vorlauf + '<br>Die Zeit wird ab dem Antippen gezählt. Trotzdem jetzt beginnen?';
+  box.hidden = false;
+}
+
 function askStart() {
   if (!$('fall-eingabe').hidden && !$('fall-input').value.trim()) {
     toast('Bitte die Fall-Nummer eintragen.');
@@ -880,6 +919,7 @@ function askStart() {
     return;
   }
   $('startTime').textContent = fmtT(new Date());
+  pruefeFruehstart();
   show('scr-confirm-start');
 }
 

@@ -122,7 +122,14 @@
 .kbl-status-pill.planned   { background: #E8F0E8; color: #1E3127; border-color: #4A7A5A; }
 .kbl-status-pill.completed { background: #DCE8E0; color: #1A3A2A; border-color: #2A5740; }
 .kbl-status-pill.cancelled { background: #F0E5E1; color: #7A3A28; border-color: #B07058; }
-    .kbl-cancel-notice { margin-top: 12px; padding: 12px 14px; background: #F0E5E1; border-left: 4px solid #B07058; border-radius: 6px; }
+    .kbl-ohne-us {
+  margin-top: 10px; padding: 10px 12px;
+  background: #FBF3DC; border: 1px solid #E4D6A6;
+  border-left: 4px solid #C9A227; border-radius: 8px;
+}
+.kbl-ohne-us-titel { font-weight: 700; color: #7A5B14; font-size: 13.5px; }
+.kbl-ohne-us-grund { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.kbl-cancel-notice { margin-top: 12px; padding: 12px 14px; background: #F0E5E1; border-left: 4px solid #B07058; border-radius: 6px; }
     .kbl-cancel-title { font-size: 12px; font-weight: 700; color: #7A3A28; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
     .kbl-cancel-reason { font-size: 14px; color: #1E3127; line-height: 1.45; }
     .kbl-cancel-meta { font-size: 12px; color: #666; margin-top: 6px; }
@@ -272,6 +279,27 @@ function updateCounts() {
   document.getElementById('kbl-count-cancelled').textContent = counts.cancelled;
 }
 
+let einsatzInfo = {};
+
+/**
+ * Hinweis, wenn der Einsatz ohne Unterschrift der Pflege abgeschlossen wurde.
+ *
+ * Bewusst NUR die Kategorie, nicht der Freitext-Vermerk: der kann beschreiben,
+ * warum eine bestimmte Pflegekraft nicht unterschrieben hat. Der Vorstand
+ * sieht ihn (admin-sitzwachen.html), die Klinik braucht ihn nicht, um die
+ * Rechnung zu pruefen.
+ */
+function ohneUnterschriftBlock(b) {
+  const i = einsatzInfo[b.id];
+  if (!i || i.unterschrift_status !== 'nicht_geleistet') return '';
+  const grund = (LPR.KEINE_UNTERSCHRIFT_LABEL || {})[i.kategorie] || i.kategorie || '';
+  return `
+    <div class="kbl-ohne-us">
+      <div class="kbl-ohne-us-titel">Ohne Unterschrift der Pflege abgeschlossen</div>
+      <div class="kbl-ohne-us-grund">${escape(grund)}</div>
+    </div>`;
+}
+
 function renderList() {
   const filtered = allBookings.filter(b => b.status === activeTab);
   const listEl = document.getElementById('kbl-list');
@@ -316,6 +344,7 @@ function renderList() {
           <dt>Hinweise</dt><dd>${flags}</dd>
           <dt>Anmerkung</dt><dd>${escape(b.patient_notes || '—')}</dd>
         </dl>
+        ${ohneUnterschriftBlock(b)}
         ${b.status === 'cancelled' && b.cancellation_reason ? `
           <div class="kbl-cancel-notice">
             <div class="kbl-cancel-title">${b.cancelled_by_user_id && b.cancelled_by_user_id === MY_ID ? 'Von Ihnen storniert' : 'Vom Ehrenamtlichen abgesagt'}</div>
@@ -379,6 +408,10 @@ async function load() {
     return;
   }
   allBookings = res.bookings;
+  // Wurde der Einsatz von der Pflege gegengezeichnet? Die Klinik sieht das
+  // nur zu ihren eigenen Buchungen — dafuer sorgt RLS, nicht dieser Code.
+  const info = await LPR.getEinsatzInfoFuerBuchungen(allBookings.map(b => b.id));
+  einsatzInfo = info.ok ? info.info : {};
   updateCounts();
   renderList();
 }

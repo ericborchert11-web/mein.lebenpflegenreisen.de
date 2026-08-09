@@ -46,6 +46,14 @@
 .as-btn.warn:hover { background:#FCEEDD; }
 .as-btn:disabled { opacity:.5; cursor:not-allowed; }
 .as-warn48 { color:#9B2C2C; font-weight:700; font-size:12px; }
+/* Einsaetze ohne Unterschrift der Pflege — vor der Rechnungsstellung
+   durchzusehen. Auffaellig genug, um in einer langen Tabelle aufzufallen. */
+.as-ohne-us {
+  display:inline-block; margin-top:3px; padding:2px 7px; border-radius:99px;
+  background:#FBF3DC; border:1px solid #E4D6A6; color:#7A5B14;
+  font-size:11.5px; font-weight:700; white-space:nowrap;
+}
+.as-ohne-us-grund { display:block; font-size:11.5px; color:#6B7771; margin-top:2px; }
 .ampel { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:middle; }
 .ampel.g { background:#2E7D46; } .ampel.y { background:#D9A400; } .ampel.r { background:#C0392B; }
 .as-empty { padding:28px; text-align:center; color:var(--muted); }
@@ -172,7 +180,23 @@ async function loadBookings() {
   const res = await LPR.adminListBookings(from, to);
   if (!res.ok) { toast(res.error || 'Fehler beim Laden der Buchungen.', 'warn'); return; }
   _bookings = res.bookings || [];
+  // Wurde bei diesen Buchungen unterschrieben? Fuer die Pruefung vor der
+  // Rechnungsstellung an die Klinik.
+  const info = await LPR.getEinsatzInfoFuerBuchungen(_bookings.map(b => b.id));
+  _einsatzInfo = info.ok ? info.info : {};
   renderBookings();
+}
+
+let _einsatzInfo = {};
+
+/** Kennzeichnung, wenn der Einsatz ohne Unterschrift der Pflege abgeschlossen wurde. */
+function ohneUnterschriftHinweis(b) {
+  const i = _einsatzInfo[b.id];
+  if (!i || i.unterschrift_status !== 'nicht_geleistet') return '';
+  const grund = (LPR.KEINE_UNTERSCHRIFT_LABEL || {})[i.kategorie] || i.kategorie || '';
+  return '<span class="as-ohne-us" title="Vor der Rechnungsstellung pruefen">ohne Unterschrift</span>'
+       + '<span class="as-ohne-us-grund">' + esc(grund)
+       + (i.vermerk ? ' · ' + esc(i.vermerk) : '') + '</span>';
 }
 
 function renderBookings() {
@@ -205,7 +229,7 @@ function renderBookings() {
         '<td>' + esc(b.patient_room || '—') + '</td>' +
         '<td>' + (b.hours != null ? esc(String(b.hours)) : '—') + '</td>' +
         '<td>' + (b.compensation_eur != null ? eur(b.compensation_eur) : '<span style="color:#9B2C2C">offen</span>') + '</td>' +
-        '<td><span class="pill ' + b.status + '">' + (BOOKING_STATUS_LABEL[b.status] || b.status) + '</span></td>' +
+        '<td><span class="pill ' + b.status + '">' + (BOOKING_STATUS_LABEL[b.status] || b.status) + '</span>' + ohneUnterschriftHinweis(b) + '</td>' +
         '<td><div class="as-actions">' + actions + '</div></td>' +
       '</tr>';
     }).join('') +

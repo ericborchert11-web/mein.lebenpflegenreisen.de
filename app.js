@@ -1341,6 +1341,65 @@
     }
   }
 
+  /**
+   * Zu einer Liste von Buchungen: welche Einsaetze haengen daran und wurde
+   * unterschrieben? Getrennte Abfrage statt PostgREST-Verschachtelung, damit
+   * es nicht an Beziehungsnamen haengt.
+   *
+   * RLS entscheidet, wer was sieht: der Vorstand alles, die Klinik nur die
+   * Einsaetze zu ihren eigenen Buchungen. Der Vermerk kommt nur mit, wenn die
+   * abfragende Rolle ihn ohnehin lesen darf.
+   *
+   * Liefert ein Objekt { <booking_id>: { status, kategorie, vermerk } }.
+   */
+  async function getEinsatzInfoFuerBuchungen(bookingIds) {
+    const ids = (bookingIds || []).filter(Boolean);
+    if (!ids.length) return { ok: true, info: {} };
+    try {
+      const client = await sb();
+      const { data: eins, error: e1 } = await client
+        .from('einsaetze')
+        .select('id, booking_id, status')
+        .in('booking_id', ids)
+        .neq('status', 'storniert');
+      if (e1) return { ok: false, error: e1.message, info: {} };
+      if (!eins || !eins.length) return { ok: true, info: {} };
+
+      const { data: absch, error: e2 } = await client
+        .from('einsatz_abschluss')
+        .select('einsatz_id, unterschrift_status, keine_unterschrift_kategorie, keine_unterschrift_vermerk')
+        .in('einsatz_id', eins.map(e => e.id));
+      if (e2) return { ok: false, error: e2.message, info: {} };
+
+      const proEinsatz = {};
+      (absch || []).forEach(a => { proEinsatz[a.einsatz_id] = a; });
+
+      const info = {};
+      eins.forEach(e => {
+        const a = proEinsatz[e.id];
+        info[e.booking_id] = {
+          einsatz_id: e.id,
+          einsatz_status: e.status,
+          unterschrift_status: a ? a.unterschrift_status : null,
+          kategorie: a ? a.keine_unterschrift_kategorie : null,
+          vermerk:   a ? a.keine_unterschrift_vermerk : null
+        };
+      });
+      return { ok: true, info };
+    } catch(e) {
+      console.error('[LPR] getEinsatzInfoFuerBuchungen:', e);
+      return { ok: false, error: 'Netzwerkfehler.', info: {} };
+    }
+  }
+
+  /** Anzeigetexte fuer den Grund — an einer Stelle, damit sie ueberall gleich lauten. */
+  const KEINE_UNTERSCHRIFT_LABEL = {
+    notfall_station: 'Notfall auf der Station',
+    schichtwechsel:  'Schichtwechsel — niemand verfügbar',
+    abgelehnt:       'Pflegekraft lehnt Unterschrift ab',
+    sonstiges:       'Anderer Grund'
+  };
+
   async function einsatzStarten(bookingId, fallnummer, clientTs) {
     try {
       const { data, error } = await (await sb()).rpc('einsatz_starten', {
@@ -2652,6 +2711,7 @@
     uploadClaimPdf, sendClaimToPayroll,
     // Sitzwachen-Einsatzdoku
     getEinsatzKontext, einsatzStarten, einsatzEreignis, getEinsatzEreignisse,
+    getEinsatzInfoFuerBuchungen, KEINE_UNTERSCHRIFT_LABEL,
     uploadUnterschrift, einsatzAbschliessen,
     einsatzPufferLesen, einsatzPufferSchreiben, einsatzPufferLeeren,
     // Klinik-Self-Service (Etappe 1)

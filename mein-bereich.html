@@ -511,11 +511,25 @@ async function renderUpcomingBookings() {
     if (!res.ok) return;
     // Lokales Datum, nicht toISOString() — das rechnet in UTC und liegt in
     // Berlin nachts einen Tag daneben. Genau dann faengt der Nachtdienst an.
-    const today = new Date().toLocaleDateString('sv-SE');
-    // Kommende Klinik-Buchungen. 'confirmed' gehoert dazu: nach der Bestaetigung
-    // verschwand die Buchung sonst aus dieser Karte, obwohl der Dienst steht.
+    const jetzt = new Date();
+    const today = jetzt.toLocaleDateString('sv-SE');
+    const gestern = new Date(jetzt.getTime() - 86400000).toLocaleDateString('sv-SE');
+
+    // Der Nachtdienst laeuft von 22 bis 6 Uhr und traegt das Datum des
+    // VORTAGS. Nach Mitternacht steht die Sitzwache also noch mitten im
+    // Dienst, waehrend das Buchungsdatum schon "gestern" ist — ohne diese
+    // Ausnahme verschwaende die Buchung genau dann aus der Karte.
+    // Fenster bis 8 Uhr, damit auch ein spaeterer Abschluss noch geht;
+    // einsatz_starten laesst serverseitig +/-1 Tag zu.
+    const laeuftUeberMitternacht = b =>
+      b.date === gestern && b.shift === 'night' && jetzt.getHours() < 8;
+
+    // 'confirmed' gehoert dazu: nach der Bestaetigung verschwand die Buchung
+    // sonst aus dieser Karte, obwohl der Dienst steht.
     const upcoming = (res.bookings || [])
-      .filter(b => b.clinic_id && (b.status === 'planned' || b.status === 'confirmed') && b.date >= today)
+      .filter(b => b.clinic_id
+                && (b.status === 'planned' || b.status === 'confirmed')
+                && (b.date >= today || laeuftUeberMitternacht(b)))
       .sort((a, b) => a.date.localeCompare(b.date));
 
     if (upcoming.length === 0) return;
@@ -541,7 +555,7 @@ async function renderUpcomingBookings() {
               ${b.patient_notes ? `<dt>Anmerkung</dt><dd class="bb-anmerkung">${escape(b.patient_notes)}</dd>` : ''}
             </dl>` : ''}
         <div class="bb-card-actions">
-          ${b.date === today ? `<a class="bb-einsatz-btn" href="einsatz.html">Einsatz öffnen →</a>` : ''}
+          ${(b.date === today || laeuftUeberMitternacht(b)) ? `<a class="bb-einsatz-btn" href="einsatz.html">Einsatz öffnen →</a>` : ''}
           <button class="bb-cancel-btn" data-booking-id="${escape(b.id)}" data-clinic-name="${escape(b.clinic_name || 'Klinik')}" data-date="${escape(fmtDateLong(b.date))}">Schicht absagen</button>
         </div>
         </div>`;

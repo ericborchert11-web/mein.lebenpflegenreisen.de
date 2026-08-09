@@ -1397,14 +1397,24 @@
     } catch(e) { return { ok: false, error: 'Netzwerkfehler beim Hochladen.' }; }
   }
 
-  async function einsatzAbschliessen(einsatzId, taetigkeiten, unterschriftPfad, pflegeName, clientTs) {
+  /**
+   * Zwei Wege, beide serverseitig geprueft:
+   *   'geleistet'      → Unterschrift Pflicht, kein Grund
+   *   'nicht_geleistet' → keine Unterschrift, Kategorie Pflicht
+   * Die RPC lehnt jede andere Kombination ab; diese Funktion stellt nur zu.
+   */
+  async function einsatzAbschliessen(einsatzId, taetigkeiten, unterschriftPfad, pflegeName, clientTs, ohneUnterschrift) {
     try {
+      const o = ohneUnterschrift || null;
       const { data, error } = await (await sb()).rpc('einsatz_abschliessen', {
         p_einsatz_id:        einsatzId,
         p_taetigkeiten:      taetigkeiten || [],
-        p_unterschrift_path: unterschriftPfad,
-        p_pflege_name:       pflegeName || null,
-        p_client_ts:         clientTs || null
+        p_unterschrift_path: o ? null : unterschriftPfad,
+        p_pflege_name:       o ? null : (pflegeName || null),
+        p_client_ts:         clientTs || null,
+        p_unterschrift_status:          o ? 'nicht_geleistet' : 'geleistet',
+        p_keine_unterschrift_kategorie: o ? o.kategorie : null,
+        p_keine_unterschrift_vermerk:   o ? (o.vermerk || null) : null
       });
       if (error) return { ok: false, error: error.message };
       return { ok: true, einsatz: Array.isArray(data) ? data[0] : data };

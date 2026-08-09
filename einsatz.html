@@ -196,6 +196,27 @@ p.lead { font-size: 1.15rem; line-height: 1.5; color: var(--text, #182420); marg
 .chip.gebucht { opacity: .75; cursor: default; }
 .chip:disabled { cursor: default; }
 
+/* Der Ausweg "nicht unterschrieben": bewusst leise. Kein Kasten, keine
+   Fuellung — er soll gefunden werden, wenn man ihn braucht, und sonst nicht
+   ins Auge springen. */
+.ausweg {
+  display: block; width: 100%;
+  background: none; border: none;
+  color: var(--muted, #51655A);
+  font: inherit; font-size: .98rem; font-weight: 600;
+  text-decoration: underline;
+  padding: 1rem .5rem; margin-top: .2rem;
+  cursor: pointer; min-height: 3rem;
+}
+.ausweg:focus-visible { outline: 3px solid var(--green, #2D4A3A); outline-offset: 2px; }
+
+.pick.kus.sel {
+  background: var(--green, #2D4A3A); border-color: var(--green, #2D4A3A);
+}
+.pick.kus.sel .p-top { color: #fff; }
+.pick.kus.sel .p-top::before { content: "✓ "; color: var(--lime, #C8F135); }
+.pflicht { color: var(--warn, #C85B30); font-weight: 700; }
+
 /* ── Trinkmenge ──
    Optisch klar vom Rest abgesetzt, damit sofort erkennbar ist: das hier ist
    ein Notizzettel, kein Teil des Nachweises. */
@@ -505,6 +526,10 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
     <div class="field">
       <label for="evNote">Stichwort (nicht Pflicht)</label>
       <input type="text" id="evNote" maxlength="60" placeholder="z. B. „möchte Seelsorge“">
+      <div class="hint">
+        <strong>Keine Namen, keine Diagnosen.</strong>
+        Einzelheiten gehören in die Patientenakte, nicht hierher.
+      </div>
     </div>
 
     <div class="note lime"><strong>Bitte sagen Sie es jetzt der Pflegekraft persönlich.</strong><br>Die Pflegekraft schreibt die Einzelheiten in die Patientenakte. Die App merkt sich nur, dass Sie übergeben haben.</div>
@@ -585,6 +610,63 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
 
     <button class="btn btn-primary" id="btnConfirm" disabled onclick="finish()">Einsatz bestätigen</button>
     <button class="btn btn-quiet" onclick="show('scr-check')">Zurück</button>
+
+    <!-- Der Ausnahmeweg. Bewusst als leiser Textlink unter dem Zurueck-Button:
+         Unterschreiben bleibt der Normalweg und darf optisch nicht mit diesem
+         hier konkurrieren. -->
+    <button type="button" class="ausweg" onclick="openOhneUnterschrift()">Unterschrift wurde nicht geleistet</button>
+  </section>
+
+  <!-- ═══ 5b · Grund, wenn nicht unterschrieben wurde ═══ -->
+  <section class="screen" id="scr-kein-us">
+    <h1>Warum wurde nicht unterschrieben?</h1>
+    <p class="lead">Bitte einen Grund wählen. Der Vorstand sieht diese Einsätze durch.</p>
+
+    <div id="kus-gruende">
+      <button type="button" class="pick kus" data-key="notfall_station">
+        <div class="p-top">Notfall auf der Station</div>
+      </button>
+      <button type="button" class="pick kus" data-key="schichtwechsel">
+        <div class="p-top">Schichtwechsel — niemand verfügbar</div>
+      </button>
+      <button type="button" class="pick kus" data-key="abgelehnt">
+        <div class="p-top">Pflegekraft lehnt Unterschrift ab</div>
+      </button>
+      <button type="button" class="pick kus" data-key="sonstiges">
+        <div class="p-top">Anderer Grund</div>
+      </button>
+    </div>
+
+    <div class="field">
+      <label for="kus-vermerk">Vermerk <span id="kus-vermerk-pflicht" class="pflicht" hidden>— bitte ausfüllen</span></label>
+      <input type="text" id="kus-vermerk" maxlength="120" placeholder="Kurz, was vorgefallen ist">
+      <div class="hint">
+        <strong>Keine Namen, keine Diagnosen.</strong>
+        <span id="kus-rest">120</span> Zeichen frei.
+      </div>
+    </div>
+
+    <div class="note warn" id="kus-fehler" hidden></div>
+
+    <button class="btn btn-primary" id="kus-weiter" disabled onclick="ohneUnterschriftBestaetigen()">Weiter</button>
+    <button class="btn btn-quiet" onclick="show('scr-sign')">Zurück — doch unterschreiben lassen</button>
+  </section>
+
+  <!-- ═══ 5c · Bestaetigung ═══ -->
+  <section class="screen" id="scr-kein-us-ok">
+    <h1>Ohne Unterschrift abschließen?</h1>
+    <div class="note amber">
+      Der Einsatz wird <strong>ohne Unterschrift der Pflege</strong> abgeschlossen.
+      Der Vorstand prüft diese Einsätze vor der Abrechnung.
+    </div>
+    <div class="card">
+      <div class="c-label">Angegebener Grund</div>
+      <div id="kus-zusammenfassung"></div>
+    </div>
+    <div class="note warn" id="kus-ok-fehler" hidden></div>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" id="kus-final" onclick="finishOhneUnterschrift()">Ohne Unterschrift abschließen</button>
+    <button class="btn btn-quiet" onclick="show('scr-kein-us')">Zurück</button>
   </section>
 
   <!-- ═══ 6 · Fertig ═══ -->
@@ -599,6 +681,9 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
       <div class="c-label">Einsatzzeit</div>
       <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:2.2rem;color:var(--green,#2D4A3A)" id="doneDur">—</div>
       <div class="hint" id="doneSub" style="margin-top:.3rem"></div>
+    </div>
+    <div class="note amber" id="done-ohne-us" hidden></div>
+    <div hidden>
     </div>
     <p class="lead center" style="font-size:1.05rem;color:var(--muted,#51655A)">Kommen Sie gut nach Hause.</p>
     <div class="spacer"></div>
@@ -1194,6 +1279,111 @@ function uebungStarten() {
   trinkReset();
   waehleBuchung(S.buchung);
   toast('Übung: Nichts wird gespeichert.');
+}
+
+/* ───────── Abschluss ohne Unterschrift ─────────
+ *
+ * Ausnahmeweg fuer Notfall, Schichtwechsel oder Ablehnung. Die Regeln stehen
+ * serverseitig in einsatz_abschliessen — hier wird nur vorgefiltert, damit die
+ * Sitzwache nicht erst nach dem Absenden erfaehrt, dass etwas fehlt.
+ */
+const KUS_LABEL = {
+  notfall_station: 'Notfall auf der Station',
+  schichtwechsel:  'Schichtwechsel — niemand verfügbar',
+  abgelehnt:       'Pflegekraft lehnt Unterschrift ab',
+  sonstiges:       'Anderer Grund'
+};
+let kusKategorie = null;
+
+function openOhneUnterschrift() {
+  kusKategorie = null;
+  document.querySelectorAll('#kus-gruende .pick').forEach(b => {
+    b.classList.remove('sel'); b.setAttribute('aria-pressed','false');
+  });
+  $('kus-vermerk').value = '';
+  $('kus-fehler').hidden = true;
+  kusPruefen();
+  show('scr-kein-us');
+}
+
+document.querySelectorAll('#kus-gruende .pick').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#kus-gruende .pick').forEach(x => {
+      x.classList.remove('sel'); x.setAttribute('aria-pressed','false');
+    });
+    b.classList.add('sel'); b.setAttribute('aria-pressed','true');
+    kusKategorie = b.dataset.key;
+    kusPruefen();
+  });
+});
+
+$('kus-vermerk').addEventListener('input', kusPruefen);
+
+function kusPruefen() {
+  const feld = $('kus-vermerk');
+  // maxlength bremst nur Tastatureingaben. Wird der Wert anders gesetzt
+  // (Einfuegen ueber Umwege, Autofill), liefe die Restanzeige ins Minus und
+  // die RPC wiese den Abschluss erst nach dem Absenden ab.
+  if (feld.value.length > 120) feld.value = feld.value.slice(0, 120);
+  const vermerk = feld.value.trim();
+  $('kus-rest').textContent = String(120 - feld.value.length);
+  // Vermerk ist nur bei "Anderer Grund" Pflicht — sonst freiwillig.
+  const brauchtVermerk = kusKategorie === 'sonstiges';
+  $('kus-vermerk-pflicht').hidden = !brauchtVermerk;
+  $('kus-weiter').disabled = !kusKategorie || (brauchtVermerk && !vermerk);
+}
+
+function ohneUnterschriftBestaetigen() {
+  const vermerk = $('kus-vermerk').value.trim();
+  $('kus-zusammenfassung').innerHTML =
+    '<div class="c-row"><span class="k">Grund</span><span class="v">'
+    + LPR.escape(KUS_LABEL[kusKategorie] || kusKategorie) + '</span></div>'
+    + (vermerk ? '<div class="c-row"><span class="k">Vermerk</span><span class="v">'
+        + LPR.escape(vermerk) + '</span></div>' : '');
+  $('kus-ok-fehler').hidden = true;
+  show('scr-kein-us-ok');
+}
+
+async function finishOhneUnterschrift() {
+  const btn = $('kus-final');
+  const vermerk = $('kus-vermerk').value.trim();
+  btn.disabled = true; btn.textContent = 'Wird gespeichert…';
+  $('kus-ok-fehler').hidden = true;
+
+  const fertigstellen = (minuten) => {
+    $('doneDur').textContent = fmtDauer(minuten);
+    $('doneSub').textContent = 'Abgeschlossen um ' + fmtT(new Date());
+    $('done-ohne-us').innerHTML =
+      'Pflegefachkraft hat die Unterschrift nicht geleistet.<br>Grund: '
+      + LPR.escape(KUS_LABEL[kusKategorie] || kusKategorie)
+      + (vermerk ? ' · ' + LPR.escape(vermerk) : '');
+    $('done-ohne-us').hidden = false;
+    show('scr-done');
+  };
+
+  if (S.uebung) {
+    $('uebung-hinweis').hidden = false;
+    btn.disabled = false; btn.textContent = 'Ohne Unterschrift abschließen';
+    fertigstellen(nettoMinuten());
+    return;
+  }
+
+  try {
+    const res = await LPR.einsatzAbschliessen(
+      S.einsatzId, gewaehlteTaetigkeiten, null, null, null,
+      { kategorie: kusKategorie, vermerk: vermerk || null });
+    if (!res.ok) throw new Error(res.error);
+    const netto = nettoMinuten();
+    LPR.einsatzPufferLeeren();
+    trinkAufraeumen();
+    fertigstellen(netto);
+  } catch (e) {
+    // Wie beim normalen Abschluss: der Einsatz laeuft weiter, nichts ist weg.
+    $('kus-ok-fehler').textContent = (e && e.message ? e.message : 'Unbekannter Fehler.')
+      + ' Ihr Einsatz läuft weiter — bitte noch einmal antippen.';
+    $('kus-ok-fehler').hidden = false;
+    btn.disabled = false; btn.textContent = 'Ohne Unterschrift abschließen';
+  }
 }
 
 /* ───────── Trinkmenge (Einfuhr) ─────────

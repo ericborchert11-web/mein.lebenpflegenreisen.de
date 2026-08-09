@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sitzwache – Einsatz · LPR e.V.</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#2D4A3A">
+<!-- Apple ignoriert Teile des Manifests — ohne diese Zeilen sieht das Icon auf
+     dem iPhone schlecht aus und die App oeffnet im Browser-Rahmen. -->
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mein Dienst">
 <link rel="stylesheet" href="shared.css">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -720,6 +728,14 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
 // "Eine Aktion pro Screen" vertraegt keine Menuezeile, die man versehentlich trifft.
 LPR_Layout.init({ header: false, footer: false, chatbot: false });
 
+// Nur damit sich die Seite als App ablegen laesst. Kein Offline-Betrieb —
+// siehe Kommentar in sw.js.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
 const $ = id => document.getElementById(id);
 
 const SCHICHT = {
@@ -778,7 +794,9 @@ async function init() {
   const session = LPR.getSession();
   if (!session) { location.href = 'login.html'; return; }
   if (session.role !== 'ehrenamt') {
-    zeigeFehler('Diese Seite ist für ehrenamtliche Sitzwachen. Mit diesem Konto lässt sich kein Einsatz erfassen.');
+    // Das Homescreen-Icon zeigt fuer alle hierher. Klinik- und Vorstandskonten
+    // gehoeren in ihren eigenen Bereich, nicht auf eine Fehlerseite.
+    location.replace(LPR.roleTarget ? LPR.roleTarget(session.role) : 'mein-bereich.html');
     return;
   }
 

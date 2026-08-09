@@ -1359,7 +1359,7 @@
       const client = await sb();
       const { data: eins, error: e1 } = await client
         .from('einsaetze')
-        .select('id, booking_id, status')
+        .select('id, booking_id, status, beginn_ts')
         .in('booking_id', ids)
         .neq('status', 'storniert');
       if (e1) return { ok: false, error: e1.message, info: {} };
@@ -1380,6 +1380,7 @@
         info[e.booking_id] = {
           einsatz_id: e.id,
           einsatz_status: e.status,
+          beginn_ts: e.beginn_ts,
           unterschrift_status: a ? a.unterschrift_status : null,
           kategorie: a ? a.keine_unterschrift_kategorie : null,
           vermerk:   a ? a.keine_unterschrift_vermerk : null

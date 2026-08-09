@@ -7,6 +7,9 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mein Dienst">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#1A3A2A">
 <title>Mein Bereich · Leben Pflegen Reisen e.V.</title>
@@ -435,6 +438,10 @@
 <script>
 LPR_Layout.init({ page: 'mein-bereich' });
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
+
 const COMPLIANCE_LABELS = {
   fuehrungszeugnis: '🛡 Erweitertes Führungszeugnis',
   ifsg43: '🦠 Belehrung nach §43 IfSG',
@@ -527,12 +534,48 @@ async function renderUpcomingBookings() {
     // 'confirmed' gehoert dazu: nach der Bestaetigung verschwand die Buchung
     // sonst aus dieser Karte, obwohl der Dienst steht.
     const upcoming = (res.bookings || [])
-      .filter(b => b.clinic_id
-                && (b.status === 'planned' || b.status === 'confirmed')
-                && (b.date >= today || laeuftUeberMitternacht(b)))
+      .filter(b => b.clinic_id && (
+        // kommende und laufende Dienste
+        ((b.status === 'planned' || b.status === 'confirmed')
+          && (b.date >= today || laeuftUeberMitternacht(b)))
+        // heute abgeschlossen oder abgesagt: bleibt bis Tagesende sichtbar,
+        // damit man sieht, dass der Dienst angekommen ist
+        || ((b.status === 'completed' || b.status === 'cancelled')
+          && (b.date === today || laeuftUeberMitternacht(b)))
+      ))
       .sort((a, b) => a.date.localeCompare(b.date));
 
     if (upcoming.length === 0) return;
+
+    // Laeuft zu einer dieser Buchungen gerade ein Einsatz?
+    const eInfo = await LPR.getEinsatzInfoFuerBuchungen(upcoming.map(b => b.id));
+    const einsatzInfo = eInfo.ok ? eInfo.info : {};
+
+    /**
+     * Status eines Dienstes in Worten. Bewusst immer Symbol UND Text UND
+     * Farbe: eine Rot-Gruen-Schwaeche ist im Alter haeufig, Farbe allein
+     * traegt die Information nicht.
+     */
+    const statusZeile = (b) => {
+      const i = einsatzInfo[b.id];
+      if (b.status === 'cancelled') {
+        return '<div class="bb-status abgesagt"><span aria-hidden="true">✕</span> Abgesagt</div>';
+      }
+      if (i && i.einsatz_status === 'laufend') {
+        const seit = i.beginn_ts
+          ? new Date(i.beginn_ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+          : null;
+        return '<div class="bb-status laeuft"><span class="bb-puls" aria-hidden="true">●</span> Läuft'
+             + (seit ? ' — seit ' + escape(seit) + ' Uhr' : '') + '</div>';
+      }
+      if (b.status === 'completed') {
+        return '<div class="bb-status fertig"><span aria-hidden="true">✓</span> Abgeschlossen · Zeit bestätigt</div>';
+      }
+      if (b.date === today || laeuftUeberMitternacht(b)) {
+        return '<div class="bb-status heute"><span aria-hidden="true">▶</span> Heute — noch nicht begonnen</div>';
+      }
+      return '<div class="bb-status kommend"><span aria-hidden="true">🗓</span> Geplant</div>';
+    };
 
     const html = upcoming.map(b => {
       const sh = SHIFT_LABELS[b.shift] || { label: b.shift, time: '' };
@@ -541,6 +584,7 @@ async function renderUpcomingBookings() {
       ).join('');
       return `
         <div class="bb-card">
+          ${statusZeile(b)}
           <div class="bb-card-top">
             <div>
               <div class="bb-clinic">${escape(b.clinic_name || 'Klinik')}</div>
@@ -557,8 +601,15 @@ async function renderUpcomingBookings() {
               ${b.patient_notes ? `<dt>Anmerkung</dt><dd class="bb-anmerkung">${escape(b.patient_notes)}</dd>` : ''}
             </dl>` : ''}
         <div class="bb-card-actions">
-          ${(b.date === today || laeuftUeberMitternacht(b)) ? `<a class="bb-einsatz-btn" href="einsatz.html?buchung=${escape(b.id)}">Einsatz öffnen →</a>` : ''}
-          <button class="bb-cancel-btn" data-booking-id="${escape(b.id)}" data-clinic-name="${escape(b.clinic_name || 'Klinik')}" data-date="${escape(fmtDateLong(b.date))}">Schicht absagen</button>
+          ${(b.status !== 'completed' && b.status !== 'cancelled'
+              && (b.date === today || laeuftUeberMitternacht(b)))
+            ? `<a class="bb-einsatz-btn" href="einsatz.html?buchung=${escape(b.id)}">${
+                (einsatzInfo[b.id] && einsatzInfo[b.id].einsatz_status === 'laufend')
+                  ? 'Zum laufenden Einsatz →' : 'Einsatz öffnen →'}</a>`
+            : ''}
+          ${(b.status === 'planned' || b.status === 'confirmed')
+            ? `<button class="bb-cancel-btn" data-booking-id="${escape(b.id)}" data-clinic-name="${escape(b.clinic_name || 'Klinik')}" data-date="${escape(fmtDateLong(b.date))}">Schicht absagen</button>`
+            : ''}
         </div>
         </div>`;
     }).join('');
@@ -716,6 +767,22 @@ async function doLogout() {
     font-family: inherit; text-decoration: none;
   }
   .bb-einsatz-btn:hover { background: var(--green-deep); }
+  /* Statuszeile: immer Symbol + Wort + Farbe zusammen. Farbe allein traegt die
+     Information nicht — Rot-Gruen-Schwaeche ist im Alter haeufig. */
+  .bb-status {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 12px; border-radius: 99px; margin-bottom: 10px;
+    font-size: 14px; font-weight: 700; letter-spacing: .01em;
+  }
+  .bb-status.laeuft   { background: #E4F2E8; color: #1E5B33; border: 1px solid #A9CFB6; }
+  .bb-status.fertig   { background: #EFEFEA; color: #55605A; border: 1px solid #D6D6CE; }
+  .bb-status.abgesagt { background: #F7E2DC; color: #8A2E14; border: 1px solid #E3B7A8; }
+  .bb-status.heute    { background: #FBF3DC; color: #7A5B14; border: 1px solid #E4D6A6; }
+  .bb-status.kommend  { background: #EDF1F6; color: #3C5670; border: 1px solid #C9D6E4; }
+  .bb-puls { animation: bbpuls 2s ease-in-out infinite; }
+  @keyframes bbpuls { 0%,100% { opacity: .45 } 50% { opacity: 1 } }
+  @media (prefers-reduced-motion: reduce) { .bb-puls { animation: none } }
+  body.contrast .bb-status { border: 2px solid #000; background: #fff; color: #000; }
   .bb-card-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   body.contrast .bb-einsatz-btn { border: 2px solid #000; }
 </style>

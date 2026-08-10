@@ -239,8 +239,17 @@ main {
 .assign-edit { margin-top:8px; padding:10px 12px; background:#fff; border:1px solid var(--border); border-radius:8px; }
 .assign-hint { font-size:12px; color:var(--muted); margin-bottom:8px; }
 .assign-grid { display:flex; flex-wrap:wrap; gap:6px; }
-.assign-chip { font-size:12px; font-weight:600; padding:5px 9px; border-radius:8px; border:1.5px solid var(--border); background:#fff; color:var(--muted); cursor:pointer; min-height:32px; }
-.assign-chip.selected { background:var(--lime-soft); border-color:var(--green); color:var(--green-deep); }
+.assign-chip { font-size:12px; font-weight:600; border-radius:8px; border:1.5px solid var(--border); background:#fff; color:var(--muted); overflow:hidden; }
+.assign-chip.selected { border-color:var(--green); color:var(--green-deep); }
+.chip-day { display:block; padding:4px 9px 2px; text-align:center; }
+.chip-halves { display:flex; }
+.chip-half { flex:1; font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.02em; padding:5px 9px; min-height:28px; border:none; border-top:1px solid var(--border); background:#fff; color:var(--muted); cursor:pointer; }
+.chip-half + .chip-half { border-left:1px solid var(--border); }
+.chip-half[aria-pressed="true"] { background:var(--lime-soft); color:var(--green-deep); }
+.chip-half[aria-pressed="true"]::before { content:"\2713\00a0"; }
+.chip-half:hover { background:#F2F5EE; }
+.chip-half[aria-pressed="true"]:hover { background:#DCE8CE; }
+.chip-half:focus-visible { outline:2px solid var(--green); outline-offset:-2px; }
 .assign-actions { display:flex; align-items:center; gap:12px; margin-top:10px; flex-wrap:wrap; }
 .assign-status { font-size:12px; font-weight:600; }
 .addmember { margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); }
@@ -607,7 +616,7 @@ function render() {
     const pillClass = n === 0 ? 'signup-pill zero' : 'signup-pill';
     const pillText = n === 0 ? 'Keine Anmeldungen' : (n === 1 ? '1 Anmeldung' : n + ' Anmeldungen');
     const cov = coverageSummary(signups, t);
-    const covPill = cov.total > 1 ? (cov.uncovered > 0 ? `<span class="cov-pill warn">\u26A0 ${cov.uncovered} Tag(e) unbesetzt</span>` : '<span class="cov-pill ok">\u2713 alle Tage besetzt</span>') : '';
+    const covPill = cov.total >= 1 ? (cov.uncovered > 0 ? `<span class="cov-pill warn">\u26A0 ${cov.uncovered} Tag(e) nicht vollst\u00E4ndig besetzt</span>` : '<span class="cov-pill ok">\u2713 alle Tage vollst\u00E4ndig besetzt</span>') : '';
     return `
     <article class="trip-card">
       <div class="trip-info">
@@ -647,6 +656,17 @@ function fmtDay(iso) {
   return wd + ' ' + String(d.getUTCDate()).padStart(2,'0') + '.' + String(d.getUTCMonth()+1).padStart(2,'0') + '.';
 }
 function effectiveDays(s, allDays) { return (s.days && s.days.length) ? s.days : allDays; }
+// Tageshälfte einer Zuteilung: 'full' | 'am' (Vormittag) | 'pm' (Nachmittag).
+// Ohne eigene Tage (= ganze Reise) ist jeder Tag ein ganzer Tag.
+function effectiveHalf(s, day) { return (s.dayHalves && s.dayHalves[day]) || 'full'; }
+function coversHalf(s, day, half) {
+  const h = effectiveHalf(s, day);
+  return h === 'full' || h === half;
+}
+const HALF_SHORT = { am: 'Vm', pm: 'Nm' };
+const HALF_LONG  = { am: 'Vormittag', pm: 'Nachmittag' };
+function halfSuffix(h) { return HALF_SHORT[h] ? ' (' + HALF_SHORT[h] + ')' : ''; }
+function dayWithHalf(s, day) { return fmtDay(day) + halfSuffix(effectiveHalf(s, day)); }
 
 // ══════ Pauschalen-Logik ══════
 async function loadPauschaleData() {
@@ -735,31 +755,37 @@ function renderPauschBadge(userId, year) {
     : '';
   return `<div class="pausch${cls}">${text}</div>${detail}`;
 }
+// Ein Tag gilt erst als besetzt, wenn Vormittag UND Nachmittag jemanden haben.
+function dayGaps(signups, trip, day) {
+  const allDays = enumTripDays(trip.start_date, trip.end_date);
+  const onDay = s => effectiveDays(s, allDays).indexOf(day) !== -1;
+  const conf = signups.filter(s => s.status === 'confirmed' && onDay(s));
+  const gaps = ['am', 'pm'].filter(h => !conf.some(s => coversHalf(s, day, h)));
+  return gaps;
+}
 function coverageSummary(signups, trip) {
   const allDays = enumTripDays(trip.start_date, trip.end_date);
-  if (allDays.length <= 1) return { total: allDays.length, uncovered: 0 };
   let uncovered = 0;
-  allDays.forEach(day => {
-    const covered = signups.some(s => s.status === 'confirmed' && effectiveDays(s, allDays).indexOf(day) !== -1);
-    if (!covered) uncovered++;
-  });
+  allDays.forEach(day => { if (dayGaps(signups, trip, day).length) uncovered++; });
   return { total: allDays.length, uncovered };
 }
 function renderDayCoverage(signups, trip) {
   const allDays = enumTripDays(trip.start_date, trip.end_date);
-  if (allDays.length <= 1) return '';
+  if (!allDays.length) return '';
   const rows = allDays.map(day => {
     const conf = signups.filter(s => s.status === 'confirmed' && effectiveDays(s, allDays).indexOf(day) !== -1);
     const wait = signups.filter(s => s.status === 'waitlist' && effectiveDays(s, allDays).indexOf(day) !== -1);
-    const chips = conf.map(s => `<span class="cov-chip">${s.full_name ? escapeHtml(s.full_name) : 'Mitglied'}</span>`).join('')
-      + wait.map(s => `<span class="cov-chip wait">${s.full_name ? escapeHtml(s.full_name) : 'Mitglied'} (WL)</span>`).join('');
-    const covered = conf.length > 0;
-    return `<div class="cov-row${covered ? '' : ' cov-uncovered'}"><div class="cov-day">${fmtDay(day)}</div><div class="cov-names">${(covered || wait.length) ? chips : '<span class="cov-warn">⚠ unbesetzt</span>'}</div></div>`;
+    const chips = conf.map(s => `<span class="cov-chip">${s.full_name ? escapeHtml(s.full_name) : 'Mitglied'}${halfSuffix(effectiveHalf(s, day))}</span>`).join('')
+      + wait.map(s => `<span class="cov-chip wait">${s.full_name ? escapeHtml(s.full_name) : 'Mitglied'}${halfSuffix(effectiveHalf(s, day))} (WL)</span>`).join('');
+    const gaps = dayGaps(signups, trip, day);
+    const gapText = gaps.length === 2 ? '⚠ unbesetzt' : (gaps.length ? '⚠ ' + HALF_LONG[gaps[0]] + ' unbesetzt' : '');
+    const gapChip = gapText ? `<span class="cov-warn">${gapText}</span>` : '';
+    return `<div class="cov-row${gaps.length ? ' cov-uncovered' : ''}"><div class="cov-day">${fmtDay(day)}</div><div class="cov-names">${chips}${gapChip}</div></div>`;
   }).join('');
   const cov = coverageSummary(signups, trip);
   const head = cov.uncovered > 0
-    ? `<div class="cov-head warn">⚠ ${cov.uncovered} von ${cov.total} Tagen unbesetzt</div>`
-    : `<div class="cov-head ok">✓ Alle ${cov.total} Tage besetzt</div>`;
+    ? `<div class="cov-head warn">⚠ ${cov.uncovered} von ${cov.total} ${cov.total === 1 ? 'Tag' : 'Tagen'} nicht vollständig besetzt</div>`
+    : `<div class="cov-head ok">✓ ${cov.total === 1 ? 'Der Reisetag ist' : 'Alle ' + cov.total + ' Tage sind'} vollständig besetzt</div>`;
   return `<div class="day-cov">${head}${rows}</div>`;
 }
 
@@ -776,14 +802,20 @@ function renderSignupRows(signups, trip) {
     const name = s.full_name ? escapeHtml(s.full_name) : '<em>Name nicht hinterlegt</em>';
     const sub = [s.vereinsnummer ? escapeHtml(s.vereinsnummer) : '', s.email ? escapeHtml(s.email) : '']
       .filter(Boolean).join(' · ');
-    const dayInfo = (allDays.length <= 1) ? '' : ((s.days && s.days.length) ? (s.days.length >= allDays.length ? 'ganze Reise' : s.days.map(fmtDay).join(', ')) : 'ganze Reise');
     const eff = (s.days && s.days.length) ? s.days : allDays;
-    const assignChips = allDays.map(d => `<span class="assign-chip${eff.indexOf(d)!==-1?' selected':''}" data-day="${d}" onclick="adminToggleDay(this)">${fmtDay(d)}</span>`).join('');
-    const assignBlock = (allDays.length > 1) ? `
+    const fullTrip = !(s.days && s.days.length) || (s.days.length >= allDays.length && s.days.every(d => effectiveHalf(s, d) === 'full'));
+    const dayInfo = fullTrip ? (allDays.length > 1 ? 'ganze Reise' : '') : eff.map(d => dayWithHalf(s, d)).join(', ');
+    const assignChips = allDays.map(d => {
+      const on = eff.indexOf(d) !== -1;
+      const half = on ? effectiveHalf(s, d) : null;
+      const btn = (h, label) => `<button type="button" class="chip-half" data-half="${h}" aria-pressed="${on && (half === 'full' || half === h) ? 'true' : 'false'}" title="${HALF_LONG[h]}" onclick="adminToggleHalf(this)">${label}</button>`;
+      return `<span class="assign-chip${on?' selected':''}" data-day="${d}"><span class="chip-day">${fmtDay(d)}</span><span class="chip-halves">${btn('am','Vm')}${btn('pm','Nm')}</span></span>`;
+    }).join('');
+    const assignBlock = (allDays.length >= 1) ? `
       <div class="assign-wrap">
         <button class="assign-toggle" onclick="toggleAssign('${s.id}', this)">Tage zuteilen</button>
         <div class="assign-edit" id="assign-${s.id}" hidden>
-          <div class="assign-hint">Tage, die diese Person final übernimmt. Keine Auswahl = ganze Reise.</div>
+          <div class="assign-hint">Tage, die diese Person final übernimmt. Keine Auswahl = ganze Reise. Nur Vm oder nur Nm anhaken = halber Tag (Übergabe mittags).</div>
           <div class="assign-grid">${assignChips}</div>
           <div class="assign-actions">
             <button class="btn btn-primary btn-sm" onclick="saveDayAssign('${s.id}','${trip.id}','${s.user_id}', this)">Speichern</button>
@@ -856,10 +888,34 @@ function toggleAssign(signupId, btn) {
   el.hidden = !el.hidden;
   btn.textContent = el.hidden ? 'Tage zuteilen' : 'Zuteilung schließen';
 }
-function adminToggleDay(el) { el.classList.toggle('selected'); }
+// Chip-Hälfte an/aus. Beide an = ganzer Tag, eine an = halber Tag, keine = nicht eingeteilt.
+function adminToggleHalf(btn) {
+  const on = btn.getAttribute('aria-pressed') === 'true';
+  btn.setAttribute('aria-pressed', on ? 'false' : 'true');
+  const chip = btn.closest('.assign-chip');
+  if (chip) {
+    const any = Array.from(chip.querySelectorAll('.chip-half')).some(b => b.getAttribute('aria-pressed') === 'true');
+    chip.classList.toggle('selected', any);
+  }
+}
+// Chips einlesen: [{day, half}] mit half = 'full' | 'am' | 'pm'.
+function readDayAssign(wrap) {
+  if (!wrap) return [];
+  return Array.from(wrap.querySelectorAll('.assign-chip')).map(chip => {
+    const pressed = h => {
+      const b = chip.querySelector('.chip-half[data-half="' + h + '"]');
+      return !!b && b.getAttribute('aria-pressed') === 'true';
+    };
+    const am = pressed('am'), pm = pressed('pm');
+    if (am && pm) return { day: chip.dataset.day, half: 'full' };
+    if (am) return { day: chip.dataset.day, half: 'am' };
+    if (pm) return { day: chip.dataset.day, half: 'pm' };
+    return null;
+  }).filter(Boolean);
+}
 async function saveDayAssign(signupId, tripId, userId, btn) {
   const wrap = document.getElementById('assign-' + signupId);
-  const days = wrap ? Array.from(wrap.querySelectorAll('.assign-chip.selected')).map(c => c.dataset.day) : [];
+  const days = readDayAssign(wrap);
   const statusEl = document.getElementById('assign-status-' + signupId);
   btn.disabled = true; const oldTxt = btn.textContent; btn.textContent = 'Speichert…';
   const res = await LPR.setSignupDaysAdmin(signupId, tripId, userId, days);
@@ -867,7 +923,10 @@ async function saveDayAssign(signupId, tripId, userId, btn) {
   if (!res.ok) { if (statusEl) { statusEl.textContent = '⚠ ' + (res.error || 'Fehler'); statusEl.style.color = 'var(--warn)'; } return; }
   const list = _signupsByTrip[tripId] || [];
   const sObj = list.find(x => x.id === signupId);
-  if (sObj) sObj.days = res.days || days;
+  if (sObj) {
+    sObj.days = res.days || days.map(d => d.day);
+    sObj.dayHalves = res.dayHalves || days.reduce((m, d) => { m[d.day] = d.half; return m; }, {});
+  }
   const trip = _trips.find(t => t.id === tripId);
   const panel = document.getElementById('signups-' + tripId);
   if (panel && trip) { panel.innerHTML = renderDayCoverage(list, trip) + renderSignupRows(list, trip) + renderAddMember(trip, list); panel.hidden = false; }

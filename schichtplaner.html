@@ -482,9 +482,15 @@ body.ls .ls-tag { display: inline-block; }
 }
 /* Tages-Auswahl (Teil-Reisen) */
 .days-grid { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
-.day-chip { font-family:inherit; font-size:13px; font-weight:600; padding:6px 10px; border-radius:8px; border:1.5px solid var(--border); background:#fff; color:var(--muted,#6B7771); cursor:pointer; min-height:36px; transition:background .12s,border-color .12s; }
-.day-chip.selected { background:var(--lime-soft); border-color:var(--green,#2D4A3A); color:var(--green-deep); }
-.day-chip:focus-visible { outline:3px solid var(--lime); outline-offset:2px; }
+.day-chip { font-family:inherit; font-size:13px; font-weight:600; border-radius:8px; border:1.5px solid var(--border); background:#fff; color:var(--muted,#6B7771); min-height:36px; overflow:hidden; transition:border-color .12s; }
+.day-chip.selected { border-color:var(--green,#2D4A3A); color:var(--green-deep); }
+.chip-day { display:block; padding:5px 10px 3px; text-align:center; }
+.chip-halves { display:flex; }
+.chip-half { flex:1; font-family:inherit; font-size:12px; font-weight:700; padding:6px 10px; min-height:32px; border:none; border-top:1px solid var(--border); background:#fff; color:var(--muted,#6B7771); cursor:pointer; transition:background .12s; }
+.chip-half + .chip-half { border-left:1px solid var(--border); }
+.chip-half[aria-pressed="true"] { background:var(--lime-soft); color:var(--green-deep); }
+.chip-half[aria-pressed="true"]::before { content:"\2713\00a0"; }
+.chip-half:focus-visible { outline:3px solid var(--lime); outline-offset:-3px; }
 .days-quick { display:flex; gap:14px; margin-top:8px; }
 .days-quick button { background:transparent; border:none; color:var(--green,#2D4A3A); font-weight:600; font-size:13px; cursor:pointer; text-decoration:underline; padding:0; min-height:32px; }
 .days-count { font-size:13px; color:var(--muted,#6B7771); margin-top:6px; font-weight:600; }
@@ -560,7 +566,7 @@ body.ls .ls-tag { display: inline-block; }
     </div>
     <div class="field" id="days-field" hidden>
       <label>An welchen Tagen kannst du? <span class="req">*</span></label>
-      <div class="field-hint">Du musst nicht die ganze Reise begleiten – wähle die Tage, an denen du dabei bist.</div>
+      <div class="field-hint">Du musst nicht die ganze Reise begleiten – wähle die Tage, an denen du dabei bist. Nur Vm oder nur Nm anhaken, wenn du an dem Tag nur einen halben Tag da bist (Übergabe mittags).</div>
       <div class="days-grid" id="day-picker"></div>
       <div class="days-quick">
         <button type="button" id="days-all">Alle auswählen</button>
@@ -593,6 +599,7 @@ let _trips = [];          // Trips aus DB
 let _signupsByTrip = {};  // tripId -> [signups]
 let _mySignupByTrip = {}; // tripId -> mein signup oder null
 let _myDaysByTrip = {};   // tripId -> [gewaehlte Tage]
+let _myHalvesByTrip = {}; // tripId -> { tag: 'full' | 'am' | 'pm' }
 
 // ────────────────────────────────────────
 // FORMAT
@@ -637,11 +644,55 @@ function dayChipLabel(iso) {
   const wd = ['So','Mo','Di','Mi','Do','Fr','Sa'][d.getUTCDay()];
   return wd + ' ' + String(d.getUTCDate()).padStart(2,'0') + '.' + String(d.getUTCMonth()+1).padStart(2,'0') + '.';
 }
+// ── Tageshälften: 'full' | 'am' (Vormittag) | 'pm' (Nachmittag) ──
+const HALF_SHORT = { am: 'Vm', pm: 'Nm' };
+const HALF_LONG  = { am: 'Vormittag', pm: 'Nachmittag' };
+function halfSuffix(h) { return HALF_SHORT[h] ? ' (' + HALF_SHORT[h] + ')' : ''; }
+function dayChipHtml(iso, half) {
+  // half = null -> Tag nicht gewählt
+  const btn = (h, label) => `<button type="button" class="chip-half" data-half="${h}" aria-pressed="${half && (half === 'full' || half === h) ? 'true' : 'false'}" title="${HALF_LONG[h]}">${label}</button>`;
+  return `<span class="day-chip${half ? ' selected' : ''}" data-day="${iso}"><span class="chip-day">${dayChipLabel(iso)}</span><span class="chip-halves">${btn('am','Vm')}${btn('pm','Nm')}</span></span>`;
+}
+function bindDayChips(picker) {
+  if (!picker) return;
+  picker.querySelectorAll('.chip-half').forEach(b => b.addEventListener('click', () => {
+    const on = b.getAttribute('aria-pressed') === 'true';
+    b.setAttribute('aria-pressed', on ? 'false' : 'true');
+    const chip = b.closest('.day-chip');
+    if (chip) {
+      const any = Array.from(chip.querySelectorAll('.chip-half')).some(x => x.getAttribute('aria-pressed') === 'true');
+      chip.classList.toggle('selected', any);
+    }
+    updateDaysCount();
+  }));
+}
+function setAllDayChips(on) {
+  document.querySelectorAll('#day-picker .day-chip').forEach(chip => {
+    chip.querySelectorAll('.chip-half').forEach(b => b.setAttribute('aria-pressed', on ? 'true' : 'false'));
+    chip.classList.toggle('selected', on);
+  });
+  updateDaysCount();
+}
+// Auswahl auslesen: [{day, half}]
+function readDayPicker() {
+  return Array.from(document.querySelectorAll('#day-picker .day-chip')).map(chip => {
+    const pressed = h => {
+      const b = chip.querySelector('.chip-half[data-half="' + h + '"]');
+      return !!b && b.getAttribute('aria-pressed') === 'true';
+    };
+    const am = pressed('am'), pm = pressed('pm');
+    if (am && pm) return { day: chip.dataset.day, half: 'full' };
+    if (am) return { day: chip.dataset.day, half: 'am' };
+    if (pm) return { day: chip.dataset.day, half: 'pm' };
+    return null;
+  }).filter(Boolean);
+}
 function updateDaysCount() {
-  const sel = document.querySelectorAll('#day-picker .day-chip.selected').length;
+  const chosen = readDayPicker();
   const tot = document.querySelectorAll('#day-picker .day-chip').length;
+  const halbe = chosen.filter(c => c.half !== 'full').length;
   const el = document.getElementById('days-count');
-  if (el) el.textContent = sel + ' von ' + tot + ' Tagen gewählt';
+  if (el) el.textContent = chosen.length + ' von ' + tot + ' Tagen gewählt' + (halbe ? ' · davon ' + halbe + ' halbtags' : '');
 }
 
 async function loadAll() {
@@ -657,6 +708,7 @@ async function loadAll() {
   _signupsByTrip = {};
   _mySignupByTrip = {};
   _myDaysByTrip = {};
+  _myHalvesByTrip = {};
   const session = window.LPR.getSession();
 
   await Promise.all(_trips.map(async (trip) => {
@@ -668,8 +720,10 @@ async function loadAll() {
       if (mine) {
         const dRes = await window.LPR.getMySignupDays(trip.id);
         _myDaysByTrip[trip.id] = (dRes && dRes.ok) ? dRes.days : [];
+        _myHalvesByTrip[trip.id] = (dRes && dRes.ok) ? (dRes.dayHalves || {}) : {};
       } else {
         _myDaysByTrip[trip.id] = [];
+        _myHalvesByTrip[trip.id] = {};
       }
     }
   }));
@@ -704,11 +758,13 @@ function renderTrips() {
     const iAmWait = mine && mine.status === 'waitlist';
     const myPos   = mine ? mine.position : null;
     const myDays = _myDaysByTrip[trip.id] || [];
+    const myHalves = _myHalvesByTrip[trip.id] || {};
     const allTripDays = enumerateTripDays(trip.start_date, trip.end_date);
-    const myDaysLine = (mine && allTripDays.length > 1 && myDays.length)
-      ? `<div class="spots-info" style="font-size:13px;">\uD83D\uDCC5 Deine Tage: ${myDays.length >= allTripDays.length ? 'ganze Reise' : myDays.map(dayChipLabel).join(', ')}</div>`
+    const myFullTrip = myDays.length >= allTripDays.length && myDays.every(d => (myHalves[d] || 'full') === 'full');
+    const myDaysLine = (mine && myDays.length)
+      ? `<div class="spots-info" style="font-size:13px;">\uD83D\uDCC5 Deine Tage: ${myFullTrip ? 'ganze Reise' : myDays.map(d => dayChipLabel(d) + halfSuffix(myHalves[d] || 'full')).join(', ')}</div>`
       : '';
-    const editDaysBtn = (mine && allTripDays.length > 1)
+    const editDaysBtn = (mine && allTripDays.length >= 1)
       ? `<button class="btn btn-ghost" data-editdays="${trip.id}">Tage ändern</button>`
       : '';
 
@@ -872,10 +928,10 @@ function openDialog(tripId, isWaitlist = false) {
   if (_picker) {
     const allDays = enumerateTripDays(trip.start_date, trip.end_date);
     _picker.innerHTML = '';
-    if (allDays.length > 1) {
+    if (allDays.length) {
       if (_daysField) _daysField.hidden = false;
-      _picker.innerHTML = allDays.map(d => `<button type="button" class="day-chip selected" data-day="${d}">${dayChipLabel(d)}</button>`).join('');
-      _picker.querySelectorAll('.day-chip').forEach(ch => ch.addEventListener('click', () => { ch.classList.toggle('selected'); updateDaysCount(); }));
+      _picker.innerHTML = allDays.map(d => dayChipHtml(d, 'full')).join('');
+      bindDayChips(_picker);
       updateDaysCount();
     } else if (_daysField) {
       _daysField.hidden = true;
@@ -915,12 +971,13 @@ function openEditDays(tripId) {
   const picker = document.getElementById('day-picker');
   const allDays = enumerateTripDays(trip.start_date, trip.end_date);
   const myDays = _myDaysByTrip[tripId] || [];
+  const myHalves = _myHalvesByTrip[tripId] || {};
   const selected = myDays.length ? myDays : allDays;
   if (picker) {
-    picker.innerHTML = allDays.map(d => `<button type="button" class="day-chip${selected.indexOf(d)!==-1?' selected':''}" data-day="${d}">${dayChipLabel(d)}</button>`).join('');
-    picker.querySelectorAll('.day-chip').forEach(ch => ch.addEventListener('click', () => { ch.classList.toggle('selected'); updateDaysCount(); }));
+    picker.innerHTML = allDays.map(d => dayChipHtml(d, selected.indexOf(d) !== -1 ? (myHalves[d] || 'full') : null)).join('');
+    bindDayChips(picker);
   }
-  if (daysField) daysField.hidden = (allDays.length <= 1);
+  if (daysField) daysField.hidden = !allDays.length;
   updateDaysCount();
   const btn = document.getElementById('submit-btn');
   if (btn) btn.textContent = 'Speichern';
@@ -934,11 +991,11 @@ async function submitSignup() {
   const noteEl = document.getElementById('f-note');
   const note = noteEl ? noteEl.value.trim() : '';
 
-  // gewaehlte Tage einsammeln (Teil-Reisen)
+  // gewaehlte Tage einsammeln (Teil-Reisen) inkl. Tageshälfte
   const daysField = document.getElementById('days-field');
   let selectedDays = [];
   if (daysField && !daysField.hidden) {
-    selectedDays = Array.from(document.querySelectorAll('#day-picker .day-chip.selected')).map(c => c.dataset.day);
+    selectedDays = readDayPicker();
     if (!selectedDays.length) {
       showToast('Bitte mindestens einen Tag auswählen.', 'warn');
       return;
@@ -1024,8 +1081,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (submitBtn) submitBtn.addEventListener('click', submitSignup);
   const daysAllBtn = document.getElementById('days-all');
   const daysNoneBtn = document.getElementById('days-none');
-  if (daysAllBtn) daysAllBtn.addEventListener('click', () => { document.querySelectorAll('#day-picker .day-chip').forEach(c => c.classList.add('selected')); updateDaysCount(); });
-  if (daysNoneBtn) daysNoneBtn.addEventListener('click', () => { document.querySelectorAll('#day-picker .day-chip').forEach(c => c.classList.remove('selected')); updateDaysCount(); });
+  if (daysAllBtn) daysAllBtn.addEventListener('click', () => setAllDayChips(true));
+  if (daysNoneBtn) daysNoneBtn.addEventListener('click', () => setAllDayChips(false));
   document.querySelectorAll('[data-action="close-dialog"]').forEach(b => {
     b.addEventListener('click', closeDialog);
   });

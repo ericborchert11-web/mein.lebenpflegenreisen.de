@@ -653,18 +653,22 @@
         if (e2) return { ok: false, error: e2.message, signups: [] };
         (profs || []).forEach(p => { nameById[p.id] = p; });
       }
-      // Tage je Anmeldung laden (Teil-Reisen)
+      // Tage je Anmeldung laden (Teil-Reisen) inkl. Tageshälfte
       const daysBySignup = {};
+      const halvesBySignup = {};
       const signupIds = rows.map(r => r.id);
       if (signupIds.length) {
-        const { data: dayRows, error: e3 } = await client
-          .from('trip_signup_days')
-          .select('signup_id, day')
-          .in('signup_id', signupIds)
-          .order('day', { ascending: true });
+        const { data: dayRows, error: e3 } = await selectDayRows(
+          cols => client
+            .from('trip_signup_days')
+            .select(cols)
+            .in('signup_id', signupIds)
+            .order('day', { ascending: true }),
+          'signup_id, day, half', 'signup_id, day');
         if (!e3) {
           (dayRows || []).forEach(d => {
             (daysBySignup[d.signup_id] = daysBySignup[d.signup_id] || []).push(d.day);
+            (halvesBySignup[d.signup_id] = halvesBySignup[d.signup_id] || {})[d.day] = d.half || 'full';
           });
         } else {
           console.warn('[LPR] getAllTripSignupsAdmin days:', e3.message);
@@ -676,7 +680,8 @@
           full_name: p.full_name || null,
           email: p.email || null,
           vereinsnummer: p.vereinsnummer || null,
-          days: daysBySignup[r.id] || []
+          days: daysBySignup[r.id] || [],
+          dayHalves: halvesBySignup[r.id] || {}
         });
       });
       return { ok: true, signups: enriched };
@@ -768,18 +773,60 @@
       }
       // 4. Tage anlegen (Teil-Reisen). Keine Auswahl = ganze Reise.
       const allDays = enumerateDays(tripRes.trip.start_date, tripRes.trip.end_date);
-      let chosen = (Array.isArray(days) && days.length)
-        ? days.filter(d => allDays.indexOf(d) !== -1)
-        : allDays.slice();
-      if (!chosen.length) chosen = allDays.slice();
+      let chosen = normalizeDaySelection(days, allDays);
+      if (!chosen.length) chosen = allDays.map(day => ({ day, half: 'full' }));
       let daysError = null;
       if (chosen.length) {
-        const dayRows = chosen.map(day => ({ signup_id: data.id, trip_id: tripId, user_id: s.id, day }));
-        const { error: dErr } = await (await sb()).from('trip_signup_days').insert(dayRows);
+        const dayRows = chosen.map(c => ({ signup_id: data.id, trip_id: tripId, user_id: s.id, day: c.day, half: c.half }));
+        const { error: dErr } = await insertDayRows(await sb(), dayRows);
         if (dErr) { console.error('[LPR] signupForTrip days:', dErr); daysError = dErr.message; }
       }
-      return { ok: true, signup: data, waitlist: status === 'waitlist', days: chosen, daysError };
+      const chosenDays = chosen.map(c => c.day);
+      const chosenHalves = {}; chosen.forEach(c => { chosenHalves[c.day] = c.half; });
+      return { ok: true, signup: data, waitlist: status === 'waitlist', days: chosenDays, dayHalves: chosenHalves, daysError };
     } catch(e) { console.error('[LPR] signupForTrip:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+  // ── Tageshälften (Vormittag / Nachmittag) ──
+  // trip_signup_days.half: 'full' | 'am' | 'pm'. Eine Tagesauswahl darf als reines
+  // Datums-Array (['2026-08-12', …]) oder als [{day, half}, …] übergeben werden;
+  // ein reiner String bedeutet immer den ganzen Tag. Die Halbtags-Information ist
+  // reine Planung – die Abrechnung (computeCompensation, Reise-Pfad) zählt weiter
+  // nur Tage und bleibt davon unberührt.
+  const DAY_HALVES = ['full', 'am', 'pm'];
+  function normalizeDaySelection(days, allDays) {
+    const out = [];
+    const seen = {};
+    (Array.isArray(days) ? days : []).forEach(entry => {
+      const day = (typeof entry === 'string') ? entry : (entry && entry.day);
+      if (!day || seen[day]) return;
+      if (allDays && allDays.indexOf(day) === -1) return;
+      const raw = (typeof entry === 'string') ? 'full' : (entry && entry.half);
+      seen[day] = true;
+      out.push({ day, half: DAY_HALVES.indexOf(raw) !== -1 ? raw : 'full' });
+    });
+    out.sort((a, b) => a.day < b.day ? -1 : (a.day > b.day ? 1 : 0));
+    return out;
+  }
+  // Lesen/Schreiben mit Rückfall auf das Schema ohne half-Spalte, falls die
+  // Migration noch nicht ausgeführt wurde: dann verhält sich alles wie bisher.
+  function isMissingHalfColumn(error) {
+    return !!error && /half/i.test(error.message || '');
+  }
+  async function selectDayRows(build, cols, colsFallback) {
+    const res = await build(cols);
+    if (isMissingHalfColumn(res.error)) {
+      console.warn('[LPR] trip_signup_days.half fehlt – Migration noch nicht ausgeführt?');
+      return await build(colsFallback);
+    }
+    return res;
+  }
+  async function insertDayRows(client, rows) {
+    const res = await client.from('trip_signup_days').insert(rows);
+    if (isMissingHalfColumn(res.error)) {
+      const plain = rows.map(r => { const c = Object.assign({}, r); delete c.half; return c; });
+      return await client.from('trip_signup_days').insert(plain);
+    }
+    return res;
   }
   // Tage zwischen zwei ISO-Daten (YYYY-MM-DD) inkl. beider Enden
   function enumerateDays(start, end) {
@@ -796,17 +843,22 @@
   // Eigene gewählte Tage für eine Reise
   async function getMySignupDays(tripId) {
     const s = getSession();
-    if (!s) return { ok: false, error: 'Nicht eingeloggt.', days: [] };
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.', days: [], dayHalves: {} };
     try {
-      const { data, error } = await (await sb())
-        .from('trip_signup_days')
-        .select('day')
-        .eq('trip_id', tripId)
-        .eq('user_id', s.id)
-        .order('day', { ascending: true });
-      if (error) return { ok: false, error: error.message, days: [] };
-      return { ok: true, days: (data || []).map(r => r.day) };
-    } catch(e) { console.error('[LPR] getMySignupDays:', e); return { ok: false, error: 'Netzwerkfehler.', days: [] }; }
+      const client = await sb();
+      const { data, error } = await selectDayRows(
+        cols => client
+          .from('trip_signup_days')
+          .select(cols)
+          .eq('trip_id', tripId)
+          .eq('user_id', s.id)
+          .order('day', { ascending: true }),
+        'day, half', 'day');
+      if (error) return { ok: false, error: error.message, days: [], dayHalves: {} };
+      const halves = {};
+      (data || []).forEach(r => { halves[r.day] = r.half || 'full'; });
+      return { ok: true, days: (data || []).map(r => r.day), dayHalves: halves };
+    } catch(e) { console.error('[LPR] getMySignupDays:', e); return { ok: false, error: 'Netzwerkfehler.', days: [], dayHalves: {} }; }
   }
   // Eigene Tage ersetzen (nachträglich anpassen)
   async function setMySignupDays(tripId, days) {
@@ -818,15 +870,16 @@
       const tripRes = await getTrip(tripId);
       if (!tripRes.ok || !tripRes.trip) return { ok: false, error: 'Reise nicht gefunden.' };
       const allDays = enumerateDays(tripRes.trip.start_date, tripRes.trip.end_date);
-      const chosen = (Array.isArray(days) ? days : []).filter(d => allDays.indexOf(d) !== -1);
+      const chosen = normalizeDaySelection(days, allDays);
       if (!chosen.length) return { ok: false, error: 'Bitte mindestens einen Tag wählen.' };
       const client = await sb();
       const { error: delErr } = await client.from('trip_signup_days').delete().eq('trip_id', tripId).eq('user_id', s.id);
       if (delErr) return { ok: false, error: delErr.message };
-      const rows = chosen.map(day => ({ signup_id: mine.signup.id, trip_id: tripId, user_id: s.id, day }));
-      const { error: insErr } = await client.from('trip_signup_days').insert(rows);
+      const rows = chosen.map(c => ({ signup_id: mine.signup.id, trip_id: tripId, user_id: s.id, day: c.day, half: c.half }));
+      const { error: insErr } = await insertDayRows(client, rows);
       if (insErr) return { ok: false, error: insErr.message };
-      return { ok: true, days: chosen };
+      const halves = {}; chosen.forEach(c => { halves[c.day] = c.half; });
+      return { ok: true, days: chosen.map(c => c.day), dayHalves: halves };
     } catch(e) { console.error('[LPR] setMySignupDays:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
   // Vorstand: zuteilbare Mitglieder (freigegebene Ehrenamtliche)
@@ -890,16 +943,17 @@
       const tripRes = await getTrip(tripId);
       if (!tripRes.ok || !tripRes.trip) return { ok: false, error: 'Reise nicht gefunden.' };
       const allDays = enumerateDays(tripRes.trip.start_date, tripRes.trip.end_date);
-      const chosen = (Array.isArray(days) ? days : []).filter(d => allDays.indexOf(d) !== -1);
+      const chosen = normalizeDaySelection(days, allDays);
       const client = await sb();
       const { error: delErr } = await client.from('trip_signup_days').delete().eq('trip_id', tripId).eq('user_id', userId);
       if (delErr) return { ok: false, error: delErr.message };
       if (chosen.length) {
-        const rows = chosen.map(day => ({ signup_id: signupId, trip_id: tripId, user_id: userId, day }));
-        const { error: insErr } = await client.from('trip_signup_days').insert(rows);
+        const rows = chosen.map(c => ({ signup_id: signupId, trip_id: tripId, user_id: userId, day: c.day, half: c.half }));
+        const { error: insErr } = await insertDayRows(client, rows);
         if (insErr) return { ok: false, error: insErr.message };
       }
-      return { ok: true, days: chosen };
+      const halves = {}; chosen.forEach(c => { halves[c.day] = c.half; });
+      return { ok: true, days: chosen.map(c => c.day), dayHalves: halves };
     } catch(e) { console.error('[LPR] setSignupDaysAdmin:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
   // Vorstand: Mitglied von einer Reise entfernen (Storno durch Vorstand, board policy).
@@ -1011,22 +1065,27 @@
                   const rows = data || [];
                   // Individuelle Tage (Teil-Reisen) je Anmeldung mitladen
                   const daysBySignup = {};
+                  const halvesBySignup = {};
                   const ids = rows.map(r => r.id);
                   if (ids.length) {
-                    const { data: dayRows, error: dErr } = await (await sb())
-                      .from('trip_signup_days')
-                      .select('signup_id, day')
-                      .in('signup_id', ids)
-                      .order('day', { ascending: true });
+                    const client = await sb();
+                    const { data: dayRows, error: dErr } = await selectDayRows(
+                      cols => client
+                        .from('trip_signup_days')
+                        .select(cols)
+                        .in('signup_id', ids)
+                        .order('day', { ascending: true }),
+                      'signup_id, day, half', 'signup_id, day');
                     if (!dErr) {
                       (dayRows || []).forEach(d => {
                         (daysBySignup[d.signup_id] = daysBySignup[d.signup_id] || []).push(d.day);
+                        (halvesBySignup[d.signup_id] = halvesBySignup[d.signup_id] || {})[d.day] = d.half || 'full';
                       });
                     } else {
                       console.warn('[LPR] getMySignups days:', dErr.message);
                     }
                   }
-                  return { ok: true, signups: rows.map(r => Object.assign({}, r, { days: daysBySignup[r.id] || [] })) };
+                  return { ok: true, signups: rows.map(r => Object.assign({}, r, { days: daysBySignup[r.id] || [], dayHalves: halvesBySignup[r.id] || {} })) };
           } catch(e) { console.error('[LPR] getMySignups:', e); return { ok: false, error: 'Netzwerkfehler.', signups: [] }; }
     }
 

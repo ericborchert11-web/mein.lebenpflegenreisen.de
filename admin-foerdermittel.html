@@ -253,6 +253,28 @@
 .fm-bearbeiten:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
 .fm-filter .btn { padding: 8px 16px; font-size: 14px; }
 
+.fm-liste-rahmen {
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+}
+.fm-detail-aktion { margin-top: 12px; }
+
+/* Notiz-Journal */
+.fm-notiz-eingabe { margin: 0 0 16px; }
+.fm-notiz-feld {
+  width: 100%; font-family: inherit; font-size: 14px; line-height: 1.55;
+  padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--border);
+  background: #fff; color: var(--text); resize: vertical; margin-bottom: 8px;
+}
+.fm-notiz-feld:focus { outline: none; border-color: var(--green-mute); }
+.fm-notizen { list-style: none; margin: 0; padding: 0; }
+.fm-notiz {
+  padding: 10px 0 10px 12px; border-left: 3px solid var(--border); margin-bottom: 10px;
+}
+.fm-notiz-text {
+  font-size: 14px; line-height: 1.6; color: var(--text);
+  white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px;
+}
+
 /* Dialog für Anlegen und Bearbeiten */
 .fm-dialog {
   border: 1px solid var(--border); border-radius: var(--radius);
@@ -728,8 +750,81 @@ function renderProgrammDetail(slug) {
       <div class="fm-md">${markdown(p.inhalt_md)}</div>
       ${quellen ? `<h3 class="fm-detail-h">Quellen</h3><ul class="fm-quellen">${quellen}</ul>` : ''}
       <h3 class="fm-detail-h">Aufgaben (${offen.length} offen)</h3>
-      <div id="fm-detail-aufgaben" class="fm-sub">Kommt in der nächsten Etappe.</div>
+      <div id="fm-detail-aufgaben">${detailAufgaben(p)}</div>
+      <h3 class="fm-detail-h">Notizen</h3>
+      ${notizenAbschnitt(p)}
     </section>`;
+}
+
+function detailAufgaben(p) {
+  const eigene = AUFGABEN.filter(a => a.programm_id === p.id);
+  const knopf = `<button type="button" class="btn btn-ghost fm-neu" data-programm="${escapeHtml(p.id)}">+ Aufgabe</button>`;
+  if (!eigene.length) {
+    return `<p class="fm-sub">Für dieses Programm ist noch keine Aufgabe hinterlegt.</p>
+      <div class="fm-detail-aktion">${knopf}</div>`;
+  }
+  return `<ul class="fm-liste fm-liste-rahmen">${nachDringlichkeit(eigene).map(aufgabeZeile).join('')}</ul>
+    <div class="fm-detail-aktion">${knopf}</div>`;
+}
+
+/* ── Notizen ─────────────────────────────────────────────────────────────── */
+
+const NOTIZEN_LAEUFT = new Set();
+
+// Wird erst beim Öffnen eines Details geholt, nicht beim Seitenstart: es sind je
+// Programm wenige, und die meisten Details werden nie geöffnet.
+async function notizenLaden(programmId) {
+  if (NOTIZEN_LAEUFT.has(programmId)) return;
+  NOTIZEN_LAEUFT.add(programmId);
+  const n = await LPR.foerderListNotizen(programmId);
+  NOTIZEN_LAEUFT.delete(programmId);
+  NOTIZEN[programmId] = n || [];
+  if (n === null) LPR.showToast('Notizen konnten nicht geladen werden.', 'warn');
+  await namenNachladen(NOTIZEN[programmId].map(x => x.created_by));
+  zeichnen();
+}
+
+function notizenAbschnitt(p) {
+  const liste = NOTIZEN[p.id];
+  const feld = `
+    <p class="fm-sub">Notizen erscheinen im Bericht für die Wissensbasis. Wenn hier etwas steht,
+      das in die Programmdatei gehört, wird es beim nächsten Rechercheschritt übernommen.</p>
+    <div class="fm-notiz-eingabe">
+      <label class="sr-only" for="fm-notiz-feld">Neue Notiz</label>
+      <textarea id="fm-notiz-feld" class="fm-notiz-feld" rows="3" maxlength="4000"
+        placeholder="Was ist passiert? Datum, Gesprächspartner, Ergebnis."
+        data-programm="${escapeHtml(p.id)}">${escapeHtml(NOTIZ_ENTWURF[p.id] || '')}</textarea>
+      <button type="button" class="btn btn-primary fm-notiz-speichern"
+        data-programm="${escapeHtml(p.id)}">Notiz speichern</button>
+    </div>`;
+
+  if (liste === undefined) {
+    notizenLaden(p.id);
+    return feld + '<p class="fm-sub">Notizen werden geladen …</p>';
+  }
+  if (!liste.length) return feld + '<p class="fm-sub">Noch keine Notiz zu diesem Programm.</p>';
+
+  const eintraege = liste.map(n => {
+    const name = NAMEN[n.created_by];
+    const wann = n.created_at ? new Date(n.created_at).toLocaleString('de-DE',
+      { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    return `<li class="fm-notiz">
+      <div class="fm-sub">${escapeHtml(wann)}${name ? ' · ' + escapeHtml(name) : ''}</div>
+      <div class="fm-notiz-text">${escapeHtml(n.text)}</div>
+    </li>`;
+  }).join('');
+  return feld + `<ul class="fm-notizen">${eintraege}</ul>`;
+}
+
+async function notizSpeichern(programmId, text) {
+  if (!text.trim()) return;
+  const n = await LPR.foerderCreateNotiz(programmId, text.trim());
+  if (!n) { LPR.showToast('Notiz konnte nicht gespeichert werden.', 'warn'); return; }
+  NOTIZEN[programmId] = [n, ...(NOTIZEN[programmId] || [])];
+  delete NOTIZ_ENTWURF[programmId];
+  await namenNachladen([n.created_by]);
+  zeichnen();
+  LPR.showToast('Notiz gespeichert.', 'ok');
 }
 
 /* ── Aufgaben ────────────────────────────────────────────────────────────── */
@@ -973,6 +1068,21 @@ document.getElementById('fm-inhalt').addEventListener('click', (e) => {
   }
   const neu = e.target.closest('.fm-neu');
   if (neu) { formularOeffnen(null, neu.dataset.programm || null); return; }
+
+  const notiz = e.target.closest('.fm-notiz-speichern');
+  if (notiz) {
+    const feld = document.getElementById('fm-notiz-feld');
+    if (feld && feld.value.trim()) {
+      notiz.disabled = true;
+      notizSpeichern(notiz.dataset.programm, feld.value).finally(() => { notiz.disabled = false; });
+    }
+  }
+});
+
+// Getippter Text ueberlebt ein Neuzeichnen nur, wenn er ausserhalb des DOM liegt.
+document.getElementById('fm-inhalt').addEventListener('input', (e) => {
+  const feld = e.target.closest('.fm-notiz-feld');
+  if (feld) NOTIZ_ENTWURF[feld.dataset.programm] = feld.value;
 });
 
 document.querySelectorAll('.fm-tabs button').forEach(b =>

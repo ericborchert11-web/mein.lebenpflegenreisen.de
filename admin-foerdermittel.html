@@ -107,6 +107,45 @@
 
 .fm-empty, .fm-loading { padding: 40px 24px; text-align: center; color: var(--muted); }
 
+/* Fristenliste */
+.fm-liste { list-style: none; margin: 0; padding: 0; }
+.fm-frist {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 13px 16px 13px 14px;
+  border-bottom: 1px solid #EFEDE8;
+  border-left: 4px solid var(--border);
+}
+.fm-frist:last-child { border-bottom: none; }
+.fm-frist.fm-rot   { border-left-color: var(--warn); }
+.fm-frist.fm-gelb  { border-left-color: #E0A82E; }
+.fm-frist.fm-gruen { border-left-color: var(--ok); }
+.fm-frist.fm-grau,
+.fm-frist.fm-offen { border-left-color: var(--border); }
+
+.fm-frist-datum {
+  flex: 0 0 108px; font-size: 13.5px; font-weight: 700;
+  color: var(--text); font-variant-numeric: tabular-nums;
+  padding-top: 1px;
+}
+.fm-frist-mitte { flex: 1 1 220px; min-width: 0; }
+.fm-frist-titel { font-size: 14.5px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.fm-frist-titel a { color: var(--green-deep); text-decoration: none; }
+.fm-frist-titel a:hover { text-decoration: underline; }
+.fm-frist-rest { flex: 0 0 auto; margin-left: auto; padding-top: 1px; }
+
+.fm-gate {
+  margin-top: 4px; font-size: 12.5px; font-weight: 600; color: #8A6200;
+  background: #FFF3D6; border-radius: 6px; padding: 3px 8px;
+  display: inline-block;
+}
+
+@media (max-width: 560px) {
+  .fm-frist { flex-wrap: wrap; gap: 6px 12px; }
+  .fm-frist-datum { flex: 0 0 auto; }
+  .fm-frist-mitte { flex: 1 1 100%; order: 3; }
+  .fm-frist-rest { margin-left: auto; }
+}
+
 @media (max-width: 720px) {
   .fm-wrap { padding: 0 14px; }
   .fm-header { padding: 18px; }
@@ -191,6 +230,107 @@ function zeichnen() {
   if (tab === 'programme') ziel.innerHTML = renderProgramme();
   if (tab === 'aufgaben')  ziel.innerHTML = '<div class="fm-card" style="padding:24px;">Kommt in der nächsten Etappe.</div>';
   if (tab === 'straenge')  ziel.innerHTML = '<div class="fm-card" style="padding:24px;">Kommt in der nächsten Etappe.</div>';
+}
+
+/* ── Fristen ─────────────────────────────────────────────────────────────── */
+
+const TAG = 86400000;
+
+function heute() {
+  const d = new Date(); d.setHours(0,0,0,0); return d;
+}
+
+// Reihenfolge der Prüfung ist bindend: überfällig schlägt alles.
+function ampel(datumIso, erledigt) {
+  if (!datumIso) return { stufe: 'offen', tage: null, text: 'ohne festes Datum' };
+  const tage = Math.round((new Date(datumIso + 'T00:00:00') - heute()) / TAG);
+  if (tage < 0 && !erledigt) return { stufe: 'rot', tage, text: Math.abs(tage) + ' Tage überfällig' };
+  if (tage < 0)              return { stufe: 'grau', tage, text: 'vorbei' };
+  if (tage <= 30)            return { stufe: 'rot', tage, text: 'noch ' + tage + ' Tage' };
+  if (tage <= 90)            return { stufe: 'gelb', tage, text: 'noch ' + tage + ' Tage' };
+  return { stufe: 'gruen', tage, text: 'noch ' + tage + ' Tage' };
+}
+
+function fristenEintraege() {
+  const eintraege = [];
+
+  for (const p of PROGRAMME) {
+    const offen  = AUFGABEN.filter(a => a.programm_id === p.id && a.status !== 'erledigt' && a.status !== 'entfaellt');
+    const gesamt = AUFGABEN.filter(a => a.programm_id === p.id);
+    eintraege.push({
+      art: 'programm',
+      titel: p.programm,
+      slug: p.slug,
+      datum: p.frist_datum,
+      hart: p.frist_hart,
+      fristText: p.frist_text,
+      status: p.status,
+      gate: p.gate_fuer || [],
+      zusatz: gesamt.length ? `${offen.length} von ${gesamt.length} Vorarbeiten offen` : null,
+      erledigt: ['eingereicht','bewilligt','abgelehnt','nicht_relevant'].includes(p.status)
+    });
+  }
+
+  for (const a of AUFGABEN) {
+    if (!a.faellig_am) continue;
+    const p = PROGRAMME.find(x => x.id === a.programm_id);
+    // Programm-Eigenfristen doppeln sich mit der gleichlautenden Aufgabe —
+    // gleiche Frist am selben Programm nur einmal zeigen.
+    if (p && p.frist_datum === a.faellig_am) continue;
+    eintraege.push({
+      art: 'aufgabe',
+      titel: a.titel,
+      slug: p ? p.slug : null,
+      datum: a.faellig_am,
+      hart: false,
+      fristText: null,
+      status: a.status,
+      gate: [],
+      zusatz: p ? p.programm : null,
+      erledigt: a.status === 'erledigt' || a.status === 'entfaellt'
+    });
+  }
+
+  return eintraege;
+}
+
+function renderFristen() {
+  const alle = fristenEintraege();
+  const mitDatum = alle.filter(e => e.datum).sort((a,b) => a.datum.localeCompare(b.datum));
+  const sofort   = alle.filter(e => !e.datum && /sofort/i.test(e.fristText || ''));
+  const unklar   = alle.filter(e => !e.datum && !/sofort/i.test(e.fristText || ''));
+
+  const html = [
+    gruppe('Sofort — ohne festen Termin', sofort),
+    gruppe('Terminiert', mitDatum),
+    gruppe('Frist noch zu verifizieren', unklar)
+  ].join('');
+
+  return html || '<div class="fm-card"><div class="fm-empty">Noch keine Fristen hinterlegt.</div></div>';
+}
+
+function gruppe(ueberschrift, eintraege) {
+  if (!eintraege.length) return '';
+  const zeilen = eintraege.map(e => {
+    const a = ampel(e.datum, e.erledigt);
+    const datum = e.datum ? new Date(e.datum).toLocaleDateString('de-DE') : '—';
+    const gate = e.gate.length
+      ? `<div class="fm-gate">Voraussetzung für: ${e.gate.map(escapeHtml).join(', ')}</div>` : '';
+    const link = e.slug
+      ? `<a href="#programme/${encodeURIComponent(e.slug)}">${escapeHtml(e.titel)}</a>`
+      : escapeHtml(e.titel);
+    return `
+      <li class="fm-frist fm-${a.stufe}">
+        <div class="fm-frist-datum">${datum}${e.hart ? ' <span title="harte Frist" aria-label="harte Frist">🔒</span>' : ''}</div>
+        <div class="fm-frist-mitte">
+          <div class="fm-frist-titel">${link}</div>
+          ${e.zusatz ? `<div class="fm-sub">${escapeHtml(e.zusatz)}</div>` : ''}
+          ${gate}
+        </div>
+        <div class="fm-frist-rest"><span class="fm-pill fm-${a.stufe}">${escapeHtml(a.text)}</span></div>
+      </li>`;
+  }).join('');
+  return `<section class="fm-card"><h2 class="fm-gruppe">${escapeHtml(ueberschrift)}</h2><ul class="fm-liste">${zeilen}</ul></section>`;
 }
 
 document.querySelectorAll('.fm-tabs button').forEach(b =>

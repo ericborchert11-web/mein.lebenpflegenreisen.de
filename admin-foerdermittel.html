@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Fördermittel · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.fm-wrap { max-width: 1050px; margin: 32px auto 60px; padding: 0 24px; }
+
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0 0 14px; font-size: 14px; font-weight: 600;
+  color: #1A3A2A; text-decoration: none;
+}
+.back-link:hover { text-decoration: underline; }
+
+.fm-header {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.fm-header h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 24px;
+  color: var(--green-deep);
+  margin: 0 0 6px;
+  letter-spacing: -.02em;
+}
+.fm-header p { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; max-width: 620px; }
+
+.fm-sub { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+
+/* Tabs */
+.fm-tabs {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 16px;
+}
+.fm-tabs button {
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  padding: 9px 16px; border-radius: 999px;
+  border: 1.5px solid var(--border); background: #fff; color: var(--muted);
+  cursor: pointer;
+}
+.fm-tabs button:hover { border-color: var(--green-mute); color: var(--text); }
+.fm-tabs button:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+.fm-tabs button[aria-selected="true"] {
+  background: var(--green-deep); border-color: var(--green-deep); color: #fff;
+}
+
+.fm-card {
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.fm-gruppe {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700; font-size: 15px; color: var(--green-deep);
+  margin: 0; padding: 14px 18px;
+  border-bottom: 1.5px solid var(--border);
+  background: #FAFAF7;
+}
+
+.fm-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fm-table th {
+  text-align: left; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); padding: 14px 16px;
+  border-bottom: 1.5px solid var(--border);
+  background: #FAFAF7;
+  white-space: nowrap;
+}
+.fm-table td { padding: 13px 16px; border-bottom: 1px solid #EFEDE8; vertical-align: middle; }
+.fm-table tr:last-child td { border-bottom: none; }
+
+.fm-pill {
+  display: inline-flex; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 700;
+  background: #EFEDE8; color: #4A5450;
+  white-space: nowrap;
+}
+.fm-pill.fm-rot   { background: #FDE3E0; color: #B4231A; }
+.fm-pill.fm-gelb  { background: #FFF3D6; color: #8A6200; }
+.fm-pill.fm-gruen { background: #EAF3EC; color: #2C6B45; }
+.fm-pill.fm-grau  { background: #EFEDE8; color: #57605B; }
+
+.fm-empty, .fm-loading { padding: 40px 24px; text-align: center; color: var(--muted); }
+
+/* Fristenliste */
+.fm-liste { list-style: none; margin: 0; padding: 0; }
+.fm-frist {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 13px 16px 13px 14px;
+  border-bottom: 1px solid #EFEDE8;
+  border-left: 4px solid var(--border);
+}
+.fm-frist:last-child { border-bottom: none; }
+.fm-frist.fm-rot   { border-left-color: var(--warn); }
+.fm-frist.fm-gelb  { border-left-color: #E0A82E; }
+.fm-frist.fm-gruen { border-left-color: var(--ok); }
+.fm-frist.fm-grau,
+.fm-frist.fm-offen { border-left-color: var(--border); }
+
+.fm-frist-datum {
+  flex: 0 0 108px; font-size: 13.5px; font-weight: 700;
+  color: var(--text); font-variant-numeric: tabular-nums;
+  padding-top: 1px;
+}
+.fm-frist-mitte { flex: 1 1 220px; min-width: 0; }
+.fm-frist-titel { font-size: 14.5px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.fm-frist-titel a { color: var(--green-deep); text-decoration: none; }
+.fm-frist-titel a:hover { text-decoration: underline; }
+.fm-frist-rest { flex: 0 0 auto; margin-left: auto; padding-top: 1px; }
+
+.fm-gate {
+  margin-top: 4px; font-size: 12.5px; font-weight: 600; color: #8A6200;
+  background: #FFF3D6; border-radius: 6px; padding: 3px 8px;
+  display: inline-block;
+}
+
+/* Programme — Filterleiste */
+.fm-filter {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px;
+  padding: 14px 18px;
+}
+.fm-filter-feld { display: flex; flex-direction: column; gap: 4px; }
+.fm-filter-feld span { font-size: 12px; font-weight: 700; color: var(--muted); }
+.fm-filter-feld select {
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  padding: 7px 11px; border-radius: 8px;
+  border: 1.5px solid var(--border); background: #fff; color: var(--text);
+  cursor: pointer; max-width: 220px;
+}
+.fm-filter-zahl { margin-left: auto; font-size: 12.5px; color: var(--muted); padding-bottom: 8px; }
+
+/* Programme — Liste */
+.fm-progliste li { border-bottom: 1px solid #EFEDE8; }
+.fm-progliste li:last-child { border-bottom: none; }
+.fm-prog {
+  display: block; padding: 14px 18px; text-decoration: none; color: inherit;
+}
+.fm-prog:hover { background: #FAFAF7; }
+.fm-prog:focus-visible { outline: 3px solid var(--lime); outline-offset: -3px; }
+.fm-prog-kopf {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+.fm-prog-name {
+  font-size: 15px; font-weight: 700; color: var(--green-deep);
+  overflow-wrap: anywhere;
+}
+.fm-prog-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  margin-top: 8px; font-size: 13px; color: var(--text);
+}
+.fm-prog-frist { font-variant-numeric: tabular-nums; }
+.fm-chip {
+  display: inline-flex; padding: 2px 9px; border-radius: 6px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .04em;
+  background: #EDF2EE; color: #2C6B45;
+}
+
+/* Programm-Detail */
+.fm-detail { padding: 22px 24px 26px; }
+.fm-detail > header {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.fm-detail > header h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 21px; color: var(--green-deep);
+  margin: 0; letter-spacing: -.01em; overflow-wrap: anywhere;
+}
+.fm-detail-h {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 16px; color: var(--green-deep);
+  margin: 26px 0 8px;
+  padding-top: 16px; border-top: 1px solid var(--border);
+}
+.fm-meta {
+  display: grid; grid-template-columns: 160px 1fr; gap: 7px 16px;
+  margin: 0 0 14px; font-size: 14px;
+}
+.fm-meta dt { font-weight: 700; color: var(--muted); font-size: 12.5px; padding-top: 2px; }
+.fm-meta dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.fm-meta dd code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .88em; background: #F2F0EA; border-radius: 4px; padding: 1px 5px;
+}
+.fm-quelle-hinweis {
+  font-size: 12.5px; color: var(--muted); margin: 0 0 18px;
+  padding: 8px 12px; background: #FAFAF7; border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.fm-quellen { margin: 0; padding-left: 20px; font-size: 13.5px; }
+.fm-quellen li { margin-bottom: 5px; overflow-wrap: anywhere; }
+.fm-quellen a { color: var(--green-deep); }
+
+@media (max-width: 560px) {
+  .fm-meta { grid-template-columns: 1fr; gap: 2px; }
+  .fm-meta dd { margin-bottom: 9px; }
+  .fm-detail { padding: 18px 16px 22px; }
+  .fm-filter-zahl { margin-left: 0; }
+}
+
+/* Aufgabenliste */
+.fm-aufgabe {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 16px; border-bottom: 1px solid #EFEDE8;
+}
+.fm-aufgabe:last-child { border-bottom: none; }
+.fm-aufgabe.ist-erledigt, .fm-aufgabe.ist-entfallen { background: #FBFAF7; }
+.fm-aufgabe.ist-erledigt .fm-aufgabe-titel { text-decoration: line-through; color: var(--muted); }
+.fm-aufgabe.ist-entfallen .fm-aufgabe-titel { color: var(--muted); font-style: italic; }
+.fm-haken {
+  flex: 0 0 auto; width: 20px; height: 20px; margin-top: 2px;
+  accent-color: var(--ok); cursor: pointer;
+}
+.fm-haken:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+.fm-aufgabe-mitte { flex: 1 1 auto; min-width: 0; }
+.fm-aufgabe-titel { font-size: 14.5px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.fm-aufgabe-mitte .fm-sub a { color: var(--green-deep); }
+.fm-aufgabe-rechts {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding-top: 1px;
+}
+.fm-bearbeiten {
+  font-family: inherit; font-size: 15px; line-height: 1;
+  width: 30px; height: 30px; border-radius: 8px;
+  border: 1.5px solid var(--border); background: #fff; color: var(--muted);
+  cursor: pointer;
+}
+.fm-bearbeiten:hover { border-color: var(--green-mute); color: var(--text); }
+.fm-bearbeiten:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+.fm-filter .btn { padding: 8px 16px; font-size: 14px; }
+
+.fm-liste-rahmen {
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+}
+.fm-detail-aktion { margin-top: 12px; }
+
+/* Stränge */
+.fm-straenge {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: start;
+}
+.fm-strang { padding: 18px 20px; margin-bottom: 0; }
+.fm-strang h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 17px; color: var(--green-deep);
+  margin: 0 0 10px; overflow-wrap: anywhere;
+}
+.fm-bar {
+  height: 8px; border-radius: 999px; background: #EDEBE4;
+  overflow: hidden; margin-bottom: 5px;
+}
+.fm-bar-fill { height: 100%; border-radius: 999px; background: #7AAA8A; }
+.fm-strang-liste { list-style: none; margin: 14px 0 0; padding: 0; }
+.fm-strang-liste li {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+  padding: 9px 0; border-top: 1px solid #EFEDE8; font-size: 13.5px;
+}
+.fm-strang-liste li a { color: var(--green-deep); font-weight: 600; overflow-wrap: anywhere; }
+
+/* Notiz-Journal */
+.fm-notiz-eingabe { margin: 0 0 16px; }
+.fm-notiz-feld {
+  width: 100%; font-family: inherit; font-size: 14px; line-height: 1.55;
+  padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--border);
+  background: #fff; color: var(--text); resize: vertical; margin-bottom: 8px;
+}
+.fm-notiz-feld:focus { outline: none; border-color: var(--green-mute); }
+.fm-notizen { list-style: none; margin: 0; padding: 0; }
+.fm-notiz {
+  padding: 10px 0 10px 12px; border-left: 3px solid var(--border); margin-bottom: 10px;
+}
+.fm-notiz-text {
+  font-size: 14px; line-height: 1.6; color: var(--text);
+  white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px;
+}
+
+/* Dialog für Anlegen und Bearbeiten */
+.fm-dialog {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 22px 24px; max-width: 540px; width: calc(100% - 32px);
+  box-shadow: var(--shadow-lg); color: var(--text); background: #fff;
+  /* Der globale Reset in shared.css setzt margin:0 auf alles und nimmt dem
+     dialog damit die Zentrierung — wie in abrechnung.html wieder herstellen. */
+  margin: auto; max-height: 94vh; overflow-y: auto;
+}
+.fm-dialog::backdrop { background: rgba(26,36,30,.45); }
+.fm-dialog-titel {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 19px; color: var(--green-deep); margin: 0 0 14px;
+}
+.fm-repo-hinweis {
+  background: #FAFAF7; border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; margin: 0 0 14px; line-height: 1.5;
+}
+.fm-repo-hinweis code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .92em; background: #F2F0EA; border-radius: 4px; padding: 1px 4px;
+}
+.fm-dialog-reihe { display: flex; gap: 14px; flex-wrap: wrap; }
+.fm-dialog-reihe .field { flex: 1 1 180px; }
+.fm-dialog-knoepfe {
+  display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;
+}
+.fm-dialog textarea, .fm-dialog input, .fm-dialog select { width: 100%; }
+
+/* Gerendertes Markdown */
+.fm-md { font-size: 14.5px; line-height: 1.65; color: var(--text); overflow-wrap: anywhere; }
+.fm-md h3, .fm-md h4, .fm-md h5 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  color: var(--green-deep); margin: 22px 0 8px; line-height: 1.3;
+}
+.fm-md h3 { font-size: 18px; font-weight: 800; }
+.fm-md h4 { font-size: 15.5px; font-weight: 700; }
+.fm-md h5 { font-size: 14px; font-weight: 700; }
+.fm-md p { margin: 0 0 12px; }
+.fm-md ul, .fm-md ol { margin: 0 0 12px; padding-left: 22px; }
+.fm-md li { margin-bottom: 5px; }
+.fm-md a { color: var(--green-deep); }
+.fm-md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .9em; background: #F2F0EA; border-radius: 4px; padding: 1px 5px;
+}
+.fm-md blockquote {
+  margin: 0 0 12px; padding: 8px 14px;
+  border-left: 3px solid var(--green-mute); background: #FAFAF7;
+  color: var(--muted);
+}
+.fm-tabelle { overflow-x: auto; margin: 0 0 14px; -webkit-overflow-scrolling: touch; }
+.fm-tabelle table { border-collapse: collapse; font-size: 13.5px; min-width: 100%; }
+.fm-tabelle td {
+  border: 1px solid var(--border); padding: 7px 10px;
+  vertical-align: top; text-align: left;
+}
+.fm-tabelle tr:first-child td { background: #FAFAF7; font-weight: 700; }
+
+@media (max-width: 560px) {
+  .fm-frist { flex-wrap: wrap; gap: 6px 12px; }
+  .fm-frist-datum { flex: 0 0 auto; }
+  .fm-frist-mitte { flex: 1 1 100%; order: 3; }
+  .fm-frist-rest { margin-left: auto; }
+}
+
+@media (max-width: 720px) {
+  .fm-wrap { padding: 0 14px; }
+  .fm-header { padding: 18px; }
+}
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+
+<main id="main">
+<div class="fm-wrap">
+
+  <a href="mein-bereich.html" class="back-link">← Zurück</a>
+
+  <div class="fm-header">
+    <div>
+      <h1>Fördermittel</h1>
+      <p>Stand der Akquise: Fristen, Programme, offene Aufgaben.
+         Programmdaten kommen aus der Wissensbasis und sind hier nicht änderbar.</p>
+    </div>
+    <div id="fm-stand" class="fm-sub"></div>
+  </div>
+
+  <nav class="fm-tabs" role="tablist" aria-label="Bereiche">
+    <button type="button" role="tab" data-tab="fristen"   aria-selected="true">Fristen</button>
+    <button type="button" role="tab" data-tab="programme" aria-selected="false">Programme</button>
+    <button type="button" role="tab" data-tab="aufgaben"  aria-selected="false">Aufgaben</button>
+    <button type="button" role="tab" data-tab="straenge"  aria-selected="false">Stränge</button>
+  </nav>
+
+  <div id="fm-inhalt" aria-live="polite"><div class="fm-card"><div class="fm-loading">Lädt …</div></div></div>
+
+</div>
+</main>
+
+<!-- Liegt ausserhalb von #fm-inhalt, damit ein Neuzeichnen es nicht wegräumt. -->
+<dialog id="fm-dialog" class="fm-dialog" aria-label="Aufgabe">
+  <div id="fm-dialog-inhalt"></div>
+</dialog>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+
+LPR_Layout.init({ page: 'foerdermittel' });
+if (!LPR.requireRole('admin', 'login.html?next=admin-foerdermittel.html')) throw new Error('kein Zugriff');
+
+let PROGRAMME = [], AUFGABEN = [];
+const NAMEN = {};          // Nutzer-Kennung -> Anzeigename (nur die gebrauchten)
+const NOTIZEN = {};        // Programm-Kennung -> Notizliste; undefined = noch nicht geladen
+const NOTIZ_ENTWURF = {};  // Programm-Kennung -> getippter, noch nicht gespeicherter Text
+
+// LPR_Layout.escapeHtml maskiert nur & < >. Für Inhalt, der in Attributwerten
+// landet (Links im Markdown-Renderer), reicht das nicht — deshalb hier zusätzlich
+// Anführungszeichen. Im gerenderten Text bleibt das unsichtbar.
+function escapeHtml(s) {
+  return LPR_Layout.escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+const TABS = ['fristen', 'programme', 'aufgaben', 'straenge'];
+
+async function laden() {
+  const [p, a] = await Promise.all([LPR.foerderListProgramme(), LPR.foerderListAufgaben()]);
+  if (p === null || a === null) {
+    document.getElementById('fm-inhalt').innerHTML =
+      '<div class="fm-card" style="padding:24px;">Die Daten konnten nicht geladen werden. ' +
+      'Bitte neu anmelden; bleibt es dabei, steht der Fehler in der Browserkonsole.</div>';
+    return false;
+  }
+  PROGRAMME = p; AUFGABEN = a;
+  const juengster = PROGRAMME.map(x => x.stand).filter(Boolean).sort().at(-1);
+  document.getElementById('fm-stand').textContent =
+    juengster ? 'Wissensbasis · Stand ' + new Date(juengster).toLocaleDateString('de-DE') : '';
+  await namenNachladen(AUFGABEN.map(x => x.erledigt_von));
+  return true;
+}
+
+// Namen nur fuer die Kennungen holen, die wirklich angezeigt werden. Ein Fehler
+// hier ist nicht schlimm: dann steht bei "erledigt" eben kein Name.
+async function namenNachladen(kennungen) {
+  const fehlend = [...new Set((kennungen || []).filter(k => k && !(k in NAMEN)))];
+  if (!fehlend.length) return;
+  Object.assign(NAMEN, await LPR.foerderNamen(fehlend));
+  fehlend.forEach(k => { if (!(k in NAMEN)) NAMEN[k] = null; });  // nicht erneut fragen
+}
+
+function aktuellerTab() {
+  const t = (location.hash || '#fristen').slice(1).split('/')[0];
+  return TABS.includes(t) ? t : 'fristen';
+}
+
+function zeichnen() {
+  const tab = aktuellerTab();
+  document.querySelectorAll('.fm-tabs button').forEach(b =>
+    b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
+  const ziel = document.getElementById('fm-inhalt');
+  if (tab === 'fristen')   ziel.innerHTML = renderFristen();
+  if (tab === 'programme') ziel.innerHTML = renderProgramme();
+  if (tab === 'aufgaben')  ziel.innerHTML = renderAufgaben();
+  if (tab === 'straenge')  ziel.innerHTML = renderStraenge();
+}
+
+/* ── Fristen ─────────────────────────────────────────────────────────────── */
+
+const TAG = 86400000;
+
+function heute() {
+  const d = new Date(); d.setHours(0,0,0,0); return d;
+}
+
+// Reihenfolge der Prüfung ist bindend: überfällig schlägt alles.
+function ampel(datumIso, erledigt) {
+  if (!datumIso) return { stufe: 'offen', tage: null, text: 'ohne festes Datum' };
+  const tage = Math.round((new Date(datumIso + 'T00:00:00') - heute()) / TAG);
+  if (tage < 0 && !erledigt) return { stufe: 'rot', tage, text: Math.abs(tage) + ' Tage überfällig' };
+  if (tage < 0)              return { stufe: 'grau', tage, text: 'vorbei' };
+  if (tage <= 30)            return { stufe: 'rot', tage, text: 'noch ' + tage + ' Tage' };
+  if (tage <= 90)            return { stufe: 'gelb', tage, text: 'noch ' + tage + ' Tage' };
+  return { stufe: 'gruen', tage, text: 'noch ' + tage + ' Tage' };
+}
+
+function fristenEintraege() {
+  const eintraege = [];
+
+  for (const p of PROGRAMME) {
+    const offen  = AUFGABEN.filter(a => a.programm_id === p.id && a.status !== 'erledigt' && a.status !== 'entfaellt');
+    const gesamt = AUFGABEN.filter(a => a.programm_id === p.id);
+    eintraege.push({
+      art: 'programm',
+      titel: p.programm,
+      slug: p.slug,
+      datum: p.frist_datum,
+      hart: p.frist_hart,
+      fristText: p.frist_text,
+      status: p.status,
+      gate: p.gate_fuer || [],
+      zusatz: gesamt.length ? `${offen.length} von ${gesamt.length} Vorarbeiten offen` : null,
+      erledigt: ['eingereicht','bewilligt','abgelehnt','nicht_relevant'].includes(p.status)
+    });
+  }
+
+  for (const a of AUFGABEN) {
+    if (!a.faellig_am) continue;
+    const p = PROGRAMME.find(x => x.id === a.programm_id);
+    // Programm-Eigenfristen doppeln sich mit der gleichlautenden Aufgabe —
+    // gleiche Frist am selben Programm nur einmal zeigen.
+    if (p && p.frist_datum === a.faellig_am) continue;
+    eintraege.push({
+      art: 'aufgabe',
+      titel: a.titel,
+      slug: p ? p.slug : null,
+      datum: a.faellig_am,
+      hart: false,
+      fristText: null,
+      status: a.status,
+      gate: [],
+      zusatz: p ? p.programm : null,
+      erledigt: a.status === 'erledigt' || a.status === 'entfaellt'
+    });
+  }
+
+  return eintraege;
+}
+
+function renderFristen() {
+  const alle = fristenEintraege();
+  const mitDatum = alle.filter(e => e.datum).sort((a,b) => a.datum.localeCompare(b.datum));
+  const sofort   = alle.filter(e => !e.datum && /sofort/i.test(e.fristText || ''));
+  const unklar   = alle.filter(e => !e.datum && !/sofort/i.test(e.fristText || ''));
+
+  const html = [
+    gruppe('Sofort — ohne festen Termin', sofort),
+    gruppe('Terminiert', mitDatum),
+    gruppe('Frist noch zu verifizieren', unklar)
+  ].join('');
+
+  return html || '<div class="fm-card"><div class="fm-empty">Noch keine Fristen hinterlegt.</div></div>';
+}
+
+function gruppe(ueberschrift, eintraege) {
+  if (!eintraege.length) return '';
+  const zeilen = eintraege.map(e => {
+    const a = ampel(e.datum, e.erledigt);
+    const datum = e.datum ? new Date(e.datum).toLocaleDateString('de-DE') : '—';
+    const gate = e.gate.length
+      ? `<div class="fm-gate">Voraussetzung für: ${e.gate.map(escapeHtml).join(', ')}</div>` : '';
+    const link = e.slug
+      ? `<a href="#programme/${encodeURIComponent(e.slug)}">${escapeHtml(e.titel)}</a>`
+      : escapeHtml(e.titel);
+    return `
+      <li class="fm-frist fm-${a.stufe}">
+        <div class="fm-frist-datum">${datum}${e.hart ? ' <span title="harte Frist" aria-label="harte Frist">🔒</span>' : ''}</div>
+        <div class="fm-frist-mitte">
+          <div class="fm-frist-titel">${link}</div>
+          ${e.zusatz ? `<div class="fm-sub">${escapeHtml(e.zusatz)}</div>` : ''}
+          ${gate}
+        </div>
+        <div class="fm-frist-rest"><span class="fm-pill fm-${a.stufe}">${escapeHtml(a.text)}</span></div>
+      </li>`;
+  }).join('');
+  return `<section class="fm-card"><h2 class="fm-gruppe">${escapeHtml(ueberschrift)}</h2><ul class="fm-liste">${zeilen}</ul></section>`;
+}
+
+/* ── Markdown ────────────────────────────────────────────────────────────── */
+// Reihenfolge ist bindend: erst maskieren (escapeHtml), dann Blöcke, dann Inline.
+// Das ist die einzige Stelle, an der Inhalt aus der Datenbank als HTML in die
+// Seite geht — es darf nie eine Ersetzung vor escapeHtml treten.
+
+function inline(s) {
+  return s
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+}
+
+function markdown(text) {
+  const zeilen = escapeHtml(text || '').split('\n');
+  const aus = [];
+  let modus = null; // 'ul' | 'ol' | 'p' | 'table' | 'quote'
+
+  const schliessen = () => {
+    if (modus === 'ul') aus.push('</ul>');
+    if (modus === 'ol') aus.push('</ol>');
+    if (modus === 'p') aus.push('</p>');
+    if (modus === 'table') aus.push('</tbody></table></div>');
+    if (modus === 'quote') aus.push('</blockquote>');
+    modus = null;
+  };
+
+  for (const roh of zeilen) {
+    const z = roh.trimEnd();
+
+    if (!z.trim()) { schliessen(); continue; }
+
+    const ueber = z.match(/^(#{1,4})\s+(.*)$/);
+    if (ueber) { schliessen(); const n = Math.min(ueber[1].length + 1, 5);
+      aus.push(`<h${n}>${inline(ueber[2])}</h${n}>`); continue; }
+
+    if (/^\s*\|/.test(z)) {
+      const zellen = z.trim().replace(/^\||\|$/g, '').split('|').map(s => s.trim());
+      if (zellen.every(c => /^-*:?-*$/.test(c))) continue; // Trennzeile
+      if (modus !== 'table') {
+        schliessen(); modus = 'table';
+        aus.push('<div class="fm-tabelle"><table><tbody>');
+      }
+      aus.push('<tr>' + zellen.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>');
+      continue;
+    }
+
+    if (/^&gt;\s?/.test(z)) {
+      if (modus !== 'quote') { schliessen(); modus = 'quote'; aus.push('<blockquote>'); }
+      aus.push(inline(z.replace(/^&gt;\s?/, '')) + ' ');
+      continue;
+    }
+
+    const auf = z.match(/^\s*[-*]\s+(.*)$/);
+    if (auf) {
+      if (modus !== 'ul') { schliessen(); modus = 'ul'; aus.push('<ul>'); }
+      aus.push(`<li>${inline(auf[1])}</li>`); continue;
+    }
+
+    const num = z.match(/^\s*\d+\.\s+(.*)$/);
+    if (num) {
+      if (modus !== 'ol') { schliessen(); modus = 'ol'; aus.push('<ol>'); }
+      aus.push(`<li>${inline(num[1])}</li>`); continue;
+    }
+
+    if (modus === 'p') { aus.push(' ' + inline(z)); continue; }
+    if (modus === 'ul' || modus === 'ol') { aus.push(' ' + inline(z)); continue; }
+    schliessen(); modus = 'p'; aus.push(`<p>${inline(z)}`);
+  }
+  schliessen();
+  return aus.join('\n');
+}
+
+/* ── Programme ───────────────────────────────────────────────────────────── */
+
+// Filterzustand bewusst nur im Speicher: der Hash trägt die Auswahl eines
+// Programms, damit ein Link teilbar bleibt — die Filter sollen dabei nicht
+// mitwandern.
+// Die Schlüssel heißen genau wie die Felder eines Programms: auswahl() baut die
+// Auswahlwerte aus p[feld], und passtZumFilter() liest denselben Namen wieder.
+// Weicht einer ab, zeigt das Auswahlfeld die Wahl an, ohne dass gefiltert wird.
+const FILTER = { straenge: '', status: '', prio: '' };
+
+function filterSetzen(feld, wert) { FILTER[feld] = wert; zeichnen(); }
+
+// #programme -> Liste, #programme/<slug> -> Detail
+function renderProgramme() {
+  const teile = (location.hash || '').slice(1).split('/');
+  const slug = teile.length > 1 ? decodeURIComponent(teile.slice(1).join('/')) : '';
+  return slug ? renderProgrammDetail(slug) : renderProgrammListe();
+}
+
+const PRIO_RANG = { hoch: 0, mittel: 1, niedrig: 2 };
+
+function werteVon(feld) {
+  const raus = new Set();
+  for (const p of PROGRAMME) {
+    const v = p[feld];
+    if (Array.isArray(v)) v.forEach(x => x && raus.add(String(x)));
+    else if (v) raus.add(String(v));
+  }
+  const liste = [...raus];
+  if (feld === 'prio') {
+    return liste.sort((a,b) =>
+      (PRIO_RANG[a] ?? 9) - (PRIO_RANG[b] ?? 9) || a.localeCompare(b, 'de'));
+  }
+  return liste.sort((a,b) => a.localeCompare(b, 'de'));
+}
+
+function auswahl(feld, beschriftung) {
+  const optionen = werteVon(feld).map(v =>
+    `<option value="${escapeHtml(v)}"${FILTER[feld] === v ? ' selected' : ''}>${escapeHtml(v)}</option>`).join('');
+  return `
+    <label class="fm-filter-feld">
+      <span>${escapeHtml(beschriftung)}</span>
+      <select onchange="filterSetzen('${feld}', this.value)">
+        <option value=""${FILTER[feld] ? '' : ' selected'}>alle</option>
+        ${optionen}
+      </select>
+    </label>`;
+}
+
+function passtZumFilter(p) {
+  if (FILTER.straenge && !(p.straenge || []).includes(FILTER.straenge)) return false;
+  if (FILTER.status && p.status !== FILTER.status) return false;
+  if (FILTER.prio   && p.prio   !== FILTER.prio)   return false;
+  return true;
+}
+
+function renderProgrammListe() {
+  const gefiltert = PROGRAMME.filter(passtZumFilter);
+
+  const leiste = `
+    <div class="fm-card fm-filter">
+      ${auswahl('straenge', 'Strang')}
+      ${auswahl('status', 'Status')}
+      ${auswahl('prio', 'Priorität')}
+      <div class="fm-filter-zahl">${gefiltert.length} von ${PROGRAMME.length}</div>
+    </div>`;
+
+  if (!PROGRAMME.length) {
+    return leiste + '<div class="fm-card"><div class="fm-empty">Noch keine Programme in der Wissensbasis.</div></div>';
+  }
+  if (!gefiltert.length) {
+    return leiste + '<div class="fm-card"><div class="fm-empty">Kein Programm passt zu diesen Filtern.</div></div>';
+  }
+
+  const karten = gefiltert.map(p => {
+    const offen = AUFGABEN.filter(x => x.programm_id === p.id && x.status !== 'erledigt' && x.status !== 'entfaellt');
+    const a = ampel(p.frist_datum, false);
+    const frist = p.frist_datum
+      ? `${new Date(p.frist_datum).toLocaleDateString('de-DE')}${p.frist_hart ? ' 🔒' : ''} <span class="fm-pill fm-${a.stufe}">${escapeHtml(a.text)}</span>`
+      : escapeHtml(p.frist_text || 'ohne festes Datum');
+    const chips = (p.straenge || []).map(s => `<span class="fm-chip">${escapeHtml(s)}</span>`).join('');
+    return `
+      <li>
+        <a class="fm-prog" href="#programme/${encodeURIComponent(p.slug)}">
+          <div class="fm-prog-kopf">
+            <span class="fm-prog-name">${escapeHtml(p.programm)}</span>
+            <span class="fm-pill">${escapeHtml(p.status)}</span>
+          </div>
+          ${p.traeger ? `<div class="fm-sub">${escapeHtml(p.traeger)}</div>` : ''}
+          <div class="fm-prog-meta">
+            ${chips}
+            <span class="fm-prog-frist">${frist}</span>
+            <span class="fm-sub">${offen.length} ${offen.length === 1 ? 'Aufgabe' : 'Aufgaben'} offen</span>
+          </div>
+        </a>
+      </li>`;
+  }).join('');
+
+  return leiste + `<section class="fm-card"><ul class="fm-liste fm-progliste">${karten}</ul></section>`;
+}
+
+function renderProgrammDetail(slug) {
+  const p = PROGRAMME.find(x => x.slug === slug);
+  if (!p) return '<div class="fm-card" style="padding:24px;">Programm nicht gefunden. <a href="#programme">Zur Liste</a></div>';
+
+  const offen = AUFGABEN.filter(a => a.programm_id === p.id && a.status !== 'erledigt' && a.status !== 'entfaellt');
+  const a = ampel(p.frist_datum, false);
+  const quellen = (p.quellen || []).map(q =>
+    `<li><a href="${escapeHtml(q)}" target="_blank" rel="noopener">${escapeHtml(q)}</a></li>`).join('');
+
+  return `
+    <a href="#programme" class="back-link">← Alle Programme</a>
+    <section class="fm-card fm-detail">
+      <header>
+        <h2>${escapeHtml(p.programm)}</h2>
+        <span class="fm-pill">${escapeHtml(p.status)}</span>
+      </header>
+      <dl class="fm-meta">
+        <dt>Träger</dt><dd>${escapeHtml(p.traeger || '—')}</dd>
+        <dt>Frist</dt><dd>${escapeHtml(p.frist_text || '—')}
+          ${p.frist_datum ? `<span class="fm-pill fm-${a.stufe}">${escapeHtml(a.text)}</span>` : ''}
+          ${p.frist_hart ? '<span title="harte Frist" aria-label="harte Frist">🔒</span>' : ''}</dd>
+        <dt>Quote</dt><dd>${escapeHtml(p.quote || '—')}</dd>
+        <dt>Fördersumme</dt><dd>${escapeHtml(p.summe_max || '—')}</dd>
+        <dt>Stränge</dt><dd>${(p.straenge || []).map(escapeHtml).join(', ') || '—'}</dd>
+        <dt>Priorität</dt><dd>${escapeHtml(p.prio || '—')}</dd>
+        <dt>Nächste Aktion</dt><dd>${escapeHtml(p.naechste_aktion || '—')}</dd>
+        <dt>Antragsentwurf</dt><dd>${p.entwurf_pfad
+          ? 'Entwurfspaket vorhanden in <code>' + escapeHtml(p.entwurf_pfad) + '</code> (Wissensbasis)'
+          : 'noch keiner'}</dd>
+      </dl>
+      <p class="fm-quelle-hinweis">Quelle: Wissensbasis · Stand
+        ${p.stand ? escapeHtml(new Date(p.stand).toLocaleDateString('de-DE')) : 'unbekannt'} ·
+        hier nicht änderbar</p>
+      <div class="fm-md">${markdown(p.inhalt_md)}</div>
+      ${quellen ? `<h3 class="fm-detail-h">Quellen</h3><ul class="fm-quellen">${quellen}</ul>` : ''}
+      <h3 class="fm-detail-h">Aufgaben (${offen.length} offen)</h3>
+      <div id="fm-detail-aufgaben">${detailAufgaben(p)}</div>
+      <h3 class="fm-detail-h">Notizen</h3>
+      ${notizenAbschnitt(p)}
+    </section>`;
+}
+
+function detailAufgaben(p) {
+  const eigene = AUFGABEN.filter(a => a.programm_id === p.id);
+  const knopf = `<button type="button" class="btn btn-ghost fm-neu" data-programm="${escapeHtml(p.id)}">+ Aufgabe</button>`;
+  if (!eigene.length) {
+    return `<p class="fm-sub">Für dieses Programm ist noch keine Aufgabe hinterlegt.</p>
+      <div class="fm-detail-aktion">${knopf}</div>`;
+  }
+  return `<ul class="fm-liste fm-liste-rahmen">${nachDringlichkeit(eigene).map(aufgabeZeile).join('')}</ul>
+    <div class="fm-detail-aktion">${knopf}</div>`;
+}
+
+/* ── Notizen ─────────────────────────────────────────────────────────────── */
+
+const NOTIZEN_LAEUFT = new Set();
+
+// Wird erst beim Öffnen eines Details geholt, nicht beim Seitenstart: es sind je
+// Programm wenige, und die meisten Details werden nie geöffnet.
+async function notizenLaden(programmId) {
+  if (NOTIZEN_LAEUFT.has(programmId)) return;
+  NOTIZEN_LAEUFT.add(programmId);
+  const n = await LPR.foerderListNotizen(programmId);
+  NOTIZEN_LAEUFT.delete(programmId);
+  NOTIZEN[programmId] = n || [];
+  if (n === null) LPR.showToast('Notizen konnten nicht geladen werden.', 'warn');
+  await namenNachladen(NOTIZEN[programmId].map(x => x.created_by));
+  zeichnen();
+}
+
+function notizenAbschnitt(p) {
+  const liste = NOTIZEN[p.id];
+  const feld = `
+    <p class="fm-sub">Notizen erscheinen im Bericht für die Wissensbasis. Wenn hier etwas steht,
+      das in die Programmdatei gehört, wird es beim nächsten Rechercheschritt übernommen.</p>
+    <div class="fm-notiz-eingabe">
+      <label class="sr-only" for="fm-notiz-feld">Neue Notiz</label>
+      <textarea id="fm-notiz-feld" class="fm-notiz-feld" rows="3" maxlength="4000"
+        placeholder="Was ist passiert? Datum, Gesprächspartner, Ergebnis."
+        data-programm="${escapeHtml(p.id)}">${escapeHtml(NOTIZ_ENTWURF[p.id] || '')}</textarea>
+      <button type="button" class="btn btn-primary fm-notiz-speichern"
+        data-programm="${escapeHtml(p.id)}">Notiz speichern</button>
+    </div>`;
+
+  if (liste === undefined) {
+    notizenLaden(p.id);
+    return feld + '<p class="fm-sub">Notizen werden geladen …</p>';
+  }
+  if (!liste.length) return feld + '<p class="fm-sub">Noch keine Notiz zu diesem Programm.</p>';
+
+  const eintraege = liste.map(n => {
+    const name = NAMEN[n.created_by];
+    const wann = n.created_at ? new Date(n.created_at).toLocaleString('de-DE',
+      { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    return `<li class="fm-notiz">
+      <div class="fm-sub">${escapeHtml(wann)}${name ? ' · ' + escapeHtml(name) : ''}</div>
+      <div class="fm-notiz-text">${escapeHtml(n.text)}</div>
+    </li>`;
+  }).join('');
+  return feld + `<ul class="fm-notizen">${eintraege}</ul>`;
+}
+
+async function notizSpeichern(programmId, text) {
+  if (!text.trim()) return;
+  const n = await LPR.foerderCreateNotiz(programmId, text.trim());
+  if (!n) { LPR.showToast('Notiz konnte nicht gespeichert werden.', 'warn'); return; }
+  NOTIZEN[programmId] = [n, ...(NOTIZEN[programmId] || [])];
+  delete NOTIZ_ENTWURF[programmId];
+  await namenNachladen([n.created_by]);
+  zeichnen();
+  LPR.showToast('Notiz gespeichert.', 'ok');
+}
+
+/* ── Aufgaben ────────────────────────────────────────────────────────────── */
+
+const STATUS_LABEL = { offen: 'offen', laeuft: 'läuft', erledigt: 'erledigt', entfaellt: 'entfällt' };
+const ERLEDIGT_STATUS = ['erledigt', 'entfaellt'];
+
+const AUF_ANSICHT = { nurOffene: true, gruppierung: 'dringlichkeit' };
+
+function ansichtSetzen(feld, wert) {
+  AUF_ANSICHT[feld] = (feld === 'nurOffene') ? (wert === 'offen') : wert;
+  zeichnen();
+}
+
+function istOffen(a) { return !ERLEDIGT_STATUS.includes(a.status); }
+
+function prioRang(a) {
+  const p = PROGRAMME.find(x => x.id === a.programm_id);
+  return PRIO_RANG[p && p.prio] ?? 9;
+}
+
+// Mit Datum zuerst, aufsteigend; danach die ohne Datum nach der Priorität ihres
+// Programms. Erledigtes und Entfallenes rutscht ans Ende — das ist der Nachweis
+// darüber, was geschafft wurde, und soll die offene Arbeit nicht verdecken.
+function nachDringlichkeit(liste) {
+  const sortiere = (l) => {
+    const mit  = l.filter(a => a.faellig_am).sort((a,b) => a.faellig_am.localeCompare(b.faellig_am));
+    const ohne = l.filter(a => !a.faellig_am).sort((a,b) =>
+      prioRang(a) - prioRang(b) || (a.sortierung||0) - (b.sortierung||0) || a.titel.localeCompare(b.titel,'de'));
+    return [...mit, ...ohne];
+  };
+  return [...sortiere(liste.filter(istOffen)), ...sortiere(liste.filter(a => !istOffen(a)))];
+}
+
+function aufgabeZeile(a) {
+  const p = PROGRAMME.find(x => x.id === a.programm_id);
+  const erledigt = a.status === 'erledigt';
+  const entfaellt = a.status === 'entfaellt';
+  const amp = a.faellig_am ? ampel(a.faellig_am, erledigt || entfaellt) : null;
+  const name = NAMEN[a.erledigt_von];
+  return `
+    <li class="fm-aufgabe${erledigt ? ' ist-erledigt' : ''}${entfaellt ? ' ist-entfallen' : ''}"
+        data-id="${escapeHtml(a.id)}">
+      <input type="checkbox" class="fm-haken" ${erledigt ? 'checked' : ''}
+             aria-label="${escapeHtml(a.titel)} erledigt">
+      <div class="fm-aufgabe-mitte">
+        <div class="fm-aufgabe-titel">${escapeHtml(a.titel)}</div>
+        ${a.beschreibung ? `<div class="fm-sub">${escapeHtml(a.beschreibung)}</div>` : ''}
+        <div class="fm-sub">
+          ${p ? `<a href="#programme/${encodeURIComponent(p.slug)}">${escapeHtml(p.programm)}</a>` : 'ohne Programm'}
+          ${a.zustaendig ? ' · ' + escapeHtml(a.zustaendig) : ''}
+          ${entfaellt ? ' · entfällt' : ''}
+          ${erledigt && a.erledigt_am
+            ? ' · erledigt ' + new Date(a.erledigt_am).toLocaleDateString('de-DE')
+              + (name ? ' von ' + escapeHtml(name) : '')
+            : ''}
+        </div>
+      </div>
+      <div class="fm-aufgabe-rechts">
+        ${amp ? `<span class="fm-pill fm-${amp.stufe}">${escapeHtml(amp.text)}</span>` : ''}
+        <button type="button" class="fm-bearbeiten" aria-label="${escapeHtml(a.titel)} bearbeiten">✎</button>
+      </div>
+    </li>`;
+}
+
+function aufgabenGruppe(ueberschrift, liste) {
+  if (!liste.length) return '';
+  return `<section class="fm-card"><h2 class="fm-gruppe">${escapeHtml(ueberschrift)}</h2>
+    <ul class="fm-liste">${liste.map(aufgabeZeile).join('')}</ul></section>`;
+}
+
+function renderAufgaben() {
+  const sichtbar = AUF_ANSICHT.nurOffene ? AUFGABEN.filter(istOffen) : AUFGABEN;
+  const offeneZahl = AUFGABEN.filter(istOffen).length;
+
+  const leiste = `
+    <div class="fm-card fm-filter">
+      <label class="fm-filter-feld">
+        <span>Umfang</span>
+        <select onchange="ansichtSetzen('nurOffene', this.value)">
+          <option value="offen"${AUF_ANSICHT.nurOffene ? ' selected' : ''}>nur offene</option>
+          <option value="alle"${AUF_ANSICHT.nurOffene ? '' : ' selected'}>alle</option>
+        </select>
+      </label>
+      <label class="fm-filter-feld">
+        <span>Sortierung</span>
+        <select onchange="ansichtSetzen('gruppierung', this.value)">
+          <option value="dringlichkeit"${AUF_ANSICHT.gruppierung === 'dringlichkeit' ? ' selected' : ''}>nach Dringlichkeit</option>
+          <option value="programm"${AUF_ANSICHT.gruppierung === 'programm' ? ' selected' : ''}>nach Programm</option>
+        </select>
+      </label>
+      <button type="button" class="btn btn-primary fm-neu" data-programm="">+ Aufgabe</button>
+      <div class="fm-filter-zahl">${offeneZahl} von ${AUFGABEN.length} offen</div>
+    </div>`;
+
+  if (!AUFGABEN.length) {
+    return leiste + '<div class="fm-card"><div class="fm-empty">Noch keine Aufgaben. Der Abgleich mit der Wissensbasis legt sie an — oder Sie legen hier eine an.</div></div>';
+  }
+  if (!sichtbar.length) {
+    return leiste + '<div class="fm-card"><div class="fm-empty">Alles erledigt. Auf „alle" umschalten, um die abgehakten zu sehen.</div></div>';
+  }
+
+  if (AUF_ANSICHT.gruppierung === 'programm') {
+    const teile = PROGRAMME.map(p =>
+      aufgabenGruppe(p.programm, nachDringlichkeit(sichtbar.filter(a => a.programm_id === p.id))));
+    teile.push(aufgabenGruppe('Ohne Programm',
+      nachDringlichkeit(sichtbar.filter(a => !PROGRAMME.some(p => p.id === a.programm_id)))));
+    return leiste + teile.join('');
+  }
+  return leiste + `<section class="fm-card"><ul class="fm-liste">${
+    nachDringlichkeit(sichtbar).map(aufgabeZeile).join('')}</ul></section>`;
+}
+
+/* ── Schreiben: abhaken (optimistisch, mit Rückweg) ──────────────────────── */
+
+async function abhaken(id, checked) {
+  const a = AUFGABEN.find(x => x.id === id);
+  if (!a) return;
+  const vorher = { status: a.status, erledigt_am: a.erledigt_am, erledigt_von: a.erledigt_von };
+  a.status = checked ? 'erledigt' : 'offen';
+  zeichnen();
+
+  const neu = await LPR.foerderUpdateAufgabe(id, { status: a.status });
+  if (!neu) {
+    Object.assign(a, vorher);
+    zeichnen();
+    LPR.showToast('Konnte nicht gespeichert werden. Bitte erneut versuchen.', 'warn');
+    return;
+  }
+  Object.assign(a, neu);
+  zeichnen();
+  await namenNachladen([neu.erledigt_von]);
+  zeichnen();
+}
+
+/* ── Schreiben: Formular für Anlegen und Bearbeiten ──────────────────────── */
+
+let FORMULAR_ID = null;   // null = neue Aufgabe
+
+function formularOeffnen(id, programmVorgabe) {
+  FORMULAR_ID = id || null;
+  const a = id ? AUFGABEN.find(x => x.id === id) : null;
+  const progOptionen = ['<option value="">ohne Programm</option>'].concat(
+    PROGRAMME.map(p => `<option value="${escapeHtml(p.id)}"${
+      (a ? a.programm_id === p.id : programmVorgabe === p.id) ? ' selected' : ''
+    }>${escapeHtml(p.programm)}</option>`)).join('');
+  const statusOptionen = Object.keys(STATUS_LABEL).map(s =>
+    `<option value="${s}"${a && a.status === s ? ' selected' : ''}>${escapeHtml(STATUS_LABEL[s])}</option>`).join('');
+
+  document.getElementById('fm-dialog-inhalt').innerHTML = `
+    <h2 class="fm-dialog-titel">${a ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}</h2>
+    ${a && a.repo_key ? `<p class="fm-sub fm-repo-hinweis">Diese Aufgabe stammt aus der Wissensbasis
+      (<code>${escapeHtml(a.repo_key)}</code>). Titel und Beschreibung werden beim nächsten Abgleich
+      nicht überschrieben, aber die Wissensbasis kennt deine Änderung nicht.</p>` : ''}
+    <div class="field"><label for="fmf-titel">Titel <span class="req">*</span></label>
+      <input id="fmf-titel" type="text" required maxlength="300" value="${a ? escapeHtml(a.titel) : ''}"></div>
+    <div class="field"><label for="fmf-beschreibung">Beschreibung</label>
+      <textarea id="fmf-beschreibung" rows="3">${a && a.beschreibung ? escapeHtml(a.beschreibung) : ''}</textarea></div>
+    <div class="field"><label for="fmf-programm">Programm</label>
+      <select id="fmf-programm">${progOptionen}</select></div>
+    <div class="fm-dialog-reihe">
+      <div class="field"><label for="fmf-faellig">Fällig am</label>
+        <input id="fmf-faellig" type="date" value="${a && a.faellig_am ? escapeHtml(a.faellig_am) : ''}"></div>
+      <div class="field"><label for="fmf-status">Status</label>
+        <select id="fmf-status">${statusOptionen}</select></div>
+    </div>
+    <div class="field"><label for="fmf-zustaendig">Zuständig</label>
+      <input id="fmf-zustaendig" type="text" maxlength="120" value="${a && a.zustaendig ? escapeHtml(a.zustaendig) : ''}"></div>
+    <p class="field-error" id="fmf-fehler" hidden></p>
+    <div class="fm-dialog-knoepfe">
+      <button type="button" class="btn btn-ghost" onclick="document.getElementById('fm-dialog').close()">Abbrechen</button>
+      <button type="button" class="btn btn-primary" id="fmf-speichern">Speichern</button>
+    </div>`;
+  document.getElementById('fmf-speichern').addEventListener('click', formularSpeichern);
+  document.getElementById('fm-dialog').showModal();
+  document.getElementById('fmf-titel').focus();
+}
+
+async function formularSpeichern() {
+  const knopf = document.getElementById('fmf-speichern');
+  const fehler = document.getElementById('fmf-fehler');
+  const felder = {
+    titel: document.getElementById('fmf-titel').value.trim(),
+    beschreibung: document.getElementById('fmf-beschreibung').value.trim() || null,
+    programm_id: document.getElementById('fmf-programm').value || null,
+    faellig_am: document.getElementById('fmf-faellig').value || null,
+    status: document.getElementById('fmf-status').value,
+    zustaendig: document.getElementById('fmf-zustaendig').value.trim() || null
+  };
+  if (!felder.titel) {
+    fehler.textContent = 'Bitte einen Titel angeben.'; fehler.hidden = false; return;
+  }
+  fehler.hidden = true;
+  knopf.disabled = true; knopf.textContent = 'Speichert …';
+
+  // Anders als beim Häkchen wird hier nicht optimistisch geschrieben: das Formular
+  // bleibt stehen, bis der Server bestätigt hat — sonst müsste man die Eingaben
+  // im Fehlerfall rekonstruieren.
+  let ergebnis;
+  if (FORMULAR_ID) {
+    // programm_id gehört dem Sync und wird von foerderUpdateAufgabe ohnehin verworfen.
+    ergebnis = await LPR.foerderUpdateAufgabe(FORMULAR_ID, felder);
+    if (ergebnis) {
+      const a = AUFGABEN.find(x => x.id === FORMULAR_ID);
+      if (a) Object.assign(a, ergebnis);
+    }
+  } else {
+    ergebnis = await LPR.foerderCreateAufgabe(felder);
+    if (ergebnis) AUFGABEN.push(ergebnis);
+  }
+
+  knopf.disabled = false; knopf.textContent = 'Speichern';
+  if (!ergebnis) {
+    fehler.textContent = 'Konnte nicht gespeichert werden. Bitte erneut versuchen.';
+    fehler.hidden = false;
+    LPR.showToast('Konnte nicht gespeichert werden.', 'warn');
+    return;
+  }
+  document.getElementById('fm-dialog').close();
+  await namenNachladen([ergebnis.erledigt_von]);
+  zeichnen();
+  LPR.showToast(FORMULAR_ID ? 'Aufgabe gespeichert.' : 'Aufgabe angelegt.', 'ok');
+}
+
+/* ── Ereignisse: der Inhalt wird bei jedem zeichnen() neu gebaut, deshalb
+      hängen die Handler am Behälter statt an den Elementen. ────────────────── */
+
+/* ── Stränge ─────────────────────────────────────────────────────────────── */
+// Die Kürzel kommen aus den Daten, nicht aus einer festen Liste in dieser Datei:
+// dieses Repo ist öffentlich, die Bedeutung der Stränge steht in der Wissensbasis.
+// Ein Programm kann in mehreren Strängen stehen und erscheint dann mehrfach.
+
+function straengeKuerzel() {
+  const s = new Set();
+  PROGRAMME.forEach(p => (p.straenge || []).forEach(x => { if (x) s.add(String(x)); }));
+  return [...s].sort((a,b) => a.localeCompare(b, 'de'));
+}
+
+// Wer blockiert dieses Programm? Ein Gate gilt als erfüllt, sobald das
+// blockierende Programm eingereicht oder bewilligt ist.
+function blockierendeProgramme(p) {
+  return PROGRAMME.filter(q => (q.gate_fuer || []).includes(p.slug)
+    && !['eingereicht','bewilligt'].includes(q.status));
+}
+
+function renderStraenge() {
+  const kuerzel = straengeKuerzel();
+  if (!kuerzel.length) {
+    return '<div class="fm-card"><div class="fm-empty">Noch ist kein Programm einem Strang zugeordnet.</div></div>';
+  }
+
+  return '<div class="fm-straenge">' + kuerzel.map(s => {
+    const progs = PROGRAMME.filter(p => (p.straenge || []).includes(s));
+    const ids = new Set(progs.map(p => p.id));
+    // Entfallenes zählt weder als erledigt noch als offen — sonst könnte der
+    // Balken nie 100 % erreichen.
+    const aufg = AUFGABEN.filter(a => ids.has(a.programm_id) && a.status !== 'entfaellt');
+    const fertig = aufg.filter(a => a.status === 'erledigt').length;
+    const pct = aufg.length ? Math.round(fertig / aufg.length * 100) : 0;
+
+    const zeilen = progs.map(p => {
+      const offen = AUFGABEN.filter(a => a.programm_id === p.id
+        && a.status !== 'erledigt' && a.status !== 'entfaellt').length;
+      const blocker = blockierendeProgramme(p);
+      return `<li>
+        <a href="#programme/${encodeURIComponent(p.slug)}">${escapeHtml(p.programm)}</a>
+        <span class="fm-pill">${escapeHtml(p.status)}</span>
+        <span class="fm-sub">${offen} offen</span>
+        ${blocker.length ? `<span class="fm-pill fm-rot" title="Voraussetzung noch nicht erfüllt: ${
+          escapeHtml(blocker.map(q => q.programm).join(', '))}">blockiert</span>` : ''}
+      </li>`;
+    }).join('');
+
+    return `<section class="fm-card fm-strang">
+      <h2>Strang ${escapeHtml(s)}</h2>
+      <div class="fm-bar" role="img"
+           aria-label="${fertig} von ${aufg.length} Aufgaben erledigt"><div class="fm-bar-fill" style="width:${pct}%"></div></div>
+      <div class="fm-sub">${fertig} von ${aufg.length} Aufgaben erledigt (${pct} %)</div>
+      <ul class="fm-strang-liste">${zeilen || '<li class="fm-sub">Keine Programme.</li>'}</ul>
+    </section>`;
+  }).join('') + '</div>';
+}
+
+document.getElementById('fm-inhalt').addEventListener('change', (e) => {
+  const haken = e.target.closest('.fm-haken');
+  if (!haken) return;
+  const li = haken.closest('.fm-aufgabe');
+  if (li) abhaken(li.dataset.id, haken.checked);
+});
+
+document.getElementById('fm-inhalt').addEventListener('click', (e) => {
+  const bearbeiten = e.target.closest('.fm-bearbeiten');
+  if (bearbeiten) {
+    const li = bearbeiten.closest('.fm-aufgabe');
+    if (li) formularOeffnen(li.dataset.id, null);
+    return;
+  }
+  const neu = e.target.closest('.fm-neu');
+  if (neu) { formularOeffnen(null, neu.dataset.programm || null); return; }
+
+  const notiz = e.target.closest('.fm-notiz-speichern');
+  if (notiz) {
+    const feld = document.getElementById('fm-notiz-feld');
+    if (feld && feld.value.trim()) {
+      notiz.disabled = true;
+      notizSpeichern(notiz.dataset.programm, feld.value).finally(() => { notiz.disabled = false; });
+    }
+  }
+});
+
+// Getippter Text ueberlebt ein Neuzeichnen nur, wenn er ausserhalb des DOM liegt.
+document.getElementById('fm-inhalt').addEventListener('input', (e) => {
+  const feld = e.target.closest('.fm-notiz-feld');
+  if (feld) NOTIZ_ENTWURF[feld.dataset.programm] = feld.value;
+});
+
+document.querySelectorAll('.fm-tabs button').forEach(b =>
+  b.addEventListener('click', () => { location.hash = b.dataset.tab; }));
+window.addEventListener('hashchange', zeichnen);
+
+laden().then(ok => { if (ok) zeichnen(); });
+</script>
+</body>
+</html>

@@ -648,7 +648,10 @@ function markdown(text) {
 // Filterzustand bewusst nur im Speicher: der Hash trägt die Auswahl eines
 // Programms, damit ein Link teilbar bleibt — die Filter sollen dabei nicht
 // mitwandern.
-const FILTER = { strang: '', status: '', prio: '' };
+// Die Schlüssel heißen genau wie die Felder eines Programms: auswahl() baut die
+// Auswahlwerte aus p[feld], und passtZumFilter() liest denselben Namen wieder.
+// Weicht einer ab, zeigt das Auswahlfeld die Wahl an, ohne dass gefiltert wird.
+const FILTER = { straenge: '', status: '', prio: '' };
 
 function filterSetzen(feld, wert) { FILTER[feld] = wert; zeichnen(); }
 
@@ -690,7 +693,7 @@ function auswahl(feld, beschriftung) {
 }
 
 function passtZumFilter(p) {
-  if (FILTER.strang && !(p.straenge || []).includes(FILTER.strang)) return false;
+  if (FILTER.straenge && !(p.straenge || []).includes(FILTER.straenge)) return false;
   if (FILTER.status && p.status !== FILTER.status) return false;
   if (FILTER.prio   && p.prio   !== FILTER.prio)   return false;
   return true;

@@ -302,7 +302,7 @@
 'use strict';
 
 LPR_Layout.init({ page: 'foerdermittel' });
-if (!LPR.requireRole('admin', 'login.html')) throw new Error('kein Zugriff');
+if (!LPR.requireRole('admin', 'login.html?next=admin-foerdermittel.html')) throw new Error('kein Zugriff');
 
 let PROGRAMME = [], AUFGABEN = [];
 

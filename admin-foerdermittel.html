@@ -139,6 +139,36 @@
   display: inline-block;
 }
 
+/* Gerendertes Markdown */
+.fm-md { font-size: 14.5px; line-height: 1.65; color: var(--text); overflow-wrap: anywhere; }
+.fm-md h3, .fm-md h4, .fm-md h5 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  color: var(--green-deep); margin: 22px 0 8px; line-height: 1.3;
+}
+.fm-md h3 { font-size: 18px; font-weight: 800; }
+.fm-md h4 { font-size: 15.5px; font-weight: 700; }
+.fm-md h5 { font-size: 14px; font-weight: 700; }
+.fm-md p { margin: 0 0 12px; }
+.fm-md ul, .fm-md ol { margin: 0 0 12px; padding-left: 22px; }
+.fm-md li { margin-bottom: 5px; }
+.fm-md a { color: var(--green-deep); }
+.fm-md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .9em; background: #F2F0EA; border-radius: 4px; padding: 1px 5px;
+}
+.fm-md blockquote {
+  margin: 0 0 12px; padding: 8px 14px;
+  border-left: 3px solid var(--green-mute); background: #FAFAF7;
+  color: var(--muted);
+}
+.fm-tabelle { overflow-x: auto; margin: 0 0 14px; -webkit-overflow-scrolling: touch; }
+.fm-tabelle table { border-collapse: collapse; font-size: 13.5px; min-width: 100%; }
+.fm-tabelle td {
+  border: 1px solid var(--border); padding: 7px 10px;
+  vertical-align: top; text-align: left;
+}
+.fm-tabelle tr:first-child td { background: #FAFAF7; font-weight: 700; }
+
 @media (max-width: 560px) {
   .fm-frist { flex-wrap: wrap; gap: 6px 12px; }
   .fm-frist-datum { flex: 0 0 auto; }
@@ -331,6 +361,79 @@ function gruppe(ueberschrift, eintraege) {
       </li>`;
   }).join('');
   return `<section class="fm-card"><h2 class="fm-gruppe">${escapeHtml(ueberschrift)}</h2><ul class="fm-liste">${zeilen}</ul></section>`;
+}
+
+/* ── Markdown ────────────────────────────────────────────────────────────── */
+// Reihenfolge ist bindend: erst maskieren (escapeHtml), dann Blöcke, dann Inline.
+// Das ist die einzige Stelle, an der Inhalt aus der Datenbank als HTML in die
+// Seite geht — es darf nie eine Ersetzung vor escapeHtml treten.
+
+function inline(s) {
+  return s
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+}
+
+function markdown(text) {
+  const zeilen = escapeHtml(text || '').split('\n');
+  const aus = [];
+  let modus = null; // 'ul' | 'ol' | 'p' | 'table' | 'quote'
+
+  const schliessen = () => {
+    if (modus === 'ul') aus.push('</ul>');
+    if (modus === 'ol') aus.push('</ol>');
+    if (modus === 'p') aus.push('</p>');
+    if (modus === 'table') aus.push('</tbody></table></div>');
+    if (modus === 'quote') aus.push('</blockquote>');
+    modus = null;
+  };
+
+  for (const roh of zeilen) {
+    const z = roh.trimEnd();
+
+    if (!z.trim()) { schliessen(); continue; }
+
+    const ueber = z.match(/^(#{1,4})\s+(.*)$/);
+    if (ueber) { schliessen(); const n = Math.min(ueber[1].length + 1, 5);
+      aus.push(`<h${n}>${inline(ueber[2])}</h${n}>`); continue; }
+
+    if (/^\s*\|/.test(z)) {
+      const zellen = z.trim().replace(/^\||\|$/g, '').split('|').map(s => s.trim());
+      if (zellen.every(c => /^-*:?-*$/.test(c))) continue; // Trennzeile
+      if (modus !== 'table') {
+        schliessen(); modus = 'table';
+        aus.push('<div class="fm-tabelle"><table><tbody>');
+      }
+      aus.push('<tr>' + zellen.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>');
+      continue;
+    }
+
+    if (/^&gt;\s?/.test(z)) {
+      if (modus !== 'quote') { schliessen(); modus = 'quote'; aus.push('<blockquote>'); }
+      aus.push(inline(z.replace(/^&gt;\s?/, '')) + ' ');
+      continue;
+    }
+
+    const auf = z.match(/^\s*[-*]\s+(.*)$/);
+    if (auf) {
+      if (modus !== 'ul') { schliessen(); modus = 'ul'; aus.push('<ul>'); }
+      aus.push(`<li>${inline(auf[1])}</li>`); continue;
+    }
+
+    const num = z.match(/^\s*\d+\.\s+(.*)$/);
+    if (num) {
+      if (modus !== 'ol') { schliessen(); modus = 'ol'; aus.push('<ol>'); }
+      aus.push(`<li>${inline(num[1])}</li>`); continue;
+    }
+
+    if (modus === 'p') { aus.push(' ' + inline(z)); continue; }
+    if (modus === 'ul' || modus === 'ol') { aus.push(' ' + inline(z)); continue; }
+    schliessen(); modus = 'p'; aus.push(`<p>${inline(z)}`);
+  }
+  schliessen();
+  return aus.join('\n');
 }
 
 document.querySelectorAll('.fm-tabs button').forEach(b =>

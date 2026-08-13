@@ -223,6 +223,62 @@
   .fm-filter-zahl { margin-left: 0; }
 }
 
+/* Aufgabenliste */
+.fm-aufgabe {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 16px; border-bottom: 1px solid #EFEDE8;
+}
+.fm-aufgabe:last-child { border-bottom: none; }
+.fm-aufgabe.ist-erledigt, .fm-aufgabe.ist-entfallen { background: #FBFAF7; }
+.fm-aufgabe.ist-erledigt .fm-aufgabe-titel { text-decoration: line-through; color: var(--muted); }
+.fm-aufgabe.ist-entfallen .fm-aufgabe-titel { color: var(--muted); font-style: italic; }
+.fm-haken {
+  flex: 0 0 auto; width: 20px; height: 20px; margin-top: 2px;
+  accent-color: var(--ok); cursor: pointer;
+}
+.fm-haken:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+.fm-aufgabe-mitte { flex: 1 1 auto; min-width: 0; }
+.fm-aufgabe-titel { font-size: 14.5px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.fm-aufgabe-mitte .fm-sub a { color: var(--green-deep); }
+.fm-aufgabe-rechts {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding-top: 1px;
+}
+.fm-bearbeiten {
+  font-family: inherit; font-size: 15px; line-height: 1;
+  width: 30px; height: 30px; border-radius: 8px;
+  border: 1.5px solid var(--border); background: #fff; color: var(--muted);
+  cursor: pointer;
+}
+.fm-bearbeiten:hover { border-color: var(--green-mute); color: var(--text); }
+.fm-bearbeiten:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+.fm-filter .btn { padding: 8px 16px; font-size: 14px; }
+
+/* Dialog für Anlegen und Bearbeiten */
+.fm-dialog {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 22px 24px; max-width: 540px; width: calc(100% - 32px);
+  box-shadow: var(--shadow-lg); color: var(--text); background: #fff;
+}
+.fm-dialog::backdrop { background: rgba(26,36,30,.45); }
+.fm-dialog-titel {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 19px; color: var(--green-deep); margin: 0 0 14px;
+}
+.fm-repo-hinweis {
+  background: #FAFAF7; border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; margin: 0 0 14px; line-height: 1.5;
+}
+.fm-repo-hinweis code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .92em; background: #F2F0EA; border-radius: 4px; padding: 1px 4px;
+}
+.fm-dialog-reihe { display: flex; gap: 14px; flex-wrap: wrap; }
+.fm-dialog-reihe .field { flex: 1 1 180px; }
+.fm-dialog-knoepfe {
+  display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;
+}
+.fm-dialog textarea, .fm-dialog input, .fm-dialog select { width: 100%; }
+
 /* Gerendertes Markdown */
 .fm-md { font-size: 14.5px; line-height: 1.65; color: var(--text); overflow-wrap: anywhere; }
 .fm-md h3, .fm-md h4, .fm-md h5 {
@@ -296,6 +352,11 @@
 </div>
 </main>
 
+<!-- Liegt ausserhalb von #fm-inhalt, damit ein Neuzeichnen es nicht wegräumt. -->
+<dialog id="fm-dialog" class="fm-dialog" aria-label="Aufgabe">
+  <div id="fm-dialog-inhalt"></div>
+</dialog>
+
 <script src="app.js"></script>
 <script src="layout.js"></script>
 <script>
@@ -305,6 +366,9 @@ LPR_Layout.init({ page: 'foerdermittel' });
 if (!LPR.requireRole('admin', 'login.html?next=admin-foerdermittel.html')) throw new Error('kein Zugriff');
 
 let PROGRAMME = [], AUFGABEN = [];
+const NAMEN = {};          // Nutzer-Kennung -> Anzeigename (nur die gebrauchten)
+const NOTIZEN = {};        // Programm-Kennung -> Notizliste; undefined = noch nicht geladen
+const NOTIZ_ENTWURF = {};  // Programm-Kennung -> getippter, noch nicht gespeicherter Text
 
 // LPR_Layout.escapeHtml maskiert nur & < >. Für Inhalt, der in Attributwerten
 // landet (Links im Markdown-Renderer), reicht das nicht — deshalb hier zusätzlich
@@ -327,7 +391,17 @@ async function laden() {
   const juengster = PROGRAMME.map(x => x.stand).filter(Boolean).sort().at(-1);
   document.getElementById('fm-stand').textContent =
     juengster ? 'Wissensbasis · Stand ' + new Date(juengster).toLocaleDateString('de-DE') : '';
+  await namenNachladen(AUFGABEN.map(x => x.erledigt_von));
   return true;
+}
+
+// Namen nur fuer die Kennungen holen, die wirklich angezeigt werden. Ein Fehler
+// hier ist nicht schlimm: dann steht bei "erledigt" eben kein Name.
+async function namenNachladen(kennungen) {
+  const fehlend = [...new Set((kennungen || []).filter(k => k && !(k in NAMEN)))];
+  if (!fehlend.length) return;
+  Object.assign(NAMEN, await LPR.foerderNamen(fehlend));
+  fehlend.forEach(k => { if (!(k in NAMEN)) NAMEN[k] = null; });  // nicht erneut fragen
 }
 
 function aktuellerTab() {
@@ -342,7 +416,7 @@ function zeichnen() {
   const ziel = document.getElementById('fm-inhalt');
   if (tab === 'fristen')   ziel.innerHTML = renderFristen();
   if (tab === 'programme') ziel.innerHTML = renderProgramme();
-  if (tab === 'aufgaben')  ziel.innerHTML = '<div class="fm-card" style="padding:24px;">Kommt in der nächsten Etappe.</div>';
+  if (tab === 'aufgaben')  ziel.innerHTML = renderAufgaben();
   if (tab === 'straenge')  ziel.innerHTML = '<div class="fm-card" style="padding:24px;">Kommt in der nächsten Etappe.</div>';
 }
 
@@ -657,6 +731,249 @@ function renderProgrammDetail(slug) {
       <div id="fm-detail-aufgaben" class="fm-sub">Kommt in der nächsten Etappe.</div>
     </section>`;
 }
+
+/* ── Aufgaben ────────────────────────────────────────────────────────────── */
+
+const STATUS_LABEL = { offen: 'offen', laeuft: 'läuft', erledigt: 'erledigt', entfaellt: 'entfällt' };
+const ERLEDIGT_STATUS = ['erledigt', 'entfaellt'];
+
+const AUF_ANSICHT = { nurOffene: true, gruppierung: 'dringlichkeit' };
+
+function ansichtSetzen(feld, wert) {
+  AUF_ANSICHT[feld] = (feld === 'nurOffene') ? (wert === 'offen') : wert;
+  zeichnen();
+}
+
+function istOffen(a) { return !ERLEDIGT_STATUS.includes(a.status); }
+
+function prioRang(a) {
+  const p = PROGRAMME.find(x => x.id === a.programm_id);
+  return PRIO_RANG[p && p.prio] ?? 9;
+}
+
+// Mit Datum zuerst, aufsteigend; danach die ohne Datum nach der Priorität ihres
+// Programms. Erledigtes und Entfallenes rutscht ans Ende — das ist der Nachweis
+// darüber, was geschafft wurde, und soll die offene Arbeit nicht verdecken.
+function nachDringlichkeit(liste) {
+  const sortiere = (l) => {
+    const mit  = l.filter(a => a.faellig_am).sort((a,b) => a.faellig_am.localeCompare(b.faellig_am));
+    const ohne = l.filter(a => !a.faellig_am).sort((a,b) =>
+      prioRang(a) - prioRang(b) || (a.sortierung||0) - (b.sortierung||0) || a.titel.localeCompare(b.titel,'de'));
+    return [...mit, ...ohne];
+  };
+  return [...sortiere(liste.filter(istOffen)), ...sortiere(liste.filter(a => !istOffen(a)))];
+}
+
+function aufgabeZeile(a) {
+  const p = PROGRAMME.find(x => x.id === a.programm_id);
+  const erledigt = a.status === 'erledigt';
+  const entfaellt = a.status === 'entfaellt';
+  const amp = a.faellig_am ? ampel(a.faellig_am, erledigt || entfaellt) : null;
+  const name = NAMEN[a.erledigt_von];
+  return `
+    <li class="fm-aufgabe${erledigt ? ' ist-erledigt' : ''}${entfaellt ? ' ist-entfallen' : ''}"
+        data-id="${escapeHtml(a.id)}">
+      <input type="checkbox" class="fm-haken" ${erledigt ? 'checked' : ''}
+             aria-label="${escapeHtml(a.titel)} erledigt">
+      <div class="fm-aufgabe-mitte">
+        <div class="fm-aufgabe-titel">${escapeHtml(a.titel)}</div>
+        ${a.beschreibung ? `<div class="fm-sub">${escapeHtml(a.beschreibung)}</div>` : ''}
+        <div class="fm-sub">
+          ${p ? `<a href="#programme/${encodeURIComponent(p.slug)}">${escapeHtml(p.programm)}</a>` : 'ohne Programm'}
+          ${a.zustaendig ? ' · ' + escapeHtml(a.zustaendig) : ''}
+          ${entfaellt ? ' · entfällt' : ''}
+          ${erledigt && a.erledigt_am
+            ? ' · erledigt ' + new Date(a.erledigt_am).toLocaleDateString('de-DE')
+              + (name ? ' von ' + escapeHtml(name) : '')
+            : ''}
+        </div>
+      </div>
+      <div class="fm-aufgabe-rechts">
+        ${amp ? `<span class="fm-pill fm-${amp.stufe}">${escapeHtml(amp.text)}</span>` : ''}
+        <button type="button" class="fm-bearbeiten" aria-label="${escapeHtml(a.titel)} bearbeiten">✎</button>
+      </div>
+    </li>`;
+}
+
+function aufgabenGruppe(ueberschrift, liste) {
+  if (!liste.length) return '';
+  return `<section class="fm-card"><h2 class="fm-gruppe">${escapeHtml(ueberschrift)}</h2>
+    <ul class="fm-liste">${liste.map(aufgabeZeile).join('')}</ul></section>`;
+}
+
+function renderAufgaben() {
+  const sichtbar = AUF_ANSICHT.nurOffene ? AUFGABEN.filter(istOffen) : AUFGABEN;
+  const offeneZahl = AUFGABEN.filter(istOffen).length;
+
+  const leiste = `
+    <div class="fm-card fm-filter">
+      <label class="fm-filter-feld">
+        <span>Umfang</span>
+        <select onchange="ansichtSetzen('nurOffene', this.value)">
+          <option value="offen"${AUF_ANSICHT.nurOffene ? ' selected' : ''}>nur offene</option>
+          <option value="alle"${AUF_ANSICHT.nurOffene ? '' : ' selected'}>alle</option>
+        </select>
+      </label>
+      <label class="fm-filter-feld">
+        <span>Sortierung</span>
+        <select onchange="ansichtSetzen('gruppierung', this.value)">
+          <option value="dringlichkeit"${AUF_ANSICHT.gruppierung === 'dringlichkeit' ? ' selected' : ''}>nach Dringlichkeit</option>
+          <option value="programm"${AUF_ANSICHT.gruppierung === 'programm' ? ' selected' : ''}>nach Programm</option>
+        </select>
+      </label>
+      <button type="button" class="btn btn-primary fm-neu" data-programm="">+ Aufgabe</button>
+      <div class="fm-filter-zahl">${offeneZahl} von ${AUFGABEN.length} offen</div>
+    </div>`;
+
+  if (!AUFGABEN.length) {
+    return leiste + '<div class="fm-card"><div class="fm-empty">Noch keine Aufgaben. Der Abgleich mit der Wissensbasis legt sie an — oder Sie legen hier eine an.</div></div>';
+  }
+  if (!sichtbar.length) {
+    return leiste + '<div class="fm-card"><div class="fm-empty">Alles erledigt. Auf „alle" umschalten, um die abgehakten zu sehen.</div></div>';
+  }
+
+  if (AUF_ANSICHT.gruppierung === 'programm') {
+    const teile = PROGRAMME.map(p =>
+      aufgabenGruppe(p.programm, nachDringlichkeit(sichtbar.filter(a => a.programm_id === p.id))));
+    teile.push(aufgabenGruppe('Ohne Programm',
+      nachDringlichkeit(sichtbar.filter(a => !PROGRAMME.some(p => p.id === a.programm_id)))));
+    return leiste + teile.join('');
+  }
+  return leiste + `<section class="fm-card"><ul class="fm-liste">${
+    nachDringlichkeit(sichtbar).map(aufgabeZeile).join('')}</ul></section>`;
+}
+
+/* ── Schreiben: abhaken (optimistisch, mit Rückweg) ──────────────────────── */
+
+async function abhaken(id, checked) {
+  const a = AUFGABEN.find(x => x.id === id);
+  if (!a) return;
+  const vorher = { status: a.status, erledigt_am: a.erledigt_am, erledigt_von: a.erledigt_von };
+  a.status = checked ? 'erledigt' : 'offen';
+  zeichnen();
+
+  const neu = await LPR.foerderUpdateAufgabe(id, { status: a.status });
+  if (!neu) {
+    Object.assign(a, vorher);
+    zeichnen();
+    LPR.showToast('Konnte nicht gespeichert werden. Bitte erneut versuchen.', 'warn');
+    return;
+  }
+  Object.assign(a, neu);
+  zeichnen();
+  await namenNachladen([neu.erledigt_von]);
+  zeichnen();
+}
+
+/* ── Schreiben: Formular für Anlegen und Bearbeiten ──────────────────────── */
+
+let FORMULAR_ID = null;   // null = neue Aufgabe
+
+function formularOeffnen(id, programmVorgabe) {
+  FORMULAR_ID = id || null;
+  const a = id ? AUFGABEN.find(x => x.id === id) : null;
+  const progOptionen = ['<option value="">ohne Programm</option>'].concat(
+    PROGRAMME.map(p => `<option value="${escapeHtml(p.id)}"${
+      (a ? a.programm_id === p.id : programmVorgabe === p.id) ? ' selected' : ''
+    }>${escapeHtml(p.programm)}</option>`)).join('');
+  const statusOptionen = Object.keys(STATUS_LABEL).map(s =>
+    `<option value="${s}"${a && a.status === s ? ' selected' : ''}>${escapeHtml(STATUS_LABEL[s])}</option>`).join('');
+
+  document.getElementById('fm-dialog-inhalt').innerHTML = `
+    <h2 class="fm-dialog-titel">${a ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}</h2>
+    ${a && a.repo_key ? `<p class="fm-sub fm-repo-hinweis">Diese Aufgabe stammt aus der Wissensbasis
+      (<code>${escapeHtml(a.repo_key)}</code>). Titel und Beschreibung werden beim nächsten Abgleich
+      nicht überschrieben, aber die Wissensbasis kennt deine Änderung nicht.</p>` : ''}
+    <div class="field"><label for="fmf-titel">Titel <span class="req">*</span></label>
+      <input id="fmf-titel" type="text" required maxlength="300" value="${a ? escapeHtml(a.titel) : ''}"></div>
+    <div class="field"><label for="fmf-beschreibung">Beschreibung</label>
+      <textarea id="fmf-beschreibung" rows="3">${a && a.beschreibung ? escapeHtml(a.beschreibung) : ''}</textarea></div>
+    <div class="field"><label for="fmf-programm">Programm</label>
+      <select id="fmf-programm">${progOptionen}</select></div>
+    <div class="fm-dialog-reihe">
+      <div class="field"><label for="fmf-faellig">Fällig am</label>
+        <input id="fmf-faellig" type="date" value="${a && a.faellig_am ? escapeHtml(a.faellig_am) : ''}"></div>
+      <div class="field"><label for="fmf-status">Status</label>
+        <select id="fmf-status">${statusOptionen}</select></div>
+    </div>
+    <div class="field"><label for="fmf-zustaendig">Zuständig</label>
+      <input id="fmf-zustaendig" type="text" maxlength="120" value="${a && a.zustaendig ? escapeHtml(a.zustaendig) : ''}"></div>
+    <p class="field-error" id="fmf-fehler" hidden></p>
+    <div class="fm-dialog-knoepfe">
+      <button type="button" class="btn btn-ghost" onclick="document.getElementById('fm-dialog').close()">Abbrechen</button>
+      <button type="button" class="btn btn-primary" id="fmf-speichern">Speichern</button>
+    </div>`;
+  document.getElementById('fmf-speichern').addEventListener('click', formularSpeichern);
+  document.getElementById('fm-dialog').showModal();
+  document.getElementById('fmf-titel').focus();
+}
+
+async function formularSpeichern() {
+  const knopf = document.getElementById('fmf-speichern');
+  const fehler = document.getElementById('fmf-fehler');
+  const felder = {
+    titel: document.getElementById('fmf-titel').value.trim(),
+    beschreibung: document.getElementById('fmf-beschreibung').value.trim() || null,
+    programm_id: document.getElementById('fmf-programm').value || null,
+    faellig_am: document.getElementById('fmf-faellig').value || null,
+    status: document.getElementById('fmf-status').value,
+    zustaendig: document.getElementById('fmf-zustaendig').value.trim() || null
+  };
+  if (!felder.titel) {
+    fehler.textContent = 'Bitte einen Titel angeben.'; fehler.hidden = false; return;
+  }
+  fehler.hidden = true;
+  knopf.disabled = true; knopf.textContent = 'Speichert …';
+
+  // Anders als beim Häkchen wird hier nicht optimistisch geschrieben: das Formular
+  // bleibt stehen, bis der Server bestätigt hat — sonst müsste man die Eingaben
+  // im Fehlerfall rekonstruieren.
+  let ergebnis;
+  if (FORMULAR_ID) {
+    // programm_id gehört dem Sync und wird von foerderUpdateAufgabe ohnehin verworfen.
+    ergebnis = await LPR.foerderUpdateAufgabe(FORMULAR_ID, felder);
+    if (ergebnis) {
+      const a = AUFGABEN.find(x => x.id === FORMULAR_ID);
+      if (a) Object.assign(a, ergebnis);
+    }
+  } else {
+    ergebnis = await LPR.foerderCreateAufgabe(felder);
+    if (ergebnis) AUFGABEN.push(ergebnis);
+  }
+
+  knopf.disabled = false; knopf.textContent = 'Speichern';
+  if (!ergebnis) {
+    fehler.textContent = 'Konnte nicht gespeichert werden. Bitte erneut versuchen.';
+    fehler.hidden = false;
+    LPR.showToast('Konnte nicht gespeichert werden.', 'warn');
+    return;
+  }
+  document.getElementById('fm-dialog').close();
+  await namenNachladen([ergebnis.erledigt_von]);
+  zeichnen();
+  LPR.showToast(FORMULAR_ID ? 'Aufgabe gespeichert.' : 'Aufgabe angelegt.', 'ok');
+}
+
+/* ── Ereignisse: der Inhalt wird bei jedem zeichnen() neu gebaut, deshalb
+      hängen die Handler am Behälter statt an den Elementen. ────────────────── */
+
+document.getElementById('fm-inhalt').addEventListener('change', (e) => {
+  const haken = e.target.closest('.fm-haken');
+  if (!haken) return;
+  const li = haken.closest('.fm-aufgabe');
+  if (li) abhaken(li.dataset.id, haken.checked);
+});
+
+document.getElementById('fm-inhalt').addEventListener('click', (e) => {
+  const bearbeiten = e.target.closest('.fm-bearbeiten');
+  if (bearbeiten) {
+    const li = bearbeiten.closest('.fm-aufgabe');
+    if (li) formularOeffnen(li.dataset.id, null);
+    return;
+  }
+  const neu = e.target.closest('.fm-neu');
+  if (neu) { formularOeffnen(null, neu.dataset.programm || null); return; }
+});
 
 document.querySelectorAll('.fm-tabs button').forEach(b =>
   b.addEventListener('click', () => { location.hash = b.dataset.tab; }));

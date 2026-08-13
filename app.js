@@ -2851,6 +2851,72 @@
     } catch(e) { console.error('[LPR] foerderListNotizen failed:', e); return null; }
   }
 
+  // created_by setzt die Datenbank per default auth.uid() — der Client schickt es
+  // bewusst nicht mit, sonst koennte er bestimmen, wer etwas angelegt hat.
+  async function foerderCreateAufgabe(felder) {
+    try {
+      const { data, error } = await (await sb())
+        .from('foerder_aufgaben')
+        .insert({
+          programm_id: felder.programm_id || null,
+          titel: felder.titel,
+          beschreibung: felder.beschreibung || null,
+          status: felder.status || 'offen',
+          faellig_am: felder.faellig_am || null,
+          zustaendig: felder.zustaendig || null
+        })
+        .select()
+        .single();
+      if (error) { console.error('[LPR] foerderCreateAufgabe:', error); return null; }
+      return data;
+    } catch(e) { console.error('[LPR] foerderCreateAufgabe failed:', e); return null; }
+  }
+
+  // Nur die Felder, die im Portal geändert werden dürfen. repo_key, programm_id
+  // und die Zeitstempel sind bewusst nicht dabei — sie gehören dem Sync bzw. dem Trigger.
+  async function foerderUpdateAufgabe(id, felder) {
+    const erlaubt = {};
+    for (const k of ['titel','beschreibung','status','faellig_am','zustaendig']) {
+      if (k in felder) erlaubt[k] = felder[k];
+    }
+    try {
+      const { data, error } = await (await sb())
+        .from('foerder_aufgaben').update(erlaubt).eq('id', id).select().single();
+      if (error) { console.error('[LPR] foerderUpdateAufgabe:', error); return null; }
+      return data;
+    } catch(e) { console.error('[LPR] foerderUpdateAufgabe failed:', e); return null; }
+  }
+
+  async function foerderCreateNotiz(programmId, text) {
+    try {
+      const { data, error } = await (await sb())
+        .from('foerder_notizen')
+        .insert({ programm_id: programmId, text })
+        .select().single();
+      if (error) { console.error('[LPR] foerderCreateNotiz:', error); return null; }
+      return data;
+    } catch(e) { console.error('[LPR] foerderCreateNotiz failed:', e); return null; }
+  }
+
+  // Für die Anzeige von "erledigt von" — Board darf profiles lesen (wie admin-mitwirkende).
+  // Mit ids wird nur nach den tatsächlich gebrauchten Namen gefragt, statt die
+  // ganze Mitgliederliste zu holen; ohne ids bleibt das alte Verhalten.
+  async function foerderNamen(ids) {
+    try {
+      if (Array.isArray(ids)) {
+        const gesucht = [...new Set(ids.filter(Boolean))];
+        if (!gesucht.length) return {};
+        const { data, error } = await (await sb())
+          .from('profiles').select('id, full_name').in('id', gesucht);
+        if (error) { console.error('[LPR] foerderNamen:', error); return {}; }
+        return Object.fromEntries((data || []).map(p => [p.id, p.full_name || '—']));
+      }
+      const { data, error } = await (await sb()).from('profiles').select('id, full_name');
+      if (error) { console.error('[LPR] foerderNamen:', error); return {}; }
+      return Object.fromEntries((data || []).map(p => [p.id, p.full_name || '—']));
+    } catch(e) { console.error('[LPR] foerderNamen failed:', e); return {}; }
+  }
+
   global.LPR = {
     // Freibetrag § 3 Nr. 26 EStG (zentral, statt mehrfach hartkodiert)
     PAUSCHALE_LIMIT, PAUSCHALE_WARN,
@@ -2896,6 +2962,7 @@
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
     // Fördermittel-Cockpit
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,
+    foerderCreateAufgabe, foerderUpdateAufgabe, foerderCreateNotiz, foerderNamen,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

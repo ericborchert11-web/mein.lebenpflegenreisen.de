@@ -2809,6 +2809,48 @@
     }
   }
 
+  // ── Fördermittel-Cockpit ────────────────────────────────────────────────
+  // Alle drei Tabellen sind board-only per RLS. Ein Nicht-Board bekommt keine
+  // Fehlermeldung, sondern eine leere Liste — die Seite prüft deshalb zusätzlich
+  // die Rolle, damit der Unterschied zwischen "leer" und "kein Zugriff" sichtbar ist.
+  // Rückgabe: null = Fehler, [] = nichts vorhanden.
+
+  async function foerderListProgramme() {
+    try {
+      const { data, error } = await (await sb())
+        .from('foerder_programme')
+        .select('*')
+        .order('sortierung', { ascending: true })
+        .order('programm', { ascending: true });
+      if (error) { console.error('[LPR] foerderListProgramme:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] foerderListProgramme failed:', e); return null; }
+  }
+
+  async function foerderListAufgaben() {
+    try {
+      const { data, error } = await (await sb())
+        .from('foerder_aufgaben')
+        .select('*')
+        .order('faellig_am', { ascending: true, nullsFirst: false })
+        .order('sortierung', { ascending: true });
+      if (error) { console.error('[LPR] foerderListAufgaben:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] foerderListAufgaben failed:', e); return null; }
+  }
+
+  async function foerderListNotizen(programmId) {
+    try {
+      const { data, error } = await (await sb())
+        .from('foerder_notizen')
+        .select('*')
+        .eq('programm_id', programmId)
+        .order('created_at', { ascending: false });
+      if (error) { console.error('[LPR] foerderListNotizen:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] foerderListNotizen failed:', e); return null; }
+  }
+
   global.LPR = {
     // Freibetrag § 3 Nr. 26 EStG (zentral, statt mehrfach hartkodiert)
     PAUSCHALE_LIMIT, PAUSCHALE_WARN,
@@ -2852,6 +2894,8 @@
     confirmMyBooking,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
+    // Fördermittel-Cockpit
+    foerderListProgramme, foerderListAufgaben, foerderListNotizen,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

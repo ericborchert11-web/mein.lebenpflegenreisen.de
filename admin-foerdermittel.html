@@ -139,6 +139,90 @@
   display: inline-block;
 }
 
+/* Programme — Filterleiste */
+.fm-filter {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px;
+  padding: 14px 18px;
+}
+.fm-filter-feld { display: flex; flex-direction: column; gap: 4px; }
+.fm-filter-feld span { font-size: 12px; font-weight: 700; color: var(--muted); }
+.fm-filter-feld select {
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  padding: 7px 11px; border-radius: 8px;
+  border: 1.5px solid var(--border); background: #fff; color: var(--text);
+  cursor: pointer; max-width: 220px;
+}
+.fm-filter-zahl { margin-left: auto; font-size: 12.5px; color: var(--muted); padding-bottom: 8px; }
+
+/* Programme — Liste */
+.fm-progliste li { border-bottom: 1px solid #EFEDE8; }
+.fm-progliste li:last-child { border-bottom: none; }
+.fm-prog {
+  display: block; padding: 14px 18px; text-decoration: none; color: inherit;
+}
+.fm-prog:hover { background: #FAFAF7; }
+.fm-prog:focus-visible { outline: 3px solid var(--lime); outline-offset: -3px; }
+.fm-prog-kopf {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+.fm-prog-name {
+  font-size: 15px; font-weight: 700; color: var(--green-deep);
+  overflow-wrap: anywhere;
+}
+.fm-prog-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  margin-top: 8px; font-size: 13px; color: var(--text);
+}
+.fm-prog-frist { font-variant-numeric: tabular-nums; }
+.fm-chip {
+  display: inline-flex; padding: 2px 9px; border-radius: 6px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .04em;
+  background: #EDF2EE; color: #2C6B45;
+}
+
+/* Programm-Detail */
+.fm-detail { padding: 22px 24px 26px; }
+.fm-detail > header {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.fm-detail > header h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 21px; color: var(--green-deep);
+  margin: 0; letter-spacing: -.01em; overflow-wrap: anywhere;
+}
+.fm-detail-h {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 16px; color: var(--green-deep);
+  margin: 26px 0 8px;
+  padding-top: 16px; border-top: 1px solid var(--border);
+}
+.fm-meta {
+  display: grid; grid-template-columns: 160px 1fr; gap: 7px 16px;
+  margin: 0 0 14px; font-size: 14px;
+}
+.fm-meta dt { font-weight: 700; color: var(--muted); font-size: 12.5px; padding-top: 2px; }
+.fm-meta dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.fm-meta dd code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .88em; background: #F2F0EA; border-radius: 4px; padding: 1px 5px;
+}
+.fm-quelle-hinweis {
+  font-size: 12.5px; color: var(--muted); margin: 0 0 18px;
+  padding: 8px 12px; background: #FAFAF7; border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.fm-quellen { margin: 0; padding-left: 20px; font-size: 13.5px; }
+.fm-quellen li { margin-bottom: 5px; overflow-wrap: anywhere; }
+.fm-quellen a { color: var(--green-deep); }
+
+@media (max-width: 560px) {
+  .fm-meta { grid-template-columns: 1fr; gap: 2px; }
+  .fm-meta dd { margin-bottom: 9px; }
+  .fm-detail { padding: 18px 16px 22px; }
+  .fm-filter-zahl { margin-left: 0; }
+}
+
 /* Gerendertes Markdown */
 .fm-md { font-size: 14.5px; line-height: 1.65; color: var(--text); overflow-wrap: anywhere; }
 .fm-md h3, .fm-md h4, .fm-md h5 {
@@ -434,6 +518,144 @@ function markdown(text) {
   }
   schliessen();
   return aus.join('\n');
+}
+
+/* ── Programme ───────────────────────────────────────────────────────────── */
+
+// Filterzustand bewusst nur im Speicher: der Hash trägt die Auswahl eines
+// Programms, damit ein Link teilbar bleibt — die Filter sollen dabei nicht
+// mitwandern.
+const FILTER = { strang: '', status: '', prio: '' };
+
+function filterSetzen(feld, wert) { FILTER[feld] = wert; zeichnen(); }
+
+// #programme -> Liste, #programme/<slug> -> Detail
+function renderProgramme() {
+  const teile = (location.hash || '').slice(1).split('/');
+  const slug = teile.length > 1 ? decodeURIComponent(teile.slice(1).join('/')) : '';
+  return slug ? renderProgrammDetail(slug) : renderProgrammListe();
+}
+
+const PRIO_RANG = { hoch: 0, mittel: 1, niedrig: 2 };
+
+function werteVon(feld) {
+  const raus = new Set();
+  for (const p of PROGRAMME) {
+    const v = p[feld];
+    if (Array.isArray(v)) v.forEach(x => x && raus.add(String(x)));
+    else if (v) raus.add(String(v));
+  }
+  const liste = [...raus];
+  if (feld === 'prio') {
+    return liste.sort((a,b) =>
+      (PRIO_RANG[a] ?? 9) - (PRIO_RANG[b] ?? 9) || a.localeCompare(b, 'de'));
+  }
+  return liste.sort((a,b) => a.localeCompare(b, 'de'));
+}
+
+function auswahl(feld, beschriftung) {
+  const optionen = werteVon(feld).map(v =>
+    `<option value="${escapeHtml(v)}"${FILTER[feld] === v ? ' selected' : ''}>${escapeHtml(v)}</option>`).join('');
+  return `
+    <label class="fm-filter-feld">
+      <span>${escapeHtml(beschriftung)}</span>
+      <select onchange="filterSetzen('${feld}', this.value)">
+        <option value=""${FILTER[feld] ? '' : ' selected'}>alle</option>
+        ${optionen}
+      </select>
+    </label>`;
+}
+
+function passtZumFilter(p) {
+  if (FILTER.strang && !(p.straenge || []).includes(FILTER.strang)) return false;
+  if (FILTER.status && p.status !== FILTER.status) return false;
+  if (FILTER.prio   && p.prio   !== FILTER.prio)   return false;
+  return true;
+}
+
+function renderProgrammListe() {
+  const gefiltert = PROGRAMME.filter(passtZumFilter);
+
+  const leiste = `
+    <div class="fm-card fm-filter">
+      ${auswahl('straenge', 'Strang')}
+      ${auswahl('status', 'Status')}
+      ${auswahl('prio', 'Priorität')}
+      <div class="fm-filter-zahl">${gefiltert.length} von ${PROGRAMME.length}</div>
+    </div>`;
+
+  if (!PROGRAMME.length) {
+    return leiste + '<div class="fm-card"><div class="fm-empty">Noch keine Programme in der Wissensbasis.</div></div>';
+  }
+  if (!gefiltert.length) {
+    return leiste + '<div class="fm-card"><div class="fm-empty">Kein Programm passt zu diesen Filtern.</div></div>';
+  }
+
+  const karten = gefiltert.map(p => {
+    const offen = AUFGABEN.filter(x => x.programm_id === p.id && x.status !== 'erledigt' && x.status !== 'entfaellt');
+    const a = ampel(p.frist_datum, false);
+    const frist = p.frist_datum
+      ? `${new Date(p.frist_datum).toLocaleDateString('de-DE')}${p.frist_hart ? ' 🔒' : ''} <span class="fm-pill fm-${a.stufe}">${escapeHtml(a.text)}</span>`
+      : escapeHtml(p.frist_text || 'ohne festes Datum');
+    const chips = (p.straenge || []).map(s => `<span class="fm-chip">${escapeHtml(s)}</span>`).join('');
+    return `
+      <li>
+        <a class="fm-prog" href="#programme/${encodeURIComponent(p.slug)}">
+          <div class="fm-prog-kopf">
+            <span class="fm-prog-name">${escapeHtml(p.programm)}</span>
+            <span class="fm-pill">${escapeHtml(p.status)}</span>
+          </div>
+          ${p.traeger ? `<div class="fm-sub">${escapeHtml(p.traeger)}</div>` : ''}
+          <div class="fm-prog-meta">
+            ${chips}
+            <span class="fm-prog-frist">${frist}</span>
+            <span class="fm-sub">${offen.length} ${offen.length === 1 ? 'Aufgabe' : 'Aufgaben'} offen</span>
+          </div>
+        </a>
+      </li>`;
+  }).join('');
+
+  return leiste + `<section class="fm-card"><ul class="fm-liste fm-progliste">${karten}</ul></section>`;
+}
+
+function renderProgrammDetail(slug) {
+  const p = PROGRAMME.find(x => x.slug === slug);
+  if (!p) return '<div class="fm-card" style="padding:24px;">Programm nicht gefunden. <a href="#programme">Zur Liste</a></div>';
+
+  const offen = AUFGABEN.filter(a => a.programm_id === p.id && a.status !== 'erledigt' && a.status !== 'entfaellt');
+  const a = ampel(p.frist_datum, false);
+  const quellen = (p.quellen || []).map(q =>
+    `<li><a href="${escapeHtml(q)}" target="_blank" rel="noopener">${escapeHtml(q)}</a></li>`).join('');
+
+  return `
+    <a href="#programme" class="back-link">← Alle Programme</a>
+    <section class="fm-card fm-detail">
+      <header>
+        <h2>${escapeHtml(p.programm)}</h2>
+        <span class="fm-pill">${escapeHtml(p.status)}</span>
+      </header>
+      <dl class="fm-meta">
+        <dt>Träger</dt><dd>${escapeHtml(p.traeger || '—')}</dd>
+        <dt>Frist</dt><dd>${escapeHtml(p.frist_text || '—')}
+          ${p.frist_datum ? `<span class="fm-pill fm-${a.stufe}">${escapeHtml(a.text)}</span>` : ''}
+          ${p.frist_hart ? '<span title="harte Frist" aria-label="harte Frist">🔒</span>' : ''}</dd>
+        <dt>Quote</dt><dd>${escapeHtml(p.quote || '—')}</dd>
+        <dt>Fördersumme</dt><dd>${escapeHtml(p.summe_max || '—')}</dd>
+        <dt>Stränge</dt><dd>${(p.straenge || []).map(escapeHtml).join(', ') || '—'}</dd>
+        <dt>Priorität</dt><dd>${escapeHtml(p.prio || '—')}</dd>
+        <dt>Nächste Aktion</dt><dd>${escapeHtml(p.naechste_aktion || '—')}</dd>
+        <dt>Antragsentwurf</dt><dd>${p.entwurf_pfad
+          ? 'Entwurfspaket vorhanden in <code>' + escapeHtml(p.entwurf_pfad) + '</code> (Wissensbasis)'
+          : 'noch keiner'}</dd>
+      </dl>
+      <p class="fm-quelle-hinweis">Quelle: Wissensbasis · Stand
+        ${p.stand ? escapeHtml(new Date(p.stand).toLocaleDateString('de-DE')) : 'unbekannt'} ·
+        hier nicht änderbar</p>
+      <div class="fm-md">${markdown(p.inhalt_md)}</div>
+      ${quellen ? `<h3 class="fm-detail-h">Quellen</h3><ul class="fm-quellen">${quellen}</ul>` : ''}
+      <h3 class="fm-detail-h">Aufgaben (${offen.length} offen)</h3>
+      <div id="fm-detail-aufgaben" class="fm-sub">Kommt in der nächsten Etappe.</div>
+    </section>`;
 }
 
 document.querySelectorAll('.fm-tabs button').forEach(b =>

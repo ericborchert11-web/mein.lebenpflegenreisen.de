@@ -23,6 +23,7 @@ Eine vollständig clientseitige Prototyp-Anwendung. Alle Daten werden im `localS
 | `profil.html` | Persönliche Daten, Passwort, Konto löschen |
 | `abrechnung.html` | Aufwandsentschädigung anfordern |
 | `admin-mitwirkende.html` | Admin: Mitwirkende + Präferenzen verwalten |
+| `admin-foerdermittel.html` | Admin: Fristen, Programme und Aufgaben der Fördermittelakquise |
 | `sitzwachen.html` / `kliniken.html` | Klinik-Bereich (Verfügbarkeiten, Buchungen) |
 | `barrierefreiheit.html` | A11y-Hinweise |
 | `app.js` / `layout.js` / `shared.css` | Kern-Assets |

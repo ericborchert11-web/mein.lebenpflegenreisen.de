@@ -150,6 +150,54 @@
 
 LPR_Layout.init({ page: 'foerdermittel' });
 if (!LPR.requireRole('admin', 'login.html')) throw new Error('kein Zugriff');
+
+let PROGRAMME = [], AUFGABEN = [];
+
+// LPR_Layout.escapeHtml maskiert nur & < >. Für Inhalt, der in Attributwerten
+// landet (Links im Markdown-Renderer), reicht das nicht — deshalb hier zusätzlich
+// Anführungszeichen. Im gerenderten Text bleibt das unsichtbar.
+function escapeHtml(s) {
+  return LPR_Layout.escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+const TABS = ['fristen', 'programme', 'aufgaben', 'straenge'];
+
+async function laden() {
+  const [p, a] = await Promise.all([LPR.foerderListProgramme(), LPR.foerderListAufgaben()]);
+  if (p === null || a === null) {
+    document.getElementById('fm-inhalt').innerHTML =
+      '<div class="fm-card" style="padding:24px;">Die Daten konnten nicht geladen werden. ' +
+      'Bitte neu anmelden; bleibt es dabei, steht der Fehler in der Browserkonsole.</div>';
+    return false;
+  }
+  PROGRAMME = p; AUFGABEN = a;
+  const juengster = PROGRAMME.map(x => x.stand).filter(Boolean).sort().at(-1);
+  document.getElementById('fm-stand').textContent =
+    juengster ? 'Wissensbasis · Stand ' + new Date(juengster).toLocaleDateString('de-DE') : '';
+  return true;
+}
+
+function aktuellerTab() {
+  const t = (location.hash || '#fristen').slice(1).split('/')[0];
+  return TABS.includes(t) ? t : 'fristen';
+}
+
+function zeichnen() {
+  const tab = aktuellerTab();
+  document.querySelectorAll('.fm-tabs button').forEach(b =>
+    b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
+  const ziel = document.getElementById('fm-inhalt');
+  if (tab === 'fristen')   ziel.innerHTML = renderFristen();
+  if (tab === 'programme') ziel.innerHTML = renderProgramme();
+  if (tab === 'aufgaben')  ziel.innerHTML = '<div class="fm-card" style="padding:24px;">Kommt in der nächsten Etappe.</div>';
+  if (tab === 'straenge')  ziel.innerHTML = '<div class="fm-card" style="padding:24px;">Kommt in der nächsten Etappe.</div>';
+}
+
+document.querySelectorAll('.fm-tabs button').forEach(b =>
+  b.addEventListener('click', () => { location.hash = b.dataset.tab; }));
+window.addEventListener('hashchange', zeichnen);
+
+laden().then(ok => { if (ok) zeichnen(); });
 </script>
 </body>
 </html>

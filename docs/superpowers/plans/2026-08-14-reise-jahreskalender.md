@@ -194,7 +194,8 @@ git commit -m "feat(app): Besetzungsregel als geteilte Funktionen in app.js"
 Die Seite behält ihre kurzen lokalen Namen, damit die rund fünfzehn Aufrufstellen unverändert bleiben. Aus den Definitionen werden dünne Weiterleitungen. Bewusst `function`-Deklarationen und keine `const`-Zuweisungen: Funktionsdeklarationen werden hochgezogen, damit kann keine Aufrufstelle in eine temporale Todeszone laufen.
 
 **Files:**
-- Modify: `admin-reisen.html:643-669`
+- Modify: `admin-reisen.html:643-669` (die fünf Basisfunktionen und die Beschriftungshelfer)
+- Modify: `admin-reisen.html:758-771` (`dayGaps` und `coverageSummary` — sie stehen **nicht** im ersten Block, sondern weiter unten vor `renderDayCoverage`)
 
 - [ ] **Schritt 1: Vorzustand festhalten**
 
@@ -229,6 +230,37 @@ function dayWithHalf(s, day) { return fmtDay(day) + halfSuffix(effectiveHalf(s, 
 ```
 
 `HALF_SHORT`, `HALF_LONG`, `halfSuffix` und `dayWithHalf` bleiben lokal: das sind Beschriftungen dieser Oberfläche, keine Fachregel.
+
+- [ ] **Schritt 2b: Den zweiten Block ersetzen**
+
+`dayGaps` und `coverageSummary` stehen nicht im Block von Schritt 2, sondern weiter unten direkt vor `renderDayCoverage` (aktuell Zeilen 758–771). Ersetze dort
+
+```js
+// Ein Tag gilt erst als besetzt, wenn Vormittag UND Nachmittag jemanden haben.
+function dayGaps(signups, trip, day) {
+  const allDays = enumTripDays(trip.start_date, trip.end_date);
+  const onDay = s => effectiveDays(s, allDays).indexOf(day) !== -1;
+  const conf = signups.filter(s => s.status === 'confirmed' && onDay(s));
+  const gaps = ['am', 'pm'].filter(h => !conf.some(s => coversHalf(s, day, h)));
+  return gaps;
+}
+function coverageSummary(signups, trip) {
+  const allDays = enumTripDays(trip.start_date, trip.end_date);
+  let uncovered = 0;
+  allDays.forEach(day => { if (dayGaps(signups, trip, day).length) uncovered++; });
+  return { total: allDays.length, uncovered };
+}
+```
+
+ersatzlos durch **nichts** — die beiden Weiterleitungen stehen bereits im Block aus Schritt 2. Lass keine leere Kommentarzeile zurück; die Erklärung der Regel steht jetzt in `app.js`.
+
+Prüfe danach mit
+
+```bash
+grep -n "function dayGaps\|function coverageSummary\|function enumTripDays\|function effectiveDays\|function coversHalf\|function effectiveHalf\|function fmtDay" admin-reisen.html
+```
+
+Erwartet: **genau sieben** Treffer, alle im Block aus Schritt 2, jeder davon eine einzeilige Weiterleitung auf `LPR.*`. Findet sich ein Treffer ausserhalb, ist noch eine Doppelung übrig.
 
 - [ ] **Schritt 3: Browser-Check — nichts hat sich verändert**
 

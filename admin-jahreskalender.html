@@ -15,7 +15,10 @@
 <link rel="stylesheet" href="shared.css">
 <style>
 :root {
-  --jk-gruen:#2E7D32; --jk-gelb:#B36A00; --jk-rot:#C62828; --jk-grau:#767676;
+  /* Alle vier tragen weisse Schrift bei 12px/600 und muessen deshalb
+     mindestens 4.5:1 gegen Weiss erreichen (WCAG AA, kein grosser Text).
+     Gemessen: gruen 5.13, gelb 5.37, rot 5.62, grau 4.54. */
+  --jk-gruen:#2E7D32; --jk-gelb:#9C5B00; --jk-rot:#C62828; --jk-grau:#767676;
   /* Entwurf und Abgesagt sind keine Ampelstufen, brauchen aber eine Textfarbe,
      weil schmale Balken ihre Beschriftung neben den Balken schreiben. */
   --jk-entwurf: var(--text); --jk-abgesagt: var(--muted);
@@ -79,6 +82,7 @@ body.contrast {
 .jk-zeile { display:flex; align-items:stretch; gap:8px; margin-bottom:5px; }
 .jk-monat { width:38px; flex:none; font-size:13px; font-weight:700;
   color: var(--green-deep); line-height:30px; }
+/* Hoehe setzt das Skript je Monat, abhaengig von der Zahl der Spuren. */
 .jk-spur {
   position:relative; flex:1; height:30px; border-radius:5px; min-width:520px;
   background: repeating-linear-gradient(90deg,
@@ -90,8 +94,10 @@ body.contrast {
 .jk-tot { position:absolute; top:0; bottom:0; right:0; border-radius:0 5px 5px 0;
   background: repeating-linear-gradient(45deg, var(--jk-tot) 0 3px, transparent 3px 6px); }
 
+/* top und height setzt das Skript, weil ein Balken je nach Ueberlappung in
+   einer tieferen Spur der Monatszeile sitzen kann. */
 .jk-balken {
-  position:absolute; top:3px; bottom:3px; border-radius:5px;
+  position:absolute; border-radius:5px;
   display:flex; align-items:center; gap:6px; padding:0 7px;
   font-size:12px; font-weight:600; white-space:nowrap; cursor:pointer;
   border:0; color:#fff; text-align:left; overflow:visible;
@@ -115,6 +121,8 @@ body.contrast {
 /* Zu schmal fuer eine Beschriftung: der Titel steht dann rechts daneben. */
 .jk-aussen { position:absolute; left:calc(100% + 9px); color: var(--text);
   font-weight:600; text-decoration:none; }
+/* Nah am rechten Rand liefe der Titel aus der Spur — dann nach links. */
+.jk-aussen.nach-links { left:auto; right:calc(100% + 9px); text-align:right; }
 .jk-aussen .jk-aussen-ampel { font-weight:600; }
 .jk-kante { opacity:.75; flex:none; }
 
@@ -186,7 +194,13 @@ body.contrast {
 LPR_Layout.init({ page: 'jahreskalender' });
 if (!LPR.requireRole('admin', 'login.html?next=admin-jahreskalender.html')) throw new Error('kein Zugriff');
 
-function escapeHtml(s) { return LPR_Layout.escapeHtml(s); }
+// LPR_Layout.escapeHtml maskiert nur & < >. Hier landen Reisetitel und Namen
+// auch in Attributwerten (title, data-reise, aria-label) — ein gerades
+// Anfuehrungszeichen im Titel wuerde das Attribut sonst vorzeitig schliessen.
+// Gleiche Ergaenzung wie in admin-foerdermittel.html.
+function escapeHtml(s) {
+  return LPR_Layout.escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 // ══════ Zustand ══════
 
@@ -394,6 +408,8 @@ function hinweisZeile() {
 
 // Platzhalter — Task 6 und 7 fuellen die restlichen zwei.
 const MONAT_KURZ = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const BALKEN_HOEHE  = 24;   // Pixel je Balken
+const BALKEN_ABSTAND = 2;   // Luft zwischen zwei Spuren derselben Monatszeile
 
 function reiseAnsichtHtml() {
   const sichtbar = sichtbareReisen();
@@ -414,35 +430,76 @@ function reiseAnsichtHtml() {
       out += '<div class="jk-tot" style="left:' + (anzahl / 31 * 100).toFixed(2) + '%"></div>';
     }
 
-    sichtbar.filter(t => beruehrtMonat(t, JAHR, m)).forEach(t => {
+    // Ueberlappende Reisen bekommen eigene Spuren, sonst verdeckt der zuletzt
+    // gezeichnete Balken den davor — eine rot unterbesetzte Reise koennte
+    // unsichtbar hinter einer gruenen liegen, und genau das soll die Seite ja
+    // zeigen. Die Zeile waechst dafuer in der Hoehe.
+    const balken = sichtbar.filter(t => beruehrtMonat(t, JAHR, m)).map(t => {
       const ende = t.end_date || t.start_date;
       const linksAb  = t.start_date < erster;
       const rechtsAb = ende > letzter;
-      const vonTag = linksAb  ? 1      : Number(t.start_date.slice(8,10));
-      const bisTag = rechtsAb ? anzahl : Number(ende.slice(8,10));
-      const links  = (vonTag - 1) / 31 * 100;
-      const breite = (bisTag - vonTag + 1) / 31 * 100;
+      return {
+        t: t, ende: ende, linksAb: linksAb, rechtsAb: rechtsAb,
+        vonTag: linksAb  ? 1      : Number(t.start_date.slice(8,10)),
+        bisTag: rechtsAb ? anzahl : Number(ende.slice(8,10))
+      };
+    }).sort((a, b) => a.vonTag - b.vonTag || a.bisTag - b.bisTag);
+
+    const spurEnde = [];   // je Spur der letzte belegte Tag
+    balken.forEach(b => {
+      let spur = spurEnde.findIndex(letzterTag => letzterTag < b.vonTag);
+      if (spur === -1) spur = spurEnde.length;
+      spurEnde[spur] = b.bisTag;
+      b.spur = spur;
+    });
+
+    const spuren = Math.max(1, spurEnde.length);
+    const hoehe  = 6 + spuren * BALKEN_HOEHE + (spuren - 1) * BALKEN_ABSTAND;
+
+    out += '<div class="jk-zeile"><div class="jk-monat">' + MONAT_KURZ[m-1] + '</div>'
+      + '<div class="jk-spur" style="height:' + hoehe + 'px">';
+    if (anzahl < 31) {
+      out += '<div class="jk-tot" style="left:' + (anzahl / 31 * 100).toFixed(2) + '%"></div>';
+    }
+
+    balken.forEach(b => {
+      const t = b.t;
+      const links  = (b.vonTag - 1) / 31 * 100;
+      const breite = (b.bisTag - b.vonTag + 1) / 31 * 100;
+      const oben   = 3 + b.spur * (BALKEN_HOEHE + BALKEN_ABSTAND);
       const a = ampel(t);
-      const eck = (linksAb ? '0 ' : '5px ') + (rechtsAb ? '0 0 ' : '5px 5px ') + (linksAb ? '0' : '5px');
+      const eck = (b.linksAb ? '0 ' : '5px ') + (b.rechtsAb ? '0 0 ' : '5px 5px ') + (b.linksAb ? '0' : '5px');
+
+      // Der zugaengliche Name steht als aria-label am Knopf: bei schmalen
+      // Balken liegt der sichtbare Text ausserhalb, und die Kantenpfeile sind
+      // fuer Screenreader ausgeblendet.
+      const marke = escapeHtml(t.title + ' · ' + LPR.formatTripDay(t.start_date) + ' bis ' + LPR.formatTripDay(b.ende)
+        + (a.text ? ' · ' + a.text : '')
+        + (b.linksAb ? ' · beginnt im Vormonat' : '')
+        + (b.rechtsAb ? ' · geht in den Folgemonat weiter' : ''));
 
       out += '<button type="button" class="jk-balken ' + a.klasse + '"'
         + ' data-reise="' + escapeHtml(t.id) + '"'
-        + ' style="left:' + links.toFixed(2) + '%;width:' + breite.toFixed(2) + '%;border-radius:' + eck + '"'
-        + ' title="' + escapeHtml(t.title + ' · ' + t.start_date + ' bis ' + ende + (a.text ? ' · ' + a.text : '')) + '">';
+        + ' style="left:' + links.toFixed(2) + '%;width:' + breite.toFixed(2) + '%;top:' + oben + 'px;'
+        + 'height:' + BALKEN_HOEHE + 'px;border-radius:' + eck + '"'
+        + ' aria-label="' + marke + '" title="' + marke + '">';
 
-      if (linksAb) out += '<span class="jk-kante" aria-hidden="true">◀</span>';
+      if (b.linksAb) out += '<span class="jk-kante" aria-hidden="true">◀</span>';
 
       // Unter rund 30 % Zeilenbreite passt kein Titel mehr in den Balken.
       if (breite >= 30) {
-        out += '<span class="jk-balken-titel">' + escapeHtml(t.title) + '</span>';
-        if (a.text) out += '<span class="jk-chip">' + escapeHtml(a.text) + '</span>';
+        out += '<span class="jk-balken-titel" aria-hidden="true">' + escapeHtml(t.title) + '</span>';
+        if (a.text) out += '<span class="jk-chip" aria-hidden="true">' + escapeHtml(a.text) + '</span>';
       } else {
-        out += '<span class="jk-aussen">' + escapeHtml(t.title)
+        // Nah am rechten Rand wuerde der Titel aus der Spur laufen — dann links.
+        const nachLinks = links + breite > 72;
+        out += '<span class="jk-aussen' + (nachLinks ? ' nach-links' : '') + '" aria-hidden="true">'
+          + escapeHtml(t.title)
           + (a.text ? ' <span class="jk-aussen-ampel" style="color:var(--' + a.klasse + ')">· ' + escapeHtml(a.text) + '</span>' : '')
           + '</span>';
       }
 
-      if (rechtsAb) out += '<span class="jk-kante" style="margin-left:auto" aria-hidden="true">▶</span>';
+      if (b.rechtsAb) out += '<span class="jk-kante" style="margin-left:auto" aria-hidden="true">▶</span>';
       out += '</button>';
     });
 

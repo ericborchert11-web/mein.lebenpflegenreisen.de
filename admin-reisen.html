@@ -395,6 +395,12 @@ main {
   .trip-actions { flex-direction: row; flex-wrap: wrap; }
   .form-row.cols-2 { grid-template-columns: 1fr; }
 }
+
+/* Ziel eines Sprungs aus dem Jahreskalender — blitzt kurz auf. */
+.trip-card.trip-ziel { outline: 3px solid var(--lime); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  .trip-card.trip-ziel { transition: outline-color .3s ease; }
+}
 </style>
 </head>
 <body>
@@ -586,7 +592,13 @@ async function loadTrips() {
     _allVolunteers = (vres && vres.ok) ? (vres.members || []) : [];
     await loadPauschaleData();
     document.getElementById('loading-state').hidden = true;
+    // Ein Anker kann auf einen Entwurf oder eine abgeschlossene Reise zeigen.
+    // Der Standardfilter "Offen" wuerde sie ausblenden, also oeffnen wir ihn.
+    if (/^#trip-/.test(location.hash || '')) {
+      document.getElementById('status-filter').value = 'all';
+    }
     render();
+    oeffneAusAnker();
   } catch(e) {
     console.error('[admin-reisen] loadTrips:', e);
     document.getElementById('loading-state').innerHTML = '<p style="color:var(--warn)">Fehler beim Laden: ' + escapeHtml(e.message) + '</p>';
@@ -618,7 +630,7 @@ function render() {
     const cov = coverageSummary(signups, t);
     const covPill = cov.total >= 1 ? (cov.uncovered > 0 ? `<span class="cov-pill warn">\u26A0 ${cov.uncovered} Tag(e) nicht vollst\u00E4ndig besetzt</span>` : '<span class="cov-pill ok">\u2713 alle Tage vollst\u00E4ndig besetzt</span>') : '';
     return `
-    <article class="trip-card">
+    <article class="trip-card" id="trip-${t.id}">
       <div class="trip-info">
         <span class="trip-state state-${escapeHtml(t.status)}">${stateLabel(t.status)}</span>
         <div class="trip-title">${escapeHtml(t.title)}</div>
@@ -929,6 +941,23 @@ function toggleSignups(tripId, btn) {
     panel.setAttribute('hidden', '');
     if (btn) btn.textContent = 'Anmeldungen';
   }
+}
+
+// Sprungziel aus dem Jahreskalender: admin-reisen.html#trip-<id>.
+// Wird nach jedem render() aufgerufen; ohne passenden Anker passiert nichts.
+function oeffneAusAnker() {
+  const treffer = /^#trip-(.+)$/.exec(location.hash || '');
+  if (!treffer) return;
+  const id = treffer[1];
+  const karte = document.getElementById('trip-' + id);
+  if (!karte) return;
+  const panel = document.getElementById('signups-' + id);
+  if (panel && panel.hasAttribute('hidden')) {
+    toggleSignups(id, karte.querySelector('.trip-actions .btn-ghost'));
+  }
+  karte.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  karte.classList.add('trip-ziel');
+  setTimeout(() => karte.classList.remove('trip-ziel'), 2500);
 }
 
 function stateLabel(s) {

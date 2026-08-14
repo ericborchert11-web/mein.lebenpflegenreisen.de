@@ -391,7 +391,8 @@ function ampel(t) {
   const c = ABDECKUNG[t.id] || { total: 0, uncovered: 0 };
   if (!c.total)         return { klasse: 'jk-grau', text: 'keine Tagesdaten' };
   if (!c.uncovered)     return { klasse: 'jk-gruen', text: 'alle Tage besetzt' };
-  const text = c.uncovered + ' von ' + c.total + ' Tagen offen';
+  // Einzahl wie im Detail-Panel und in admin-reisen.html: "1 von 1 Tag offen".
+  const text = c.uncovered + ' von ' + c.total + ' ' + (c.total === 1 ? 'Tag' : 'Tagen') + ' offen';
   return { klasse: c.uncovered * 2 <= c.total ? 'jk-gelb' : 'jk-rot', text: text };
 }
 
@@ -448,11 +449,6 @@ function reiseAnsichtHtml() {
     const anzahl = tageImMonat(JAHR, m);
     const erster  = iso(JAHR, m, 1);
     const letzter = iso(JAHR, m, anzahl);
-
-    out += '<div class="jk-zeile"><div class="jk-monat">' + MONAT_KURZ[m-1] + '</div><div class="jk-spur">';
-    if (anzahl < 31) {
-      out += '<div class="jk-tot" style="left:' + (anzahl / 31 * 100).toFixed(2) + '%"></div>';
-    }
 
     // Ueberlappende Reisen bekommen eigene Spuren, sonst verdeckt der zuletzt
     // gezeichnete Balken den davor — eine rot unterbesetzte Reise koennte

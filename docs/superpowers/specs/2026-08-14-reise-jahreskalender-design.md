@@ -193,7 +193,7 @@ Zeilen wegfiltern. Deshalb:
 | `listVolunteersAdmin` schlägt fehl | Reise-Ansicht bleibt nutzbar, der Umschalter „Nach Person" ist deaktiviert mit Hinweis |
 | `adminListBookings` schlägt fehl | Personen-Ansicht zeigt Reisen, oben der Hinweis „Sitzwachen konnten nicht geladen werden" |
 | Jahr ohne Reisen | Leerzustand mit Link „Reise anlegen" nach `admin-reisen.html` |
-| Reise mit `end_date < start_date` in den Daten | Balken wird übersprungen, Reise erscheint stattdessen in einer Hinweiszeile unter dem Kalender |
+| Reise mit `end_date < start_date` in den Daten | Balken wird übersprungen, Reise erscheint stattdessen in einer Hinweiszeile über dem Kalender — unten hätte man sie erst nach dem Scrollen gesehen |
 
 ## Verifikation
 

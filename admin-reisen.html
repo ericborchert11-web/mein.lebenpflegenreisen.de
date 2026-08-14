@@ -941,7 +941,8 @@ function toggleSignups(tripId, btn) {
 }
 
 // Sprungziel aus dem Jahreskalender: admin-reisen.html#trip-<id>.
-// Wird nach jedem render() aufgerufen; ohne passenden Anker passiert nichts.
+// Laeuft einmal am Ende von loadTrips(), nicht bei jedem render() — der Anker
+// zaehlt nur beim Seitenaufruf. Ohne passenden Anker passiert nichts.
 function oeffneAusAnker() {
   const treffer = /^#trip-(.+)$/.exec(location.hash || '');
   if (!treffer) return;

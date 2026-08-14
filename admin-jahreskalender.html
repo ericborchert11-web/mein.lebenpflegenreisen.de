@@ -49,7 +49,7 @@ body.contrast {
   padding:7px 16px; font-size:14px; font-weight:600; cursor:pointer;
 }
 .jk-umschalter button[aria-pressed="true"] { background: var(--lime); color: var(--green-deep); }
-.jk-umschalter button:disabled { opacity:.45; cursor:not-allowed; }
+.jk-umschalter button[aria-disabled="true"] { opacity:.45; cursor:not-allowed; }
 
 .jk-filter { display:flex; gap:6px; flex-wrap:wrap; }
 .jk-filter button {
@@ -199,6 +199,7 @@ let ABDECKUNG = {};                    // trip_id -> { total, uncovered }
 let MITGLIEDER = [];                   // aus listVolunteersAdmin
 let SITZWACHEN = null;                 // null = noch nicht geladen
 let SITZWACHEN_FEHLER = null;
+let SITZWACHEN_LAEUFT = null;          // laufender Ladevorgang, gegen Doppelanfragen
 let PERSONEN_AUS = false;              // true, wenn die Personen-Ansicht nicht geht
 let PANEL_ID = null;                   // offene Reise im Detail-Panel
 let UNPLAUSIBEL = [];                  // Reisen mit Ende vor Start
@@ -268,6 +269,9 @@ async function laden() {
 
   SITZWACHEN = null;
   SITZWACHEN_FEHLER = null;
+  SITZWACHEN_LAEUFT = null;
+  // laden() besitzt den Zustand selbst, statt sich auf die Aufrufer zu verlassen.
+  PANEL_ID = null;
 
   meldung('');
   document.getElementById('jk-kopf').hidden = false;
@@ -275,12 +279,23 @@ async function laden() {
   zeichne();
 }
 
+// Laeuft nur einmal je Jahr. SITZWACHEN_LAEUFT haelt den laufenden Aufruf fest,
+// damit zwei schnelle Klicks auf "Nach Person" nicht zwei Anfragen ausloesen.
+// Das mitgefuehrte Jahr verwirft eine Antwort, die erst nach einem
+// Jahreswechsel eintrifft — sonst landen die Sitzwachen des alten Jahres
+// neben den Reisen des neuen.
 async function ladeSitzwachen() {
   if (SITZWACHEN !== null || SITZWACHEN_FEHLER) return;
-  const res = await LPR.adminListBookings(iso(JAHR,1,1), iso(JAHR,12,31));
-  if (!res.ok) { SITZWACHEN_FEHLER = res.error || 'unbekannter Fehler'; SITZWACHEN = []; return; }
-  // Abgesagte Buchungen sind keine Verplanung.
-  SITZWACHEN = (res.bookings || []).filter(b => !b.cancelled_at && b.status !== 'cancelled');
+  if (SITZWACHEN_LAEUFT) return SITZWACHEN_LAEUFT;
+  const angefragtesJahr = JAHR;
+  SITZWACHEN_LAEUFT = (async () => {
+    const res = await LPR.adminListBookings(iso(angefragtesJahr,1,1), iso(angefragtesJahr,12,31));
+    if (angefragtesJahr !== JAHR) return;
+    if (!res.ok) { SITZWACHEN_FEHLER = res.error || 'unbekannter Fehler'; SITZWACHEN = []; return; }
+    // Abgesagte Buchungen sind keine Verplanung.
+    SITZWACHEN = (res.bookings || []).filter(b => !b.cancelled_at && b.status !== 'cancelled');
+  })();
+  try { await SITZWACHEN_LAEUFT; } finally { SITZWACHEN_LAEUFT = null; }
 }
 
 function meldung(html) { document.getElementById('jk-meldung').innerHTML = html; }
@@ -318,7 +333,9 @@ function zeichneKopf() {
   document.getElementById('jk-ansicht-reise').setAttribute('aria-pressed', ANSICHT === 'reise' ? 'true' : 'false');
   const pBtn = document.getElementById('jk-ansicht-person');
   pBtn.setAttribute('aria-pressed', ANSICHT === 'person' ? 'true' : 'false');
-  pBtn.disabled = PERSONEN_AUS;
+  // aria-disabled statt disabled: der Knopf bleibt mit der Tastatur erreichbar,
+  // sonst kaeme man an die Begruendung ohne Maus gar nicht heran.
+  pBtn.setAttribute('aria-disabled', PERSONEN_AUS ? 'true' : 'false');
   pBtn.title = PERSONEN_AUS ? 'Die Mitgliederliste konnte nicht geladen werden.' : '';
 }
 
@@ -333,7 +350,7 @@ function ampel(t) {
   if (t.status === 'draft')     return { klasse: 'jk-entwurf', text: 'Entwurf' };
   if (t.status === 'cancelled') return { klasse: 'jk-abgesagt', text: 'Abgesagt' };
   const c = ABDECKUNG[t.id] || { total: 0, uncovered: 0 };
-  if (!c.total)         return { klasse: 'jk-grau', text: '' };
+  if (!c.total)         return { klasse: 'jk-grau', text: 'keine Tagesdaten' };
   if (!c.uncovered)     return { klasse: 'jk-gruen', text: 'alle Tage besetzt' };
   const text = c.uncovered + ' von ' + c.total + ' Tagen offen';
   return { klasse: c.uncovered * 2 <= c.total ? 'jk-gelb' : 'jk-rot', text: text };
@@ -460,8 +477,10 @@ function zeichnePanel() {
     marken.push('<span class="jk-marke">Tagessatz: ' + Number(t.rate_override_per_day).toFixed(2) + ' €</span>');
 
   const kopf = c.uncovered
-    ? '<div class="jk-abdeckung offen">⚠ ' + c.uncovered + ' von ' + c.total + ' Tagen nicht vollständig besetzt</div>'
-    : '<div class="jk-abdeckung voll">✓ Alle ' + c.total + ' Tage sind vollständig besetzt</div>';
+    // Wortlaut absichtlich zeichengleich mit renderDayCoverage in admin-reisen.html,
+    // Einzahl eingeschlossen — der Vorstand vergleicht beide Seiten nebeneinander.
+    ? '<div class="jk-abdeckung offen">⚠ ' + c.uncovered + ' von ' + c.total + ' ' + (c.total === 1 ? 'Tag' : 'Tagen') + ' nicht vollständig besetzt</div>'
+    : '<div class="jk-abdeckung voll">✓ ' + (c.total === 1 ? 'Der Reisetag ist' : 'Alle ' + c.total + ' Tage sind') + ' vollständig besetzt</div>';
 
   const HALB_LANG = { am: 'Vormittag', pm: 'Nachmittag' };
   const HALB_KURZ = { am: 'Vm', pm: 'Nm' };
@@ -503,7 +522,10 @@ function zeichnePanel() {
 document.getElementById('jk-jahr-zurueck').addEventListener('click', () => { JAHR--; PANEL_ID = null; laden(); });
 document.getElementById('jk-jahr-vor').addEventListener('click',    () => { JAHR++; PANEL_ID = null; laden(); });
 document.getElementById('jk-ansicht-reise').addEventListener('click',  () => { ANSICHT = 'reise';  zeichne(); });
-document.getElementById('jk-ansicht-person').addEventListener('click', () => { ANSICHT = 'person'; zeichne(); });
+document.getElementById('jk-ansicht-person').addEventListener('click', () => {
+  if (PERSONEN_AUS) return;   // aria-disabled sperrt den Klick nicht, das machen wir hier
+  ANSICHT = 'person'; zeichne();
+});
 
 laden();
 </script>

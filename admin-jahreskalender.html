@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Jahreskalender · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+:root {
+  --jk-gruen:#2E7D32; --jk-gelb:#B36A00; --jk-rot:#C62828; --jk-grau:#767676;
+  /* Entwurf und Abgesagt sind keine Ampelstufen, brauchen aber eine Textfarbe,
+     weil schmale Balken ihre Beschriftung neben den Balken schreiben. */
+  --jk-entwurf: var(--text); --jk-abgesagt: var(--muted);
+  --jk-raster:#EFEFEF; --jk-raster-linie:#E0E0E0; --jk-tot:#DADADA;
+}
+/* Im Kontrastmodus zaehlt nicht die Nuance, sondern der Abstand zum Weiss.
+   Die Ampel traegt ohnehin immer zusaetzlich Text. */
+body.contrast {
+  --jk-gruen:#006400; --jk-gelb:#7A4A00; --jk-rot:#B32400; --jk-grau:#333;
+  --jk-raster:#FFF; --jk-raster-linie:#000; --jk-tot:#BBB;
+}
+
+.jk-wrap { max-width: 1180px; margin: 28px auto 60px; padding: 0 20px; }
+
+.jk-kopf {
+  background:#fff; border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px 20px; margin-bottom: 16px;
+  display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+}
+.jk-jahr { display:flex; align-items:center; gap:10px; }
+.jk-jahr strong { font-size:22px; color: var(--green-deep); min-width:4ch; text-align:center; }
+.jk-jahr button {
+  border:1px solid var(--border); background:#fff; color:var(--green-deep);
+  border-radius:8px; padding:4px 12px; font-size:18px; cursor:pointer; line-height:1.2;
+}
+.jk-jahr button:hover { background: var(--sand); }
+
+.jk-umschalter { display:flex; border:1px solid var(--border); border-radius:20px; overflow:hidden; }
+.jk-umschalter button {
+  border:0; background:#fff; color: var(--muted);
+  padding:7px 16px; font-size:14px; font-weight:600; cursor:pointer;
+}
+.jk-umschalter button[aria-pressed="true"] { background: var(--lime); color: var(--green-deep); }
+.jk-umschalter button:disabled { opacity:.45; cursor:not-allowed; }
+
+.jk-filter { display:flex; gap:6px; flex-wrap:wrap; }
+.jk-filter button {
+  border:1px solid var(--border); background:#fff; color: var(--muted);
+  border-radius:14px; padding:5px 12px; font-size:13px; cursor:pointer;
+}
+.jk-filter button[aria-pressed="true"] { background: var(--green-deep); border-color: var(--green-deep); color:#fff; }
+.jk-kennzahl { margin-left:auto; font-size:14px; color: var(--muted); }
+.jk-kennzahl .kritisch { color: var(--jk-rot); font-weight:700; }
+
+.jk-buehne { display:flex; align-items:flex-start; gap:0; background:#fff;
+  border-radius: var(--radius); box-shadow: var(--shadow); overflow:hidden; }
+.jk-flaeche { flex:1; min-width:0; padding:14px 18px; overflow-x:auto; }
+
+.jk-hinweis { background:#FFF7E8; border:1px solid #E8D9B0; color:#6B4E00;
+  border-radius: var(--radius-sm); padding:10px 14px; margin-bottom:12px; font-size:14px; }
+.jk-fehler { background:#FCEDEA; border:1px solid #E8BCB0; color:#8A2B12;
+  border-radius: var(--radius); padding:20px 24px; font-size:15px; }
+.jk-leer { text-align:center; padding:48px 24px; color: var(--muted); }
+.jk-leer .jk-leer-icon { font-size:44px; margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<main class="jk-wrap">
+  <a href="admin-reisen.html" style="display:inline-flex;gap:6px;margin-bottom:12px;font-size:14px;font-weight:600;color:var(--green-deep);text-decoration:none;">← Zur Reisen-Verwaltung</a>
+
+  <h1 style="font-size:var(--fs-h2);margin:0 0 14px;color:var(--green-deep);">Jahreskalender</h1>
+
+  <div class="jk-kopf" id="jk-kopf" hidden>
+    <div class="jk-jahr">
+      <button type="button" id="jk-jahr-zurueck" aria-label="Vorheriges Jahr">‹</button>
+      <strong id="jk-jahr-label">—</strong>
+      <button type="button" id="jk-jahr-vor" aria-label="Nächstes Jahr">›</button>
+    </div>
+
+    <div class="jk-umschalter" role="group" aria-label="Ansicht">
+      <button type="button" id="jk-ansicht-reise" aria-pressed="true">Nach Reise</button>
+      <button type="button" id="jk-ansicht-person" aria-pressed="false">Nach Person</button>
+    </div>
+
+    <div class="jk-filter" id="jk-filter" role="group" aria-label="Status-Filter"></div>
+
+    <div class="jk-kennzahl" id="jk-kennzahl"></div>
+  </div>
+
+  <div id="jk-meldung"></div>
+
+  <div class="jk-buehne" id="jk-buehne" hidden>
+    <div class="jk-flaeche" id="jk-flaeche"></div>
+    <div id="jk-panel"></div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+
+LPR_Layout.init({ page: 'jahreskalender' });
+if (!LPR.requireRole('admin', 'login.html?next=admin-jahreskalender.html')) throw new Error('kein Zugriff');
+
+function escapeHtml(s) { return LPR_Layout.escapeHtml(s); }
+
+// ══════ Zustand ══════
+
+let JAHR = new Date().getFullYear();
+let ANSICHT = 'reise';                 // 'reise' | 'person'
+const STATUS_AN = new Set(['draft','open','closed','completed']);
+let REISEN = [];                       // Reisen, die JAHR beruehren
+let ANMELDUNGEN = {};                  // trip_id -> bestaetigte Anmeldungen
+let ABDECKUNG = {};                    // trip_id -> { total, uncovered }
+let MITGLIEDER = [];                   // aus listVolunteersAdmin
+let SITZWACHEN = null;                 // null = noch nicht geladen
+let SITZWACHEN_FEHLER = null;
+let PERSONEN_AUS = false;              // true, wenn die Personen-Ansicht nicht geht
+let PANEL_ID = null;                   // offene Reise im Detail-Panel
+let UNPLAUSIBEL = [];                  // Reisen mit Ende vor Start
+
+const STATUS_LABEL = {
+  draft: 'Entwurf', open: 'Offen', closed: 'Geschlossen',
+  completed: 'Abgeschlossen', cancelled: 'Abgesagt'
+};
+
+// ══════ Kleine Helfer ══════
+
+function zwei(n) { return String(n).padStart(2, '0'); }
+function iso(jahr, monat, tag) { return jahr + '-' + zwei(monat) + '-' + zwei(tag); }
+function tageImMonat(jahr, monat) { return new Date(Date.UTC(jahr, monat, 0)).getUTCDate(); }
+function tageImJahr(jahr) { return (new Date(Date.UTC(jahr,1,29)).getUTCMonth() === 1) ? 366 : 365; }
+
+// Beruehrt die Reise das Jahr? Zeichenkettenvergleich reicht, weil alle Daten
+// im Format YYYY-MM-DD vorliegen und damit lexikografisch sortierbar sind.
+function beruehrtJahr(t, jahr) {
+  return t.start_date <= iso(jahr,12,31) && (t.end_date || t.start_date) >= iso(jahr,1,1);
+}
+function beruehrtMonat(t, jahr, monat) {
+  const erster  = iso(jahr, monat, 1);
+  const letzter = iso(jahr, monat, tageImMonat(jahr, monat));
+  return t.start_date <= letzter && (t.end_date || t.start_date) >= erster;
+}
+
+// ══════ Laden ══════
+
+async function laden() {
+  meldung('');
+  document.getElementById('jk-buehne').hidden = true;
+  document.getElementById('jk-kopf').hidden = true;
+  meldung('<div class="jk-leer">Der Kalender wird geladen …</div>');
+
+  const [rRes, aRes, mRes] = await Promise.all([
+    LPR.listAllTripsAdmin(),
+    LPR.getAllTripSignupsAdmin(),
+    LPR.listVolunteersAdmin()
+  ]);
+
+  // Eine leere Liste ist hier nie automatisch "keine Daten": RLS kann Zeilen
+  // wegfiltern. Bei einem Fehler zeigen wir ihn, statt ein leeres Jahr zu
+  // behaupten.
+  if (!rRes.ok) return meldung(fehlerKasten('Die Reisen konnten nicht geladen werden.', rRes.error));
+  if (!aRes.ok) return meldung(fehlerKasten('Die Anmeldungen konnten nicht geladen werden.', aRes.error));
+
+  const alle = rRes.trips || [];
+  REISEN = alle.filter(t => beruehrtJahr(t, JAHR));
+  UNPLAUSIBEL = REISEN.filter(t => t.end_date && t.end_date < t.start_date);
+  REISEN = REISEN.filter(t => UNPLAUSIBEL.indexOf(t) === -1);
+
+  ANMELDUNGEN = {};
+  (aRes.signups || []).forEach(s => {
+    if (s.status !== 'confirmed') return;
+    (ANMELDUNGEN[s.trip_id] = ANMELDUNGEN[s.trip_id] || []).push(s);
+  });
+
+  // Einmal rechnen, danach nur noch nachschlagen — Filter- und
+  // Ansichtswechsel sollen nicht erneut ueber alle Tage laufen.
+  ABDECKUNG = {};
+  REISEN.forEach(t => { ABDECKUNG[t.id] = LPR.tripCoverage(ANMELDUNGEN[t.id] || [], t); });
+
+  PERSONEN_AUS = !mRes.ok;
+  MITGLIEDER = mRes.ok ? (mRes.members || []) : [];
+  if (!mRes.ok) console.warn('[jahreskalender] Mitglieder:', mRes.error);
+
+  SITZWACHEN = null;
+  SITZWACHEN_FEHLER = null;
+
+  meldung('');
+  document.getElementById('jk-kopf').hidden = false;
+  document.getElementById('jk-buehne').hidden = false;
+  zeichne();
+}
+
+async function ladeSitzwachen() {
+  if (SITZWACHEN !== null || SITZWACHEN_FEHLER) return;
+  const res = await LPR.adminListBookings(iso(JAHR,1,1), iso(JAHR,12,31));
+  if (!res.ok) { SITZWACHEN_FEHLER = res.error || 'unbekannter Fehler'; SITZWACHEN = []; return; }
+  // Abgesagte Buchungen sind keine Verplanung.
+  SITZWACHEN = (res.bookings || []).filter(b => !b.cancelled_at && b.status !== 'cancelled');
+}
+
+function meldung(html) { document.getElementById('jk-meldung').innerHTML = html; }
+
+function fehlerKasten(text, detail) {
+  return '<div class="jk-fehler"><strong>' + escapeHtml(text) + '</strong>'
+    + (detail ? '<div style="margin-top:6px;font-size:13px;">' + escapeHtml(String(detail)) + '</div>' : '')
+    + '<div style="margin-top:10px;font-size:13px;">Lade die Seite neu. Bleibt es dabei, liegt es vermutlich an den Zugriffsregeln — melde dich einmal ab und wieder an.</div></div>';
+}
+
+// ══════ Kopfzeile ══════
+
+function zeichneKopf() {
+  document.getElementById('jk-jahr-label').textContent = JAHR;
+
+  document.getElementById('jk-filter').innerHTML =
+    ['draft','open','closed','completed','cancelled'].map(s =>
+      '<button type="button" data-status="' + s + '" aria-pressed="' + (STATUS_AN.has(s) ? 'true' : 'false') + '">'
+      + STATUS_LABEL[s] + '</button>').join('');
+
+  document.getElementById('jk-filter').querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => {
+      const s = b.dataset.status;
+      if (STATUS_AN.has(s)) STATUS_AN.delete(s); else STATUS_AN.add(s);
+      zeichne();
+    });
+  });
+
+  const sichtbar = sichtbareReisen();
+  const kritisch = sichtbar.filter(t => ampel(t).klasse === 'jk-rot').length;
+  document.getElementById('jk-kennzahl').innerHTML =
+    sichtbar.length + (sichtbar.length === 1 ? ' Reise' : ' Reisen')
+    + (kritisch ? ' · <span class="kritisch">' + kritisch + ' kritisch</span>' : '');
+
+  document.getElementById('jk-ansicht-reise').setAttribute('aria-pressed', ANSICHT === 'reise' ? 'true' : 'false');
+  const pBtn = document.getElementById('jk-ansicht-person');
+  pBtn.setAttribute('aria-pressed', ANSICHT === 'person' ? 'true' : 'false');
+  pBtn.disabled = PERSONEN_AUS;
+  pBtn.title = PERSONEN_AUS ? 'Die Mitgliederliste konnte nicht geladen werden.' : '';
+}
+
+function sichtbareReisen() { return REISEN.filter(t => STATUS_AN.has(t.status)); }
+
+// ══════ Ampel ══════
+
+// Grün = kein offener Tag. Gelb = hoechstens die Haelfte offen. Rot = mehr.
+// Entwuerfe bekommen keine Ampel: solange die Reise nicht offen ist, sagt
+// "unbesetzt" nichts aus.
+function ampel(t) {
+  if (t.status === 'draft')     return { klasse: 'jk-entwurf', text: 'Entwurf' };
+  if (t.status === 'cancelled') return { klasse: 'jk-abgesagt', text: 'Abgesagt' };
+  const c = ABDECKUNG[t.id] || { total: 0, uncovered: 0 };
+  if (!c.total)         return { klasse: 'jk-grau', text: '' };
+  if (!c.uncovered)     return { klasse: 'jk-gruen', text: 'alle Tage besetzt' };
+  const text = c.uncovered + ' von ' + c.total + ' Tagen offen';
+  return { klasse: c.uncovered * 2 <= c.total ? 'jk-gelb' : 'jk-rot', text: text };
+}
+
+// ══════ Zeichnen ══════
+
+async function zeichne() {
+  if (ANSICHT === 'person') await ladeSitzwachen();
+  zeichneKopf();
+  const flaeche = document.getElementById('jk-flaeche');
+
+  if (!sichtbareReisen().length) {
+    flaeche.innerHTML = hinweisZeile() +
+      '<div class="jk-leer"><div class="jk-leer-icon">🧳</div>'
+      + '<p>Für ' + JAHR + ' gibt es keine Reisen mit diesen Status.</p>'
+      + '<p><a href="admin-reisen.html" style="color:var(--green-deep);font-weight:600;">Reise anlegen →</a></p></div>';
+    zeichnePanel();
+    return;
+  }
+
+  flaeche.innerHTML = hinweisZeile()
+    + (ANSICHT === 'reise' ? reiseAnsichtHtml() : personenAnsichtHtml());
+  verdrahteFlaeche();
+  zeichnePanel();
+}
+
+function hinweisZeile() {
+  let out = '';
+  if (UNPLAUSIBEL.length) {
+    out += '<div class="jk-hinweis">' + UNPLAUSIBEL.length + ' Reise(n) haben ein Enddatum vor dem Startdatum '
+      + 'und werden nicht gezeichnet: ' + UNPLAUSIBEL.map(t => escapeHtml(t.title)).join(', ')
+      + '. Bitte in der Reisen-Verwaltung korrigieren.</div>';
+  }
+  if (ANSICHT === 'person' && SITZWACHEN_FEHLER) {
+    out += '<div class="jk-hinweis">Die Sitzwachen konnten nicht geladen werden, die Reisen stimmen trotzdem. '
+      + '(' + escapeHtml(SITZWACHEN_FEHLER) + ')</div>';
+  }
+  return out;
+}
+
+// Platzhalter — Task 5, 6 und 7 fuellen diese drei.
+function reiseAnsichtHtml() { return ''; }
+function personenAnsichtHtml() { return ''; }
+function verdrahteFlaeche() {}
+function zeichnePanel() {}
+
+// ══════ Start ══════
+
+document.getElementById('jk-jahr-zurueck').addEventListener('click', () => { JAHR--; PANEL_ID = null; laden(); });
+document.getElementById('jk-jahr-vor').addEventListener('click',    () => { JAHR++; PANEL_ID = null; laden(); });
+document.getElementById('jk-ansicht-reise').addEventListener('click',  () => { ANSICHT = 'reise';  zeichne(); });
+document.getElementById('jk-ansicht-person').addEventListener('click', () => { ANSICHT = 'person'; zeichne(); });
+
+laden();
+</script>
+</body>
+</html>

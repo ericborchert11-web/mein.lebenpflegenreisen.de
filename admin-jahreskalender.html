@@ -70,6 +70,53 @@ body.contrast {
   border-radius: var(--radius); padding:20px 24px; font-size:15px; }
 .jk-leer { text-align:center; padding:48px 24px; color: var(--muted); }
 .jk-leer .jk-leer-icon { font-size:44px; margin-bottom:10px; }
+
+/* ── Reise-Ansicht ── */
+.jk-lineal { display:flex; gap:8px; margin-bottom:5px; }
+.jk-lineal-spur { flex:1; position:relative; height:14px; font-size:11px; color: var(--muted); }
+.jk-lineal-spur span { position:absolute; transform:translateX(-50%); }
+
+.jk-zeile { display:flex; align-items:stretch; gap:8px; margin-bottom:5px; }
+.jk-monat { width:38px; flex:none; font-size:13px; font-weight:700;
+  color: var(--green-deep); line-height:30px; }
+.jk-spur {
+  position:relative; flex:1; height:30px; border-radius:5px; min-width:520px;
+  background: repeating-linear-gradient(90deg,
+    var(--jk-raster) 0, var(--jk-raster) calc(100%/31 - 1px),
+    var(--jk-raster-linie) calc(100%/31 - 1px), var(--jk-raster-linie) calc(100%/31));
+}
+/* Tage, die es in diesem Monat nicht gibt. Ohne das liest man eine
+   Februarwoche als laenger, als sie ist — alle Zeilen sind gleich breit. */
+.jk-tot { position:absolute; top:0; bottom:0; right:0; border-radius:0 5px 5px 0;
+  background: repeating-linear-gradient(45deg, var(--jk-tot) 0 3px, transparent 3px 6px); }
+
+.jk-balken {
+  position:absolute; top:3px; bottom:3px; border-radius:5px;
+  display:flex; align-items:center; gap:6px; padding:0 7px;
+  font-size:12px; font-weight:600; white-space:nowrap; cursor:pointer;
+  border:0; color:#fff; text-align:left; overflow:visible;
+}
+.jk-balken.jk-gruen { background: var(--jk-gruen); }
+.jk-balken.jk-gelb  { background: var(--jk-gelb); }
+.jk-balken.jk-rot   { background: var(--jk-rot); }
+.jk-balken.jk-grau  { background: var(--jk-grau); }
+.jk-balken.jk-entwurf {
+  background: repeating-linear-gradient(45deg,#EDEDED 0 4px,#DFDFDF 4px 8px);
+  border:1.5px dashed var(--muted); color: var(--text);
+}
+.jk-balken.jk-abgesagt { background:#E4E4E4; color: var(--muted); text-decoration: line-through; }
+.jk-balken:focus-visible { outline:3px solid var(--green-deep); outline-offset:2px; }
+
+.jk-balken-titel { overflow:hidden; text-overflow:ellipsis; }
+.jk-chip { background: rgba(255,255,255,.9); color:#222; border-radius:9px;
+  padding:2px 7px; font-size:11px; margin-left:auto; flex:none; }
+.jk-balken.jk-entwurf .jk-chip { background: rgba(255,255,255,.75); }
+
+/* Zu schmal fuer eine Beschriftung: der Titel steht dann rechts daneben. */
+.jk-aussen { position:absolute; left:calc(100% + 9px); color: var(--text);
+  font-weight:600; text-decoration:none; }
+.jk-aussen .jk-aussen-ampel { font-weight:600; }
+.jk-kante { opacity:.75; flex:none; }
 </style>
 </head>
 <body>
@@ -301,10 +348,73 @@ function hinweisZeile() {
   return out;
 }
 
-// Platzhalter — Task 5, 6 und 7 fuellen diese drei.
-function reiseAnsichtHtml() { return ''; }
+// Platzhalter — Task 6 und 7 fuellen die restlichen zwei.
+const MONAT_KURZ = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+function reiseAnsichtHtml() {
+  const sichtbar = sichtbareReisen();
+
+  let out = '<div class="jk-lineal"><div style="width:38px;flex:none"></div><div class="jk-lineal-spur">';
+  [1,5,10,15,20,25,31].forEach(tag => {
+    out += '<span style="left:' + ((tag - 0.5) / 31 * 100).toFixed(2) + '%">' + tag + '</span>';
+  });
+  out += '</div></div>';
+
+  for (let m = 1; m <= 12; m++) {
+    const anzahl = tageImMonat(JAHR, m);
+    const erster  = iso(JAHR, m, 1);
+    const letzter = iso(JAHR, m, anzahl);
+
+    out += '<div class="jk-zeile"><div class="jk-monat">' + MONAT_KURZ[m-1] + '</div><div class="jk-spur">';
+    if (anzahl < 31) {
+      out += '<div class="jk-tot" style="left:' + (anzahl / 31 * 100).toFixed(2) + '%"></div>';
+    }
+
+    sichtbar.filter(t => beruehrtMonat(t, JAHR, m)).forEach(t => {
+      const ende = t.end_date || t.start_date;
+      const linksAb  = t.start_date < erster;
+      const rechtsAb = ende > letzter;
+      const vonTag = linksAb  ? 1      : Number(t.start_date.slice(8,10));
+      const bisTag = rechtsAb ? anzahl : Number(ende.slice(8,10));
+      const links  = (vonTag - 1) / 31 * 100;
+      const breite = (bisTag - vonTag + 1) / 31 * 100;
+      const a = ampel(t);
+      const eck = (linksAb ? '0 ' : '5px ') + (rechtsAb ? '0 0 ' : '5px 5px ') + (linksAb ? '0' : '5px');
+
+      out += '<button type="button" class="jk-balken ' + a.klasse + '"'
+        + ' data-reise="' + escapeHtml(t.id) + '"'
+        + ' style="left:' + links.toFixed(2) + '%;width:' + breite.toFixed(2) + '%;border-radius:' + eck + '"'
+        + ' title="' + escapeHtml(t.title + ' · ' + t.start_date + ' bis ' + ende + (a.text ? ' · ' + a.text : '')) + '">';
+
+      if (linksAb) out += '<span class="jk-kante" aria-hidden="true">◀</span>';
+
+      // Unter rund 30 % Zeilenbreite passt kein Titel mehr in den Balken.
+      if (breite >= 30) {
+        out += '<span class="jk-balken-titel">' + escapeHtml(t.title) + '</span>';
+        if (a.text) out += '<span class="jk-chip">' + escapeHtml(a.text) + '</span>';
+      } else {
+        out += '<span class="jk-aussen">' + escapeHtml(t.title)
+          + (a.text ? ' <span class="jk-aussen-ampel" style="color:var(--' + a.klasse + ')">· ' + escapeHtml(a.text) + '</span>' : '')
+          + '</span>';
+      }
+
+      if (rechtsAb) out += '<span class="jk-kante" style="margin-left:auto" aria-hidden="true">▶</span>';
+      out += '</button>';
+    });
+
+    out += '</div></div>';
+  }
+  return out;
+}
+
 function personenAnsichtHtml() { return ''; }
-function verdrahteFlaeche() {}
+
+function verdrahteFlaeche() {
+  document.getElementById('jk-flaeche').querySelectorAll('[data-reise]').forEach(el => {
+    el.addEventListener('click', () => { PANEL_ID = el.dataset.reise; zeichnePanel(); });
+  });
+}
+
 function zeichnePanel() {}
 
 // ══════ Start ══════

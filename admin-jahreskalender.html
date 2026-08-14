@@ -117,6 +117,33 @@ body.contrast {
   font-weight:600; text-decoration:none; }
 .jk-aussen .jk-aussen-ampel { font-weight:600; }
 .jk-kante { opacity:.75; flex:none; }
+
+/* ── Detail-Panel ── */
+.jk-panel { width:300px; flex:none; border-left:1px solid var(--border);
+  padding:14px 16px; font-size:14px; line-height:1.55; }
+.jk-panel-kopf { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.jk-panel-titel { font-size:17px; font-weight:700; color: var(--green-deep); }
+.jk-panel-zu { border:0; background:none; font-size:20px; line-height:1;
+  color: var(--muted); cursor:pointer; padding:0 2px; }
+.jk-marken { display:flex; gap:6px; flex-wrap:wrap; margin:9px 0 11px; }
+.jk-marke { background: var(--sand); color: var(--green-deep);
+  border-radius:11px; padding:2px 9px; font-size:12px; }
+.jk-abdeckung { border-radius: var(--radius-sm); padding:8px 10px;
+  font-weight:600; margin-bottom:10px; font-size:13px; }
+.jk-abdeckung.offen { background:#FCEDEA; border:1px solid #E8BCB0; color:#8A2B12; }
+.jk-abdeckung.voll  { background:#EAF3EC; border:1px solid #B7D4BF; color:#1F5B31; }
+.jk-tagzeile { display:flex; gap:8px; padding:3px 5px; border-radius:4px; font-size:13px; }
+.jk-tagzeile.luecke { background:#FCEDEA; }
+.jk-tagdatum { width:72px; flex:none; color: var(--muted); }
+.jk-tagwarn { color: var(--jk-rot); font-weight:600; }
+.jk-panel-knopf { display:block; text-align:center; margin-top:14px;
+  background: var(--green-deep); color:#fff; padding:10px; border-radius: var(--radius-sm);
+  text-decoration:none; font-weight:600; }
+
+@media (max-width: 900px) {
+  .jk-buehne { flex-direction: column; }
+  .jk-panel { width:auto; border-left:0; border-top:2px solid var(--border); }
+}
 </style>
 </head>
 <body>
@@ -415,7 +442,61 @@ function verdrahteFlaeche() {
   });
 }
 
-function zeichnePanel() {}
+function zeichnePanel() {
+  const ziel = document.getElementById('jk-panel');
+  const t = PANEL_ID ? REISEN.filter(x => x.id === PANEL_ID)[0] : null;
+  if (!t) { ziel.innerHTML = ''; ziel.className = ''; return; }
+  ziel.className = 'jk-panel';
+
+  const signups = ANMELDUNGEN[t.id] || [];
+  const tage = LPR.enumTripDays(t.start_date, t.end_date);
+  const c = ABDECKUNG[t.id] || { total: 0, uncovered: 0 };
+  const ende = t.end_date || t.start_date;
+
+  const marken = ['<span class="jk-marke">' + STATUS_LABEL[t.status] + '</span>'];
+  if (t.max_spots) marken.push('<span class="jk-marke">' + t.max_spots + ' Plätze</span>');
+  if (t.partner)   marken.push('<span class="jk-marke">Partner: ' + escapeHtml(t.partner) + '</span>');
+  if (t.rate_override_per_day != null)
+    marken.push('<span class="jk-marke">Tagessatz: ' + Number(t.rate_override_per_day).toFixed(2) + ' €</span>');
+
+  const kopf = c.uncovered
+    ? '<div class="jk-abdeckung offen">⚠ ' + c.uncovered + ' von ' + c.total + ' Tagen nicht vollständig besetzt</div>'
+    : '<div class="jk-abdeckung voll">✓ Alle ' + c.total + ' Tage sind vollständig besetzt</div>';
+
+  const HALB_LANG = { am: 'Vormittag', pm: 'Nachmittag' };
+  const HALB_KURZ = { am: 'Vm', pm: 'Nm' };
+
+  const zeilen = tage.map(tag => {
+    const drauf = signups.filter(s => LPR.signupEffectiveDays(s, tage).indexOf(tag) !== -1);
+    const namen = drauf.map(s => {
+      const h = LPR.signupEffectiveHalf(s, tag);
+      return escapeHtml(s.full_name || 'Mitglied') + (HALB_KURZ[h] ? ' (' + HALB_KURZ[h] + ')' : '');
+    }).join(' · ');
+    const luecken = LPR.tripDayGaps(signups, t, tag);
+    const warn = luecken.length === 2 ? '⚠ unbesetzt'
+      : (luecken.length ? '⚠ ' + HALB_LANG[luecken[0]] + ' unbesetzt' : '');
+    return '<div class="jk-tagzeile' + (luecken.length ? ' luecke' : '') + '">'
+      + '<span class="jk-tagdatum">' + LPR.formatTripDay(tag) + '</span>'
+      + '<span>' + namen + (warn ? (namen ? ' · ' : '') + '<span class="jk-tagwarn">' + warn + '</span>' : '') + '</span>'
+      + '</div>';
+  }).join('');
+
+  ziel.innerHTML =
+    '<div class="jk-panel-kopf"><div>'
+    + '<div class="jk-panel-titel">' + escapeHtml(t.title) + '</div>'
+    + '<div style="color:var(--muted);font-size:13px;">' + LPR.formatTripDay(t.start_date)
+      + ' – ' + LPR.formatTripDay(ende) + ' · ' + escapeHtml(t.location || '') + '</div>'
+    + '</div><button type="button" class="jk-panel-zu" id="jk-panel-zu" aria-label="Panel schließen">✕</button></div>'
+    + '<div class="jk-marken">' + marken.join('') + '</div>'
+    + (t.status === 'draft'
+        ? '<div class="jk-abdeckung" style="background:var(--sand);color:var(--muted);">Entwurf — die Besetzung wird erst gezählt, wenn die Reise offen ist.</div>'
+        : kopf)
+    + '<div style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:4px;">Tagesabdeckung</div>'
+    + zeilen
+    + '<a class="jk-panel-knopf" href="admin-reisen.html#trip-' + encodeURIComponent(t.id) + '">In Reisen bearbeiten →</a>';
+
+  document.getElementById('jk-panel-zu').addEventListener('click', () => { PANEL_ID = null; zeichnePanel(); });
+}
 
 // ══════ Start ══════
 

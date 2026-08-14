@@ -130,7 +130,8 @@ body.contrast {
 .jk-panel { width:300px; flex:none; border-left:1px solid var(--border);
   padding:14px 16px; font-size:14px; line-height:1.55; }
 .jk-panel-kopf { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
-.jk-panel-titel { font-size:17px; font-weight:700; color: var(--green-deep); }
+.jk-panel-titel { font-size:17px; font-weight:700; color: var(--green-deep); margin:0; }
+.jk-panel-titel:focus-visible { outline:3px solid var(--green-deep); outline-offset:2px; }
 .jk-panel-zu { border:0; background:none; font-size:20px; line-height:1;
   color: var(--muted); cursor:pointer; padding:0 2px; }
 .jk-marken { display:flex; gap:6px; flex-wrap:wrap; margin:9px 0 11px; }
@@ -206,7 +207,7 @@ body.contrast {
 
   <div class="jk-buehne" id="jk-buehne" hidden>
     <div class="jk-flaeche" id="jk-flaeche"></div>
-    <div id="jk-panel"></div>
+    <div id="jk-panel" role="region" aria-label="Reisedetails"></div>
   </div>
 </main>
 
@@ -664,7 +665,14 @@ function personenAnsichtHtml() {
 
 function verdrahteFlaeche() {
   document.getElementById('jk-flaeche').querySelectorAll('[data-reise]').forEach(el => {
-    el.addEventListener('click', () => { PANEL_ID = el.dataset.reise; zeichnePanel(); });
+    el.addEventListener('click', () => {
+      PANEL_ID = el.dataset.reise;
+      zeichnePanel();
+      // Nur beim Klick den Fokus ins Panel ziehen, nicht bei jedem Neuzeichnen:
+      // sonst springt der Fokus auch beim Jahres- oder Filterwechsel.
+      const titel = document.getElementById('jk-panel-titel');
+      if (titel) titel.focus();
+    });
   });
 }
 
@@ -679,8 +687,8 @@ function zeichnePanel() {
   const c = ABDECKUNG[t.id] || { total: 0, uncovered: 0 };
   const ende = t.end_date || t.start_date;
 
-  const marken = ['<span class="jk-marke">' + STATUS_LABEL[t.status] + '</span>'];
-  if (t.max_spots) marken.push('<span class="jk-marke">' + t.max_spots + ' Plätze</span>');
+  const marken = ['<span class="jk-marke">' + escapeHtml(STATUS_LABEL[t.status] || t.status || '—') + '</span>'];
+  if (t.max_spots != null) marken.push('<span class="jk-marke">' + Number(t.max_spots) + ' Plätze</span>');
   if (t.partner)   marken.push('<span class="jk-marke">Partner: ' + escapeHtml(t.partner) + '</span>');
   if (t.rate_override_per_day != null)
     marken.push('<span class="jk-marke">Tagessatz: ' + Number(t.rate_override_per_day).toFixed(2) + ' €</span>');
@@ -711,7 +719,7 @@ function zeichnePanel() {
 
   ziel.innerHTML =
     '<div class="jk-panel-kopf"><div>'
-    + '<div class="jk-panel-titel">' + escapeHtml(t.title) + '</div>'
+    + '<h2 class="jk-panel-titel" id="jk-panel-titel" tabindex="-1">' + escapeHtml(t.title) + '</h2>'
     + '<div style="color:var(--muted);font-size:13px;">' + LPR.formatTripDay(t.start_date)
       + ' – ' + LPR.formatTripDay(ende) + ' · ' + escapeHtml(t.location || '') + '</div>'
     + '</div><button type="button" class="jk-panel-zu" id="jk-panel-zu" aria-label="Panel schließen">✕</button></div>'
@@ -723,7 +731,15 @@ function zeichnePanel() {
     + zeilen
     + '<a class="jk-panel-knopf" href="admin-reisen.html#trip-' + encodeURIComponent(t.id) + '">In Reisen bearbeiten →</a>';
 
-  document.getElementById('jk-panel-zu').addEventListener('click', () => { PANEL_ID = null; zeichnePanel(); });
+  // Beim Schliessen zurueck auf den Balken, von dem aus geoeffnet wurde —
+  // sonst landet der Tastaturfokus wieder am Seitenanfang.
+  const herkunft = PANEL_ID;
+  document.getElementById('jk-panel-zu').addEventListener('click', () => {
+    PANEL_ID = null;
+    zeichnePanel();
+    const balken = document.querySelector('#jk-flaeche [data-reise="' + escapeHtml(herkunft) + '"]');
+    if (balken) balken.focus();
+  });
 }
 
 // ══════ Start ══════

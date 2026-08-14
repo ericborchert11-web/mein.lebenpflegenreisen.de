@@ -398,9 +398,6 @@ main {
 
 /* Ziel eines Sprungs aus dem Jahreskalender — blitzt kurz auf. */
 .trip-card.trip-ziel { outline: 3px solid var(--lime); outline-offset: 3px; }
-@media (prefers-reduced-motion: no-preference) {
-  .trip-card.trip-ziel { transition: outline-color .3s ease; }
-}
 </style>
 </head>
 <body>
@@ -953,7 +950,9 @@ function oeffneAusAnker() {
   if (!karte) return;
   const panel = document.getElementById('signups-' + id);
   if (panel && panel.hasAttribute('hidden')) {
-    toggleSignups(id, karte.querySelector('.trip-actions .btn-ghost'));
+    // Semantisch statt nach Position: "Anmeldungen" und "Bearbeiten" teilen sich
+    // die Klasse btn-ghost, ein Reihenfolgewechsel wuerde sonst still danebengreifen.
+    toggleSignups(id, karte.querySelector('.trip-actions [onclick^="toggleSignups"]'));
   }
   karte.scrollIntoView({ behavior: 'smooth', block: 'start' });
   karte.classList.add('trip-ziel');

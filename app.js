@@ -492,8 +492,65 @@
     return all[key] || null;
   }
 
+  // ── Reise-Besetzung: Tages- und Halbtagsregel ──
+  // Ein Reisetag gilt erst als besetzt, wenn Vormittag UND Nachmittag von einer
+  // bestaetigten Anmeldung abgedeckt sind. Die Regel stand frueher nur in
+  // admin-reisen.html; seit der Jahreskalender dieselbe Zahl anzeigt, lebt sie
+  // hier, damit beide Seiten nicht auseinanderlaufen koennen.
+  // Alles hier sind reine Funktionen: kein Netzzugriff, kein Zustand.
+
+  // Alle Tage einer Reise als 'YYYY-MM-DD'. Unplausible Zeitraeume (Ende vor
+  // Start) liefern den Starttag, damit die Oberflaeche nicht leer bleibt.
+  function enumTripDays(start, end) {
+    if (!start) return [];
+    const out = [];
+    const sd = new Date(start + 'T00:00:00Z');
+    const ed = new Date((end || start) + 'T00:00:00Z');
+    if (isNaN(sd) || isNaN(ed) || ed < sd) return [start];
+    for (let d = new Date(sd); d <= ed; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0,10));
+    return out;
+  }
+
+  // '2026-08-15' -> 'Sa 15.08.'
+  function formatTripDay(iso) {
+    const d = new Date(iso + 'T00:00:00Z');
+    const wd = ['So','Mo','Di','Mi','Do','Fr','Sa'][d.getUTCDay()];
+    return wd + ' ' + String(d.getUTCDate()).padStart(2,'0') + '.' + String(d.getUTCMonth()+1).padStart(2,'0') + '.';
+  }
+
+  // Ohne eigene Tageseintraege gilt eine Anmeldung fuer die ganze Reise.
+  function signupEffectiveDays(s, allDays) {
+    return (s.days && s.days.length) ? s.days : allDays;
+  }
+
+  // Tageshaelfte einer Anmeldung: 'full' | 'am' (Vormittag) | 'pm' (Nachmittag).
+  function signupEffectiveHalf(s, day) {
+    return (s.dayHalves && s.dayHalves[day]) || 'full';
+  }
+
+  function signupCoversHalf(s, day, half) {
+    const h = signupEffectiveHalf(s, day);
+    return h === 'full' || h === half;
+  }
+
+  // Offene Haelften eines Tages, z. B. ['pm'] oder ['am','pm'].
+  function tripDayGaps(signups, trip, day) {
+    const allDays = enumTripDays(trip.start_date, trip.end_date);
+    const onDay = s => signupEffectiveDays(s, allDays).indexOf(day) !== -1;
+    const conf = (signups || []).filter(s => s.status === 'confirmed' && onDay(s));
+    return ['am', 'pm'].filter(h => !conf.some(s => signupCoversHalf(s, day, h)));
+  }
+
+  // { total, uncovered } ueber die ganze Reise.
+  function tripCoverage(signups, trip) {
+    const allDays = enumTripDays(trip.start_date, trip.end_date);
+    let uncovered = 0;
+    allDays.forEach(day => { if (tripDayGaps(signups, trip, day).length) uncovered++; });
+    return { total: allDays.length, uncovered: uncovered };
+  }
+
   // --- Reisen (trips) ---
-  
+
   /**
    * Vorstand: Listet ALLE Reisen, unabhängig vom Status (auch 'draft').
    */
@@ -2936,6 +2993,9 @@
     // Block C
     getRates, getRate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
+    // Besetzungsregel — geteilt von admin-reisen.html und admin-jahreskalender.html
+    enumTripDays, formatTripDay, signupEffectiveDays, signupEffectiveHalf,
+    signupCoversHalf, tripDayGaps, tripCoverage,
     getMySignupDays, setMySignupDays, setSignupDaysAdmin, listVolunteersAdmin, addSignupAdmin, removeSignupAdmin,
     // Vorstand: Reise-Verwaltung
     listAllTripsAdmin, createTrip, updateTrip, deleteTrip,

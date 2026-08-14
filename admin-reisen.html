@@ -641,28 +641,16 @@ function render() {
 }
 
 // ── Tages-Abdeckung (Teil-Reisen) ──
-function enumTripDays(start, end) {
-  if (!start) return [];
-  const out = [];
-  const sd = new Date(start + 'T00:00:00Z');
-  const ed = new Date((end || start) + 'T00:00:00Z');
-  if (isNaN(sd) || isNaN(ed) || ed < sd) return [start];
-  for (let d = new Date(sd); d <= ed; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0,10));
-  return out;
-}
-function fmtDay(iso) {
-  const d = new Date(iso + 'T00:00:00Z');
-  const wd = ['So','Mo','Di','Mi','Do','Fr','Sa'][d.getUTCDay()];
-  return wd + ' ' + String(d.getUTCDate()).padStart(2,'0') + '.' + String(d.getUTCMonth()+1).padStart(2,'0') + '.';
-}
-function effectiveDays(s, allDays) { return (s.days && s.days.length) ? s.days : allDays; }
-// Tageshälfte einer Zuteilung: 'full' | 'am' (Vormittag) | 'pm' (Nachmittag).
-// Ohne eigene Tage (= ganze Reise) ist jeder Tag ein ganzer Tag.
-function effectiveHalf(s, day) { return (s.dayHalves && s.dayHalves[day]) || 'full'; }
-function coversHalf(s, day, half) {
-  const h = effectiveHalf(s, day);
-  return h === 'full' || h === half;
-}
+// Die Regel selbst steht in app.js, damit der Jahreskalender dieselbe Zahl
+// anzeigt. Hier stehen nur die kurzen Namen, die diese Seite ueberall benutzt.
+function enumTripDays(start, end)      { return LPR.enumTripDays(start, end); }
+function fmtDay(iso)                   { return LPR.formatTripDay(iso); }
+function effectiveDays(s, allDays)     { return LPR.signupEffectiveDays(s, allDays); }
+function effectiveHalf(s, day)         { return LPR.signupEffectiveHalf(s, day); }
+function coversHalf(s, day, half)      { return LPR.signupCoversHalf(s, day, half); }
+function dayGaps(signups, trip, day)   { return LPR.tripDayGaps(signups, trip, day); }
+function coverageSummary(signups, trip) { return LPR.tripCoverage(signups, trip); }
+
 const HALF_SHORT = { am: 'Vm', pm: 'Nm' };
 const HALF_LONG  = { am: 'Vormittag', pm: 'Nachmittag' };
 function halfSuffix(h) { return HALF_SHORT[h] ? ' (' + HALF_SHORT[h] + ')' : ''; }
@@ -754,20 +742,6 @@ function renderPauschBadge(userId, year) {
     ? `<div class="pausch-detail">${LPR.formatEUR(info.abgerechnet)} beantragt/abgerechnet · ${LPR.formatEUR(info.planned)} verplant inkl. dieser Reise${rpcHint}</div>`
     : '';
   return `<div class="pausch${cls}">${text}</div>${detail}`;
-}
-// Ein Tag gilt erst als besetzt, wenn Vormittag UND Nachmittag jemanden haben.
-function dayGaps(signups, trip, day) {
-  const allDays = enumTripDays(trip.start_date, trip.end_date);
-  const onDay = s => effectiveDays(s, allDays).indexOf(day) !== -1;
-  const conf = signups.filter(s => s.status === 'confirmed' && onDay(s));
-  const gaps = ['am', 'pm'].filter(h => !conf.some(s => coversHalf(s, day, h)));
-  return gaps;
-}
-function coverageSummary(signups, trip) {
-  const allDays = enumTripDays(trip.start_date, trip.end_date);
-  let uncovered = 0;
-  allDays.forEach(day => { if (dayGaps(signups, trip, day).length) uncovered++; });
-  return { total: allDays.length, uncovered };
 }
 function renderDayCoverage(signups, trip) {
   const allDays = enumTripDays(trip.start_date, trip.end_date);

@@ -165,7 +165,9 @@ Zeilen sind Personen, die Achse ist das ganze Jahr mit Tagesauflösung.
 - **Sitzwachen** sind schmale graue Striche. Sie sind bewusst schwächer
   gewichtet als Reisen und sollen den Blick nicht dominieren. Buchungen mit
   `cancelled_at != null` oder `status === 'cancelled'` zählen nicht.
-- Zwölf feine Trennlinien markieren die Monatsgrenzen, darüber ein Monatslineal.
+- Elf feine Trennlinien markieren die Monatsgrenzen — bei einer durchgehenden
+  Jahresachse liegt die zwölfte am linken Rand der Spur. Darüber ein
+  Monatslineal mit allen zwölf Beschriftungen.
 
 **Sortierung:** absteigend nach Anzahl der Einsatztage im Jahr. Personen ganz
 ohne Einsatz stehen in einem zugeklappten `<details>`-Block „Ohne Einsatz JJJJ

@@ -173,7 +173,7 @@ body.contrast {
 .jk-p-sw { position:absolute; top:9px; bottom:9px; width:3px;
   border-radius:1px; background: var(--jk-grau); }
 .jk-p-sw.konflikt { box-shadow:0 0 0 2px var(--jk-rot); }
-.jk-p-konflikte { margin:10px 0 4px; font-size:13px; color: var(--jk-rot); font-weight:600; }
+.jk-p-konflikte { margin:0 0 10px; font-size:13px; color: var(--jk-rot); font-weight:600; }
 .jk-p-rest { margin-top:12px; font-size:14px; }
 .jk-p-rest summary { cursor:pointer; color: var(--green-deep); font-weight:600; }
 .jk-p-rest div { color: var(--muted); font-size:13px; padding-top:6px; }
@@ -594,7 +594,19 @@ function personenAnsichtHtml() {
   const ohne = zeilen.filter(z => !z.anzahl && !z.sw.length);
   const laenge = tageImJahr(JAHR);
 
-  let out = '<div class="jk-lineal"><div style="width:150px;flex:none"></div><div class="jk-lineal-spur">';
+  // Die Warnung steht ueber der Liste. Unten haette man sie erst nach dem
+  // Scrollen gesehen, und dann ist es keine Warnung mehr.
+  let out = '';
+  const konflikte = mit.filter(z => z.konflikte.length);
+  if (konflikte.length) {
+    const anzahl = konflikte.reduce((n, z) => n + z.konflikte.length, 0);
+    out += '<div class="jk-p-konflikte">⚠ ' + anzahl + ' mögliche Doppelverplanung'
+      + (anzahl === 1 ? '' : 'en') + ' — '
+      + konflikte.map(z => escapeHtml(z.name) + ' am ' + z.konflikte.map(t => LPR.formatTripDay(t)).join(', ')).join('; ')
+      + '</div>';
+  }
+
+  out += '<div class="jk-lineal"><div style="width:150px;flex:none"></div><div class="jk-lineal-spur">';
   for (let m = 1; m <= 12; m++) {
     out += '<span style="left:' + ((tagImJahr(iso(JAHR,m,1)) - 1) / laenge * 100).toFixed(2) + '%;transform:none">'
       + MONAT_KURZ[m-1] + '</span>';
@@ -647,14 +659,6 @@ function personenAnsichtHtml() {
     out += '<div class="jk-leer">Für ' + JAHR + ' ist niemand verplant.</div>';
   }
 
-  const konflikte = mit.filter(z => z.konflikte.length);
-  if (konflikte.length) {
-    const anzahl = konflikte.reduce((n, z) => n + z.konflikte.length, 0);
-    out += '<div class="jk-p-konflikte">⚠ ' + anzahl + ' mögliche Doppelverplanung'
-      + (anzahl === 1 ? '' : 'en') + ' — '
-      + konflikte.map(z => escapeHtml(z.name) + ' am ' + z.konflikte.map(t => LPR.formatTripDay(t)).join(', ')).join('; ')
-      + '</div>';
-  }
 
   if (ohne.length) {
     out += '<details class="jk-p-rest"><summary>Ohne Einsatz ' + JAHR + ' (' + ohne.length + ')</summary>'

@@ -395,6 +395,9 @@ main {
   .trip-actions { flex-direction: row; flex-wrap: wrap; }
   .form-row.cols-2 { grid-template-columns: 1fr; }
 }
+
+/* Ziel eines Sprungs aus dem Jahreskalender — blitzt kurz auf. */
+.trip-card.trip-ziel { outline: 3px solid var(--lime); outline-offset: 3px; }
 </style>
 </head>
 <body>
@@ -586,7 +589,13 @@ async function loadTrips() {
     _allVolunteers = (vres && vres.ok) ? (vres.members || []) : [];
     await loadPauschaleData();
     document.getElementById('loading-state').hidden = true;
+    // Ein Anker kann auf einen Entwurf oder eine abgeschlossene Reise zeigen.
+    // Der Standardfilter "Offen" wuerde sie ausblenden, also oeffnen wir ihn.
+    if (/^#trip-/.test(location.hash || '')) {
+      document.getElementById('status-filter').value = 'all';
+    }
     render();
+    oeffneAusAnker();
   } catch(e) {
     console.error('[admin-reisen] loadTrips:', e);
     document.getElementById('loading-state').innerHTML = '<p style="color:var(--warn)">Fehler beim Laden: ' + escapeHtml(e.message) + '</p>';
@@ -618,7 +627,7 @@ function render() {
     const cov = coverageSummary(signups, t);
     const covPill = cov.total >= 1 ? (cov.uncovered > 0 ? `<span class="cov-pill warn">\u26A0 ${cov.uncovered} Tag(e) nicht vollst\u00E4ndig besetzt</span>` : '<span class="cov-pill ok">\u2713 alle Tage vollst\u00E4ndig besetzt</span>') : '';
     return `
-    <article class="trip-card">
+    <article class="trip-card" id="trip-${t.id}">
       <div class="trip-info">
         <span class="trip-state state-${escapeHtml(t.status)}">${stateLabel(t.status)}</span>
         <div class="trip-title">${escapeHtml(t.title)}</div>
@@ -641,28 +650,16 @@ function render() {
 }
 
 // ── Tages-Abdeckung (Teil-Reisen) ──
-function enumTripDays(start, end) {
-  if (!start) return [];
-  const out = [];
-  const sd = new Date(start + 'T00:00:00Z');
-  const ed = new Date((end || start) + 'T00:00:00Z');
-  if (isNaN(sd) || isNaN(ed) || ed < sd) return [start];
-  for (let d = new Date(sd); d <= ed; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0,10));
-  return out;
-}
-function fmtDay(iso) {
-  const d = new Date(iso + 'T00:00:00Z');
-  const wd = ['So','Mo','Di','Mi','Do','Fr','Sa'][d.getUTCDay()];
-  return wd + ' ' + String(d.getUTCDate()).padStart(2,'0') + '.' + String(d.getUTCMonth()+1).padStart(2,'0') + '.';
-}
-function effectiveDays(s, allDays) { return (s.days && s.days.length) ? s.days : allDays; }
-// Tageshälfte einer Zuteilung: 'full' | 'am' (Vormittag) | 'pm' (Nachmittag).
-// Ohne eigene Tage (= ganze Reise) ist jeder Tag ein ganzer Tag.
-function effectiveHalf(s, day) { return (s.dayHalves && s.dayHalves[day]) || 'full'; }
-function coversHalf(s, day, half) {
-  const h = effectiveHalf(s, day);
-  return h === 'full' || h === half;
-}
+// Die Regel selbst steht in app.js, damit der Jahreskalender dieselbe Zahl
+// anzeigt. Hier stehen nur die kurzen Namen, die diese Seite ueberall benutzt.
+function enumTripDays(start, end)      { return LPR.enumTripDays(start, end); }
+function fmtDay(iso)                   { return LPR.formatTripDay(iso); }
+function effectiveDays(s, allDays)     { return LPR.signupEffectiveDays(s, allDays); }
+function effectiveHalf(s, day)         { return LPR.signupEffectiveHalf(s, day); }
+function coversHalf(s, day, half)      { return LPR.signupCoversHalf(s, day, half); }
+function dayGaps(signups, trip, day)   { return LPR.tripDayGaps(signups, trip, day); }
+function coverageSummary(signups, trip) { return LPR.tripCoverage(signups, trip); }
+
 const HALF_SHORT = { am: 'Vm', pm: 'Nm' };
 const HALF_LONG  = { am: 'Vormittag', pm: 'Nachmittag' };
 function halfSuffix(h) { return HALF_SHORT[h] ? ' (' + HALF_SHORT[h] + ')' : ''; }
@@ -754,20 +751,6 @@ function renderPauschBadge(userId, year) {
     ? `<div class="pausch-detail">${LPR.formatEUR(info.abgerechnet)} beantragt/abgerechnet · ${LPR.formatEUR(info.planned)} verplant inkl. dieser Reise${rpcHint}</div>`
     : '';
   return `<div class="pausch${cls}">${text}</div>${detail}`;
-}
-// Ein Tag gilt erst als besetzt, wenn Vormittag UND Nachmittag jemanden haben.
-function dayGaps(signups, trip, day) {
-  const allDays = enumTripDays(trip.start_date, trip.end_date);
-  const onDay = s => effectiveDays(s, allDays).indexOf(day) !== -1;
-  const conf = signups.filter(s => s.status === 'confirmed' && onDay(s));
-  const gaps = ['am', 'pm'].filter(h => !conf.some(s => coversHalf(s, day, h)));
-  return gaps;
-}
-function coverageSummary(signups, trip) {
-  const allDays = enumTripDays(trip.start_date, trip.end_date);
-  let uncovered = 0;
-  allDays.forEach(day => { if (dayGaps(signups, trip, day).length) uncovered++; });
-  return { total: allDays.length, uncovered };
 }
 function renderDayCoverage(signups, trip) {
   const allDays = enumTripDays(trip.start_date, trip.end_date);
@@ -955,6 +938,26 @@ function toggleSignups(tripId, btn) {
     panel.setAttribute('hidden', '');
     if (btn) btn.textContent = 'Anmeldungen';
   }
+}
+
+// Sprungziel aus dem Jahreskalender: admin-reisen.html#trip-<id>.
+// Laeuft einmal am Ende von loadTrips(), nicht bei jedem render() — der Anker
+// zaehlt nur beim Seitenaufruf. Ohne passenden Anker passiert nichts.
+function oeffneAusAnker() {
+  const treffer = /^#trip-(.+)$/.exec(location.hash || '');
+  if (!treffer) return;
+  const id = treffer[1];
+  const karte = document.getElementById('trip-' + id);
+  if (!karte) return;
+  const panel = document.getElementById('signups-' + id);
+  if (panel && panel.hasAttribute('hidden')) {
+    // Semantisch statt nach Position: "Anmeldungen" und "Bearbeiten" teilen sich
+    // die Klasse btn-ghost, ein Reihenfolgewechsel wuerde sonst still danebengreifen.
+    toggleSignups(id, karte.querySelector('.trip-actions [onclick^="toggleSignups"]'));
+  }
+  karte.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  karte.classList.add('trip-ziel');
+  setTimeout(() => karte.classList.remove('trip-ziel'), 2500);
 }
 
 function stateLabel(s) {

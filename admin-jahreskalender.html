@@ -152,6 +152,30 @@ body.contrast {
   .jk-buehne { flex-direction: column; }
   .jk-panel { width:auto; border-left:0; border-top:2px solid var(--border); }
 }
+
+/* ── Personen-Ansicht ── */
+.jk-p-zeile { display:flex; align-items:stretch; gap:8px; margin-bottom:5px; }
+.jk-p-name { width:150px; flex:none; font-size:13px; line-height:28px;
+  color: var(--green-deep); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.jk-p-name .jk-p-tage { color: var(--muted); font-size:11px; }
+.jk-p-spur { position:relative; flex:1; height:28px; border-radius:5px;
+  background: var(--jk-raster); min-width:520px; }
+.jk-p-monat { position:absolute; top:0; bottom:0; width:1px; background: var(--jk-raster-linie); }
+.jk-p-reise { position:absolute; top:4px; bottom:4px; min-width:7px;
+  border-radius:3px; border:0; padding:0; cursor:pointer; }
+.jk-p-reise.jk-gruen { background: var(--jk-gruen); }
+.jk-p-reise.jk-gelb  { background: var(--jk-gelb); }
+.jk-p-reise.jk-rot   { background: var(--jk-rot); }
+.jk-p-reise.jk-grau, .jk-p-reise.jk-entwurf, .jk-p-reise.jk-abgesagt { background: var(--jk-grau); }
+.jk-p-reise:focus-visible { outline:3px solid var(--green-deep); outline-offset:2px; }
+/* Sitzwachen sind Nebeninformation und duerfen den Blick nicht ziehen. */
+.jk-p-sw { position:absolute; top:9px; bottom:9px; width:3px;
+  border-radius:1px; background: var(--jk-grau); }
+.jk-p-sw.konflikt { box-shadow:0 0 0 2px var(--jk-rot); }
+.jk-p-konflikte { margin:10px 0 4px; font-size:13px; color: var(--jk-rot); font-weight:600; }
+.jk-p-rest { margin-top:12px; font-size:14px; }
+.jk-p-rest summary { cursor:pointer; color: var(--green-deep); font-weight:600; }
+.jk-p-rest div { color: var(--muted); font-size:13px; padding-top:6px; }
 </style>
 </head>
 <body>
@@ -406,7 +430,6 @@ function hinweisZeile() {
   return out;
 }
 
-// Platzhalter — Task 6 und 7 fuellen die restlichen zwei.
 const MONAT_KURZ = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 const BALKEN_HOEHE  = 24;   // Pixel je Balken
 const BALKEN_ABSTAND = 2;   // Luft zwischen zwei Spuren derselben Monatszeile
@@ -508,7 +531,136 @@ function reiseAnsichtHtml() {
   return out;
 }
 
-function personenAnsichtHtml() { return ''; }
+// Tag im Jahr, 1-basiert, auf das angezeigte Jahr beschnitten. Reisen ueber
+// den Jahreswechsel werden dadurch am Rand abgeschnitten statt verschoben.
+function tagImJahr(isoTag) {
+  const d = new Date(isoTag + 'T00:00:00Z');
+  const n = Math.floor((d.getTime() - Date.UTC(JAHR,0,1)) / 86400000) + 1;
+  return Math.min(Math.max(n, 1), tageImJahr(JAHR));
+}
+
+// Aus einer sortierten Tagesliste zusammenhaengende Abschnitte machen, damit
+// eine Teil-Anmeldung mit Luecke nicht als ein durchgehender Block erscheint.
+function laeufe(tage) {
+  const s = tage.slice().sort();
+  const out = [];
+  s.forEach(tag => {
+    const letzter = out[out.length - 1];
+    if (letzter && tagImJahr(tag) === tagImJahr(letzter.bis) + 1) letzter.bis = tag;
+    else out.push({ von: tag, bis: tag });
+  });
+  return out;
+}
+
+function personenZeilen() {
+  const nachId = {};
+  function zeile(id, name) {
+    if (!nachId[id]) nachId[id] = { id: id, name: name || 'Mitglied', reisen: [], sw: [], tage: new Set() };
+    else if (name && nachId[id].name === 'Mitglied') nachId[id].name = name;
+    return nachId[id];
+  }
+
+  MITGLIEDER.forEach(m => zeile(m.id, m.full_name));
+
+  sichtbareReisen().forEach(t => {
+    const alle = LPR.enumTripDays(t.start_date, t.end_date);
+    (ANMELDUNGEN[t.id] || []).forEach(s => {
+      const z = zeile(s.user_id, s.full_name);
+      const eigene = LPR.signupEffectiveDays(s, alle).filter(tag => tag >= iso(JAHR,1,1) && tag <= iso(JAHR,12,31));
+      if (!eigene.length) return;
+      eigene.forEach(tag => z.tage.add(tag));
+      laeufe(eigene).forEach(l => z.reisen.push({ trip: t, von: l.von, bis: l.bis }));
+    });
+  });
+
+  (SITZWACHEN || []).forEach(b => {
+    if (!b.date || b.date < iso(JAHR,1,1) || b.date > iso(JAHR,12,31)) return;
+    zeile(b.volunteer_id, b.volunteer_name).sw.push(b.date);
+  });
+
+  const liste = Object.keys(nachId).map(k => nachId[k]);
+  liste.forEach(z => {
+    z.konflikte = z.sw.filter(tag => z.tage.has(tag));
+    z.anzahl = z.tage.size;
+  });
+  liste.sort((a, b) => b.anzahl - a.anzahl || a.name.localeCompare(b.name, 'de'));
+  return liste;
+}
+
+function personenAnsichtHtml() {
+  const zeilen = personenZeilen();
+  const mit  = zeilen.filter(z => z.anzahl || z.sw.length);
+  const ohne = zeilen.filter(z => !z.anzahl && !z.sw.length);
+  const laenge = tageImJahr(JAHR);
+
+  let out = '<div class="jk-lineal"><div style="width:150px;flex:none"></div><div class="jk-lineal-spur">';
+  for (let m = 1; m <= 12; m++) {
+    out += '<span style="left:' + ((tagImJahr(iso(JAHR,m,1)) - 1) / laenge * 100).toFixed(2) + '%;transform:none">'
+      + MONAT_KURZ[m-1] + '</span>';
+  }
+  out += '</div></div>';
+
+  mit.forEach(z => {
+    // Die Sitzwachen-Striche selbst sind aria-hidden (kein Knopf, keine
+    // Einzel-Textalternative) — die vorlesbare Jahressumme haengt deshalb hier
+    // am Namensfeld, damit Farbe/Position nicht der einzige Informationsweg sind.
+    const zusatz = z.anzahl + (z.anzahl === 1 ? ' Reisetag' : ' Reisetage') + ' ' + JAHR
+      + (z.sw.length ? ' · ' + z.sw.length + (z.sw.length === 1 ? ' Sitzwache' : ' Sitzwachen') + ' ' + JAHR : '');
+    out += '<div class="jk-p-zeile"><div class="jk-p-name" title="' + escapeHtml(z.name + ' — ' + zusatz) + '"'
+      + ' aria-label="' + escapeHtml(z.name + ' — ' + zusatz) + '">'
+      + escapeHtml(z.name) + ' <span class="jk-p-tage">' + z.anzahl + ' T</span></div>'
+      + '<div class="jk-p-spur">';
+
+    for (let m = 2; m <= 12; m++) {
+      out += '<div class="jk-p-monat" style="left:' + ((tagImJahr(iso(JAHR,m,1)) - 1) / laenge * 100).toFixed(2) + '%"></div>';
+    }
+
+    z.reisen.forEach(r => {
+      const links  = (tagImJahr(r.von) - 1) / laenge * 100;
+      const breite = (tagImJahr(r.bis) - tagImJahr(r.von) + 1) / laenge * 100;
+      const a = ampel(r.trip);
+      // Wie beim Reise-Balken: der Knopf hat keinen Textinhalt, deshalb traegt
+      // aria-label den zugaenglichen Namen — Titel, Zeitraum und Ampeltext.
+      const marke = escapeHtml(r.trip.title + ' · ' + LPR.formatTripDay(r.von) + ' bis ' + LPR.formatTripDay(r.bis)
+        + (a.text ? ' · ' + a.text : ''));
+      out += '<button type="button" class="jk-p-reise ' + a.klasse + '"'
+        + ' data-reise="' + escapeHtml(r.trip.id) + '"'
+        + ' style="left:' + links.toFixed(2) + '%;width:' + breite.toFixed(2) + '%"'
+        + ' aria-label="' + marke + '" title="' + marke + '"></button>';
+    });
+
+    z.sw.forEach(tag => {
+      const konflikt = z.tage.has(tag);
+      // Kein Knopf, kein eigener Name noetig: aria-hidden blendet den Strich
+      // fuer Screenreader komplett aus. Die Jahressumme steht am Namensfeld,
+      // ein einzelner Konflikttag zusaetzlich im Text der Warnzeile unten.
+      out += '<div class="jk-p-sw' + (konflikt ? ' konflikt' : '') + '" aria-hidden="true"'
+        + ' style="left:' + ((tagImJahr(tag) - 1) / laenge * 100).toFixed(2) + '%"'
+        + ' title="' + escapeHtml('Sitzwache ' + LPR.formatTripDay(tag) + (konflikt ? ' — am selben Tag auch auf Reise' : '')) + '"></div>';
+    });
+
+    out += '</div></div>';
+  });
+
+  if (!mit.length) {
+    out += '<div class="jk-leer">Für ' + JAHR + ' ist niemand verplant.</div>';
+  }
+
+  const konflikte = mit.filter(z => z.konflikte.length);
+  if (konflikte.length) {
+    const anzahl = konflikte.reduce((n, z) => n + z.konflikte.length, 0);
+    out += '<div class="jk-p-konflikte">⚠ ' + anzahl + ' mögliche Doppelverplanung'
+      + (anzahl === 1 ? '' : 'en') + ' — '
+      + konflikte.map(z => escapeHtml(z.name) + ' am ' + z.konflikte.map(t => LPR.formatTripDay(t)).join(', ')).join('; ')
+      + '</div>';
+  }
+
+  if (ohne.length) {
+    out += '<details class="jk-p-rest"><summary>Ohne Einsatz ' + JAHR + ' (' + ohne.length + ')</summary>'
+      + '<div>' + ohne.map(z => escapeHtml(z.name)).join(' · ') + '</div></details>';
+  }
+  return out;
+}
 
 function verdrahteFlaeche() {
   document.getElementById('jk-flaeche').querySelectorAll('[data-reise]').forEach(el => {

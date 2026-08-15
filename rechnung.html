@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Rechnung · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.re-wrap { max-width: 900px; margin: 28px auto 60px; padding: 0 20px; }
+
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0 0 14px; font-size: 14px; font-weight: 600;
+  color: #1A3A2A; text-decoration: none;
+}
+.back-link:hover { text-decoration: underline; }
+
+.re-bar { background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+          padding:16px 20px; margin-bottom:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.re-bar .spacer { flex:1; }
+.re-warn { background:#FDF0E8; border:1px solid #C85B30; color:#8A3A18; border-radius:10px;
+           padding:12px 16px; margin-bottom:14px; font-size:14px; font-weight:600; }
+
+.f-lbl { display:block; font-size:13px; font-weight:600; color:var(--muted); margin-bottom:12px; }
+.f-in  { display:block; width:100%; margin-top:5px; font-family:inherit; font-size:14px;
+         padding:9px 11px; border:1.5px solid var(--border); border-radius:8px; background:#fff; color:var(--text); }
+
+.it-table { width:100%; border-collapse:collapse; font-size:14px; }
+.it-table th { text-align:left; font-size:11px; font-weight:700; text-transform:uppercase;
+               letter-spacing:.06em; color:var(--muted); padding:10px 8px; border-bottom:1.5px solid var(--border); }
+.it-table td { padding:6px 8px; border-bottom:1px solid #EFEDE8; vertical-align:top; }
+.it-table .num, .it-table th.num { text-align:right; }
+.it-table input { width:100%; font-family:inherit; font-size:14px; padding:7px 9px;
+                  border:1.5px solid var(--border); border-radius:7px; }
+.it-sum { display:flex; justify-content:flex-end; gap:28px; padding:14px 8px 0; font-size:15px; }
+.it-sum strong { font-family:'Bricolage Grotesque',sans-serif; font-size:19px; color:var(--green-deep); }
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+<main id="main">
+<div class="re-wrap">
+  <a href="admin-rechnungen.html" class="back-link no-print">← Rechnungen</a>
+
+  <div id="login-view" hidden>
+    <p>Dieser Bereich ist dem Vorstand vorbehalten.</p>
+  </div>
+
+  <div id="warn-steuernr" class="re-warn no-print" hidden>
+    Steuernummer des Vereins fehlt — die Rechnung ist nach § 14 UStG unvollständig.
+    Sie steht in <code>app.js</code> unter <code>VEREIN.steuernummer</code>.
+  </div>
+
+  <div class="re-bar no-print" id="action-bar"></div>
+  <div id="editor" hidden></div>
+  <div id="beleg"></div>
+</div>
+</main>
+
+<script src="app.js?v20260815a"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+
+LPR_Layout.init({ page: 'rechnungen-admin' });
+
+const INV_ID = new URLSearchParams(location.search).get('id');
+let _inv = null, _recipient = null, _items = [], _recipients = [];
+
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+function deDate(iso) { return iso ? iso.slice(8,10) + '.' + iso.slice(5,7) + '.' + iso.slice(0,4) : '—'; }
+
+async function init() {
+  const session = LPR.getSession();
+  if (!session) { location.href = 'login.html?next=admin-rechnungen.html'; return; }
+  if (session.role !== 'admin') { document.getElementById('login-view').hidden = false; return; }
+  if (!LPR.VEREIN.steuernummer) document.getElementById('warn-steuernr').hidden = false;
+  if (!INV_ID) { location.href = 'admin-rechnungen.html'; return; }
+
+  _recipients = (await LPR.listRecipients(true)).recipients || [];
+  await reload();
+}
+
+async function reload() {
+  const res = await LPR.getInvoice(INV_ID);
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); location.href = 'admin-rechnungen.html'; return; }
+  _inv = res.invoice; _recipient = res.recipient; _items = res.items;
+  if (!_items.length && _inv.status === 'draft') _items = [emptyItem()];
+  render();
+}
+
+function emptyItem() {
+  return { quantity: 1, description: '', period_text: '', unit_price_cents: 0 };
+}
+
+function render() {
+  renderBar();
+  const isDraft = _inv.status === 'draft';
+  document.getElementById('editor').hidden = !isDraft;
+  if (isDraft) renderEditor();
+  renderBeleg();
+}
+
+function renderBar() {
+  const s = _inv.status;
+  const bits = [`<strong style="font-family:'Bricolage Grotesque',sans-serif;font-size:18px;color:var(--green-deep);">
+     ${escapeHtml(_inv.invoice_no || 'Entwurf')}</strong>`, '<span class="spacer"></span>'];
+  if (s === 'draft') {
+    bits.push('<button class="btn" onclick="saveDraft()">Speichern</button>');
+    bits.push('<button class="btn" onclick="removeDraft()">Verwerfen</button>');
+    bits.push('<button class="btn btn-primary" onclick="issue()">Festschreiben</button>');
+  } else {
+    bits.push('<button class="btn btn-primary" onclick="printInvoice()">Drucken / Als PDF sichern</button>');
+    if (s === 'issued') bits.push('<button class="btn" onclick="markPaid()">Als bezahlt markieren</button>');
+    if (s === 'issued' || s === 'paid') bits.push('<button class="btn" onclick="storno()">Stornieren</button>');
+  }
+  document.getElementById('action-bar').innerHTML = bits.join(' ');
+}
+
+function renderEditor() {
+  const opts = _recipients.filter(r => r.active || r.id === _inv.recipient_id)
+    .map(r => `<option value="${r.id}"${r.id === _inv.recipient_id ? ' selected' : ''}>${escapeHtml(r.name)}</option>`).join('');
+  const rows = _items.map((it, i) => `
+    <tr>
+      <td style="width:70px;"><input value="${escapeHtml(String(it.quantity))}" oninput="setItem(${i},'quantity',this.value)"></td>
+      <td><input value="${escapeHtml(it.description)}" placeholder="Leistung" oninput="setItem(${i},'description',this.value)"></td>
+      <td style="width:150px;"><input value="${escapeHtml(it.period_text || '')}" placeholder="z. B. Juli 2026" oninput="setItem(${i},'period_text',this.value)"></td>
+      <td style="width:120px;"><input class="num" value="${(it.unit_price_cents/100).toFixed(2).replace('.',',')}" oninput="setItem(${i},'unit_price_cents',LPR.eurToCents(this.value))"></td>
+      <td class="num" style="width:110px;padding-top:14px;">${LPR.centsToEUR(LPR.itemAmountCents(it.quantity, it.unit_price_cents))}</td>
+      <td style="width:36px;"><button class="btn" onclick="removeItem(${i})" aria-label="Position entfernen">×</button></td>
+    </tr>`).join('');
+
+  document.getElementById('editor').innerHTML = `
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:16px;">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;">
+        <label class="f-lbl" style="flex:2;min-width:260px;">Empfänger
+          <select class="f-in" onchange="setField('recipient_id', this.value)">${opts}</select></label>
+        <label class="f-lbl" style="flex:1;min-width:150px;">Rechnungsdatum
+          <input class="f-in" type="date" value="${_inv.invoice_date || ''}" onchange="setField('invoice_date', this.value)"></label>
+        <label class="f-lbl" style="flex:1;min-width:150px;">Zahlungsziel
+          <input class="f-in" type="date" value="${_inv.due_date || ''}" onchange="setField('due_date', this.value)"></label>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;">
+        <label class="f-lbl" style="flex:1;min-width:150px;">Leistung von
+          <input class="f-in" type="date" value="${_inv.service_from || ''}" onchange="setField('service_from', this.value)"></label>
+        <label class="f-lbl" style="flex:1;min-width:150px;">Leistung bis
+          <input class="f-in" type="date" value="${_inv.service_to || ''}" onchange="setField('service_to', this.value)"></label>
+        <label class="f-lbl" style="flex:2;min-width:220px;">Umsatzsteuer
+          <select class="f-in" onchange="setTaxMode(this.value)">
+            <option value="exempt"${_inv.tax_mode === 'exempt' ? ' selected' : ''}>steuerfrei</option>
+            <option value="vat"${_inv.tax_mode === 'vat' ? ' selected' : ''}>steuerpflichtig</option>
+          </select></label>
+      </div>
+      <label class="f-lbl">${_inv.tax_mode === 'vat' ? 'Steuersatz in Prozent' : 'Befreiungsgrund (steht so auf der Rechnung)'}
+        ${_inv.tax_mode === 'vat'
+          ? `<input class="f-in" value="${_inv.tax_rate}" onchange="setField('tax_rate', this.value)">`
+          : `<input class="f-in" value="${escapeHtml(_inv.tax_note)}" onchange="setField('tax_note', this.value)">`}</label>
+      <label class="f-lbl">Einleitungssatz (optional)
+        <input class="f-in" value="${escapeHtml(_inv.intro_text || '')}" onchange="setField('intro_text', this.value)"></label>
+
+      <table class="it-table">
+        <thead><tr><th>Menge</th><th>Leistung</th><th>Zeitraum</th><th class="num">Einzelpreis</th><th class="num">Betrag</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <button class="btn" style="margin-top:10px;" onclick="addItem()">+ Position</button>
+      <div class="it-sum"><span>Summe</span><strong>${LPR.centsToEUR(currentSubtotal())}</strong></div>
+    </div>`;
+}
+
+function currentSubtotal() {
+  return _items.reduce((s, it) => s + LPR.itemAmountCents(it.quantity, it.unit_price_cents), 0);
+}
+
+function setField(key, value) { _inv[key] = value; }
+function setTaxMode(mode) { _inv.tax_mode = mode; renderEditor(); }
+function setItem(i, key, value) {
+  _items[i][key] = value;
+  if (key === 'quantity' || key === 'unit_price_cents') renderEditor();
+}
+function addItem() { _items.push(emptyItem()); renderEditor(); }
+function removeItem(i) { _items.splice(i, 1); if (!_items.length) _items = [emptyItem()]; renderEditor(); }
+
+async function saveDraft(silent) {
+  const a = await LPR.updateInvoiceDraft(INV_ID, _inv);
+  if (!a.ok) { LPR.showToast(a.error, 'warn'); return false; }
+  const b = await LPR.saveInvoiceItems(INV_ID, _items);
+  if (!b.ok) { LPR.showToast(b.error, 'warn'); return false; }
+  if (!silent) LPR.showToast('Gespeichert ✓');
+  return true;
+}
+
+async function removeDraft() {
+  if (!confirm('Diesen Entwurf verwerfen?')) return;
+  const res = await LPR.deleteInvoiceDraft(INV_ID);
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  location.href = 'admin-rechnungen.html';
+}
+
+async function issue() {
+  if (!_items.some(i => String(i.description || '').trim())) {
+    LPR.showToast('Mindestens eine Position mit Beschreibung.', 'warn'); return;
+  }
+  if (!confirm('Festschreiben? Danach ist die Rechnung nicht mehr änderbar — Korrekturen laufen über eine Storno-Rechnung.')) return;
+  if (!await saveDraft(true)) return;
+  const res = await LPR.issueInvoice(INV_ID);
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  LPR.showToast('Festgeschrieben als ' + res.invoice.invoice_no);
+  await reload();
+}
+
+async function markPaid() {
+  const heute = new Date().toISOString().slice(0,10);
+  const d = prompt('Zahlungseingang am (JJJJ-MM-TT):', heute);
+  if (!d) return;
+  const res = await LPR.markInvoicePaid(INV_ID, d);
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  await reload();
+}
+
+async function storno() {
+  const grund = prompt('Grund für den Storno:');
+  if (grund === null) return;
+  const res = await LPR.cancelInvoice(INV_ID, grund);
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  LPR.showToast('Storno ' + res.invoice.invoice_no + ' erstellt');
+  location.href = 'rechnung.html?id=' + res.invoice.id;
+}
+
+function printInvoice() {
+  const alt = document.title;
+  document.title = (_inv.invoice_no || 'Rechnung') + ' ' + ((_recipient && _recipient.name) || '');
+  window.print();
+  setTimeout(() => { document.title = alt; }, 1000);
+}
+
+init();
+</script>
+</body>
+</html>

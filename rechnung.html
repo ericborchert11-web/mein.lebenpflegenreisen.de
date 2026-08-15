@@ -64,15 +64,19 @@
                   letter-spacing:.06em; color:#6B6B65; border-bottom:1.5px solid #1A3A2A; padding:7px 6px; }
 .beleg-table td { padding:8px 6px; border-bottom:1px solid #EFEDE8; vertical-align:top; }
 .beleg-table .num, .beleg-table th.num { text-align:right; font-variant-numeric:tabular-nums; }
-.beleg-sum { margin-left:auto; width:290px; }
-.beleg-sum tr td { padding:6px 6px; }
+/* Breit genug fuer "Entgelt (Nettobetrag / Summe der Leistungen)" — schmaler
+   bricht das Label um und schiebt das Eurozeichen in die naechste Zeile. */
+.beleg-sum { margin-left:auto; width:360px; }
+.beleg-sum tr td { padding:5px 6px; }
+.beleg-sum td.num { white-space:nowrap; }
 .beleg-sum .total td { border-top:2px solid #1A3A2A; font-weight:800; font-size:15px;
                        font-family:'Bricolage Grotesque',sans-serif; }
-.beleg-tax { background:#F6F8F0; border-left:3px solid #C8F135; padding:11px 14px; margin:18px 0; }
-.beleg-pay { margin:18px 0; }
-.beleg-foot { border-top:1px solid #E4E2DC; margin-top:26px; padding-top:12px;
+.beleg-tax { background:#F6F8F0; border-left:3px solid #C8F135; padding:10px 14px; margin:12px 0; }
+.beleg-pay { margin:14px 0; }
+.beleg-foot { border-top:1px solid #E4E2DC; margin-top:18px; padding-top:10px;
               font-size:10.5px; line-height:1.55; color:#6B6B65; }
 .beleg-storno { color:#8A3A18; font-weight:700; }
+.beleg-hint { clear:both; font-size:11.5px; color:#4A4A46; margin:10px 0 0; }
 
 @media print {
   @page { size: A4; margin: 16mm 14mm; }
@@ -241,6 +245,12 @@ function renderEditor() {
           : `<input class="f-in" value="${escapeHtml(_inv.tax_note)}" onchange="setField('tax_note', this.value)">`}</label>
       <label class="f-lbl">Einleitungssatz (optional)
         <input class="f-in" value="${escapeHtml(_inv.intro_text || '')}" onchange="setField('intro_text', this.value)"></label>
+      <label class="f-lbl">Davon Betreuungsanteil § 45b SGB XI (optional, in Euro)
+        <input class="f-in" value="${_inv.care_share_cents == null ? '' : (_inv.care_share_cents/100).toFixed(2).replace('.',',')}"
+               placeholder="leer lassen, wenn nicht einschlägig" onchange="setCareShare(this.value)"></label>
+      <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px;">
+        Nur für Rechnungen an Familien: Mit diesem Betrag kann die Pflegekasse den
+        Entlastungsbetrag erstatten. Bei Klinikrechnungen leer lassen.</p>
 
       <div style="display:flex;gap:10px;align-items:center;margin:6px 0 10px;flex-wrap:wrap;">
         <select id="tpl-select" class="f-in" style="width:auto;min-width:280px;margin:0;"
@@ -293,10 +303,22 @@ function renderBeleg() {
          <tr><td>zzgl. Umsatzsteuer ${escapeHtml(String(_inv.tax_rate))} %</td><td class="num">${LPR.centsToEUR(tax)}</td></tr>
          <tr class="total"><td>Rechnungsbetrag</td><td class="num">${LPR.centsToEUR(total)}</td></tr>
        </table>`
-    : `<div class="beleg-tax">${escapeHtml(_inv.tax_note)}</div>
+    // Aufbau wie in der Vorstandsvorlage: erst das Entgelt, dann der Grund der
+    // Steuerfreiheit, dann der Rechnungsbetrag. Ohne Steuer sind beide Zahlen
+    // gleich — die Vorlage zeigt sie trotzdem beide.
+    : `<table class="beleg-sum">
+         <tr><td>Entgelt (Nettobetrag / Summe der Leistungen)</td><td class="num">${LPR.centsToEUR(sub)}</td></tr>
+       </table>
+       <div class="beleg-tax">${escapeHtml(_inv.tax_note)}</div>
        <table class="beleg-sum">
          <tr class="total"><td>Rechnungsbetrag</td><td class="num">${LPR.centsToEUR(total)}</td></tr>
        </table>`;
+
+  // Nur wenn gepflegt: der Betrag, mit dem eine Familie den Entlastungsbetrag
+  // bei der Pflegekasse einreichen kann.
+  const betreuungsHinweis = (_inv.care_share_cents != null)
+    ? `<p class="beleg-hint">Davon Betreuungsanteil ${LPR.centsToEUR(_inv.care_share_cents)} —
+       einsetzbar für den Entlastungsbetrag nach § 45b SGB XI.</p>` : '';
 
   const stornoHinweis = _inv.status === 'cancelled'
     ? '<p class="beleg-storno">Diese Rechnung wurde storniert.</p>' : '';
@@ -309,7 +331,7 @@ function renderBeleg() {
 
     <div class="beleg-parties">
       <div>
-        <div class="beleg-lbl">Rechnungssteller</div>
+        <div class="beleg-lbl">Rechnungssteller (Leistender)</div>
         <strong>${escapeHtml(V.name)}</strong><br>
         ${escapeHtml(V.strasse)}<br>${escapeHtml(V.ort)}<br>
         ${escapeHtml(V.register)}<br>
@@ -329,7 +351,7 @@ function renderBeleg() {
     <div class="beleg-meta">
       <div><div class="beleg-lbl">Rechnungsnummer</div><strong>${escapeHtml(_inv.invoice_no || 'Entwurf — noch nicht festgeschrieben')}</strong></div>
       <div><div class="beleg-lbl">Rechnungsdatum</div>${deDate(_inv.invoice_date)}</div>
-      <div><div class="beleg-lbl">Leistungsdatum</div>${leistung}</div>
+      <div><div class="beleg-lbl">Leistungs-/Lieferdatum</div>${leistung}</div>
     </div>
 
     ${_inv.intro_text ? '<p>' + escapeHtml(_inv.intro_text) + '</p>' : ''}
@@ -343,6 +365,7 @@ function renderBeleg() {
     </table>
 
     ${steuerBlock}
+    ${betreuungsHinweis}
 
     <div class="beleg-pay">
       <div class="beleg-lbl">Zahlung</div>
@@ -368,6 +391,11 @@ function currentSubtotal() {
 }
 
 function setField(key, value) { _inv[key] = value; }
+// Leeres Feld heisst "nicht einschlaegig" und muss null werden, nicht 0 —
+// sonst stuende auf jeder Klinikrechnung "Davon Betreuungsanteil 0,00 €".
+function setCareShare(value) {
+  _inv.care_share_cents = String(value).trim() === '' ? null : LPR.eurToCents(value);
+}
 function setTaxMode(mode) { _inv.tax_mode = mode; renderEditor(); }
 function setItem(i, key, value) {
   _items[i][key] = value;

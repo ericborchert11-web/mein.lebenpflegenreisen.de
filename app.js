@@ -3087,8 +3087,8 @@
 
   const INVOICE_COLS = 'id, invoice_no, status, recipient_id, recipient_snapshot, invoice_date, ' +
     'service_from, service_to, due_date, tax_mode, tax_rate, tax_note, intro_text, ' +
-    'subtotal_cents, tax_cents, total_cents, paid_on, cancels_invoice_id, cancelled_by_invoice_id, ' +
-    'created_at, issued_at';
+    'subtotal_cents, tax_cents, total_cents, care_share_cents, paid_on, ' +
+    'cancels_invoice_id, cancelled_by_invoice_id, created_at, issued_at';
 
   async function listInvoices(filter) {
     const f = filter || {};
@@ -3157,7 +3157,7 @@
 
   async function updateInvoiceDraft(id, patch) {
     const allowed = ['recipient_id','invoice_date','service_from','service_to','due_date',
-                     'tax_mode','tax_rate','tax_note','intro_text'];
+                     'tax_mode','tax_rate','tax_note','intro_text','care_share_cents'];
     const row = {};
     allowed.forEach(k => { if (patch && k in patch) row[k] = patch[k] === '' ? null : patch[k]; });
     if (!Object.keys(row).length) return { ok: true };

@@ -120,7 +120,7 @@
 </div>
 </main>
 
-<script src="app.js?v20260815a"></script>
+<script src="app.js?v20260815b"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -157,7 +157,11 @@ function emptyItem() {
   return { quantity: 1, description: '', period_text: '', unit_price_cents: 0 };
 }
 
+// Absichtlich defensiv: liegt im Browser noch eine alte app.js im Cache, fehlt
+// LPR.listItemTemplates. Ohne diese Klammer risse der Fehler init() ab und die
+// ganze Rechnung bliebe leer — die Vorlagen sind aber nur ein Zusatz.
 async function loadTemplates() {
+  if (typeof LPR.listItemTemplates !== 'function') return;
   const res = await LPR.listItemTemplates();
   if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
   _templates = res.templates;

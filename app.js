@@ -3246,6 +3246,73 @@
     }
   }
 
+  // ── Leistungsvorlagen ──────────────────────────────────────────────────
+  // Frei benannte Positionen, die in jede Rechnung eingefuegt werden koennen.
+  // Eine Vorlage ist ein Vorschlag: die eingefuegte Position ist danach eine
+  // ganz normale Zeile und wird nicht mit der Vorlage verknuepft.
+
+  async function listItemTemplates() {
+    try {
+      const { data, error } = await (await sb())
+        .from('invoice_item_templates')
+        .select('id, name, unit_price_cents')
+        .order('name', { ascending: true });
+      if (error) return { ok: false, error: error.message, templates: [] };
+      return { ok: true, templates: data || [] };
+    } catch(e) {
+      console.error('[LPR] listItemTemplates:', e);
+      return { ok: false, error: 'Netzwerkfehler.', templates: [] };
+    }
+  }
+
+  // Legt an oder aktualisiert den Preis, wenn es den Namen schon gibt.
+  // Kein upsert: das loest in supabase-js nur auf echte Spalten auf, nicht auf
+  // den Ausdruck lower(name). Und kein ilike-Filter, weil Namen '%' oder '_'
+  // enthalten duerfen — die waeren dort Platzhalter. Der Katalog ist klein,
+  // also wird er geladen und im Browser verglichen. Der eindeutige Index
+  // bleibt als Absicherung gegen zwei gleichzeitige Speicherversuche.
+  async function saveItemTemplate(tpl) {
+    const name = String((tpl && tpl.name) || '').trim();
+    if (!name) return { ok: false, error: 'Name ist Pflicht.' };
+    const price = Number(tpl.unit_price_cents) || 0;
+    try {
+      const client = await sb();
+      const list = await listItemTemplates();
+      if (!list.ok) return { ok: false, error: list.error };
+      const hit = list.templates.find(t => t.name.toLowerCase() === name.toLowerCase());
+      const q = hit
+        ? client.from('invoice_item_templates')
+                .update({ name, unit_price_cents: price }).eq('id', hit.id)
+        : client.from('invoice_item_templates')
+                .insert({ name, unit_price_cents: price });
+      const { data, error } = await q.select().single();
+      if (error) {
+        if (error.code === '23505') {
+          return { ok: false, error: 'Es gibt schon eine Vorlage mit diesem Namen.' };
+        }
+        return { ok: false, error: error.message };
+      }
+      return { ok: true, template: data, updated: !!hit };
+    } catch(e) {
+      console.error('[LPR] saveItemTemplate:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  // Hart loeschen ist richtig: an einer Vorlage haengt nichts. Positionen auf
+  // Rechnungen sind Kopien, keine Verweise.
+  async function deleteItemTemplate(id) {
+    try {
+      const { error } = await (await sb())
+        .from('invoice_item_templates').delete().eq('id', id);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] deleteItemTemplate:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   global.LPR = {
     // Freibetrag § 3 Nr. 26 EStG (zentral, statt mehrfach hartkodiert)
     PAUSCHALE_LIMIT, PAUSCHALE_WARN,
@@ -3270,6 +3337,7 @@
     listRecipients, saveRecipient, setRecipientActive,
     listInvoices, getInvoice, createInvoice, updateInvoiceDraft, saveInvoiceItems,
     deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid,
+    listItemTemplates, saveItemTemplate, deleteItemTemplate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     // Besetzungsregel — geteilt von admin-reisen.html und admin-jahreskalender.html
     enumTripDays, formatTripDay, signupEffectiveDays, signupEffectiveHalf,

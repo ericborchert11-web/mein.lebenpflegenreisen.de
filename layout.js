@@ -81,6 +81,7 @@
           <li><a href="kalkulation.html" class="${c('kalkulation')}">Kalkulation</a></li>
           <li><a href="admin-kliniken.html" class="${c('kliniken-admin')}">Kliniken</a></li>
           <li><a href="admin-sitzwachen.html" class="${c('sitzwachen-admin')}">Sitzwachen</a></li>
+          <li><a href="admin-rechnungen.html" class="${c('rechnungen-admin')}">Rechnungen</a></li>
           <li><a href="admin-foerdermittel.html" class="${c('foerdermittel')}">Fördermittel</a></li>
           <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;" style="color:var(--warn);">Abmelden</a></li>
         `;

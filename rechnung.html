@@ -105,6 +105,18 @@
   <div class="re-bar no-print" id="action-bar"></div>
   <div id="editor" hidden></div>
   <div id="beleg"></div>
+  <dialog id="tpl-dlg" class="no-print" style="border:none;border-radius:14px;padding:0;max-width:560px;width:92vw;">
+    <div style="padding:26px 28px;">
+      <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:20px;color:var(--green-deep);margin:0 0 6px;">Vorlagen</h2>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 16px;">
+        Preis ändern und das Feld verlassen speichert sofort. Gelöschte Vorlagen
+        ändern nichts an bereits geschriebenen Rechnungen.</p>
+      <div id="tpl-list"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:18px;">
+        <button type="button" class="btn" onclick="document.getElementById('tpl-dlg').close()">Schließen</button>
+      </div>
+    </div>
+  </dialog>
 </div>
 </main>
 
@@ -380,6 +392,52 @@ async function saveRowAsTemplate(i) {
   await loadTemplates();
   renderEditor();
   LPR.showToast(res.updated ? 'Vorlage aktualisiert ✓' : 'Vorlage gesichert ✓');
+}
+
+function openTemplates() {
+  renderTemplateList();
+  document.getElementById('tpl-dlg').showModal();
+}
+
+function renderTemplateList() {
+  if (!_templates.length) {
+    document.getElementById('tpl-list').innerHTML =
+      '<p style="color:var(--muted);font-size:14px;margin:0;">Noch keine Vorlage gesichert. ' +
+      'Dafür in einer Position auf ☆ klicken.</p>';
+    return;
+  }
+  document.getElementById('tpl-list').innerHTML = `
+    <table class="it-table">
+      <thead><tr><th>Bezeichnung</th><th class="num">Einzelpreis</th><th></th></tr></thead>
+      <tbody>${_templates.map(t => `
+        <tr>
+          <td>${escapeHtml(t.name)}</td>
+          <td style="width:130px;"><input class="num" value="${(t.unit_price_cents/100).toFixed(2).replace('.',',')}"
+                 onchange="setTemplatePrice('${t.id}', this.value)"></td>
+          <td style="width:44px;"><button class="btn" onclick="deleteTemplate('${t.id}')" aria-label="Vorlage löschen">×</button></td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+async function setTemplatePrice(id, value) {
+  const t = _templates.find(x => x.id === id);
+  if (!t) return;
+  const res = await LPR.saveItemTemplate({ name: t.name, unit_price_cents: LPR.eurToCents(value) });
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  await loadTemplates();
+  renderTemplateList();
+  renderEditor();
+  LPR.showToast('Vorlage aktualisiert ✓');
+}
+
+async function deleteTemplate(id) {
+  const t = _templates.find(x => x.id === id);
+  if (!t || !confirm('Vorlage „' + t.name + '" löschen?')) return;
+  const res = await LPR.deleteItemTemplate(id);
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  await loadTemplates();
+  renderTemplateList();
+  renderEditor();
 }
 
 async function saveDraft(silent) {

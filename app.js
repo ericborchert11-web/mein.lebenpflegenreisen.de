@@ -3085,6 +3085,167 @@
     }
   }
 
+  const INVOICE_COLS = 'id, invoice_no, status, recipient_id, recipient_snapshot, invoice_date, ' +
+    'service_from, service_to, due_date, tax_mode, tax_rate, tax_note, intro_text, ' +
+    'subtotal_cents, tax_cents, total_cents, paid_on, cancels_invoice_id, cancelled_by_invoice_id, ' +
+    'created_at, issued_at';
+
+  async function listInvoices(filter) {
+    const f = filter || {};
+    try {
+      let q = (await sb())
+        .from('invoices')
+        .select(INVOICE_COLS + ', billing_recipients(name)')
+        .order('invoice_date', { ascending: false })
+        .order('created_at', { ascending: false });
+      if (f.year)        q = q.gte('invoice_date', f.year + '-01-01').lte('invoice_date', f.year + '-12-31');
+      if (f.status)      q = q.eq('status', f.status);
+      if (f.recipientId) q = q.eq('recipient_id', f.recipientId);
+      const { data, error } = await q;
+      if (error) return { ok: false, error: error.message, invoices: [] };
+      const invoices = (data || []).map(i => ({
+        ...i,
+        recipient_name: (i.billing_recipients && i.billing_recipients.name) || '—'
+      }));
+      return { ok: true, invoices };
+    } catch(e) {
+      console.error('[LPR] listInvoices:', e);
+      return { ok: false, error: 'Netzwerkfehler.', invoices: [] };
+    }
+  }
+
+  async function getInvoice(id) {
+    try {
+      const client = await sb();
+      const [invRes, itemRes] = await Promise.all([
+        client.from('invoices').select(INVOICE_COLS + ', billing_recipients(*)').eq('id', id).maybeSingle(),
+        client.from('invoice_items')
+              .select('id, pos, quantity, description, period_text, unit_price_cents, amount_cents')
+              .eq('invoice_id', id).order('pos', { ascending: true })
+      ]);
+      if (invRes.error)  return { ok: false, error: invRes.error.message };
+      if (!invRes.data)  return { ok: false, error: 'Rechnung nicht gefunden.' };
+      if (itemRes.error) return { ok: false, error: itemRes.error.message };
+      const inv = invRes.data;
+      // Ab 'issued' gilt der eingefrorene Snapshot, vorher die Live-Anschrift.
+      const recipient = inv.recipient_snapshot || inv.billing_recipients || null;
+      return { ok: true, invoice: inv, recipient, items: itemRes.data || [] };
+    } catch(e) {
+      console.error('[LPR] getInvoice:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function createInvoice(patch) {
+    if (!patch || !patch.recipient_id) return { ok: false, error: 'Empfänger fehlt.' };
+    try {
+      const { data, error } = await (await sb())
+        .from('invoices')
+        .insert({
+          recipient_id: patch.recipient_id,
+          invoice_date: patch.invoice_date || dateKey(new Date()),
+          intro_text:   patch.intro_text || null
+        })
+        .select(INVOICE_COLS).single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, invoice: data };
+    } catch(e) {
+      console.error('[LPR] createInvoice:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function updateInvoiceDraft(id, patch) {
+    const allowed = ['recipient_id','invoice_date','service_from','service_to','due_date',
+                     'tax_mode','tax_rate','tax_note','intro_text'];
+    const row = {};
+    allowed.forEach(k => { if (patch && k in patch) row[k] = patch[k] === '' ? null : patch[k]; });
+    if (!Object.keys(row).length) return { ok: true };
+    try {
+      const { data, error } = await (await sb())
+        .from('invoices').update(row).eq('id', id).select(INVOICE_COLS).single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, invoice: data };
+    } catch(e) {
+      console.error('[LPR] updateInvoiceDraft:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  // Positionen werden als Ganzes ersetzt. Das haelt die Reihenfolge sauber und
+  // spart eine Differenzlogik im Browser; es sind nie viele Zeilen.
+  async function saveInvoiceItems(invoiceId, items) {
+    try {
+      const client = await sb();
+      const { error: delErr } = await client.from('invoice_items').delete().eq('invoice_id', invoiceId);
+      if (delErr) return { ok: false, error: delErr.message };
+      const rows = (items || []).map((it, idx) => ({
+        invoice_id:       invoiceId,
+        pos:              idx + 1,
+        quantity:         Number(it.quantity) || 0,
+        description:      String(it.description || '').trim(),
+        period_text:      it.period_text || null,
+        unit_price_cents: Number(it.unit_price_cents) || 0,
+        amount_cents:     itemAmountCents(it.quantity, it.unit_price_cents)
+      })).filter(r => r.description);
+      if (!rows.length) return { ok: true, items: [] };
+      const { data, error } = await client.from('invoice_items').insert(rows).select();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, items: data || [] };
+    } catch(e) {
+      console.error('[LPR] saveInvoiceItems:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function deleteInvoiceDraft(id) {
+    try {
+      const { error } = await (await sb()).from('invoices').delete().eq('id', id).eq('status', 'draft');
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] deleteInvoiceDraft:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function issueInvoice(id) {
+    try {
+      const { data, error } = await (await sb()).rpc('issue_invoice', { p_id: id });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, invoice: data };
+    } catch(e) {
+      console.error('[LPR] issueInvoice:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function cancelInvoice(id, reason) {
+    try {
+      const { data, error } = await (await sb())
+        .rpc('cancel_invoice', { p_id: id, p_reason: reason || '' });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, invoice: data };
+    } catch(e) {
+      console.error('[LPR] cancelInvoice:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function markInvoicePaid(id, paidOn) {
+    try {
+      const { error } = await (await sb())
+        .from('invoices')
+        .update({ status: 'paid', paid_on: paidOn || dateKey(new Date()) })
+        .eq('id', id).eq('status', 'issued');
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] markInvoicePaid:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   global.LPR = {
     // Freibetrag § 3 Nr. 26 EStG (zentral, statt mehrfach hartkodiert)
     PAUSCHALE_LIMIT, PAUSCHALE_WARN,
@@ -3107,6 +3268,8 @@
     VEREIN, BILLING_DEFAULT_SHIFT_CENTS,
     centsToEUR, eurToCents, itemAmountCents, invoiceSubtotalCents, invoiceIsOverdue,
     listRecipients, saveRecipient, setRecipientActive,
+    listInvoices, getInvoice, createInvoice, updateInvoiceDraft, saveInvoiceItems,
+    deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     // Besetzungsregel — geteilt von admin-reisen.html und admin-jahreskalender.html
     enumTripDays, formatTripDay, signupEffectiveDays, signupEffectiveHalf,

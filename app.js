@@ -2983,10 +2983,10 @@
     strasse:      'Stephanstr. 46',
     ort:          '10559 Berlin',
     register:     'Amtsgericht Charlottenburg, VR 42682 B',
-    // TODO Eric: Steuernummer vom Finanzamt fuer Koerperschaften eintragen.
-    // Solange leer, zeigt rechnung.html eine nicht druckbare Warnung — § 14
-    // UStG verlangt Steuernummer oder USt-IdNr., letztere hat der Verein nicht.
-    steuernummer: '',
+    // Zugeteilt am 20.07.2026 vom Finanzamt fuer Koerperschaften I Berlin.
+    // § 14 UStG verlangt Steuernummer oder USt-IdNr.; letztere hat der Verein
+    // nicht, deshalb steht diese Nummer auf jeder Rechnung.
+    steuernummer: '27/671/51395',
     ustidnr:      'nicht erteilt',
     iban:         'DE14 1005 0000 0191 6497 83',
     bic:          'BELADEBEXXX',

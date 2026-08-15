@@ -2974,6 +2974,56 @@
     } catch(e) { console.error('[LPR] foerderNamen failed:', e); return {}; }
   }
 
+  // ── Block D: Rechnungsstellung ─────────────────────────────────────────
+  // Wahrheitsquelle fuer Nummern und Summen ist die Datenbank (issue_invoice).
+  // Im Browser wird nur zur Anzeige gerechnet.
+
+  const VEREIN = {
+    name:         'Leben Pflegen Reisen e.V.',
+    strasse:      'Stephanstr. 46',
+    ort:          '10559 Berlin',
+    register:     'Amtsgericht Charlottenburg, VR 42682 B',
+    // TODO Eric: Steuernummer vom Finanzamt fuer Koerperschaften eintragen.
+    // Solange leer, zeigt rechnung.html eine nicht druckbare Warnung — § 14
+    // UStG verlangt Steuernummer oder USt-IdNr., letztere hat der Verein nicht.
+    steuernummer: '',
+    ustidnr:      'nicht erteilt',
+    iban:         'DE14 1005 0000 0191 6497 83',
+    bic:          'BELADEBEXXX',
+    bank:         'Berliner Sparkasse',
+    email:        'info@lebenpflegenreisen.de',
+    web:          'lebenpflegenreisen.de',
+    vorstand:     'Eric Borchert · Sonja Vogl · Simeon Frommholz',
+    claim:        'Menschen begleiten. Würde bewahren. Teilhabe ermöglichen.'
+  };
+
+  const BILLING_DEFAULT_SHIFT_CENTS = 20000;   // 200 € je Sitzwachen-Schicht
+
+  function centsToEUR(c) { return formatEUR((Number(c) || 0) / 100); }
+
+  // Nimmt deutsche Eingaben ('1.234,56', '200', '19,5') und liefert Cent.
+  function eurToCents(v) {
+    if (typeof v === 'number') return Math.round(v * 100);
+    const s = String(v ?? '').trim().replace(/\./g, '').replace(',', '.').replace(/[^\d.\-]/g, '');
+    if (!s) return 0;
+    return Math.round((parseFloat(s) || 0) * 100);
+  }
+
+  function itemAmountCents(quantity, unitPriceCents) {
+    return Math.round((Number(quantity) || 0) * (Number(unitPriceCents) || 0));
+  }
+
+  function invoiceSubtotalCents(items) {
+    return (items || []).reduce((sum, i) => sum + (Number(i.amount_cents) || 0), 0);
+  }
+
+  // 'issued' und faellig in der Vergangenheit. Bewusst eine Anzeigeregel und
+  // kein gespeicherter Status — sonst muesste nachts jemand umstempeln.
+  function invoiceIsOverdue(inv) {
+    if (!inv || inv.status !== 'issued' || !inv.due_date) return false;
+    return inv.due_date < dateKey(new Date());
+  }
+
   global.LPR = {
     // Freibetrag § 3 Nr. 26 EStG (zentral, statt mehrfach hartkodiert)
     PAUSCHALE_LIMIT, PAUSCHALE_WARN,
@@ -2992,6 +3042,9 @@
     getMyCompliance, getComplianceForUser, setComplianceStatus, isComplianceComplete,
     // Block C
     getRates, getRate,
+    // Block D: Rechnungsstellung
+    VEREIN, BILLING_DEFAULT_SHIFT_CENTS,
+    centsToEUR, eurToCents, itemAmountCents, invoiceSubtotalCents, invoiceIsOverdue,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     // Besetzungsregel — geteilt von admin-reisen.html und admin-jahreskalender.html
     enumTripDays, formatTripDay, signupEffectiveDays, signupEffectiveHalf,

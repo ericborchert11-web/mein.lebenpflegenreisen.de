@@ -116,7 +116,7 @@
 LPR_Layout.init({ page: 'rechnungen-admin' });
 
 const INV_ID = new URLSearchParams(location.search).get('id');
-let _inv = null, _recipient = null, _items = [], _recipients = [];
+let _inv = null, _recipient = null, _items = [], _recipients = [], _templates = [];
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 function deDate(iso) { return iso ? iso.slice(8,10) + '.' + iso.slice(5,7) + '.' + iso.slice(0,4) : '—'; }
@@ -129,6 +129,7 @@ async function init() {
   if (!INV_ID) { location.href = 'admin-rechnungen.html'; return; }
 
   _recipients = (await LPR.listRecipients(true)).recipients || [];
+  await loadTemplates();
   await reload();
 }
 
@@ -142,6 +143,12 @@ async function reload() {
 
 function emptyItem() {
   return { quantity: 1, description: '', period_text: '', unit_price_cents: 0 };
+}
+
+async function loadTemplates() {
+  const res = await LPR.listItemTemplates();
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  _templates = res.templates;
 }
 
 function render() {
@@ -171,6 +178,8 @@ function renderBar() {
 function renderEditor() {
   const opts = _recipients.filter(r => r.active || r.id === _inv.recipient_id)
     .map(r => `<option value="${r.id}"${r.id === _inv.recipient_id ? ' selected' : ''}>${escapeHtml(r.name)}</option>`).join('');
+  const tplOpts = _templates.map(t =>
+    `<option value="${t.id}">${escapeHtml(t.name)} — ${LPR.centsToEUR(t.unit_price_cents)}</option>`).join('');
   const rows = _items.map((it, i) => `
     <tr>
       <td style="width:70px;"><input value="${escapeHtml(String(it.quantity))}" oninput="setItem(${i},'quantity',this.value)"></td>
@@ -178,7 +187,10 @@ function renderEditor() {
       <td style="width:150px;"><input value="${escapeHtml(it.period_text || '')}" placeholder="z. B. Juli 2026" oninput="setItem(${i},'period_text',this.value)"></td>
       <td style="width:120px;"><input class="num" value="${(it.unit_price_cents/100).toFixed(2).replace('.',',')}" oninput="setItem(${i},'unit_price_cents',LPR.eurToCents(this.value))"></td>
       <td class="num" style="width:110px;padding-top:14px;">${LPR.centsToEUR(LPR.itemAmountCents(it.quantity, it.unit_price_cents))}</td>
-      <td style="width:36px;"><button class="btn" onclick="removeItem(${i})" aria-label="Position entfernen">×</button></td>
+      <td style="width:86px;white-space:nowrap;">
+        <button class="btn" onclick="saveRowAsTemplate(${i})" title="Als Vorlage sichern" aria-label="Als Vorlage sichern">☆</button>
+        <button class="btn" onclick="removeItem(${i})" aria-label="Position entfernen">×</button>
+      </td>
     </tr>`).join('');
 
   document.getElementById('editor').innerHTML = `
@@ -208,6 +220,15 @@ function renderEditor() {
           : `<input class="f-in" value="${escapeHtml(_inv.tax_note)}" onchange="setField('tax_note', this.value)">`}</label>
       <label class="f-lbl">Einleitungssatz (optional)
         <input class="f-in" value="${escapeHtml(_inv.intro_text || '')}" onchange="setField('intro_text', this.value)"></label>
+
+      <div style="display:flex;gap:10px;align-items:center;margin:6px 0 10px;flex-wrap:wrap;">
+        <select class="f-in" style="width:auto;min-width:280px;margin:0;"
+                onchange="insertTemplate(this.value); this.value='';">
+          <option value="">Vorlage einfügen …</option>
+          ${tplOpts}
+        </select>
+        <button class="btn" onclick="openTemplates()">Vorlagen …</button>
+      </div>
 
       <table class="it-table">
         <thead><tr><th>Menge</th><th>Leistung</th><th>Zeitraum</th><th class="num">Einzelpreis</th><th class="num">Betrag</th><th></th></tr></thead>
@@ -334,6 +355,32 @@ function setItem(i, key, value) {
 }
 function addItem() { _items.push(emptyItem()); renderEditor(); }
 function removeItem(i) { _items.splice(i, 1); if (!_items.length) _items = [emptyItem()]; renderEditor(); }
+
+// Fuegt die Vorlage als neue Position an. Ist die Rechnung noch leer (eine
+// einzige unausgefuellte Zeile), wird diese ersetzt statt eine zweite anzuhaengen.
+function insertTemplate(id) {
+  const t = _templates.find(x => x.id === id);
+  if (!t) return;
+  const row = { quantity: 1, description: t.name, period_text: '', unit_price_cents: t.unit_price_cents };
+  const leer = _items.length === 1
+            && !String(_items[0].description || '').trim()
+            && !Number(_items[0].unit_price_cents);
+  if (leer) _items[0] = row; else _items.push(row);
+  renderEditor();
+}
+
+async function saveRowAsTemplate(i) {
+  const it = _items[i];
+  const bez = String(it.description || '').trim();
+  if (!bez) { LPR.showToast('Erst eine Bezeichnung eintragen.', 'warn'); return; }
+  const name = prompt('Name der Vorlage:', bez);
+  if (name === null) return;
+  const res = await LPR.saveItemTemplate({ name, unit_price_cents: it.unit_price_cents });
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  await loadTemplates();
+  renderEditor();
+  LPR.showToast(res.updated ? 'Vorlage aktualisiert ✓' : 'Vorlage gesichert ✓');
+}
 
 async function saveDraft(silent) {
   const a = await LPR.updateInvoiceDraft(INV_ID, _inv);

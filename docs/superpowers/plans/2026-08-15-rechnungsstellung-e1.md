@@ -125,7 +125,8 @@ create table public.billing_recipients (
   customer_ref      text,
   email             text,
   payment_days      int  not null default 14,
-  clinic_id         uuid references public.clinics(id),
+  -- clinics.id ist text, nicht uuid — der FK-Typ muss dem folgen.
+  clinic_id         text references public.clinics(id),
   shift_price_cents int,
   active            boolean not null default true,
   created_at        timestamptz not null default now()

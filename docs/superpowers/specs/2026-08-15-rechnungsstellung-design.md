@@ -69,7 +69,7 @@ nicht wiederkehren.
 | `customer_ref` | text | Kunden- oder Aktenzeichen der Gegenseite |
 | `email` | text | für den späteren Versand, jetzt nur Ablage |
 | `payment_days` | int, default 14 | Zahlungsziel |
-| `clinic_id` | uuid, FK → `clinics`, nullable | Verbindung für die Sammelrechnung |
+| `clinic_id` | text, FK → `clinics` (deren `id` ist text), nullable | Verbindung für die Sammelrechnung |
 | `shift_price_cents` | int, nullable | Standardpreis je Sitzwachen-Schicht |
 | `active` | bool, default true | |
 | `created_at` | timestamptz | |

@@ -67,6 +67,12 @@ Exceptions):
   „gesichert" von „aktualisiert" unterscheiden kann.
 - `deleteItemTemplate(id)`.
 
+Eine Falle für den Implementierungsplan: `upsert` von supabase-js kann nur auf
+echte Spalten auflösen, nicht auf den Ausdruck `lower(name)`. `saveItemTemplate`
+sucht deshalb erst per `ilike` nach dem Namen und entscheidet dann zwischen
+`update` und `insert`. Der eindeutige Index bleibt trotzdem nötig — er ist die
+Absicherung gegen zwei gleichzeitige Speicherversuche, nicht der Weg dorthin.
+
 ## Oberfläche — `rechnung.html`
 
 Alles Folgende gilt **nur im Entwurf**. Ab `issued` verschwindet der Editor

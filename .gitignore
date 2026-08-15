@@ -1,2 +1,5 @@
 # Arbeitsdateien des Brainstorming-Begleiters — nie ins oeffentliche Repo
 .superpowers/
+
+# Migrations-SQL — das Repo ist oeffentlich, Policies gehoeren nicht ins Netz
+sql/

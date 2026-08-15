@@ -3277,12 +3277,17 @@
     const price = Number(tpl.unit_price_cents) || 0;
     try {
       const client = await sb();
-      const list = await listItemTemplates();
-      if (!list.ok) return { ok: false, error: list.error };
-      const hit = list.templates.find(t => t.name.toLowerCase() === name.toLowerCase());
-      const q = hit
+      // Mit id ist die Zeile bekannt — dann wird stur sie aktualisiert. Der
+      // Namensweg wuerde eine inzwischen geloeschte Vorlage neu anlegen.
+      let ziel = (tpl && tpl.id) ? { id: tpl.id } : null;
+      if (!ziel) {
+        const list = await listItemTemplates();
+        if (!list.ok) return { ok: false, error: list.error };
+        ziel = list.templates.find(t => t.name.toLowerCase() === name.toLowerCase()) || null;
+      }
+      const q = ziel
         ? client.from('invoice_item_templates')
-                .update({ name, unit_price_cents: price }).eq('id', hit.id)
+                .update({ name, unit_price_cents: price }).eq('id', ziel.id)
         : client.from('invoice_item_templates')
                 .insert({ name, unit_price_cents: price });
       const { data, error } = await q.select().single();
@@ -3290,9 +3295,12 @@
         if (error.code === '23505') {
           return { ok: false, error: 'Es gibt schon eine Vorlage mit diesem Namen.' };
         }
+        if (error.code === 'PGRST116') {
+          return { ok: false, error: 'Diese Vorlage gibt es nicht mehr.' };
+        }
         return { ok: false, error: error.message };
       }
-      return { ok: true, template: data, updated: !!hit };
+      return { ok: true, template: data, updated: !!ziel };
     } catch(e) {
       console.error('[LPR] saveItemTemplate:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
@@ -3303,9 +3311,12 @@
   // Rechnungen sind Kopien, keine Verweise.
   async function deleteItemTemplate(id) {
     try {
-      const { error } = await (await sb())
-        .from('invoice_item_templates').delete().eq('id', id);
+      // select() mitschicken: sonst meldet auch ein Loeschen von null Zeilen
+      // Erfolg, und der Nutzer glaubt, die Vorlage sei weg.
+      const { data, error } = await (await sb())
+        .from('invoice_item_templates').delete().eq('id', id).select('id');
       if (error) return { ok: false, error: error.message };
+      if (!data || !data.length) return { ok: false, error: 'Diese Vorlage gibt es nicht mehr.' };
       return { ok: true };
     } catch(e) {
       console.error('[LPR] deleteItemTemplate:', e);

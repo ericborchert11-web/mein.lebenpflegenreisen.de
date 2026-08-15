@@ -112,7 +112,8 @@
         Preis ändern und das Feld verlassen speichert sofort. Gelöschte Vorlagen
         ändern nichts an bereits geschriebenen Rechnungen.</p>
       <div id="tpl-list"></div>
-      <div style="display:flex;justify-content:flex-end;margin-top:18px;">
+      <div id="tpl-msg" style="font-size:13px;font-weight:600;min-height:19px;margin-top:12px;"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:6px;">
         <button type="button" class="btn" onclick="document.getElementById('tpl-dlg').close()">Schließen</button>
       </div>
     </div>
@@ -130,7 +131,12 @@ LPR_Layout.init({ page: 'rechnungen-admin' });
 const INV_ID = new URLSearchParams(location.search).get('id');
 let _inv = null, _recipient = null, _items = [], _recipients = [], _templates = [];
 
-function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+// Escapt auch Anfuehrungszeichen: Vorlagennamen landen in value="…"-Attributen,
+// und ein Name wie 'Nachtwache 12" Schicht' wuerde das Feld sonst zerreissen.
+function escapeHtml(s) {
+  const d = document.createElement('div'); d.textContent = s ?? '';
+  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 function deDate(iso) { return iso ? iso.slice(8,10) + '.' + iso.slice(5,7) + '.' + iso.slice(0,4) : '—'; }
 
 async function init() {
@@ -161,10 +167,11 @@ function emptyItem() {
 // LPR.listItemTemplates. Ohne diese Klammer risse der Fehler init() ab und die
 // ganze Rechnung bliebe leer — die Vorlagen sind aber nur ein Zusatz.
 async function loadTemplates() {
-  if (typeof LPR.listItemTemplates !== 'function') return;
+  if (typeof LPR.listItemTemplates !== 'function') return false;
   const res = await LPR.listItemTemplates();
-  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return false; }
   _templates = res.templates;
+  return true;
 }
 
 function render() {
@@ -238,7 +245,7 @@ function renderEditor() {
         <input class="f-in" value="${escapeHtml(_inv.intro_text || '')}" onchange="setField('intro_text', this.value)"></label>
 
       <div style="display:flex;gap:10px;align-items:center;margin:6px 0 10px;flex-wrap:wrap;">
-        <select class="f-in" style="width:auto;min-width:280px;margin:0;"
+        <select id="tpl-select" class="f-in" style="width:auto;min-width:280px;margin:0;"
                 onchange="insertTemplate(this.value); this.value='';">
           <option value="">Vorlage einfügen …</option>
           ${tplOpts}
@@ -373,16 +380,31 @@ function addItem() { _items.push(emptyItem()); renderEditor(); }
 function removeItem(i) { _items.splice(i, 1); if (!_items.length) _items = [emptyItem()]; renderEditor(); }
 
 // Fuegt die Vorlage als neue Position an. Ist die Rechnung noch leer (eine
-// einzige unausgefuellte Zeile), wird diese ersetzt statt eine zweite anzuhaengen.
+// einzige Zeile ohne Bezeichnung und ohne Preis), wird diese befuellt statt
+// eine zweite anzuhaengen — Menge und Zeitraum bleiben dabei stehen, falls sie
+// schon getippt wurden.
 function insertTemplate(id) {
   const t = _templates.find(x => x.id === id);
   if (!t) return;
-  const row = { quantity: 1, description: t.name, period_text: '', unit_price_cents: t.unit_price_cents };
   const leer = _items.length === 1
             && !String(_items[0].description || '').trim()
             && !Number(_items[0].unit_price_cents);
-  if (leer) _items[0] = row; else _items.push(row);
+  if (leer) {
+    _items[0].description      = t.name;
+    _items[0].unit_price_cents = t.unit_price_cents;
+  } else {
+    _items.push({ quantity: 1, description: t.name, period_text: '', unit_price_cents: t.unit_price_cents });
+  }
   renderEditor();
+}
+
+// Nur die Auswahlliste auffrischen. Ein voller renderEditor() wuerde dem Nutzer
+// die Zeile unter den Fingern wegziehen, in der er gerade steht.
+function refreshTemplateOptions() {
+  const sel = document.getElementById('tpl-select');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Vorlage einfügen …</option>' + _templates.map(t =>
+    `<option value="${t.id}">${escapeHtml(t.name)} — ${LPR.centsToEUR(t.unit_price_cents)}</option>`).join('');
 }
 
 async function saveRowAsTemplate(i) {
@@ -394,11 +416,21 @@ async function saveRowAsTemplate(i) {
   const res = await LPR.saveItemTemplate({ name, unit_price_cents: it.unit_price_cents });
   if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
   await loadTemplates();
-  renderEditor();
+  refreshTemplateOptions();
   LPR.showToast(res.updated ? 'Vorlage aktualisiert ✓' : 'Vorlage gesichert ✓');
 }
 
+// Meldungen im Dialog stehen im Dialog. Ein Toast haengt am body und liegt
+// damit unter dem Backdrop des modalen Fensters — er waere unsichtbar.
+function tplMsg(text, warn) {
+  const el = document.getElementById('tpl-msg');
+  if (!el) return;
+  el.textContent = text || '';
+  el.style.color = warn ? '#8A3A18' : 'var(--green-deep)';
+}
+
 function openTemplates() {
+  tplMsg('');
   renderTemplateList();
   document.getElementById('tpl-dlg').showModal();
 }
@@ -423,25 +455,29 @@ function renderTemplateList() {
     </table>`;
 }
 
+// Speichert ueber die id, nicht ueber den Namen: haette ein zweites Fenster die
+// Vorlage inzwischen geloescht, legte der Namensweg sie stillschweigend neu an.
 async function setTemplatePrice(id, value) {
   const t = _templates.find(x => x.id === id);
   if (!t) return;
-  const res = await LPR.saveItemTemplate({ name: t.name, unit_price_cents: LPR.eurToCents(value) });
-  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
-  await loadTemplates();
+  const res = await LPR.saveItemTemplate({ id: t.id, name: t.name, unit_price_cents: LPR.eurToCents(value) });
+  if (!res.ok) { tplMsg(res.error, true); return; }
+  const frisch = await loadTemplates();
   renderTemplateList();
-  renderEditor();
-  LPR.showToast('Vorlage aktualisiert ✓');
+  refreshTemplateOptions();
+  tplMsg(frisch ? 'Preis aktualisiert ✓'
+                : 'Gespeichert, aber die Liste liess sich nicht neu laden.', !frisch);
 }
 
 async function deleteTemplate(id) {
   const t = _templates.find(x => x.id === id);
   if (!t || !confirm('Vorlage „' + t.name + '" löschen?')) return;
   const res = await LPR.deleteItemTemplate(id);
-  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  if (!res.ok) { tplMsg(res.error, true); return; }
   await loadTemplates();
   renderTemplateList();
-  renderEditor();
+  refreshTemplateOptions();
+  tplMsg('„' + t.name + '" gelöscht ✓');
 }
 
 async function saveDraft(silent) {

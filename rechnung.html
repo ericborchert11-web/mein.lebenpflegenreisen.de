@@ -201,8 +201,6 @@ function renderBar() {
 function renderEditor() {
   const opts = _recipients.filter(r => r.active || r.id === _inv.recipient_id)
     .map(r => `<option value="${r.id}"${r.id === _inv.recipient_id ? ' selected' : ''}>${escapeHtml(r.name)}</option>`).join('');
-  const tplOpts = _templates.map(t =>
-    `<option value="${t.id}">${escapeHtml(t.name)} — ${LPR.centsToEUR(t.unit_price_cents)}</option>`).join('');
   const rows = _items.map((it, i) => `
     <tr>
       <td style="width:70px;"><input value="${escapeHtml(String(it.quantity))}" oninput="setItem(${i},'quantity',this.value)"></td>
@@ -247,8 +245,7 @@ function renderEditor() {
       <div style="display:flex;gap:10px;align-items:center;margin:6px 0 10px;flex-wrap:wrap;">
         <select id="tpl-select" class="f-in" style="width:auto;min-width:280px;margin:0;"
                 onchange="insertTemplate(this.value); this.value='';">
-          <option value="">Vorlage einfügen …</option>
-          ${tplOpts}
+          ${templateOptionsHtml()}
         </select>
         <button class="btn" onclick="openTemplates()">Vorlagen …</button>
       </div>
@@ -398,13 +395,16 @@ function insertTemplate(id) {
   renderEditor();
 }
 
+function templateOptionsHtml() {
+  return '<option value="">Vorlage einfügen …</option>' + _templates.map(t =>
+    `<option value="${t.id}">${escapeHtml(t.name)} — ${LPR.centsToEUR(t.unit_price_cents)}</option>`).join('');
+}
+
 // Nur die Auswahlliste auffrischen. Ein voller renderEditor() wuerde dem Nutzer
 // die Zeile unter den Fingern wegziehen, in der er gerade steht.
 function refreshTemplateOptions() {
   const sel = document.getElementById('tpl-select');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Vorlage einfügen …</option>' + _templates.map(t =>
-    `<option value="${t.id}">${escapeHtml(t.name)} — ${LPR.centsToEUR(t.unit_price_cents)}</option>`).join('');
+  if (sel) sel.innerHTML = templateOptionsHtml();
 }
 
 async function saveRowAsTemplate(i) {
@@ -474,10 +474,11 @@ async function deleteTemplate(id) {
   if (!t || !confirm('Vorlage „' + t.name + '" löschen?')) return;
   const res = await LPR.deleteItemTemplate(id);
   if (!res.ok) { tplMsg(res.error, true); return; }
-  await loadTemplates();
+  const frisch = await loadTemplates();
   renderTemplateList();
   refreshTemplateOptions();
-  tplMsg('„' + t.name + '" gelöscht ✓');
+  tplMsg(frisch ? '„' + t.name + '" gelöscht ✓'
+                : 'Gelöscht, aber die Liste liess sich nicht neu laden.', !frisch);
 }
 
 async function saveDraft(silent) {

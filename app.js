@@ -3024,6 +3024,67 @@
     return inv.due_date < dateKey(new Date());
   }
 
+  async function listRecipients(includeInactive) {
+    try {
+      let q = (await sb())
+        .from('billing_recipients')
+        .select('id, name, address, postal_code, city, contact_person, customer_ref, email, payment_days, clinic_id, shift_price_cents, active')
+        .order('name', { ascending: true });
+      if (!includeInactive) q = q.eq('active', true);
+      const { data, error } = await q;
+      if (error) return { ok: false, error: error.message, recipients: [] };
+      return { ok: true, recipients: data || [] };
+    } catch(e) {
+      console.error('[LPR] listRecipients:', e);
+      return { ok: false, error: 'Netzwerkfehler.', recipients: [] };
+    }
+  }
+
+  // Ein Aufruf fuer Anlegen und Aendern: mit id wird aktualisiert, ohne angelegt.
+  async function saveRecipient(rec) {
+    if (!rec || !String(rec.name || '').trim()) {
+      return { ok: false, error: 'Name ist Pflicht.' };
+    }
+    const row = {
+      name:           String(rec.name).trim(),
+      address:        rec.address || null,
+      postal_code:    rec.postal_code || null,
+      city:           rec.city || null,
+      contact_person: rec.contact_person || null,
+      customer_ref:   rec.customer_ref || null,
+      email:          rec.email || null,
+      payment_days:   Number(rec.payment_days) > 0 ? Number(rec.payment_days) : 14,
+      clinic_id:      rec.clinic_id || null,
+      shift_price_cents: (rec.shift_price_cents === '' || rec.shift_price_cents == null)
+                            ? null : Number(rec.shift_price_cents)
+    };
+    try {
+      const client = await sb();
+      const q = rec.id
+        ? client.from('billing_recipients').update(row).eq('id', rec.id)
+        : client.from('billing_recipients').insert(row);
+      const { data, error } = await q.select().single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, recipient: data };
+    } catch(e) {
+      console.error('[LPR] saveRecipient:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  // Empfaenger werden nie geloescht — an ihnen haengen Rechnungen.
+  async function setRecipientActive(id, active) {
+    try {
+      const { error } = await (await sb())
+        .from('billing_recipients').update({ active: !!active }).eq('id', id);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] setRecipientActive:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   global.LPR = {
     // Freibetrag § 3 Nr. 26 EStG (zentral, statt mehrfach hartkodiert)
     PAUSCHALE_LIMIT, PAUSCHALE_WARN,
@@ -3045,6 +3106,7 @@
     // Block D: Rechnungsstellung
     VEREIN, BILLING_DEFAULT_SHIFT_CENTS,
     centsToEUR, eurToCents, itemAmountCents, invoiceSubtotalCents, invoiceIsOverdue,
+    listRecipients, saveRecipient, setRecipientActive,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     // Besetzungsregel — geteilt von admin-reisen.html und admin-jahreskalender.html
     enumTripDays, formatTripDay, signupEffectiveDays, signupEffectiveHalf,

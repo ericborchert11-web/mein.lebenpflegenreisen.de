@@ -42,6 +42,48 @@
                   border:1.5px solid var(--border); border-radius:7px; }
 .it-sum { display:flex; justify-content:flex-end; gap:28px; padding:14px 8px 0; font-size:15px; }
 .it-sum strong { font-family:'Bricolage Grotesque',sans-serif; font-size:19px; color:var(--green-deep); }
+
+/* Beleg — Bildschirm wie Druck dasselbe Layout, damit die Vorschau ehrlich ist.
+   KEINE box-shadow: Chrome exportiert Schatten als Soft-Mask, Vorschau und
+   Keynote zeichnen daraus harte graue Kaesten. Rahmen statt Schatten. */
+.beleg { background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+         padding:38px 42px; color:#1A1A18; font-size:13px; line-height:1.5; }
+.beleg-claim { font-family:'Bricolage Grotesque',sans-serif; font-size:13px; font-style:italic;
+               color:#1A3A2A; border-bottom:3px solid #C8F135; padding-bottom:10px; margin-bottom:22px; }
+.beleg h1 { font-family:'Bricolage Grotesque',sans-serif; font-size:26px; font-weight:800;
+            color:#1A3A2A; margin:0 0 18px; letter-spacing:-.02em; }
+.beleg-parties { display:flex; gap:36px; margin-bottom:22px; }
+.beleg-parties > div { flex:1; }
+.beleg-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em;
+             color:#6B6B65; margin-bottom:5px; }
+.beleg-meta { display:flex; gap:26px; border-top:1px solid #E4E2DC; border-bottom:1px solid #E4E2DC;
+              padding:11px 0; margin-bottom:22px; }
+.beleg-meta div { flex:1; }
+.beleg-table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+.beleg-table th { text-align:left; font-size:10px; font-weight:700; text-transform:uppercase;
+                  letter-spacing:.06em; color:#6B6B65; border-bottom:1.5px solid #1A3A2A; padding:7px 6px; }
+.beleg-table td { padding:8px 6px; border-bottom:1px solid #EFEDE8; vertical-align:top; }
+.beleg-table .num, .beleg-table th.num { text-align:right; font-variant-numeric:tabular-nums; }
+.beleg-sum { margin-left:auto; width:290px; }
+.beleg-sum tr td { padding:6px 6px; }
+.beleg-sum .total td { border-top:2px solid #1A3A2A; font-weight:800; font-size:15px;
+                       font-family:'Bricolage Grotesque',sans-serif; }
+.beleg-tax { background:#F6F8F0; border-left:3px solid #C8F135; padding:11px 14px; margin:18px 0; }
+.beleg-pay { margin:18px 0; }
+.beleg-foot { border-top:1px solid #E4E2DC; margin-top:26px; padding-top:12px;
+              font-size:10.5px; line-height:1.55; color:#6B6B65; }
+.beleg-storno { color:#8A3A18; font-weight:700; }
+
+@media print {
+  @page { size: A4; margin: 16mm 14mm; }
+  html, body { background:#fff !important; }
+  .re-wrap { max-width:none; margin:0; padding:0; }
+  .beleg { border:none; border-radius:0; padding:0; font-size:11.5pt; }
+  .beleg h1 { font-size:22pt; }
+  .beleg-table { page-break-inside:auto; }
+  .beleg-table tr { page-break-inside:avoid; }
+  a { text-decoration:none; color:inherit; }
+}
 </style>
 </head>
 <body>
@@ -174,6 +216,110 @@ function renderEditor() {
       <button class="btn" style="margin-top:10px;" onclick="addItem()">+ Position</button>
       <div class="it-sum"><span>Summe</span><strong>${LPR.centsToEUR(currentSubtotal())}</strong></div>
     </div>`;
+}
+
+// Der Beleg ist die Rechnung selbst — am Bildschirm und im Druck identisch.
+// Aufbau folgt der Vorlage "01 Rechnungsvorlage (§14 UStG)" aus dem Drive.
+function renderBeleg() {
+  const V = LPR.VEREIN;
+  const r = _recipient || {};
+  const items = _items;
+  const sub   = (_inv.status === 'draft') ? currentSubtotal() : _inv.subtotal_cents;
+  const tax   = (_inv.status === 'draft')
+    ? (_inv.tax_mode === 'vat' ? Math.round(sub * (Number(_inv.tax_rate) || 0) / 100) : 0)
+    : _inv.tax_cents;
+  const total = (_inv.status === 'draft') ? sub + tax : _inv.total_cents;
+
+  const leistung = _inv.service_from
+    ? deDate(_inv.service_from) + (_inv.service_to && _inv.service_to !== _inv.service_from
+        ? ' – ' + deDate(_inv.service_to) : '')
+    : deDate(_inv.invoice_date);
+
+  const rows = items.map((it, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td class="num">${escapeHtml(String(it.quantity))}</td>
+      <td>${escapeHtml(it.description)}</td>
+      <td>${escapeHtml(it.period_text || '—')}</td>
+      <td class="num">${LPR.centsToEUR(it.unit_price_cents)}</td>
+      <td class="num">${LPR.centsToEUR(it.amount_cents != null ? it.amount_cents
+                          : LPR.itemAmountCents(it.quantity, it.unit_price_cents))}</td>
+    </tr>`).join('');
+
+  const steuerBlock = (_inv.tax_mode === 'vat')
+    ? `<table class="beleg-sum">
+         <tr><td>Nettoentgelt</td><td class="num">${LPR.centsToEUR(sub)}</td></tr>
+         <tr><td>zzgl. Umsatzsteuer ${escapeHtml(String(_inv.tax_rate))} %</td><td class="num">${LPR.centsToEUR(tax)}</td></tr>
+         <tr class="total"><td>Rechnungsbetrag</td><td class="num">${LPR.centsToEUR(total)}</td></tr>
+       </table>`
+    : `<div class="beleg-tax">${escapeHtml(_inv.tax_note)}</div>
+       <table class="beleg-sum">
+         <tr class="total"><td>Rechnungsbetrag</td><td class="num">${LPR.centsToEUR(total)}</td></tr>
+       </table>`;
+
+  const stornoHinweis = _inv.status === 'cancelled'
+    ? '<p class="beleg-storno">Diese Rechnung wurde storniert.</p>' : '';
+
+  document.getElementById('beleg').innerHTML = `
+  <div class="beleg">
+    <div class="beleg-claim">${escapeHtml(V.claim)}</div>
+    <h1>${_inv.cancels_invoice_id ? 'Storno-Rechnung' : 'Rechnung'}</h1>
+    ${stornoHinweis}
+
+    <div class="beleg-parties">
+      <div>
+        <div class="beleg-lbl">Rechnungssteller</div>
+        <strong>${escapeHtml(V.name)}</strong><br>
+        ${escapeHtml(V.strasse)}<br>${escapeHtml(V.ort)}<br>
+        ${escapeHtml(V.register)}<br>
+        Steuernummer: ${escapeHtml(V.steuernummer || '—')}<br>
+        USt-IdNr.: ${escapeHtml(V.ustidnr)}
+      </div>
+      <div>
+        <div class="beleg-lbl">Rechnungsempfänger</div>
+        <strong>${escapeHtml(r.name || '—')}</strong><br>
+        ${r.contact_person ? escapeHtml(r.contact_person) + '<br>' : ''}
+        ${escapeHtml(r.address || '')}<br>
+        ${escapeHtml(((r.postal_code || '') + ' ' + (r.city || '')).trim())}
+        ${r.customer_ref ? '<br>Zeichen: ' + escapeHtml(r.customer_ref) : ''}
+      </div>
+    </div>
+
+    <div class="beleg-meta">
+      <div><div class="beleg-lbl">Rechnungsnummer</div><strong>${escapeHtml(_inv.invoice_no || 'Entwurf — noch nicht festgeschrieben')}</strong></div>
+      <div><div class="beleg-lbl">Rechnungsdatum</div>${deDate(_inv.invoice_date)}</div>
+      <div><div class="beleg-lbl">Leistungsdatum</div>${leistung}</div>
+    </div>
+
+    ${_inv.intro_text ? '<p>' + escapeHtml(_inv.intro_text) + '</p>' : ''}
+
+    <table class="beleg-table">
+      <thead><tr>
+        <th>Pos.</th><th class="num">Menge</th><th>Leistung / Beschreibung</th>
+        <th>Leistungszeitraum</th><th class="num">Einzelbetrag</th><th class="num">Gesamtbetrag</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    ${steuerBlock}
+
+    <div class="beleg-pay">
+      <div class="beleg-lbl">Zahlung</div>
+      Bitte überweisen Sie den Rechnungsbetrag ohne Abzug bis zum
+      <strong>${deDate(_inv.due_date)}</strong> auf folgendes Konto:<br>
+      Kontoinhaber: ${escapeHtml(V.name)} · IBAN: ${escapeHtml(V.iban)} · BIC: ${escapeHtml(V.bic)} · Bank: ${escapeHtml(V.bank)}<br>
+      Verwendungszweck: Rechnungsnummer ${escapeHtml(_inv.invoice_no || '—')}
+      ${_inv.paid_on ? '<br><strong>Zahlungseingang am ' + deDate(_inv.paid_on) + '</strong>' : ''}
+    </div>
+
+    <div class="beleg-foot">
+      <strong>${escapeHtml(V.name)}</strong> · ${escapeHtml(V.strasse)} · ${escapeHtml(V.ort)} ·
+      ${escapeHtml(V.email)} · ${escapeHtml(V.web)}<br>
+      Vereinsregister: ${escapeHtml(V.register)} · Gemeinnütziger Verein (§ 52 AO) · USt-IdNr. ${escapeHtml(V.ustidnr)}<br>
+      Vorstand (einzelvertretungsberechtigt): ${escapeHtml(V.vorstand)} ·
+      Bankverbindung: ${escapeHtml(V.iban)} · ${escapeHtml(V.bic)} · ${escapeHtml(V.bank)}
+    </div>
+  </div>`;
 }
 
 function currentSubtotal() {

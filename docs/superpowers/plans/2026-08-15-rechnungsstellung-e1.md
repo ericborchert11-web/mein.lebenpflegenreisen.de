@@ -260,7 +260,23 @@ declare
   v_rec uuid; v_a uuid; v_b uuid;
   v_inv public.invoices; v_storno public.invoices;
   v_no_a text; v_no_b text; v_ok boolean;
+  v_uid uuid; v_board uuid;
 begin
+  -- 0) Als Vorstand ausweisen. Der SQL-Editor bringt kein JWT mit, is_board()
+  --    haengt aber an auth.uid(). Statt die Bedingung der Funktion nachzubauen
+  --    (und damit womoeglich falsch zu raten), probieren wir die Profile durch,
+  --    bis is_board() selbst 'ja' sagt. Die Claims gelten nur fuer diese
+  --    Transaktion (is_local = true) und sind danach wieder weg.
+  for v_uid in select id from public.profiles loop
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_uid, 'role', 'authenticated')::text, true);
+    if public.is_board() then v_board := v_uid; exit; end if;
+  end loop;
+  if v_board is null then
+    raise exception 'Kein Profil gefunden, fuer das is_board() wahr ist — Test kann nicht laufen.';
+  end if;
+  raise notice 'ok 0 — als Vorstand ausgewiesen: %', v_board;
+
   insert into public.billing_recipients (name, address, postal_code, city, payment_days)
     values ('TEST Klinik', 'Teststr. 1', '10559', 'Berlin', 14) returning id into v_rec;
 

@@ -62,9 +62,12 @@ Exceptions):
 
 - `listItemTemplates()` — alle Vorlagen, alphabetisch nach `name`.
 - `saveItemTemplate({ name, unit_price_cents })` — legt an oder aktualisiert den
-  Preis, wenn der Name (unabhängig von Groß-/Kleinschreibung) schon existiert.
-  Gibt zurück, welcher der beiden Fälle eingetreten ist, damit die Oberfläche
-  „gesichert" von „aktualisiert" unterscheiden kann.
+  bestehenden Eintrag, wenn der Name (unabhängig von Groß-/Kleinschreibung)
+  schon existiert. Aktualisiert werden dann Preis **und** Schreibweise des
+  Namens: wer „sitzwache nacht" über „Sitzwache Nacht" sichert, meint denselben
+  Eintrag und korrigiert dessen Schreibung. Der Rückgabewert sagt, welcher der
+  beiden Fälle eingetreten ist, damit die Oberfläche „gesichert" von
+  „aktualisiert" unterscheiden kann.
 - `deleteItemTemplate(id)`.
 
 Eine Falle für den Implementierungsplan: `upsert` von supabase-js kann nur auf
@@ -81,7 +84,9 @@ ohnehin; festgeschriebene Rechnungen sind unberührt.
 **Einfügen.** Über der Positionstabelle ein Dropdown *Vorlage einfügen …*,
 Einträge in der Form „Sitzwache Nachtschicht — 200,00 €". Eine Auswahl hängt
 eine neue Position an: Menge 1, Bezeichnung und Einzelpreis aus der Vorlage,
-Zeitraum leer. Danach ist die Zeile eine ganz normale Position — die Vorlage ist
+Zeitraum leer. Ausnahme: Besteht die Rechnung nur aus einer einzigen, noch
+unausgefüllten Zeile, wird diese ersetzt — sonst stünde in jeder neuen Rechnung
+eine leere Zeile über der ersten echten Position. Danach ist die Zeile eine ganz normale Position — die Vorlage ist
 ein Vorschlag, keine Bindung. Das Dropdown springt auf den Platzhalter zurück.
 
 **Sichern.** An jeder Positionszeile neben dem × ein zweiter kleiner Knopf

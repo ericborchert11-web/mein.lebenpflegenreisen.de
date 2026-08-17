@@ -2702,7 +2702,10 @@
         })
         .eq('id', bookingId)
         .eq('clinic_id', s.id)
-        .eq('status', 'planned')
+        // 'confirmed' gehoert dazu: die Bestaetigung der Sitzwache darf eine
+        // Buchung nicht unstornierbar machen. Nur abgeschlossene und bereits
+        // stornierte Dienste sind zu.
+        .in('status', ['planned', 'confirmed'])
         .select()
         .single();
       if (error) return { ok: false, error: error.message };
@@ -2732,7 +2735,8 @@
         })
         .eq('id', bookingId)
         .eq('volunteer_id', s.id)
-        .eq('status', 'planned')
+        // siehe cancelClinicBooking: bestaetigt heisst nicht unwiderruflich.
+        .in('status', ['planned', 'confirmed'])
         .select()
         .single();
       if (error)  return { ok: false, error: error.message };

@@ -998,7 +998,11 @@ async function loadBookingsFromDb() {
           patient_notes: b.patient_notes || '',
           status: b.status,
           date: b.date,
-          shift_de: shiftDe
+          shift_de: shiftDe,
+          station: b.station || '',
+          station_phone: b.station_phone || '',
+          unterwegs_ts: b.unterwegs_ts || null,
+          eta_ts: b.eta_ts || null
         };
       }
     }
@@ -1074,23 +1078,59 @@ function renderUpcoming() {
   list.innerHTML = items.map(b => {
     const dstr = new Date(b.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
     const pillColor = b.status === 'confirmed' ? '#2E7D46' : (b.status === 'completed' ? '#1E5B36' : '#9B2C2C');
+    const offen = b.status === 'planned' || b.status === 'confirmed';
+    // Am Tag des Dienstes (Nachtdienst bis 8 Uhr des Folgetags) kann die
+    // Anreise gemeldet werden — davor waere die Angabe wertlos.
+    const heute = b.date === dateKey(new Date()) || laeuftUeberMitternacht(b);
     const actions = b.status === 'planned'
       ? `<button type="button" class="up-confirm" data-id="${b.id}" style="background:#2E5E3A;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Bestätigen</button>
          <button type="button" class="up-cancel" data-id="${b.id}" style="background:#fff;color:#8A3A22;border:1px solid #B07058;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Absagen</button>`
       : (b.status === 'confirmed'
           ? `<button type="button" class="up-cancel" data-id="${b.id}" style="background:#fff;color:#8A3A22;border:1px solid #B07058;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Absagen</button>`
           : '');
+    const anreise = window.LPR.anreiseStatus ? window.LPR.anreiseStatus(b) : null;
+    const unterwegs = (offen && heute)
+      ? `<div class="up-unterwegs" data-id="${b.id}" style="width:100%;margin-top:4px">
+           <button type="button" class="up-unterwegs-btn" style="background:#E8EFF8;color:#24456E;border:1.5px solid #7E9CC4;padding:10px 16px;min-height:44px;border-radius:8px;font-weight:700;font-family:inherit;font-size:14.5px;cursor:pointer">${anreise ? 'Ankunft neu melden' : 'Ich bin unterwegs'}</button>
+           <div class="up-eta-wahl" hidden style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding:12px;background:#F4F7FB;border:1px solid #D5E0EE;border-radius:8px">
+             <span style="width:100%;font-size:14px;font-weight:600;color:#24456E">Ich bin da in etwa …</span>
+             ${[15,30,45,60].map(m => `<button type="button" class="up-eta-btn" data-min="${m}" style="background:#fff;color:#24456E;border:1.5px solid #7E9CC4;padding:10px 14px;min-height:44px;min-width:76px;border-radius:8px;font-weight:700;font-family:inherit;font-size:14.5px;cursor:pointer">${m} Min</button>`).join('')}
+           </div>
+         </div>`
+      : '';
     return `<div style="border:1px solid #E4DFD2;border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:#fff">
       <div>
         <div style="font-weight:700">${dstr} · ${UPCOMING_SHIFT[b.shift_de] || b.shift_de}</div>
         <div style="font-size:14px;color:#555;margin-top:2px">${b.clinic_name}${b.patient_room ? ' · Zimmer ' + b.patient_room : ''} · <span style="color:${pillColor};font-weight:600">${UPCOMING_STATUS[b.status] || b.status}</span></div>
+        ${anreise ? `<div style="font-size:14px;font-weight:700;color:#24456E;margin-top:6px">→ ${escape(anreise.text)}</div>` : ''}
+        ${b.station_phone ? `<div style="font-size:14px;margin-top:6px">Station: <a href="tel:${escape(b.station_phone.replace(/[^\d+]/g,''))}" style="color:#1E5B36;font-weight:700">${escape(b.station_phone)}</a></div>` : ''}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">${actions}</div>
+      ${unterwegs}
     </div>`;
   }).join('');
 
   list.querySelectorAll('.up-confirm').forEach(btn => btn.addEventListener('click', () => onUpcomingConfirm(btn)));
   list.querySelectorAll('.up-cancel').forEach(btn => btn.addEventListener('click', () => onUpcomingCancel(btn)));
+  list.querySelectorAll('.up-unterwegs-btn').forEach(btn => btn.addEventListener('click', () => {
+    const wahl = btn.parentElement.querySelector('.up-eta-wahl');
+    wahl.hidden = !wahl.hidden;
+  }));
+  list.querySelectorAll('.up-eta-btn').forEach(btn => btn.addEventListener('click', () => onUnterwegs(btn)));
+}
+
+async function onUnterwegs(btn) {
+  const block = btn.closest('.up-unterwegs');
+  block.querySelectorAll('button').forEach(b => b.disabled = true);
+  const res = await window.LPR.setUnterwegs(block.dataset.id, Number(btn.dataset.min));
+  if (!res.ok) {
+    showToast(res.error || 'Meldung nicht möglich.', 'warn');
+    block.querySelectorAll('button').forEach(b => b.disabled = false);
+    return;
+  }
+  showToast('Die Station weiß Bescheid — Ankunft in etwa ' + btn.dataset.min + ' Minuten.');
+  await loadBookingsFromDb();
+  renderCalendar(); renderUpcoming();
 }
 
 async function onUpcomingConfirm(btn) {

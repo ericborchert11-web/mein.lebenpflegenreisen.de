@@ -353,6 +353,15 @@
     </div>
 
     <div class="kb-modal-section">
+      <label class="kb-section-label" for="kb-station-phone">Telefon der Station</label>
+      <input type="tel" id="kb-station-phone" placeholder="z.B. 030 450 512345" maxlength="40" autocomplete="off">
+      <div class="kb-field-hint" id="kb-station-phone-hint">
+        Die Nummer sieht nur die gebuchte Sitzwache — damit sie sich melden kann,
+        wenn sich die Anfahrt verzögert.
+      </div>
+    </div>
+
+    <div class="kb-modal-section">
       <label class="kb-section-label" for="kb-room">Zimmer</label>
       <input type="text" id="kb-room" placeholder="z.B. Zimmer 312" maxlength="80">
     </div>
@@ -614,8 +623,12 @@ function openBookingModal(slot) {
   const kfText = kurzfristHinweis(slot);
   kf.innerHTML = kfText;
   kf.hidden = !kfText;
+  // Bei Kurzfrist wird aus dem Kann ein Muss (siehe confirmBooking).
+  document.querySelector('label[for="kb-station-phone"]').textContent =
+    kfText ? 'Telefon der Station (Pflicht bei kurzfristiger Buchung)' : 'Telefon der Station';
   // Reset form
   document.getElementById('kb-station').value = '';
+  document.getElementById('kb-station-phone').value = '';
   document.getElementById('kb-room').value = '';
   document.getElementById('kb-fallnummer').value = '';
   document.getElementById('kb-notes').value = '';
@@ -636,9 +649,19 @@ function closeBookingModal() {
 async function confirmBooking() {
   if (!activeBooking) return;
   const station = document.getElementById('kb-station').value.trim();
+  const stationPhone = document.getElementById('kb-station-phone').value.trim();
   const room = document.getElementById('kb-room').value.trim();
   const fallnummer = document.getElementById('kb-fallnummer').value.trim();
   const notes = document.getElementById('kb-notes').value.trim();
+
+  // Bei einem Dienst, der in Kuerze beginnt oder schon laeuft, ist die
+  // Nummer keine Kuer: ohne sie kann die Sitzwache unterwegs niemanden
+  // erreichen, und die Station erfaehrt nichts.
+  if (!stationPhone && kurzfristHinweis(activeBooking)) {
+    LPR.showToast('Bitte die Telefonnummer der Station angeben — bei kurzfristigen Buchungen ist sie Pflicht.', 'warn');
+    document.getElementById('kb-station-phone').focus();
+    return;
+  }
   const flags = [...document.querySelectorAll('#kb-flags input[type="checkbox"]:checked')].map(cb => cb.value);
 
   const btn = document.getElementById('kb-confirm');
@@ -650,6 +673,7 @@ async function confirmBooking() {
     date: activeBooking.date,
     shift: activeBooking.shift,
     station: station,
+    station_phone: stationPhone,
     fallnummer: fallnummer,
     patient_room: room,
     patient_flags: flags,
@@ -657,7 +681,9 @@ async function confirmBooking() {
   });
 
   if (!res.ok) {
-    LPR.showToast(res.error || 'Buchung fehlgeschlagen.', 'err');
+    // 'warn' ist die einzige Warnfarbe, die showToast kennt — mit 'err' sah
+    // eine gescheiterte Buchung aus wie eine gelungene.
+    LPR.showToast(res.error || 'Buchung fehlgeschlagen.', 'warn');
     btn.disabled = false;
     btn.textContent = 'Verbindlich buchen';
     if (res.error && res.error.includes('nicht mehr verfügbar')) {

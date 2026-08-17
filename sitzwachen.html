@@ -821,9 +821,18 @@ footer a { color: var(--lime); text-decoration: none; }
       <div id="wiederholen-hinweis" style="font-size:13px;color:var(--muted);margin-top:6px;"></div>
     </div>
 
+    <!-- Hier stand ein Freitextfeld ("z.B. nur Charité, nicht vor 7 Uhr").
+         Gelesen hat es die Klinik, solange sie sich eine Person aussuchte.
+         Seit die Vergabe blind läuft, liest es niemand mehr — ein Wunsch, der
+         nur noch dasteht, ist schlimmer als keiner. Wünsche gehören jetzt in
+         die Präferenzen, weil sie dort bei JEDER Vergabe wirken. -->
     <div class="field" style="margin-top: 16px;">
-      <label for="note">Anmerkung (optional)</label>
-      <textarea id="note" rows="2" placeholder="z.B. nur Charité, nicht vor 7 Uhr..."></textarea>
+      <div style="background:#F4F7FB;border:1px solid #D5E0EE;border-radius:8px;padding:12px 14px;font-size:13.5px;line-height:1.5;color:#24456E;">
+        <strong>Wünsche zu Kliniken?</strong> Die trägst du einmal in deinen
+        Präferenzen ein — sie wirken dann bei jeder Zuteilung, ohne dass du sie
+        wiederholen musst.
+        <a href="meine-praeferenzen.html" style="color:#24456E;font-weight:700;white-space:nowrap;">Zu meinen Präferenzen →</a>
+      </div>
     </div>
   </div>
   <div class="dlg-foot">
@@ -1408,7 +1417,6 @@ function openAdd(key) {
       opt.classList.remove('disabled');
     }
   }
-  document.getElementById('note').value = '';
   document.getElementById('wiederholen').value = '1';
   renderWiederholenHinweis();
   document.getElementById('add-dialog').showModal();
@@ -1466,10 +1474,11 @@ async function saveAvail() {
   const toRemove = existingDe.filter(s => !selected.includes(s));
   const toAdd = selected.filter(s => !existingDe.includes(s));
 
-  // Die Anmerkung wurde bisher abgetippt und dann weggeworfen: setAvailability
-  // nimmt sie als drittes Argument, saveAvail hat es nie mitgegeben. Die
-  // Klinik sieht genau dieses Feld in der Buchungsliste.
-  const note = document.getElementById('note').value.trim();
+  // Keine Anmerkung mehr: das Feld ist entfallen, seit die Vergabe blind
+  // laeuft (siehe Dialog). Wuensche stehen in den Praeferenzen und wirken
+  // dort bei jeder Zuteilung. setAvailability nimmt den Parameter weiter
+  // entgegen — bestehende Eintraege behalten ihren Text.
+  const note = null;
 
   // Wiederholung gilt nur fuers Eintragen. Austragen bleibt auf diesem einen
   // Tag — ein Haken, der stillschweigend acht Wochen leerraeumt, waere die

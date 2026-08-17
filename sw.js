@@ -11,8 +11,12 @@
  * Die App wird mehrmals am Tag deployt; ein Worker, der eine alte Fassung aus
  * dem Cache ausliefert, waere ein Fehler, den niemand findet. Der Cache ist
  * nur das Netz fuer den Fall, dass gar nichts geht.
+ *
+ * Seit 08/2026 kommt Web Push dazu (unten). Das ist der zweite Grund, warum es
+ * diesen Worker gibt: eine Schicht, die in einer halben Stunde beginnt,
+ * erreicht per E-Mail niemanden, der schon unterwegs ist.
  */
-const CACHE = 'lpr-shell-v3';
+const CACHE = 'lpr-shell-v4';
 
 const SHELL = [
   '/einsatz.html',
@@ -61,5 +65,84 @@ self.addEventListener('fetch', event => {
         return antwort;
       })
       .catch(() => caches.match(req).then(treffer => treffer || caches.match('/einsatz.html')))
+  );
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Web Push
+//
+// Die Nutzlast kommt verschluesselt aus der Edge Function send-push und
+// enthaelt nur, was auf den Sperrbildschirm darf: Klinik, Datum, Schicht.
+// KEINE Patientendaten — ein Sperrbildschirm ist oeffentlich, jeder im Bus
+// liest mit. Zimmer, Fallnummer und Hinweise stehen erst hinter der Anmeldung.
+// ───────────────────────────────────────────────────────────────────────────
+
+const PUSH_STANDARD = {
+  titel: 'Leben Pflegen Reisen',
+  text: 'Es gibt Neues zu deinem Einsatz.',
+  url: '/mein-bereich.html'
+};
+
+self.addEventListener('push', event => {
+  let d = {};
+  try {
+    d = event.data ? event.data.json() : {};
+  } catch (e) {
+    // Nutzlast unlesbar? Lieber eine schlichte Nachricht als gar keine —
+    // stillschweigend verschlucken waere der schlechtere Ausgang.
+    d = {};
+  }
+
+  const titel = d.titel || PUSH_STANDARD.titel;
+  const optionen = {
+    body: d.text || PUSH_STANDARD.text,
+    icon: '/favicon-192.png',
+    badge: '/favicon-192.png',
+    lang: 'de',
+    // Gleiches tag = die neue Nachricht ersetzt die alte. Sonst stapeln sich
+    // bei einer Buchung, die geaendert und wieder geaendert wird, drei
+    // widerspruechliche Meldungen auf dem Display.
+    tag: d.tag || 'lpr-allgemein',
+    renotify: true,
+    // Kurzfristige Dienste duerfen nicht lautlos in der Leiste verschwinden.
+    requireInteraction: !!d.dringend,
+    timestamp: Date.now(),
+    data: { url: d.url || PUSH_STANDARD.url }
+  };
+
+  event.waitUntil(self.registration.showNotification(titel, optionen));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const ziel = new URL(
+    (event.notification.data && event.notification.data.url) || PUSH_STANDARD.url,
+    self.location.origin
+  ).href;
+
+  // Ein schon offenes Fenster dieser App bekommt den Fokus, statt ein zweites
+  // aufzumachen: wer mitten im Einsatz ist, soll nicht zwei Staende derselben
+  // Seite nebeneinander haben.
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(fenster => {
+      for (const f of fenster) {
+        if (new URL(f.url).origin === self.location.origin && 'focus' in f) {
+          if ('navigate' in f) f.navigate(ziel).catch(() => {});
+          return f.focus();
+        }
+      }
+      return self.clients.openWindow(ziel);
+    })
+  );
+});
+
+// Der Push-Dienst kann ein Abo erneuern. Ohne diesen Handler faellt das Geraet
+// still aus der Zustellung — und niemand merkt es, bis ein Dienst nicht
+// ankommt. Die Seite holt das beim naechsten Start nach (siehe pushAnmelden).
+self.addEventListener('pushsubscriptionchange', event => {
+  event.waitUntil(
+    self.clients.matchAll({ includeUncontrolled: true }).then(fenster => {
+      fenster.forEach(f => f.postMessage({ typ: 'push-abo-erneuern' }));
+    })
   );
 });

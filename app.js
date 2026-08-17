@@ -2832,6 +2832,166 @@
     };
   }
 
+  // ═══════════════════════════════════════════════════════
+  // WEB PUSH
+  //
+  // Der oeffentliche VAPID-Schluessel darf im Quelltext stehen — er ist die
+  // Ausweisseite des Absenders, nicht das Geheimnis. Der private Teil liegt
+  // als Secret bei der Edge Function und nirgends sonst.
+  // ═══════════════════════════════════════════════════════
+
+  const VAPID_PUBLIC = 'BMPiIF3_RZoOXkBVVPO2vWIStrAe5DgPalPcyyjJc4fq4aZ4hykwRkbH8cdSvxHeBhDamJcqQcy4xLOW4R80tNY';
+
+  /** base64url → Uint8Array; so will es subscribe(). */
+  function vapidBytes(b64) {
+    const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+    const roh = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    const arr = new Uint8Array(roh.length);
+    for (let i = 0; i < roh.length; i++) arr[i] = roh.charCodeAt(i);
+    return arr;
+  }
+
+  function istIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function alsAppGestartet() {
+    return window.navigator.standalone === true ||
+           window.matchMedia('(display-mode: standalone)').matches;
+  }
+
+  /**
+   * Geht Push auf diesem Geraet ueberhaupt — und wenn nicht, warum?
+   *
+   * Der Grund ist wichtiger als das Ja/Nein: auf dem iPhone fehlt Push nicht,
+   * es ist nur an eine Bedingung geknuepft, die man erklaeren muss. "Wird
+   * nicht unterstuetzt" waere dort schlicht falsch.
+   */
+  function pushMoeglich() {
+    if (!('serviceWorker' in navigator)) {
+      return { moeglich: false, grund: 'Dieser Browser kann keine Benachrichtigungen empfangen.' };
+    }
+    if (!('PushManager' in window) || !('Notification' in window)) {
+      if (istIOS() && !alsAppGestartet()) {
+        return {
+          moeglich: false,
+          grund: 'Auf dem iPhone und iPad gehen Mitteilungen nur, wenn die Seite auf dem Home-Bildschirm liegt: '
+               + 'unten auf „Teilen" tippen, dann „Zum Home-Bildschirm". Danach die App von dort öffnen.',
+          ios: true
+        };
+      }
+      return { moeglich: false, grund: 'Dieser Browser kann keine Benachrichtigungen empfangen.' };
+    }
+    return { moeglich: true, grund: '' };
+  }
+
+  /** Was ist der aktuelle Stand auf diesem Geraet? */
+  async function pushStatus() {
+    const m = pushMoeglich();
+    if (!m.moeglich) return { ok: true, moeglich: false, aktiv: false, erlaubnis: 'nicht_moeglich', grund: m.grund, ios: !!m.ios };
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const abo = reg ? await reg.pushManager.getSubscription() : null;
+      return { ok: true, moeglich: true, aktiv: !!abo, erlaubnis: Notification.permission, grund: '' };
+    } catch(e) {
+      console.error('[LPR] pushStatus:', e);
+      return { ok: false, moeglich: true, aktiv: false, erlaubnis: 'unbekannt', grund: 'Status nicht lesbar.' };
+    }
+  }
+
+  /** Kurzer Klartext-Name, damit man in der Abo-Liste sein Geraet wiedererkennt. */
+  function geraeteName() {
+    const ua = navigator.userAgent;
+    const geraet = /iPhone/.test(ua) ? 'iPhone'
+                 : /iPad/.test(ua) ? 'iPad'
+                 : /Android/.test(ua) ? 'Android'
+                 : /Macintosh/.test(ua) ? 'Mac'
+                 : /Windows/.test(ua) ? 'Windows' : 'Gerät';
+    const browser = /Edg\//.test(ua) ? 'Edge'
+                  : /Chrome\//.test(ua) ? 'Chrome'
+                  : /Firefox\//.test(ua) ? 'Firefox'
+                  : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+    return geraet + ' · ' + browser;
+  }
+
+  /**
+   * Mitteilungen einschalten.
+   *
+   * Die Erlaubnisfrage des Browsers darf NUR aus einem Klick heraus kommen —
+   * ungefragt beim Seitenaufruf ist sie in jedem Browser eine schlechte
+   * Erfahrung und in manchen gleich dauerhaft gesperrt. Diese Funktion gehoert
+   * deshalb an einen Knopf, nicht in den Start der Seite.
+   */
+  async function pushAnmelden() {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    const m = pushMoeglich();
+    if (!m.moeglich) return { ok: false, error: m.grund, ios: !!m.ios };
+
+    try {
+      const erlaubnis = await Notification.requestPermission();
+      if (erlaubnis !== 'granted') {
+        return { ok: false, error: erlaubnis === 'denied'
+          ? 'Der Browser blockiert Mitteilungen für diese Seite. Das lässt sich nur in den Browser-Einstellungen wieder freigeben.'
+          : 'Ohne Erlaubnis können wir nichts schicken.' };
+      }
+
+      const reg = await navigator.serviceWorker.register('sw.js');
+      await navigator.serviceWorker.ready;
+
+      // Ein vorhandenes Abo weiterverwenden; nur wenn es zu einem anderen
+      // Schluessel gehoert, muss es weg — sonst kommt beim Zustellen ein
+      // Fehler, den man dem Geraet nicht ansieht.
+      let abo = await reg.pushManager.getSubscription();
+      if (abo) {
+        const alt = abo.options && abo.options.applicationServerKey;
+        const gleich = alt && new Uint8Array(alt).every((b, i) => b === vapidBytes(VAPID_PUBLIC)[i]);
+        if (!gleich) { await abo.unsubscribe(); abo = null; }
+      }
+      if (!abo) {
+        abo = await reg.pushManager.subscribe({
+          userVisibleOnly: true,           // ohne sichtbare Meldung geht es nicht — und soll es auch nicht
+          applicationServerKey: vapidBytes(VAPID_PUBLIC)
+        });
+      }
+
+      const j = abo.toJSON();
+      const client = await sb();
+      const { error } = await client.rpc('push_abo_speichern', {
+        p_endpoint: abo.endpoint,
+        p_p256dh:   j.keys && j.keys.p256dh,
+        p_auth:     j.keys && j.keys.auth,
+        p_geraet:   geraeteName()
+      });
+      if (error) return { ok: false, error: error.message };
+
+      return { ok: true, geraet: geraeteName() };
+    } catch(e) {
+      console.error('[LPR] pushAnmelden:', e);
+      return { ok: false, error: 'Einschalten fehlgeschlagen: ' + (e && e.message ? e.message : 'unbekannt') };
+    }
+  }
+
+  /** Mitteilungen auf diesem Geraet abschalten — Abo weg, Zeile weg. */
+  async function pushAbmelden() {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const abo = reg ? await reg.pushManager.getSubscription() : null;
+      if (!abo) return { ok: true };
+      const endpoint = abo.endpoint;
+      await abo.unsubscribe();
+      const client = await sb();
+      // Die Zeile loeschen, nicht nur das Abo: sonst schickt der Server
+      // weiter an eine tote Adresse und haelt sie fuer erreichbar.
+      const { error } = await client.from('push_abos').delete().eq('endpoint', endpoint);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] pushAbmelden:', e);
+      return { ok: false, error: 'Abschalten fehlgeschlagen.' };
+    }
+  }
+
   // ───────────────────────────────────────────────────────
   // AP2 — Vorstand: Sitzwachen Abschluss-/Auszahlungsworkflow
   // Lesen direkt via board-RLS (bookings/claims: is_board()),
@@ -3450,6 +3610,10 @@
     confirmMyBooking,
     setUnterwegs,
     anreiseStatus,
+    pushMoeglich,
+    pushStatus,
+    pushAnmelden,
+    pushAbmelden,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
     // Fördermittel-Cockpit

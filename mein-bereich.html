@@ -545,6 +545,11 @@ function fmtDateLong(iso) {
   await renderStats();
   if (session.role === 'ehrenamt') {
     await checkCompliance();
+  }
+  // Auch fuer den Vorstand: Vorstandsmitglieder uebernehmen selbst Dienste,
+  // und ohne den Schalter im eigenen Konto liesse sich Push nur testen, indem
+  // man sich in fremde Konten einloggt.
+  if (session.role === 'ehrenamt' || session.role === 'admin') {
     await renderPushBlock();
   }
 })();

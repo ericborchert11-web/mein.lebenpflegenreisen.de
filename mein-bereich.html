@@ -252,6 +252,35 @@
   gap: 10px;
 }
 .bookings-block .bb-intro { font-size: 14px; color: var(--text); margin: 0 0 14px; line-height: 1.5; }
+
+.push-block {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-left: 4px solid #7E9CC4;
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin: 0 0 28px;
+  box-shadow: var(--shadow);
+}
+.push-block h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 18px; color: var(--green-deep);
+  margin: 0 0 6px; display: flex; align-items: center; gap: 10px;
+}
+.push-intro { font-size: 14.5px; color: var(--text); margin: 0 0 14px; line-height: 1.5; }
+.push-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.push-btn {
+  background: #E8EFF8; color: #24456E; border: 1.5px solid #7E9CC4;
+  border-radius: 8px; padding: 11px 18px; min-height: 44px;
+  font-family: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer;
+}
+.push-btn:hover { background: #D8E4F4; }
+.push-btn:disabled { opacity: .55; cursor: not-allowed; }
+.push-btn-aus { background: transparent; color: #8A3A22; border-color: #B07058; }
+.push-btn-aus:hover { background: #F7EDE8; }
+.push-fuss { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; line-height: 1.5; }
+body.contrast .push-block { border: 2px solid #000; }
+body.contrast .push-btn { border: 2px solid #000; background: #fff; color: #000; }
 .bb-card {
   background: #fff;
   border: 1px solid var(--border);
@@ -360,6 +389,19 @@
       <h3>🏥 <span data-ls="Du wurdest für Sitzwachen gebucht">Du wurdest gebucht</span></h3>
       <p class="bb-intro" data-ls="Hier sind deine nächsten Sitzwachen. Schau bitte vor jedem Dienst noch mal nach, ob es Änderungen gibt.">Eine Klinik hat dich für die folgenden Sitzwachen verbindlich gebucht. Bitte erscheine pünktlich zur Schicht. Bei Fragen melde dich bei der Klinik oder bei <a href="mailto:info@lebenpflegenreisen.de">info@lebenpflegenreisen.de</a>.</p>
       <div id="bookings-list"></div>
+    </div>
+
+    <!-- Mitteilungen aufs Gerät. Bleibt versteckt, bis geklärt ist, ob das
+         Gerät überhaupt kann — ein Schalter, der nichts tut, ist schlimmer
+         als keiner. -->
+    <div id="push-block" class="push-block" hidden>
+      <h3>🔔 <span data-ls="Nachricht aufs Handy">Mitteilungen aufs Gerät</span></h3>
+      <p class="push-intro" id="push-text" data-ls="Wir sagen dir sofort Bescheid, wenn eine Klinik dich bucht."></p>
+      <div class="push-actions">
+        <button type="button" class="push-btn" id="push-an">Mitteilungen einschalten</button>
+        <button type="button" class="push-btn push-btn-aus" id="push-aus" hidden>Auf diesem Gerät abschalten</button>
+      </div>
+      <p class="push-fuss">Gilt nur für dieses Gerät. Auf dem Sperrbildschirm stehen nur Klinik, Tag und Schicht — keine Angaben zu Patientinnen und Patienten.</p>
     </div>
 
     <div class="stats-row" id="stats"></div>
@@ -503,8 +545,91 @@ function fmtDateLong(iso) {
   await renderStats();
   if (session.role === 'ehrenamt') {
     await checkCompliance();
+    await renderPushBlock();
   }
 })();
+
+/**
+ * Schalter fuer Mitteilungen aufs Geraet.
+ *
+ * Der Block bleibt versteckt, bis feststeht, was das Geraet kann. Wo Push
+ * nicht geht, steht der GRUND da statt eines toten Knopfes — auf dem iPhone
+ * ist das kein Mangel des Browsers, sondern eine Bedingung, die man erklaeren
+ * kann ("erst zum Home-Bildschirm hinzufuegen").
+ *
+ * Die Erlaubnisfrage stellt der Browser erst auf Klick. Ungefragt beim
+ * Seitenaufruf ist sie eine schlechte Erfahrung — und in manchen Browsern
+ * gleich eine dauerhafte Sperre.
+ */
+async function renderPushBlock() {
+  const block = document.getElementById('push-block');
+  if (!block || !LPR.pushStatus) return;
+  const text = document.getElementById('push-text');
+  const anKnopf = document.getElementById('push-an');
+  const ausKnopf = document.getElementById('push-aus');
+
+  const zeichnen = (st) => {
+    block.hidden = false;
+    if (!st.moeglich) {
+      text.textContent = st.grund;
+      anKnopf.hidden = true;
+      ausKnopf.hidden = true;
+      return;
+    }
+    if (st.erlaubnis === 'denied') {
+      text.textContent = 'Der Browser blockiert Mitteilungen für diese Seite. '
+        + 'Das lässt sich nur in den Einstellungen des Browsers wieder freigeben.';
+      anKnopf.hidden = true;
+      ausKnopf.hidden = true;
+      return;
+    }
+    if (st.aktiv) {
+      text.textContent = 'Mitteilungen sind auf diesem Gerät eingeschaltet. '
+        + 'Du bekommst Bescheid, sobald eine Klinik dich bucht oder einen Dienst absagt.';
+      anKnopf.hidden = true;
+      ausKnopf.hidden = false;
+    } else {
+      text.textContent = 'Wir sagen dir sofort Bescheid, wenn eine Klinik dich bucht — '
+        + 'auch dann, wenn du gerade keine E-Mails liest. Besonders wichtig bei Diensten, '
+        + 'die kurzfristig beginnen.';
+      anKnopf.hidden = false;
+      ausKnopf.hidden = true;
+    }
+  };
+
+  zeichnen(await LPR.pushStatus());
+
+  anKnopf.onclick = async () => {
+    anKnopf.disabled = true;
+    const vorher = anKnopf.textContent;
+    anKnopf.textContent = 'Einen Moment…';
+    const res = await LPR.pushAnmelden();
+    anKnopf.disabled = false;
+    anKnopf.textContent = vorher;
+    if (!res.ok) { LPR.showToast(res.error || 'Einschalten fehlgeschlagen.', 'warn'); }
+    else { LPR.showToast('Mitteilungen sind an — auf ' + res.geraet + '.'); }
+    zeichnen(await LPR.pushStatus());
+  };
+
+  ausKnopf.onclick = async () => {
+    ausKnopf.disabled = true;
+    const res = await LPR.pushAbmelden();
+    ausKnopf.disabled = false;
+    if (!res.ok) LPR.showToast(res.error || 'Abschalten fehlgeschlagen.', 'warn');
+    else LPR.showToast('Mitteilungen auf diesem Gerät abgeschaltet.');
+    zeichnen(await LPR.pushStatus());
+  };
+}
+
+// Der Push-Dienst kann ein Abo erneuern; der Worker meldet das hierher.
+// Ohne diese Zeile faellt das Geraet still aus der Zustellung.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data && e.data.typ === 'push-abo-erneuern' && LPR.pushAnmelden) {
+      LPR.pushAnmelden().then(() => { if (document.getElementById('push-block')) renderPushBlock(); });
+    }
+  });
+}
 
 function showKennenlernNote(session) {
   const note = document.getElementById('kennenlern-note');
@@ -665,6 +790,7 @@ async function renderUpcomingBookings() {
     document.querySelectorAll('.bb-cancel-btn').forEach(btn => {
       btn.onclick = () => openCancelBookingDialog(btn.dataset.bookingId, btn.dataset.clinicName, btn.dataset.date);
     });
+
 
     // Erst der Knopf, dann die Zeitwahl: ein Fehlgriff schickt so keine
     // falsche Ankunftszeit an die Station.

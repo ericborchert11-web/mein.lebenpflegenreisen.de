@@ -2584,6 +2584,80 @@
     }
   }
 
+  /**
+   * Verfuegbare Dienste je Datum und Schicht — OHNE Namen.
+   *
+   * Der Unterschied zu listAvailableShifts ist der Kern der blinden Vergabe:
+   * die Namen werden nicht ausgeblendet, sie verlassen die Datenbank gar
+   * nicht erst. Alles andere waere nur eine Sichtblende im Browser.
+   */
+  async function listBookableSlots(filter) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.', slots: [] };
+    try {
+      const client = await sb();
+      const { data, error } = await client.rpc('list_bookable_slots', {
+        p_from: (filter && filter.from) || null,
+        p_to:   (filter && filter.to)   || null
+      });
+      if (error) return { ok: false, error: error.message, slots: [] };
+      const slots = (data || []).map(r => ({
+        date: r.datum,
+        shift: r.schicht,
+        anzahl: r.anzahl
+      }));
+      return { ok: true, slots };
+    } catch(e) {
+      console.error('[LPR] listBookableSlots:', e);
+      return { ok: false, error: 'Netzwerkfehler.', slots: [] };
+    }
+  }
+
+  /**
+   * Dienst buchen, ohne eine Person auszuwaehlen.
+   *
+   * Die Klinik uebergibt Datum, Schicht und die Angaben zum Einsatz. Wer den
+   * Dienst bekommt, entscheidet die Vergaberegel in der Datenbank
+   * (naechste_sitzwache): wenigste Dienste in 90 Tagen, dann laengste Pause,
+   * dann Streuwert. Den Namen nennt erst die Antwort.
+   */
+  async function bookShiftFair(payload) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (!payload || !payload.date || !payload.shift) {
+      return { ok: false, error: 'Datum und Schicht sind Pflicht.' };
+    }
+    try {
+      const client = await sb();
+      const { data, error } = await client.rpc('book_shift_fair', {
+        p_date:          payload.date,
+        p_shift:         payload.shift,
+        p_station:       payload.station || null,
+        p_station_phone: payload.station_phone || null,
+        p_room:          payload.patient_room || null,
+        p_fallnummer:    payload.fallnummer || null,
+        p_flags:         Array.isArray(payload.patient_flags) ? payload.patient_flags : [],
+        p_notes:         payload.patient_notes || null
+      });
+      if (error) return { ok: false, error: error.message };
+      const z = Array.isArray(data) ? data[0] : data;
+      if (!z) return { ok: false, error: 'Zuteilung nicht möglich.' };
+      return {
+        ok: true,
+        booking: {
+          id: z.booking_id,
+          volunteer_id: z.volunteer_id,
+          volunteer_name: z.volunteer_name,
+          date: z.datum,
+          shift: z.schicht
+        }
+      };
+    } catch(e) {
+      console.error('[LPR] bookShiftFair:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   // Klinik bucht eine konkrete Schicht.
   // payload: { volunteer_id, date, shift, patient_room, patient_flags: [...], patient_notes }
   async function bookShift(payload) {
@@ -3606,7 +3680,8 @@
     getMyClinic, submitMyClinic,
     listClinicsByStatus, approveClinic, rejectClinic,
     // Klinik-Buchungen (Etappe 2)
-    listAvailableShifts, bookShift, getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking,
+    listAvailableShifts, bookShift, listBookableSlots, bookShiftFair,
+    getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking,
     confirmMyBooking,
     setUnterwegs,
     anreiseStatus,

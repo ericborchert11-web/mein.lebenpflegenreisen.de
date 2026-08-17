@@ -94,17 +94,21 @@
 
 .kb-shift-row {
   display: grid;
-  grid-template-columns: 140px 160px 1fr auto;
+  grid-template-columns: minmax(180px, 260px) 1fr auto;
   gap: 16px;
   padding: 14px 22px;
   align-items: center;
   border-bottom: 1px solid var(--border);
 }
 .kb-shift-row:last-child { border-bottom: none; }
-.kb-shift-row .kb-volunteer {
+.kb-shift-row .kb-frei {
   font-weight: 600;
   color: var(--green-deep);
   font-size: 14.5px;
+}
+@media (max-width: 640px) {
+  .kb-shift-row { grid-template-columns: 1fr; gap: 10px; }
+  .kb-shift-row .kb-book-btn { width: 100%; min-height: 48px; }
 }
 .kb-shift-row .kb-shift-pill {
   display: inline-flex;
@@ -311,7 +315,7 @@
 
   <div class="kb-header">
     <h1>Sitzwache buchen</h1>
-    <p>Verfügbare Sitzwachen in den nächsten Wochen. Wählen Sie eine Schicht und ergänzen Sie die Patient-Infos.</p>
+    <p>Wählen Sie Tag und Schicht und ergänzen Sie die Angaben zum Einsatz. Wer den Dienst übernimmt, teilt der Verein zu — nach einer festen Regel: Wer die wenigsten Dienste in den letzten 90 Tagen hatte, ist zuerst dran. Den Namen erfahren Sie sofort nach der Buchung.</p>
   </div>
 
   <div class="kb-filterbar">
@@ -448,28 +452,12 @@ function uhr(d) {
   return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
-/**
- * Reihenfolge der Namen innerhalb einer Schicht — bewusst NICHT alphabetisch.
- *
- * Wer oben in der Liste steht, wird oefter gebucht. Bei alphabetischer
- * Sortierung heisst das systematisch "A vor Z", jeden Tag aufs Neue, und
- * verteilt damit auch die Aufwandsentschaedigung ungleich. Der Streuwert wird
- * aus Datum, Schicht und Person berechnet: bei jedem Laden dieselbe
- * Reihenfolge, aber ohne Muster ueber die Tage hinweg.
- *
- * Das ersetzt keine Fairness-Regel. "Wer laenger keinen Dienst hatte, steht
- * vorn" gehoert in list_bookable_shifts (Serverseite) und braucht einen
- * Vorstandsbeschluss — bis dahin ist Zufall gerechter als das Alphabet.
+/*
+ * Der frühere Streuwert (zufaellige statt alphabetischer Namensreihenfolge)
+ * ist entfallen: es wird keine Namensliste mehr angezeigt. Die Reihenfolge
+ * entscheidet jetzt die Datenbank in naechste_sitzwache() — wenigste Dienste
+ * in 90 Tagen, dann laengste Pause, dann Streuwert.
  */
-function streuwert(slot) {
-  const str = slot.date + '|' + slot.shift + '|' + slot.volunteer_id;
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
 
 const PATIENT_FLAGS = [
   { key: 'sturzgefahr', label: 'Sturzgefahr' },
@@ -500,7 +488,7 @@ function groupByDate(shifts) {
     map.get(s.date).push(s);
   }
   for (const [, arr] of map) {
-    arr.sort((a, b) => (SHIFT_ORDER[a.shift] - SHIFT_ORDER[b.shift]) || (streuwert(a) - streuwert(b)));
+    arr.sort((a, b) => SHIFT_ORDER[a.shift] - SHIFT_ORDER[b.shift]);
   }
   return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 }
@@ -534,11 +522,12 @@ function renderList() {
   const groups = groupByDate(filtered);
   let html = '';
   for (const [date, items] of groups) {
+    const summe = items.reduce((n, it) => n + (it.anzahl || 0), 0);
     html += `
       <div class="kb-day-group">
         <div class="kb-day-header">
           <span>${escape(fmtDate(date))}</span>
-          <span class="kb-count">${items.length} ${items.length === 1 ? 'Sitzwache' : 'Sitzwachen'}</span>
+          <span class="kb-count">${summe} ${summe === 1 ? 'Sitzwache' : 'Sitzwachen'} verfügbar</span>
         </div>`;
     for (const it of items) {
       const sh = SHIFT_LABELS[it.shift] || { label: it.shift, time: '' };
@@ -547,10 +536,9 @@ function renderList() {
         : '';
       html += `
         <div class="kb-shift-row">
-          <div class="kb-volunteer">${escape(it.volunteer_name)}</div>
           <div><span class="kb-shift-pill ${escape(it.shift)}">${escape(sh.label)} · ${escape(sh.time)}</span>${laeuft}</div>
-          <div class="kb-note">${escape(it.note || '')}</div>
-          <button type="button" class="kb-book-btn" data-vol="${escape(it.volunteer_id)}" data-date="${escape(it.date)}" data-shift="${escape(it.shift)}" data-name="${escape(it.volunteer_name)}">Buchen →</button>
+          <div class="kb-frei">${it.anzahl} ${it.anzahl === 1 ? 'Sitzwache' : 'Sitzwachen'} verfügbar</div>
+          <button type="button" class="kb-book-btn" data-date="${escape(it.date)}" data-shift="${escape(it.shift)}" data-anzahl="${it.anzahl}">Buchen →</button>
         </div>`;
     }
     html += `</div>`;
@@ -561,10 +549,9 @@ function renderList() {
   listEl.querySelectorAll('.kb-book-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       openBookingModal({
-        volunteer_id: btn.dataset.vol,
-        volunteer_name: btn.dataset.name,
         date: btn.dataset.date,
-        shift: btn.dataset.shift
+        shift: btn.dataset.shift,
+        anzahl: Number(btn.dataset.anzahl)
       });
     });
   });
@@ -616,8 +603,8 @@ function openBookingModal(slot) {
   activeBooking = slot;
   const sh = SHIFT_LABELS[slot.shift] || { label: slot.shift, time: '' };
   document.getElementById('kb-modal-summary').innerHTML = `
-    <strong>${escape(slot.volunteer_name)}</strong> · ${escape(fmtDateShort(slot.date))}<br>
-    ${escape(sh.label)} (${escape(sh.time)})
+    <strong>${escape(fmtDateShort(slot.date))}</strong> · ${escape(sh.label)} (${escape(sh.time)})<br>
+    <span style="color:var(--muted)">${slot.anzahl} ${slot.anzahl === 1 ? 'Sitzwache ist' : 'Sitzwachen sind'} verfügbar — wer den Dienst übernimmt, teilt der Verein zu.</span>
   `;
   const kf = document.getElementById('kb-kurzfrist');
   const kfText = kurzfristHinweis(slot);
@@ -668,8 +655,9 @@ async function confirmBooking() {
   btn.disabled = true;
   btn.textContent = 'Wird gebucht…';
 
-  const res = await LPR.bookShift({
-    volunteer_id: activeBooking.volunteer_id,
+  // Ohne volunteer_id: die Klinik waehlt niemanden aus, die Zuteilung macht
+  // die Datenbank (book_shift_fair -> naechste_sitzwache).
+  const res = await LPR.bookShiftFair({
     date: activeBooking.date,
     shift: activeBooking.shift,
     station: station,
@@ -686,14 +674,16 @@ async function confirmBooking() {
     LPR.showToast(res.error || 'Buchung fehlgeschlagen.', 'warn');
     btn.disabled = false;
     btn.textContent = 'Verbindlich buchen';
-    if (res.error && res.error.includes('nicht mehr verfügbar')) {
-      // Bei Race-Condition: Liste neu laden
+    if (res.error && (res.error.includes('niemand verf') || res.error.includes('nicht mehr verfügbar'))) {
+      // Zwischenzeitlich weggebucht: Liste neu laden
       setTimeout(() => { closeBookingModal(); load(); }, 1200);
     }
     return;
   }
 
-  const bookedSlot = { ...activeBooking, room };
+  // Erst jetzt faellt der Name — ab hier braucht die Station ihn auch.
+  const bookedSlot = { ...activeBooking, room,
+    volunteer_name: res.booking.volunteer_name, booking_id: res.booking.id };
   closeBookingModal();
   showBookingSuccess(bookedSlot);
 }
@@ -725,12 +715,12 @@ async function load() {
     toInputPre.value = d.toISOString().slice(0, 10);
   }
 
-  const res = await LPR.listAvailableShifts({ from: fromInput.value || undefined, to: document.getElementById('kb-to').value || undefined });
+  const res = await LPR.listBookableSlots({ from: fromInput.value || undefined, to: document.getElementById('kb-to').value || undefined });
   if (!res.ok) {
     document.getElementById('kb-list').innerHTML = `<div class="kb-empty"><p>Fehler beim Laden: ${escape(res.error || '')}</p></div>`;
     return;
   }
-  allShifts = res.shifts;
+  allShifts = res.slots;
   renderList();
 }
 
@@ -769,11 +759,11 @@ function buildClinicICS(slot) {
     'BEGIN:STANDARD','TZOFFSETFROM:+0200','TZOFFSETTO:+0100','TZNAME:CET','DTSTART:19701025T030000','RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU','END:STANDARD',
     'END:VTIMEZONE',
     'BEGIN:VEVENT',
-    `UID:booking-${slot.date}-${slot.shift}-${slot.volunteer_id}@lebenpflegenreisen.de`,
+    `UID:booking-${slot.date}-${slot.shift}-${slot.booking_id || Date.now()}@lebenpflegenreisen.de`,
     `DTSTAMP:${stamp}`,
     `DTSTART;TZID=Europe/Berlin:${icsLocalKB(slot.date, sh.s)}`,
     `DTEND;TZID=Europe/Berlin:${icsLocalKB(slot.date, sh.e, sh.ov ? 1 : 0)}`,
-    `SUMMARY:Sitzwache ${label} · ${slot.volunteer_name}`,
+    `SUMMARY:Sitzwache ${label} · ${slot.volunteer_name || ''}`.trim(),
     `LOCATION:${slot.room ? 'Zimmer ' + slot.room : ''}`,
     'STATUS:CONFIRMED','END:VEVENT','END:VCALENDAR'
   ].join('\r\n');
@@ -791,7 +781,8 @@ function showBookingSuccess(slot) {
   _successSlot = slot;
   const sh = SHIFT_LABELS[slot.shift] || { label: slot.shift, time: '' };
   document.getElementById('kb-success-summary').innerHTML =
-    `<strong>${escape(slot.volunteer_name)}</strong> · ${escape(fmtDateShort(slot.date))}<br>${escape(sh.label)} (${escape(sh.time)})` +
+    `<strong>${escape(slot.volunteer_name || 'Sitzwache')}</strong> übernimmt den Dienst<br>` +
+    `${escape(fmtDateShort(slot.date))} · ${escape(sh.label)} (${escape(sh.time)})` +
     (slot.room ? `<br>Zimmer: ${escape(slot.room)}` : '');
   document.getElementById('kb-success-bg').classList.add('show');
 }

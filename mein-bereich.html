@@ -689,8 +689,14 @@ async function renderUpcomingBookings() {
 
     // 'confirmed' gehoert dazu: nach der Bestaetigung verschwand die Buchung
     // sonst aus dieser Karte, obwohl der Dienst steht.
+    // Bewusst OHNE Bedingung auf clinic_id: eine Buchung ohne verknuepfte
+    // Klinik ist trotzdem ein Dienst, den jemand antritt. Beim Leerraeumen des
+    // Klinik-Bereichs (11.08.) wurde clinic_id auf NULL gesetzt — die
+    // betroffenen Dienste verschwanden damit lautlos aus dieser Karte, samt
+    // "Einsatz beginnen". Der Klinikname faellt auf "Klinik" zurueck, mehr
+    // fehlt nicht.
     const upcoming = (res.bookings || [])
-      .filter(b => b.clinic_id && (
+      .filter(b => (
         // kommende und laufende Dienste
         ((b.status === 'planned' || b.status === 'confirmed')
           && (b.date >= today || laeuftUeberMitternacht(b)))

@@ -68,7 +68,11 @@ body {
   border-radius: 20px; padding: 4px 12px;
   font-family: inherit; font-size: 13px; font-weight: 600;
   cursor: pointer; transition: all .15s;
-  min-height: 32px; min-width: 32px;
+  /* 44 px ist das Mass, unter dem Finger danebengreifen (WCAG 2.5.5).
+     Ausgerechnet die Leiste fuer grosse Schrift und Kontrast war mit 32 px
+     die kleinste Flaeche der Seite — die Menschen, fuer die sie da ist,
+     treffen sie am schlechtesten. */
+  min-height: 44px; min-width: 44px;
   text-decoration: none;
   display: inline-flex; align-items: center; justify-content: center;
 }

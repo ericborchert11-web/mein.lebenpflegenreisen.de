@@ -496,10 +496,27 @@ const COMPLIANCE_LABELS = {
 };
 
 const SHIFT_LABELS = {
-  morning:   { label: 'Frühdienst', time: '06:00–14:00' },
-  afternoon: { label: 'Spätdienst', time: '14:00–22:00' },
-  night:     { label: 'Nachtdienst', time: '22:00–06:00' }
+  morning:   { label: 'Frühdienst', time: '06:00–14:00', start: 6 },
+  afternoon: { label: 'Spätdienst', time: '14:00–22:00', start: 14 },
+  night:     { label: 'Nachtdienst', time: '22:00–06:00', start: 22 }
 };
+
+/**
+ * Hat die Schicht schon angefangen — und seit wann?
+ *
+ * Wird gebraucht, damit die Karte beim Oeffnen die Handlung anbietet und
+ * nicht einen Zwischenschritt: wer um 15:30 zu einem 14-Uhr-Dienst kommt,
+ * will "Einsatz beginnen" sehen, nicht "Einsatz oeffnen".
+ */
+function schichtBeginn(dateIso, shift) {
+  const s = SHIFT_LABELS[shift];
+  if (!s || !dateIso) return null;
+  const [y, m, d] = dateIso.split('-').map(Number);
+  return new Date(y, m - 1, d, s.start, 0, 0);
+}
+function uhrzeit(d) {
+  return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
 const FLAG_LABELS = {
   sturzgefahr: 'Sturzgefahr',
   delir:       'Delir',
@@ -682,7 +699,11 @@ async function renderUpcomingBookings() {
         || ((b.status === 'completed' || b.status === 'cancelled')
           && (b.date === today || laeuftUeberMitternacht(b)))
       ))
-      .sort((a, b) => a.date.localeCompare(b.date));
+      // Nach Datum UND Schichtbeginn: an einem Tag mit zwei Diensten stand
+      // sonst womoeglich der Nachtdienst ueber dem Fruehdienst, der gerade
+      // ansteht.
+      .sort((a, b) => a.date.localeCompare(b.date)
+        || ((SHIFT_LABELS[a.shift] || {}).start || 0) - ((SHIFT_LABELS[b.shift] || {}).start || 0));
 
     if (upcoming.length === 0) return;
 
@@ -717,6 +738,14 @@ async function renderUpcomingBookings() {
              + escape(anreise.text) + '</div>';
       }
       if (b.date === today || laeuftUeberMitternacht(b)) {
+        // Die Schicht laeuft, der Einsatz ist aber nicht gestartet: das ist
+        // der Moment, in dem die Karte draengen darf. "Heute" allein waere
+        // hier zu beilaeufig.
+        const beginn = schichtBeginn(b.date, b.shift);
+        if (beginn && beginn.getTime() <= Date.now()) {
+          return '<div class="bb-status offen"><span aria-hidden="true">▶</span> Dienst läuft seit '
+               + escape(uhrzeit(beginn)) + ' Uhr — Einsatz noch nicht begonnen</div>';
+        }
         return '<div class="bb-status heute"><span aria-hidden="true">▶</span> Heute — noch nicht begonnen</div>';
       }
       return '<div class="bb-status kommend"><span aria-hidden="true">🗓</span> Geplant</div>';
@@ -779,9 +808,20 @@ async function renderUpcomingBookings() {
         <div class="bb-card-actions">
           ${(b.status !== 'completed' && b.status !== 'cancelled'
               && (b.date === today || laeuftUeberMitternacht(b)))
-            ? `<a class="bb-einsatz-btn" href="einsatz.html?buchung=${escape(b.id)}">${
-                (einsatzInfo[b.id] && einsatzInfo[b.id].einsatz_status === 'laufend')
-                  ? 'Zum laufenden Einsatz →' : 'Einsatz öffnen →'}</a>`
+            ? (() => {
+                // Der Knopf sagt, was als Naechstes zu tun ist, nicht wohin er
+                // fuehrt. "Einsatz oeffnen" ist eine Wegbeschreibung; wer zum
+                // Dienst erscheint, will die Handlung.
+                const laeuft = einsatzInfo[b.id] && einsatzInfo[b.id].einsatz_status === 'laufend';
+                const beginn = schichtBeginn(b.date, b.shift);
+                // Eine Stunde vor Beginn ist der Start realistisch — vorher
+                // waere der Knopf eine Einladung, zu frueh zu stempeln.
+                const bald = beginn && (beginn.getTime() - Date.now()) < 3600000;
+                const text = laeuft ? 'Zum laufenden Einsatz →'
+                           : bald   ? 'Einsatz beginnen →'
+                                    : 'Einsatz öffnen →';
+                return `<a class="bb-einsatz-btn${bald && !laeuft ? ' jetzt' : ''}" href="einsatz.html?buchung=${escape(b.id)}">${text}</a>`;
+              })()
             : ''}
           ${(b.status === 'planned' || b.status === 'confirmed')
             ? `<button class="bb-cancel-btn" data-booking-id="${escape(b.id)}" data-clinic-name="${escape(b.clinic_name || 'Klinik')}" data-date="${escape(fmtDateLong(b.date))}">Schicht absagen</button>`
@@ -968,6 +1008,15 @@ async function doLogout() {
     font-family: inherit; text-decoration: none;
   }
   .bb-einsatz-btn:hover { background: var(--green-deep); }
+  /* Wenn der Dienst ansteht oder schon laeuft, ist dieser Knopf das Einzige,
+     was zaehlt — dann darf er auch so aussehen: volle Breite, groesser,
+     nicht neben "Absagen" verhandelbar. */
+  .bb-einsatz-btn.jetzt {
+    width: 100%; justify-content: center;
+    min-height: 56px; font-size: 18px;
+    background: var(--green-deep);
+    box-shadow: 0 2px 0 rgba(0,0,0,.12);
+  }
   /* Statuszeile: immer Symbol + Wort + Farbe zusammen. Farbe allein traegt die
      Information nicht — Rot-Gruen-Schwaeche ist im Alter haeufig. */
   .bb-status {
@@ -979,6 +1028,8 @@ async function doLogout() {
   .bb-status.fertig   { background: #EFEFEA; color: #55605A; border: 1px solid #D6D6CE; }
   .bb-status.abgesagt { background: #F7E2DC; color: #8A2E14; border: 1px solid #E3B7A8; }
   .bb-status.heute    { background: #FBF3DC; color: #7A5B14; border: 1px solid #E4D6A6; }
+  /* Schicht laeuft, Einsatz nicht gestartet — die dringlichste Lage. */
+  .bb-status.offen    { background: #F7E2DC; color: #8A2E14; border: 1px solid #E3B7A8; }
   .bb-status.kommend  { background: #EDF1F6; color: #3C5670; border: 1px solid #C9D6E4; }
   .bb-puls { animation: bbpuls 2s ease-in-out infinite; }
   @keyframes bbpuls { 0%,100% { opacity: .45 } 50% { opacity: 1 } }

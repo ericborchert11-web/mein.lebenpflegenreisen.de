@@ -58,10 +58,15 @@
     let navItems = '';
     if (session) {
       if (session.role === 'ehrenamt') {
+        // Sitzwachen, Abrechnung und Unterlagen standen frueher nur als Kachel
+        // auf mein-bereich. Wer als Sitzwache arbeitet, hat seine Hauptaufgabe
+        // damit ausserhalb des Menues gehabt — direkt nach "Mein Bereich".
         navItems = `
           <li><a href="mein-bereich.html" class="${c('mein-bereich')}">Mein Bereich</a></li>
+          <li><a href="sitzwachen.html" class="${c('sitzwachen')}">Sitzwachen</a></li>
           <li><a href="schichtplaner.html" class="${c('schichtplaner')}">Reisen</a></li>
-          <li><a href="meine-praeferenzen.html" class="${c('praeferenzen')}">Präferenzen</a></li>
+          <li><a href="abrechnung.html" class="${c('abrechnung')}">Abrechnung</a></li>
+          <li><a href="mein-compliance.html" class="${c('compliance')}">Unterlagen</a></li>
           <li><a href="profil.html" class="${c('profil')}">Profil</a></li>
           <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;" style="color:var(--warn);">Abmelden</a></li>
         `;

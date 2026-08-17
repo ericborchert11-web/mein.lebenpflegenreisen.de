@@ -120,6 +120,33 @@
 .kb-shift-pill.afternoon { background: #FCEEDD; color: #7A4515; border-color: #D88B45; }
 .kb-shift-pill.night     { background: #1E2D44; color: #B8C8E0; border-color: #2A3D5A; }
 .kb-shift-row .kb-note { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.kb-laeuft {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #FBEAEA;
+  color: #9B2C2C;
+  border: 1px solid #C06060;
+  white-space: nowrap;
+}
+.kb-kurzfrist {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  background: #FBEAEA;
+  border: 1px solid #E0B0B0;
+  border-left: 4px solid #9B2C2C;
+  border-radius: 8px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #7A2020;
+}
+.kb-kurzfrist strong { display: block; margin-bottom: 3px; }
+.kb-kurzfrist a { color: #7A2020; font-weight: 700; }
 .kb-shift-row .kb-book-btn {
   background: var(--green-deep);
   color: #fff;
@@ -318,10 +345,20 @@
   <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-modal-title">
     <h2 id="kb-modal-title">Sitzwache buchen</h2>
     <div class="kb-modal-summary" id="kb-modal-summary"></div>
+    <div class="kb-kurzfrist" id="kb-kurzfrist" hidden></div>
 
     <div class="kb-modal-section">
       <label class="kb-section-label" for="kb-station">Station</label>
       <input type="text" id="kb-station" placeholder="z.B. Station 4B" maxlength="60">
+    </div>
+
+    <div class="kb-modal-section">
+      <label class="kb-section-label" for="kb-station-phone">Telefon der Station</label>
+      <input type="tel" id="kb-station-phone" placeholder="z.B. 030 450 512345" maxlength="40" autocomplete="off">
+      <div class="kb-field-hint" id="kb-station-phone-hint">
+        Die Nummer sieht nur die gebuchte Sitzwache — damit sie sich melden kann,
+        wenn sich die Anfahrt verzögert.
+      </div>
     </div>
 
     <div class="kb-modal-section">
@@ -360,7 +397,7 @@
   <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-success-title">
     <h2 id="kb-success-title" style="color:var(--green-deep)">✓ Sitzwache gebucht</h2>
     <div class="kb-modal-summary" id="kb-success-summary"></div>
-    <p style="font-size:14px;color:var(--muted);margin:12px 0 0">Die ehrenamtliche Person wird automatisch per E-Mail informiert. Die Buchung finden Sie jederzeit unter „Meine Buchungen".</p>
+    <p style="font-size:14px;color:var(--muted);margin:12px 0 0">Die ehrenamtliche Person wird automatisch per E-Mail informiert und bestätigt den Dienst. Unter „Meine Buchungen" sehen Sie, ob die Bestätigung schon da ist.</p>
     <div class="kb-modal-actions">
       <button type="button" class="kb-btn-cancel" id="kb-success-ics">📅 In Kalender übernehmen</button>
       <button type="button" class="kb-btn-confirm" id="kb-success-done">Fertig</button>
@@ -381,6 +418,58 @@ const SHIFT_LABELS = {
   night:     { label: 'Nachtdienst', time: '22:00–06:00' }
 };
 const SHIFT_ORDER = { morning: 1, afternoon: 2, night: 3 };
+
+// Reale Uhrzeiten der Schichten (der Nachtdienst laeuft ueber Mitternacht).
+// Wird sowohl fuer die Kurzfrist-Kennzeichnung als auch fuer den
+// Kalender-Export unten gebraucht.
+const KB_SHIFT_HOURS = { morning: {s:6,e:14,ov:false}, afternoon: {s:14,e:22,ov:false}, night: {s:22,e:6,ov:true} };
+
+function shiftStart(dateIso, shift) {
+  const h = KB_SHIFT_HOURS[shift];
+  if (!h || !dateIso) return null;
+  const [y, m, d] = dateIso.split('-').map(Number);
+  return new Date(y, m - 1, d, h.s, 0, 0);
+}
+function shiftEnde(dateIso, shift) {
+  const start = shiftStart(dateIso, shift);
+  return start ? new Date(start.getTime() + 8 * 3600000) : null;
+}
+// Laeuft die Schicht in diesem Moment schon?
+function laeuftBereits(dateIso, shift) {
+  const s = shiftStart(dateIso, shift), e = shiftEnde(dateIso, shift);
+  return !!s && Date.now() >= s.getTime() && Date.now() < e.getTime();
+}
+// Vorbei heisst: gar nicht mehr buchbar.
+function istVorbei(dateIso, shift) {
+  const e = shiftEnde(dateIso, shift);
+  return !!e && Date.now() >= e.getTime();
+}
+function uhr(d) {
+  return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Reihenfolge der Namen innerhalb einer Schicht — bewusst NICHT alphabetisch.
+ *
+ * Wer oben in der Liste steht, wird oefter gebucht. Bei alphabetischer
+ * Sortierung heisst das systematisch "A vor Z", jeden Tag aufs Neue, und
+ * verteilt damit auch die Aufwandsentschaedigung ungleich. Der Streuwert wird
+ * aus Datum, Schicht und Person berechnet: bei jedem Laden dieselbe
+ * Reihenfolge, aber ohne Muster ueber die Tage hinweg.
+ *
+ * Das ersetzt keine Fairness-Regel. "Wer laenger keinen Dienst hatte, steht
+ * vorn" gehoert in list_bookable_shifts (Serverseite) und braucht einen
+ * Vorstandsbeschluss — bis dahin ist Zufall gerechter als das Alphabet.
+ */
+function streuwert(slot) {
+  const str = slot.date + '|' + slot.shift + '|' + slot.volunteer_id;
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
 
 const PATIENT_FLAGS = [
   { key: 'sturzgefahr', label: 'Sturzgefahr' },
@@ -411,7 +500,7 @@ function groupByDate(shifts) {
     map.get(s.date).push(s);
   }
   for (const [, arr] of map) {
-    arr.sort((a, b) => (SHIFT_ORDER[a.shift] - SHIFT_ORDER[b.shift]) || a.volunteer_name.localeCompare(b.volunteer_name));
+    arr.sort((a, b) => (SHIFT_ORDER[a.shift] - SHIFT_ORDER[b.shift]) || (streuwert(a) - streuwert(b)));
   }
   return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 }
@@ -421,6 +510,9 @@ function applyFilters(shifts) {
   const to   = document.getElementById('kb-to').value;
   const sf   = document.getElementById('kb-shift-filter').value;
   return shifts.filter(s => {
+    // Der Datumsfilter kennt nur Tage. Ohne diese Zeile stand um 14:10 noch
+    // der Fruehdienst von 06–14 Uhr als buchbar in der Liste.
+    if (istVorbei(s.date, s.shift)) return false;
     if (from && s.date < from) return false;
     if (to   && s.date > to)   return false;
     if (sf   && s.shift !== sf) return false;
@@ -450,10 +542,13 @@ function renderList() {
         </div>`;
     for (const it of items) {
       const sh = SHIFT_LABELS[it.shift] || { label: it.shift, time: '' };
+      const laeuft = laeuftBereits(it.date, it.shift)
+        ? `<span class="kb-laeuft" title="Diese Schicht hat bereits begonnen">● läuft seit ${escape(uhr(shiftStart(it.date, it.shift)))} Uhr</span>`
+        : '';
       html += `
         <div class="kb-shift-row">
           <div class="kb-volunteer">${escape(it.volunteer_name)}</div>
-          <div><span class="kb-shift-pill ${escape(it.shift)}">${escape(sh.label)} · ${escape(sh.time)}</span></div>
+          <div><span class="kb-shift-pill ${escape(it.shift)}">${escape(sh.label)} · ${escape(sh.time)}</span>${laeuft}</div>
           <div class="kb-note">${escape(it.note || '')}</div>
           <button type="button" class="kb-book-btn" data-vol="${escape(it.volunteer_id)}" data-date="${escape(it.date)}" data-shift="${escape(it.shift)}" data-name="${escape(it.volunteer_name)}">Buchen →</button>
         </div>`;
@@ -491,6 +586,32 @@ function renderFlagChips() {
   });
 }
 
+/**
+ * Kurzfristige Buchungen ehrlich benennen.
+ *
+ * Eine Buchung ist kein Personaleinsatz: die Sitzwache erfaehrt sie per Mail,
+ * muss sie bestaetigen und dann erst anreisen. Bei einer Schicht, die schon
+ * laeuft, darf die Station nicht den Eindruck bekommen, ab sofort sei jemand
+ * am Bett.
+ */
+function kurzfristHinweis(slot) {
+  const start = shiftStart(slot.date, slot.shift);
+  if (!start) return '';
+  const diffMin = (start.getTime() - Date.now()) / 60000;
+  if (diffMin > 240) return '';
+  const kontakt = 'Wenn es eilig ist, melden Sie sich bitte zusätzlich telefonisch: '
+    + '<a href="tel:+491743409116">0174 3409116</a>.';
+  if (laeuftBereits(slot.date, slot.shift)) {
+    return `<strong>Diese Schicht läuft bereits seit ${escape(uhr(start))} Uhr.</strong>
+      Die Sitzwache wird per E-Mail benachrichtigt, muss die Buchung bestätigen und dann
+      erst anreisen — in Berlin realistisch 30 bis 60 Minuten. Bis zur Bestätigung ist der
+      Dienst nicht gesichert. ${kontakt}`;
+  }
+  return `<strong>Kurzfristige Buchung — Beginn um ${escape(uhr(start))} Uhr.</strong>
+    Die Sitzwache muss die Buchung erst bestätigen und anreisen. Bis dahin ist der Dienst
+    nicht gesichert. ${kontakt}`;
+}
+
 function openBookingModal(slot) {
   activeBooking = slot;
   const sh = SHIFT_LABELS[slot.shift] || { label: slot.shift, time: '' };
@@ -498,8 +619,16 @@ function openBookingModal(slot) {
     <strong>${escape(slot.volunteer_name)}</strong> · ${escape(fmtDateShort(slot.date))}<br>
     ${escape(sh.label)} (${escape(sh.time)})
   `;
+  const kf = document.getElementById('kb-kurzfrist');
+  const kfText = kurzfristHinweis(slot);
+  kf.innerHTML = kfText;
+  kf.hidden = !kfText;
+  // Bei Kurzfrist wird aus dem Kann ein Muss (siehe confirmBooking).
+  document.querySelector('label[for="kb-station-phone"]').textContent =
+    kfText ? 'Telefon der Station (Pflicht bei kurzfristiger Buchung)' : 'Telefon der Station';
   // Reset form
   document.getElementById('kb-station').value = '';
+  document.getElementById('kb-station-phone').value = '';
   document.getElementById('kb-room').value = '';
   document.getElementById('kb-fallnummer').value = '';
   document.getElementById('kb-notes').value = '';
@@ -520,9 +649,19 @@ function closeBookingModal() {
 async function confirmBooking() {
   if (!activeBooking) return;
   const station = document.getElementById('kb-station').value.trim();
+  const stationPhone = document.getElementById('kb-station-phone').value.trim();
   const room = document.getElementById('kb-room').value.trim();
   const fallnummer = document.getElementById('kb-fallnummer').value.trim();
   const notes = document.getElementById('kb-notes').value.trim();
+
+  // Bei einem Dienst, der in Kuerze beginnt oder schon laeuft, ist die
+  // Nummer keine Kuer: ohne sie kann die Sitzwache unterwegs niemanden
+  // erreichen, und die Station erfaehrt nichts.
+  if (!stationPhone && kurzfristHinweis(activeBooking)) {
+    LPR.showToast('Bitte die Telefonnummer der Station angeben — bei kurzfristigen Buchungen ist sie Pflicht.', 'warn');
+    document.getElementById('kb-station-phone').focus();
+    return;
+  }
   const flags = [...document.querySelectorAll('#kb-flags input[type="checkbox"]:checked')].map(cb => cb.value);
 
   const btn = document.getElementById('kb-confirm');
@@ -534,6 +673,7 @@ async function confirmBooking() {
     date: activeBooking.date,
     shift: activeBooking.shift,
     station: station,
+    station_phone: stationPhone,
     fallnummer: fallnummer,
     patient_room: room,
     patient_flags: flags,
@@ -541,7 +681,9 @@ async function confirmBooking() {
   });
 
   if (!res.ok) {
-    LPR.showToast(res.error || 'Buchung fehlgeschlagen.', 'err');
+    // 'warn' ist die einzige Warnfarbe, die showToast kennt — mit 'err' sah
+    // eine gescheiterte Buchung aus wie eine gelungene.
+    LPR.showToast(res.error || 'Buchung fehlgeschlagen.', 'warn');
     btn.disabled = false;
     btn.textContent = 'Verbindlich buchen';
     if (res.error && res.error.includes('nicht mehr verfügbar')) {
@@ -609,7 +751,7 @@ document.getElementById('kb-modal-bg').addEventListener('click', e => {
 });
 
 // ── Bestätigungsansicht nach Buchung + ICS-Download ──────────────────────
-const KB_SHIFT_HOURS = { morning: {s:6,e:14,ov:false}, afternoon: {s:14,e:22,ov:false}, night: {s:22,e:6,ov:true} };
+// KB_SHIFT_HOURS steht oben bei den Schicht-Zeiten.
 function pad2(n) { return String(n).padStart(2, '0'); }
 function icsLocalKB(dateISO, hour, plus) {
   const [y,m,d] = dateISO.split('-').map(Number);

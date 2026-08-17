@@ -1155,7 +1155,7 @@
     try {
       let q = (await sb())
         .from('bookings')
-        .select('id, request_id, clinic_id, date, shift, hours, compensation_eur, status, station, fallnummer, patient_room, patient_flags, patient_notes, created_at, profiles!bookings_clinic_id_fkey(full_name)')
+        .select('id, request_id, clinic_id, date, shift, hours, compensation_eur, status, station, fallnummer, patient_room, patient_flags, patient_notes, created_at, station_phone, unterwegs_ts, eta_ts, profiles!bookings_clinic_id_fkey(full_name)')
         .eq('volunteer_id', s.id)
         .order('date', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
@@ -1176,7 +1176,10 @@
         patient_room: b.patient_room,
         patient_flags: b.patient_flags || [],
         patient_notes: b.patient_notes,
-        created_at: b.created_at
+        created_at: b.created_at,
+        station_phone: b.station_phone,
+        unterwegs_ts: b.unterwegs_ts,
+        eta_ts: b.eta_ts
       }));
       return { ok: true, bookings };
     } catch(e) { console.error('[LPR] getMyBookings:', e); return { ok: false, error: 'Netzwerkfehler.', bookings: [] }; }
@@ -2603,6 +2606,9 @@
     // getrennt ausweist. patient_room traegt nur noch die Zimmernummer.
     const station    = (payload.station || '').trim() || null;
     const fallnummer = (payload.fallnummer || '').trim() || null;
+    // Direktnummer der Station: die Sitzwache braucht sie, wenn sie sich
+    // verspaetet. clinics.phone ist die Zentrale und hilft dann nicht.
+    const stationPhone = (payload.station_phone || '').trim().slice(0, 40) || null;
 
     try {
       const client = await sb();
@@ -2622,6 +2628,7 @@
           status: 'planned',
           station: station,
           fallnummer: fallnummer,
+          station_phone: stationPhone,
           patient_room: room,
           patient_flags: flags,
           patient_notes: notes
@@ -2649,7 +2656,7 @@
     try {
       let q = (await sb())
         .from('bookings')
-        .select('id, volunteer_id, date, shift, status, station, fallnummer, patient_room, patient_flags, patient_notes, created_at, cancelled_at, cancelled_by_user_id, cancellation_reason, profiles!bookings_volunteer_id_fkey(full_name)')
+        .select('id, volunteer_id, date, shift, status, station, fallnummer, patient_room, patient_flags, patient_notes, created_at, cancelled_at, cancelled_by_user_id, cancellation_reason, station_phone, unterwegs_ts, eta_ts, profiles!bookings_volunteer_id_fkey(full_name)')
         .eq('clinic_id', s.id)
         .order('date', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
@@ -2672,7 +2679,10 @@
         created_at: b.created_at,
         cancelled_at: b.cancelled_at,
         cancelled_by_user_id: b.cancelled_by_user_id,
-        cancellation_reason: b.cancellation_reason
+        cancellation_reason: b.cancellation_reason,
+        station_phone: b.station_phone,
+        unterwegs_ts: b.unterwegs_ts,
+        eta_ts: b.eta_ts
       }));
       return { ok: true, bookings };
     } catch(e) {
@@ -2702,7 +2712,10 @@
         })
         .eq('id', bookingId)
         .eq('clinic_id', s.id)
-        .eq('status', 'planned')
+        // 'confirmed' gehoert dazu: die Bestaetigung der Sitzwache darf eine
+        // Buchung nicht unstornierbar machen. Nur abgeschlossene und bereits
+        // stornierte Dienste sind zu.
+        .in('status', ['planned', 'confirmed'])
         .select()
         .single();
       if (error) return { ok: false, error: error.message };
@@ -2732,7 +2745,8 @@
         })
         .eq('id', bookingId)
         .eq('volunteer_id', s.id)
-        .eq('status', 'planned')
+        // siehe cancelClinicBooking: bestaetigt heisst nicht unwiderruflich.
+        .in('status', ['planned', 'confirmed'])
         .select()
         .single();
       if (error)  return { ok: false, error: error.message };
@@ -2757,6 +2771,65 @@
       console.error('[LPR] confirmMyBooking:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
     }
+  }
+
+  /**
+   * Sitzwache meldet: "Ich bin unterwegs, ca. X Minuten."
+   *
+   * Setzt unterwegs_ts/eta_ts und bestaetigt eine noch offene Buchung gleich
+   * mit (siehe RPC set_my_unterwegs). Die Ankunftszeit rechnet die Datenbank
+   * aus — die Uhr des Telefons entscheidet nicht, was auf dem Stationsmonitor
+   * steht.
+   */
+  async function setUnterwegs(bookingId, minuten) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    const m = Number(minuten);
+    if (!Number.isFinite(m) || m < 0 || m > 240) {
+      return { ok: false, error: 'Bitte eine Ankunft zwischen 0 und 240 Minuten wählen.' };
+    }
+    try {
+      const client = await sb();
+      const { data, error } = await client.rpc('set_my_unterwegs', {
+        p_booking_id: bookingId,
+        p_eta_minuten: Math.round(m)
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, booking: Array.isArray(data) ? data[0] : data };
+    } catch(e) {
+      console.error('[LPR] setUnterwegs:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Wie steht es um die Anreise? Eine Stelle fuer alle drei Ansichten
+   * (Sitzwache, Klinik, Vorstand), damit dieselbe Buchung ueberall dasselbe
+   * sagt. Gibt null zurueck, solange nichts gemeldet ist.
+   *
+   * einsatzInfo ist optional — liegt sie vor und laeuft der Einsatz schon,
+   * zaehlt die Ankunft nicht mehr, sondern die Anwesenheit.
+   */
+  function anreiseStatus(booking, einsatzInfo) {
+    if (!booking) return null;
+    const uhr = ts => new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    if (einsatzInfo && einsatzInfo.einsatz_status === 'laufend') {
+      return {
+        art: 'vor_ort',
+        text: einsatzInfo.beginn_ts ? 'Vor Ort seit ' + uhr(einsatzInfo.beginn_ts) + ' Uhr' : 'Vor Ort'
+      };
+    }
+    if (!booking.unterwegs_ts) return null;
+    const eta = booking.eta_ts ? new Date(booking.eta_ts) : null;
+    if (!eta) return { art: 'unterwegs', text: 'Unterwegs' };
+    const ueberfaellig = eta.getTime() < Date.now();
+    return {
+      art: ueberfaellig ? 'ueberfaellig' : 'unterwegs',
+      text: (ueberfaellig ? 'Unterwegs · angekündigt war ' : 'Unterwegs · Ankunft ca. ')
+            + uhr(eta) + ' Uhr',
+      eta_uhr: uhr(eta),
+      gemeldet_um: uhr(booking.unterwegs_ts)
+    };
   }
 
   // ───────────────────────────────────────────────────────
@@ -3375,6 +3448,8 @@
     // Klinik-Buchungen (Etappe 2)
     listAvailableShifts, bookShift, getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking,
     confirmMyBooking,
+    setUnterwegs,
+    anreiseStatus,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
     // Fördermittel-Cockpit

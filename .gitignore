@@ -3,3 +3,7 @@
 
 # Migrations-SQL — das Repo ist oeffentlich, Policies gehoeren nicht ins Netz
 sql/
+
+# Edge-Function-Quellen — gleicher Grund: Versandwege, Header-Namen und
+# Secret-Namen gehoeren nicht ins Netz
+functions/

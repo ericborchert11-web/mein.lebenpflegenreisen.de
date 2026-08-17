@@ -609,11 +609,74 @@ footer a { color: var(--lime); text-decoration: none; }
   .hero { padding: 32px 16px; }
   header { flex-direction: column; align-items: flex-start; }
 }
+/* Im Raster traegt die Kopfzeile den Wochentag, die Zelle nur die Zahl. */
+.cal-wd { display: none; }
+
 @media (max-width: 640px) {
   .a11y-label { display: none; }
   .a11y-bar { justify-content: center; padding: 10px 12px; gap: 10px; }
   .toolbar { flex-direction: column; align-items: stretch; }
   .month-nav { justify-content: space-between; }
+
+  /* ── Kalender wird zur Tagesliste ──────────────────────────────
+     Sieben Spalten brauchen rund 630 px. Auf einem 390-px-Telefon
+     lagen Freitag, Samstag und Sonntag ausserhalb des Bildschirms und
+     waren nur ueber seitliches Wischen erreichbar — ausgerechnet die
+     Tage, an denen Kliniken am meisten suchen. Statt zu schrumpfen
+     wird daraus eine Zeile pro Tag. */
+  .cal-card { padding: 12px; }
+  .cal-head { display: none; }
+  .cal-grid { grid-template-columns: 1fr; gap: 8px; }
+
+  .cal-day {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    min-height: 0;
+    padding: 10px 12px;
+  }
+  /* Leerzeilen (Nachbarmonat, vergangene Tage ohne Dienst) raus */
+  .cal-day-leer, .cal-day.other-month { display: none; }
+  .cal-day.past { opacity: 1; }
+
+  .cal-date {
+    flex: 0 0 auto;
+    min-width: 76px;
+    margin-bottom: 0;
+    font-size: 15px;
+  }
+  .cal-wd {
+    display: inline;
+    margin-right: 5px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .shift-chips {
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 13px;
+  }
+  /* Ohne Dienste keine leere Spalte, sonst rutscht der Knopf in eine
+     zweite Zeile und jeder freie Tag wird doppelt so hoch. */
+  .shift-chips:empty { display: none; }
+  /* Groessere Flaeche zum Treffen — im Raster war der Chip 11 px hoch */
+  .shift-chip { padding: 8px 10px; font-size: 13px; min-height: 40px; }
+  .shift-chip .clinic { font-size: 12px; max-width: 110px; }
+  .chip-remove { font-size: 18px; padding: 0 4px; }
+
+  .add-btn {
+    flex: 0 0 auto;
+    width: auto;
+    margin-top: 0;
+    margin-left: auto;
+    padding: 10px 14px;
+    min-height: 44px;
+    font-size: 13px;
+  }
 }
 </style>
 </head>
@@ -747,6 +810,18 @@ footer a { color: var(--lime); text-decoration: none; }
     </label>
 
     <div class="field" style="margin-top: 16px;">
+      <label for="wiederholen">Wiederholen</label>
+      <select id="wiederholen" onchange="renderWiederholenHinweis()">
+        <option value="1">Nur an diesem Tag</option>
+        <option value="2">Auch nächste Woche</option>
+        <option value="4">Jede Woche, 4 ×</option>
+        <option value="8">Jede Woche, 8 ×</option>
+        <option value="12">Jede Woche, 12 ×</option>
+      </select>
+      <div id="wiederholen-hinweis" style="font-size:13px;color:var(--muted);margin-top:6px;"></div>
+    </div>
+
+    <div class="field" style="margin-top: 16px;">
       <label for="note">Anmerkung (optional)</label>
       <textarea id="note" rows="2" placeholder="z.B. nur Charité, nicht vor 7 Uhr..."></textarea>
     </div>
@@ -754,6 +829,35 @@ footer a { color: var(--lime); text-decoration: none; }
   <div class="dlg-foot">
     <button class="btn btn-ghost" onclick="closeAdd()">Abbrechen</button>
     <button class="btn btn-primary" onclick="saveAvail()">Speichern</button>
+  </div>
+</dialog>
+
+<!-- Absage eines gebuchten Dienstes.
+     Vorher lief das ueber prompt(): ein Browser-Kasten, der die eingestellte
+     Schriftgroesse und den Kontrastmodus ignoriert — auf einer Seite, die
+     beides ausdruecklich anbietet. Die Gruende stehen jetzt zum Antippen da,
+     weil "mindestens 10 Zeichen" unterwegs am Handy eine Huerde ist. -->
+<dialog id="cancel-dialog">
+  <div class="dlg-head">
+    <div class="dlg-title">Dienst absagen</div>
+    <div class="dlg-sub" id="cancel-sub">—</div>
+  </div>
+  <div class="dlg-body">
+    <p style="font-size:14px;color:var(--muted);margin-bottom:14px;">
+      Die Klinik sieht deine Begründung und muss den Dienst neu besetzen.
+      Bitte sag so früh wie möglich Bescheid.
+    </p>
+    <div id="cancel-gruende" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;"></div>
+    <div class="field">
+      <label for="cancel-grund">Begründung</label>
+      <textarea id="cancel-grund" rows="3" placeholder="Mindestens 10 Zeichen"
+                oninput="pruefeCancelGrund()"></textarea>
+      <div id="cancel-hinweis" style="font-size:13px;color:var(--muted);margin-top:6px;"></div>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn btn-ghost" onclick="closeCancelDialog()">Zurück</button>
+    <button class="btn btn-primary" id="cancel-senden" onclick="sendeAbsage()" disabled>Dienst absagen</button>
   </div>
 </dialog>
 
@@ -819,6 +923,8 @@ const SHIFTS = {
   nacht: { label: 'Nachtdienst', time: '22:00–06:00', cls: 'nacht', startH: 22 }
 };
 const DAY_MS = 86400000;
+// Montag zuerst — der Kalender startet mit Mo (siehe startWeekday).
+const WOCHENTAG_KURZ = ['Mo','Di','Mi','Do','Fr','Sa','So'];
 
 // ═══════════════════════════════════════════════════════
 // ABSAGE-ZONEN (3-Stufen-Modell aus Mitwirkungsvereinbarung §3)
@@ -933,7 +1039,11 @@ async function loadBookingsFromDb() {
           patient_notes: b.patient_notes || '',
           status: b.status,
           date: b.date,
-          shift_de: shiftDe
+          shift_de: shiftDe,
+          station: b.station || '',
+          station_phone: b.station_phone || '',
+          unterwegs_ts: b.unterwegs_ts || null,
+          eta_ts: b.eta_ts || null
         };
       }
     }
@@ -985,8 +1095,17 @@ function renderUpcoming() {
   const badge = document.getElementById('upcoming-badge');
   if (!section || !list) return;
   const today = new Date(); today.setHours(0, 0, 0, 0);
+  // Der Nachtdienst traegt das Datum des Vortags. Nach Mitternacht steht die
+  // Sitzwache noch im Dienst, waehrend das Datum schon "gestern" ist — ohne
+  // diese Ausnahme verschwindet der laufende Dienst genau dann aus der Liste
+  // (mein-bereich.html macht es an der gleichen Stelle genauso).
+  const gestern = new Date(today.getTime() - DAY_MS);
+  const jetzt = new Date();
+  const laeuftUeberMitternacht = b =>
+    b.shift_de === 'nacht' && jetzt.getHours() < 8 &&
+    new Date(b.date + 'T00:00:00').getTime() === gestern.getTime();
   const items = Object.values(_dbBookings)
-    .filter(b => new Date(b.date + 'T00:00:00') >= today)
+    .filter(b => new Date(b.date + 'T00:00:00') >= today || laeuftUeberMitternacht(b))
     .sort((a, b) => a.date.localeCompare(b.date) || a.shift_de.localeCompare(b.shift_de));
 
   if (!items.length) { section.hidden = true; list.innerHTML = ''; badge.textContent = ''; return; }
@@ -1000,23 +1119,59 @@ function renderUpcoming() {
   list.innerHTML = items.map(b => {
     const dstr = new Date(b.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
     const pillColor = b.status === 'confirmed' ? '#2E7D46' : (b.status === 'completed' ? '#1E5B36' : '#9B2C2C');
+    const offen = b.status === 'planned' || b.status === 'confirmed';
+    // Am Tag des Dienstes (Nachtdienst bis 8 Uhr des Folgetags) kann die
+    // Anreise gemeldet werden — davor waere die Angabe wertlos.
+    const heute = b.date === dateKey(new Date()) || laeuftUeberMitternacht(b);
     const actions = b.status === 'planned'
       ? `<button type="button" class="up-confirm" data-id="${b.id}" style="background:#2E5E3A;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Bestätigen</button>
          <button type="button" class="up-cancel" data-id="${b.id}" style="background:#fff;color:#8A3A22;border:1px solid #B07058;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Absagen</button>`
       : (b.status === 'confirmed'
           ? `<button type="button" class="up-cancel" data-id="${b.id}" style="background:#fff;color:#8A3A22;border:1px solid #B07058;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Absagen</button>`
           : '');
+    const anreise = window.LPR.anreiseStatus ? window.LPR.anreiseStatus(b) : null;
+    const unterwegs = (offen && heute)
+      ? `<div class="up-unterwegs" data-id="${b.id}" style="width:100%;margin-top:4px">
+           <button type="button" class="up-unterwegs-btn" style="background:#E8EFF8;color:#24456E;border:1.5px solid #7E9CC4;padding:10px 16px;min-height:44px;border-radius:8px;font-weight:700;font-family:inherit;font-size:14.5px;cursor:pointer">${anreise ? 'Ankunft neu melden' : 'Ich bin unterwegs'}</button>
+           <div class="up-eta-wahl" hidden style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding:12px;background:#F4F7FB;border:1px solid #D5E0EE;border-radius:8px">
+             <span style="width:100%;font-size:14px;font-weight:600;color:#24456E">Ich bin da in etwa …</span>
+             ${[15,30,45,60].map(m => `<button type="button" class="up-eta-btn" data-min="${m}" style="background:#fff;color:#24456E;border:1.5px solid #7E9CC4;padding:10px 14px;min-height:44px;min-width:76px;border-radius:8px;font-weight:700;font-family:inherit;font-size:14.5px;cursor:pointer">${m} Min</button>`).join('')}
+           </div>
+         </div>`
+      : '';
     return `<div style="border:1px solid #E4DFD2;border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:#fff">
       <div>
         <div style="font-weight:700">${dstr} · ${UPCOMING_SHIFT[b.shift_de] || b.shift_de}</div>
         <div style="font-size:14px;color:#555;margin-top:2px">${b.clinic_name}${b.patient_room ? ' · Zimmer ' + b.patient_room : ''} · <span style="color:${pillColor};font-weight:600">${UPCOMING_STATUS[b.status] || b.status}</span></div>
+        ${anreise ? `<div style="font-size:14px;font-weight:700;color:#24456E;margin-top:6px">→ ${escape(anreise.text)}</div>` : ''}
+        ${b.station_phone ? `<div style="font-size:14px;margin-top:6px">Station: <a href="tel:${escape(b.station_phone.replace(/[^\d+]/g,''))}" style="color:#1E5B36;font-weight:700">${escape(b.station_phone)}</a></div>` : ''}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">${actions}</div>
+      ${unterwegs}
     </div>`;
   }).join('');
 
   list.querySelectorAll('.up-confirm').forEach(btn => btn.addEventListener('click', () => onUpcomingConfirm(btn)));
   list.querySelectorAll('.up-cancel').forEach(btn => btn.addEventListener('click', () => onUpcomingCancel(btn)));
+  list.querySelectorAll('.up-unterwegs-btn').forEach(btn => btn.addEventListener('click', () => {
+    const wahl = btn.parentElement.querySelector('.up-eta-wahl');
+    wahl.hidden = !wahl.hidden;
+  }));
+  list.querySelectorAll('.up-eta-btn').forEach(btn => btn.addEventListener('click', () => onUnterwegs(btn)));
+}
+
+async function onUnterwegs(btn) {
+  const block = btn.closest('.up-unterwegs');
+  block.querySelectorAll('button').forEach(b => b.disabled = true);
+  const res = await window.LPR.setUnterwegs(block.dataset.id, Number(btn.dataset.min));
+  if (!res.ok) {
+    showToast(res.error || 'Meldung nicht möglich.', 'warn');
+    block.querySelectorAll('button').forEach(b => b.disabled = false);
+    return;
+  }
+  showToast('Die Station weiß Bescheid — Ankunft in etwa ' + btn.dataset.min + ' Minuten.');
+  await loadBookingsFromDb();
+  renderCalendar(); renderUpcoming();
 }
 
 async function onUpcomingConfirm(btn) {
@@ -1028,13 +1183,65 @@ async function onUpcomingConfirm(btn) {
   renderCalendar(); renderUpcoming();
 }
 
-async function onUpcomingCancel(btn) {
-  const reason = prompt('Bitte kurz begründen, warum du absagst (min. 10 Zeichen). Die Klinik sieht diesen Hinweis.');
-  if (reason == null) return;
-  if (reason.trim().length < 10) { showToast('Bitte eine etwas ausführlichere Begründung (min. 10 Zeichen).', 'warn'); return; }
-  btn.disabled = true;
-  const res = await window.LPR.cancelMyClinicBooking(btn.dataset.id, reason.trim());
-  if (!res.ok) { showToast(res.error || 'Absage fehlgeschlagen.', 'warn'); btn.disabled = false; return; }
+const ABSAGE_GRUENDE = [
+  'Ich bin krank geworden.',
+  'Familiäre Verpflichtung, die ich nicht verschieben kann.',
+  'Beruflich verhindert.',
+  'Die Anfahrt ist mir heute nicht möglich.'
+];
+let _cancelBookingId = null;
+
+function onUpcomingCancel(btn) {
+  const b = Object.values(_dbBookings).find(x => x.id === btn.dataset.id);
+  _cancelBookingId = btn.dataset.id;
+  document.getElementById('cancel-sub').textContent = b
+    ? `${b.clinic_name} · ${keyToDate(b.date).toLocaleDateString('de-DE', { weekday:'long', day:'2-digit', month:'long' })} · ${UPCOMING_SHIFT[b.shift_de] || b.shift_de}`
+    : '';
+  document.getElementById('cancel-grund').value = '';
+  const box = document.getElementById('cancel-gruende');
+  box.innerHTML = ABSAGE_GRUENDE.map(g =>
+    `<button type="button" class="btn btn-ghost" style="font-size:13.5px;padding:9px 13px;min-height:44px"
+       onclick="waehleAbsageGrund(this)">${escape(g.replace(/\.$/, ''))}</button>`
+  ).join('');
+  pruefeCancelGrund();
+  document.getElementById('cancel-dialog').showModal();
+}
+
+function waehleAbsageGrund(el) {
+  const feld = document.getElementById('cancel-grund');
+  feld.value = el.textContent.trim() + '.';
+  pruefeCancelGrund();
+  feld.focus();
+}
+
+function pruefeCancelGrund() {
+  const wert = document.getElementById('cancel-grund').value.trim();
+  const fehlt = 10 - wert.length;
+  document.getElementById('cancel-senden').disabled = fehlt > 0;
+  document.getElementById('cancel-hinweis').textContent = fehlt > 0
+    ? (wert.length === 0 ? 'Bitte einen Grund wählen oder schreiben.' : `Noch ${fehlt} Zeichen.`)
+    : '';
+}
+
+function closeCancelDialog() {
+  document.getElementById('cancel-dialog').close();
+  _cancelBookingId = null;
+}
+
+async function sendeAbsage() {
+  const grund = document.getElementById('cancel-grund').value.trim();
+  if (!_cancelBookingId || grund.length < 10) return;
+  const knopf = document.getElementById('cancel-senden');
+  knopf.disabled = true;
+  knopf.textContent = 'Wird abgesagt…';
+  const res = await window.LPR.cancelMyClinicBooking(_cancelBookingId, grund);
+  knopf.textContent = 'Dienst absagen';
+  if (!res.ok) {
+    showToast(res.error || 'Absage fehlgeschlagen.', 'warn');
+    knopf.disabled = false;
+    return;
+  }
+  closeCancelDialog();
   showToast('Einsatz abgesagt. Die Klinik wird informiert.');
   await Promise.all([loadAvailFromDb(), loadBookingsFromDb()]);
   renderCalendar(); renderUpcoming();
@@ -1078,7 +1285,10 @@ function renderCalendar() {
   }
   while (cells.length % 7 !== 0 || cells.length < 35) {
     const last = cells[cells.length-1].date;
-    cells.push({ date: new Date(last.getTime() + DAY_MS), otherMonth: true });
+    // Ebenfalls setDate: im Oktober waere sonst der Tag der Zeitumstellung
+    // doppelt im Raster gelandet.
+    const next = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1);
+    cells.push({ date: next, otherMonth: true });
     if (cells.length >= 42) break;
   }
 
@@ -1125,8 +1335,17 @@ function renderCalendar() {
     const canAdd = !isPast && !c.otherMonth;
     const addBtn = canAdd ? `<button class="add-btn" onclick="openAdd('${key}')">+ Eintragen</button>` : '';
 
+    // Auf dem Handy wird aus dem Raster eine Tagesliste (siehe @media 640px).
+    // Zellen ohne Inhalt UND ohne Eintragen-Knopf sind dort nur Leerzeilen und
+    // fliegen raus; im Raster muessen sie stehen bleiben, sonst verrutschen
+    // die Wochentage.
+    if (!chips && !addBtn) classes.push('cal-day-leer');
+    // Der Wochentag steht im Raster in der Kopfzeile, in der Liste braucht ihn
+    // jede Zeile selbst.
+    const wd = WOCHENTAG_KURZ[(d.getDay() + 6) % 7];
+
     return `<div class="${classes.join(' ')}">
-      <div class="cal-date">${d.getDate()}${isToday ? '<span class="cal-today-badge">Heute</span>' : ''}</div>
+      <div class="cal-date"><span class="cal-wd">${wd}</span>${d.getDate()}.${isToday ? '<span class="cal-today-badge">Heute</span>' : ''}</div>
       <div class="shift-chips">${chips}</div>
       ${addBtn}
     </div>`;
@@ -1190,7 +1409,44 @@ function openAdd(key) {
     }
   }
   document.getElementById('note').value = '';
+  document.getElementById('wiederholen').value = '1';
+  renderWiederholenHinweis();
   document.getElementById('add-dialog').showModal();
+}
+
+/**
+ * Welche Tage sind gemeint?
+ *
+ * Wer samstags nachts kann, kann das meistens jeden Samstag — bisher waren
+ * das acht Mal Dialog oeffnen, ankreuzen, speichern. Der Hinweis nennt die
+ * Termine ausdruecklich beim Datum: "wiederholen" ist sonst eine Zusage ins
+ * Ungewisse.
+ */
+function wiederholTermine() {
+  const anzahl = Number(document.getElementById('wiederholen').value) || 1;
+  const start = keyToDate(currentAddKey);
+  const termine = [];
+  for (let i = 0; i < anzahl; i++) {
+    // setDate statt Millisekunden-Arithmetik: am Wochenende der
+    // Zeitumstellung hat ein Tag 23 oder 25 Stunden, und "+7 × 86 400 000"
+    // landet dann auf dem Vortag.
+    const d = keyToDate(currentAddKey);
+    d.setDate(start.getDate() + i * 7);
+    termine.push(d);
+  }
+  return termine;
+}
+
+function renderWiederholenHinweis() {
+  const el = document.getElementById('wiederholen-hinweis');
+  if (!el || !currentAddKey) return;
+  const termine = wiederholTermine();
+  if (termine.length < 2) { el.textContent = ''; return; }
+  const kurz = d => d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+  const liste = termine.length <= 4
+    ? termine.map(kurz).join(' · ')
+    : termine.slice(0, 3).map(kurz).join(' · ') + ' … bis ' + kurz(termine[termine.length - 1]);
+  el.textContent = 'Gilt für: ' + liste;
 }
 
 function closeAdd() {
@@ -1210,7 +1466,19 @@ async function saveAvail() {
   const toRemove = existingDe.filter(s => !selected.includes(s));
   const toAdd = selected.filter(s => !existingDe.includes(s));
 
+  // Die Anmerkung wurde bisher abgetippt und dann weggeworfen: setAvailability
+  // nimmt sie als drittes Argument, saveAvail hat es nie mitgegeben. Die
+  // Klinik sieht genau dieses Feld in der Buchungsliste.
+  const note = document.getElementById('note').value.trim();
+
+  // Wiederholung gilt nur fuers Eintragen. Austragen bleibt auf diesem einen
+  // Tag — ein Haken, der stillschweigend acht Wochen leerraeumt, waere die
+  // unangenehmere Ueberraschung.
+  const termine = wiederholTermine();
+  const heuteKey = dateKey(new Date());
+
   const errors = [];
+  let neu = 0, schonDa = 0;
 
   for (const shiftDe of toRemove) {
     const shiftDb = SHIFT_DE_TO_DB[shiftDe];
@@ -1219,27 +1487,36 @@ async function saveAvail() {
       if (!res.ok) errors.push(`Entfernen ${shiftDe}: ${res.error}`);
     } catch (e) { errors.push(`Entfernen ${shiftDe}: ${e.message}`); }
   }
-  for (const shiftDe of toAdd) {
-    const shiftDb = SHIFT_DE_TO_DB[shiftDe];
-    try {
-      const res = await window.LPR.setAvailability(currentAddKey, shiftDb);
-      if (!res.ok) errors.push(`Hinzufügen ${shiftDe}: ${res.error}`);
-    } catch (e) { errors.push(`Hinzufügen ${shiftDe}: ${e.message}`); }
+  for (const termin of termine) {
+    const key = dateKey(termin);
+    if (key < heuteKey) continue;
+    // An Folgeterminen zaehlen alle gewaehlten Schichten, nicht nur die neu
+    // angehakten — dort steht ja noch nichts.
+    const schichten = key === currentAddKey ? toAdd : selected;
+    for (const shiftDe of schichten) {
+      const shiftDb = SHIFT_DE_TO_DB[shiftDe];
+      try {
+        const res = await window.LPR.setAvailability(key, shiftDb, note || null);
+        if (res.ok) { neu++; continue; }
+        // Doppelt eingetragen ist kein Fehler, sondern der Normalfall beim
+        // Wiederholen ueber schon gepflegte Wochen.
+        if ((res.error || '').includes('existiert bereits')) schonDa++;
+        else errors.push(`${keyToDate(key).toLocaleDateString('de-DE')} ${shiftDe}: ${res.error}`);
+      } catch (e) { errors.push(`${key} ${shiftDe}: ${e.message}`); }
+    }
   }
 
   closeAdd();
 
   if (errors.length > 0) {
     showToast('Fehler beim Speichern: ' + errors.join('; '), 'warn');
+  } else if (neu === 0 && schonDa === 0 && toRemove.length === 0) {
+    showToast('Keine Änderungen.');
+  } else if (neu === 0 && schonDa === 0) {
+    showToast('Eintrag entfernt.');
   } else {
-    const totalChanges = toRemove.length + toAdd.length;
-    if (totalChanges === 0) {
-      showToast('Keine Änderungen.');
-    } else if (selected.length === 0) {
-      showToast('Eintrag entfernt.');
-    } else {
-      showToast(`${selected.length} Schicht${selected.length>1?'en':''} gespeichert.`);
-    }
+    showToast(`${neu} Dienst${neu === 1 ? '' : 'e'} eingetragen`
+      + (schonDa ? ` (${schonDa} war${schonDa === 1 ? '' : 'en'} schon da)` : '') + '.');
   }
 
   await Promise.all([loadAvailFromDb(), loadBookingsFromDb()]);

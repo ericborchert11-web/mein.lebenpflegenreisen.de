@@ -119,9 +119,11 @@
   font-weight: 600;
   border: 1px solid;
 }
-.kbl-status-pill.planned   { background: #E8F0E8; color: #1E3127; border-color: #4A7A5A; }
+.kbl-status-pill.planned   { background: #FBF3DC; color: #7A5B14; border-color: #C9A227; }
+.kbl-status-pill.confirmed { background: #E7F3EA; color: #1E5B36; border-color: #2E7D46; }
 .kbl-status-pill.completed { background: #DCE8E0; color: #1A3A2A; border-color: #2A5740; }
 .kbl-status-pill.cancelled { background: #F0E5E1; color: #7A3A28; border-color: #B07058; }
+.kbl-status-pill.no_show   { background: #FBEAEA; color: #9B2C2C; border-color: #C06060; }
     .kbl-ohne-us {
   margin-top: 10px; padding: 10px 12px;
   background: #FBF3DC; border: 1px solid #E4D6A6;
@@ -176,6 +178,18 @@
 .kbl-btn-cancel:hover { background: #FCEEDD; }
 .kbl-btn-cancel:disabled { opacity: .5; cursor: not-allowed; }
 
+.kbl-confirm-hint {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  background: #FBF3DC;
+  border: 1px solid #E4D6A6;
+  border-left: 4px solid #C9A227;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: #7A5B14;
+  font-weight: 600;
+}
+
 .kbl-empty {
   background: #fff;
   border-radius: var(--radius);
@@ -188,6 +202,17 @@
 .kbl-empty p { margin: 0 0 6px; font-size: 15px; }
 .kbl-empty a { color: var(--green-deep); font-weight: 600; }
 .kbl-loading { padding: 60px 0; text-align: center; color: var(--muted); }
+
+/* Auf dem Telefon lief die Reiterleiste ueber den rechten Rand hinaus und
+   zog die ganze Seite in die Breite. */
+@media (max-width: 640px) {
+  .kbl-tabs { flex-wrap: wrap; gap: 0 2px; }
+  .kbl-tab { padding: 11px 12px; font-size: 13.5px; }
+  .kbl-card { padding: 14px 16px; }
+  .kbl-card-top { flex-direction: column; gap: 8px; }
+  .kbl-card-actions { justify-content: stretch; }
+  .kbl-btn-cancel { width: 100%; min-height: 44px; }
+}
 </style>
 </head>
 <body>
@@ -208,6 +233,8 @@
     <button class="kbl-tab" data-tab="cancelled">Storniert <span class="kbl-tab-count" id="kbl-count-cancelled">0</span></button>
   </div>
 
+  <p class="kbl-confirm-hint" id="kbl-confirm-hint" hidden></p>
+
   <div id="kbl-list"><div class="kbl-loading">Lade Buchungen…</div></div>
 
 </div>
@@ -225,10 +252,23 @@ const SHIFT_LABELS = {
   afternoon: { label: 'Spätdienst', time: '14:00–22:00' },
   night:     { label: 'Nachtdienst', time: '22:00–06:00' }
 };
+// Die Sitzwache bestaetigt ihren Dienst selbst (status planned -> confirmed).
+// Beide Zustaende sind fuer die Klinik "aktiv": gebucht ist gebucht, der
+// Unterschied ist nur, ob die Person die Buchung schon quittiert hat.
+// Ohne 'confirmed' verschwand die Buchung genau in dem Moment aus der Liste,
+// in dem sie sicherer wurde.
 const STATUS_LABELS = {
-  planned:   'Geplant',
+  planned:   'Gebucht · Bestätigung offen',
+  confirmed: 'Von der Sitzwache bestätigt',
   completed: 'Abgeschlossen',
-  cancelled: 'Storniert'
+  cancelled: 'Storniert',
+  no_show:   'Nicht erschienen'
+};
+// Welche Datenbank-Zustaende gehoeren zu welchem Reiter?
+const TAB_STATUS = {
+  planned:   ['planned', 'confirmed'],
+  completed: ['completed', 'no_show'],
+  cancelled: ['cancelled']
 };
 const FLAG_LABELS = {
   sturzgefahr: 'Sturzgefahr',
@@ -272,11 +312,22 @@ function fmtDate(iso) {
 function updateCounts() {
   const counts = { planned: 0, completed: 0, cancelled: 0 };
   for (const b of allBookings) {
-    if (counts[b.status] !== undefined) counts[b.status]++;
+    for (const tab of Object.keys(counts)) {
+      if (TAB_STATUS[tab].includes(b.status)) counts[tab]++;
+    }
   }
   document.getElementById('kbl-count-planned').textContent   = counts.planned;
   document.getElementById('kbl-count-completed').textContent = counts.completed;
   document.getElementById('kbl-count-cancelled').textContent = counts.cancelled;
+  // Wie viele aktive Dienste warten noch auf die Bestaetigung der Sitzwache?
+  const offen = allBookings.filter(b => b.status === 'planned').length;
+  const hint = document.getElementById('kbl-confirm-hint');
+  if (hint) {
+    hint.hidden = offen === 0;
+    hint.textContent = offen === 1
+      ? '1 Buchung wartet noch auf die Bestätigung der Sitzwache.'
+      : offen + ' Buchungen warten noch auf die Bestätigung der Sitzwache.';
+  }
 }
 
 let einsatzInfo = {};
@@ -301,7 +352,7 @@ function ohneUnterschriftBlock(b) {
 }
 
 function renderList() {
-  const filtered = allBookings.filter(b => b.status === activeTab);
+  const filtered = allBookings.filter(b => TAB_STATUS[activeTab].includes(b.status));
   const listEl = document.getElementById('kbl-list');
   if (filtered.length === 0) {
     let msg = '';
@@ -351,7 +402,7 @@ function renderList() {
             <div class="kbl-cancel-reason">${escape(b.cancellation_reason)}</div>
             ${b.cancelled_at ? `<div class="kbl-cancel-meta">Abgesagt am ${escape(fmtDate(b.cancelled_at.slice(0,10)))}</div>` : ''}
           </div>` : ''}
-        ${b.status === 'planned' ? `
+        ${(b.status === 'planned' || b.status === 'confirmed') ? `
           <div class="kbl-card-actions">
             <button type="button" class="kbl-btn-cancel" data-id="${escape(b.id)}" data-date="${escape(b.date)}" data-shift="${escape(b.shift)}">Buchung stornieren</button>
           </div>` : ''}

@@ -609,11 +609,74 @@ footer a { color: var(--lime); text-decoration: none; }
   .hero { padding: 32px 16px; }
   header { flex-direction: column; align-items: flex-start; }
 }
+/* Im Raster traegt die Kopfzeile den Wochentag, die Zelle nur die Zahl. */
+.cal-wd { display: none; }
+
 @media (max-width: 640px) {
   .a11y-label { display: none; }
   .a11y-bar { justify-content: center; padding: 10px 12px; gap: 10px; }
   .toolbar { flex-direction: column; align-items: stretch; }
   .month-nav { justify-content: space-between; }
+
+  /* ── Kalender wird zur Tagesliste ──────────────────────────────
+     Sieben Spalten brauchen rund 630 px. Auf einem 390-px-Telefon
+     lagen Freitag, Samstag und Sonntag ausserhalb des Bildschirms und
+     waren nur ueber seitliches Wischen erreichbar — ausgerechnet die
+     Tage, an denen Kliniken am meisten suchen. Statt zu schrumpfen
+     wird daraus eine Zeile pro Tag. */
+  .cal-card { padding: 12px; }
+  .cal-head { display: none; }
+  .cal-grid { grid-template-columns: 1fr; gap: 8px; }
+
+  .cal-day {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    min-height: 0;
+    padding: 10px 12px;
+  }
+  /* Leerzeilen (Nachbarmonat, vergangene Tage ohne Dienst) raus */
+  .cal-day-leer, .cal-day.other-month { display: none; }
+  .cal-day.past { opacity: 1; }
+
+  .cal-date {
+    flex: 0 0 auto;
+    min-width: 76px;
+    margin-bottom: 0;
+    font-size: 15px;
+  }
+  .cal-wd {
+    display: inline;
+    margin-right: 5px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .shift-chips {
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 13px;
+  }
+  /* Ohne Dienste keine leere Spalte, sonst rutscht der Knopf in eine
+     zweite Zeile und jeder freie Tag wird doppelt so hoch. */
+  .shift-chips:empty { display: none; }
+  /* Groessere Flaeche zum Treffen — im Raster war der Chip 11 px hoch */
+  .shift-chip { padding: 8px 10px; font-size: 13px; min-height: 40px; }
+  .shift-chip .clinic { font-size: 12px; max-width: 110px; }
+  .chip-remove { font-size: 18px; padding: 0 4px; }
+
+  .add-btn {
+    flex: 0 0 auto;
+    width: auto;
+    margin-top: 0;
+    margin-left: auto;
+    padding: 10px 14px;
+    min-height: 44px;
+    font-size: 13px;
+  }
 }
 </style>
 </head>
@@ -819,6 +882,8 @@ const SHIFTS = {
   nacht: { label: 'Nachtdienst', time: '22:00–06:00', cls: 'nacht', startH: 22 }
 };
 const DAY_MS = 86400000;
+// Montag zuerst — der Kalender startet mit Mo (siehe startWeekday).
+const WOCHENTAG_KURZ = ['Mo','Di','Mi','Do','Fr','Sa','So'];
 
 // ═══════════════════════════════════════════════════════
 // ABSAGE-ZONEN (3-Stufen-Modell aus Mitwirkungsvereinbarung §3)
@@ -985,8 +1050,17 @@ function renderUpcoming() {
   const badge = document.getElementById('upcoming-badge');
   if (!section || !list) return;
   const today = new Date(); today.setHours(0, 0, 0, 0);
+  // Der Nachtdienst traegt das Datum des Vortags. Nach Mitternacht steht die
+  // Sitzwache noch im Dienst, waehrend das Datum schon "gestern" ist — ohne
+  // diese Ausnahme verschwindet der laufende Dienst genau dann aus der Liste
+  // (mein-bereich.html macht es an der gleichen Stelle genauso).
+  const gestern = new Date(today.getTime() - DAY_MS);
+  const jetzt = new Date();
+  const laeuftUeberMitternacht = b =>
+    b.shift_de === 'nacht' && jetzt.getHours() < 8 &&
+    new Date(b.date + 'T00:00:00').getTime() === gestern.getTime();
   const items = Object.values(_dbBookings)
-    .filter(b => new Date(b.date + 'T00:00:00') >= today)
+    .filter(b => new Date(b.date + 'T00:00:00') >= today || laeuftUeberMitternacht(b))
     .sort((a, b) => a.date.localeCompare(b.date) || a.shift_de.localeCompare(b.shift_de));
 
   if (!items.length) { section.hidden = true; list.innerHTML = ''; badge.textContent = ''; return; }
@@ -1125,8 +1199,17 @@ function renderCalendar() {
     const canAdd = !isPast && !c.otherMonth;
     const addBtn = canAdd ? `<button class="add-btn" onclick="openAdd('${key}')">+ Eintragen</button>` : '';
 
+    // Auf dem Handy wird aus dem Raster eine Tagesliste (siehe @media 640px).
+    // Zellen ohne Inhalt UND ohne Eintragen-Knopf sind dort nur Leerzeilen und
+    // fliegen raus; im Raster muessen sie stehen bleiben, sonst verrutschen
+    // die Wochentage.
+    if (!chips && !addBtn) classes.push('cal-day-leer');
+    // Der Wochentag steht im Raster in der Kopfzeile, in der Liste braucht ihn
+    // jede Zeile selbst.
+    const wd = WOCHENTAG_KURZ[(d.getDay() + 6) % 7];
+
     return `<div class="${classes.join(' ')}">
-      <div class="cal-date">${d.getDate()}${isToday ? '<span class="cal-today-badge">Heute</span>' : ''}</div>
+      <div class="cal-date"><span class="cal-wd">${wd}</span>${d.getDate()}.${isToday ? '<span class="cal-today-badge">Heute</span>' : ''}</div>
       <div class="shift-chips">${chips}</div>
       ${addBtn}
     </div>`;

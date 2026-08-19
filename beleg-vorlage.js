@@ -24,11 +24,29 @@
     return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(n) || 0);
   }
 
+  // ── Datum: bewusst fest auf Europe/Berlin ───────────────────────────────────
+  // Der Verein sitzt in Berlin und der Beleg ist ein deutsches Steuerdokument:
+  // der Leistungszeitraum darauf muss deutsche Kalendertage nennen, egal wo die
+  // Maschine steht, die ihn rendert (Browser des Mitglieds, Deno-Edge-Function
+  // irgendwo auf der Welt, Node im Test). Bitte die Zeitzone nicht entfernen.
+  //
+  // Reine Datumsstrings ('2026-05-29') parst JS als UTC-Mitternacht. Jeder
+  // negative Offset kippt die Anzeige dann einen Tag zurueck. Deshalb werden
+  // sie auf 12:00 UTC gezogen — von dort aus liegt kein Offset der Welt ueber
+  // der Datumsgrenze.
+  function toDate(iso) {
+    if (!iso) return null;
+    var s = String(iso);
+    var d = new Date(s.length <= 10 ? s + 'T12:00:00Z' : s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   function datum(iso) {
-    if (!iso) return '—';
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    var d = toDate(iso);
+    if (!d) return '—';
+    return d.toLocaleDateString('de-DE', {
+      day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin'
+    });
   }
 
   function zeitraum(start, end) {
@@ -52,10 +70,12 @@
     return s.slice(0, 4) + ' •••• •••• ' + s.slice(-4);
   }
 
+  // Ebenfalls in Berliner Zeit — sonst rutscht der Freibetrags-Balken bei einer
+  // Auszahlung dicht an Silvester ins falsche Kalenderjahr, und der Freibetrag
+  // gilt pro Kalenderjahr.
   function jahr(iso) {
-    var d = iso ? new Date(iso) : new Date();
-    if (isNaN(d.getTime())) d = new Date();
-    return d.getFullYear();
+    var d = toDate(iso) || new Date();
+    return Number(d.toLocaleDateString('de-DE', { year: 'numeric', timeZone: 'Europe/Berlin' }));
   }
 
   function belegHtml(d) {
@@ -67,6 +87,12 @@
 
     var isSitz = c.source_type === 'sitzwache';
     var breakdown = c.amount_breakdown || [];
+    // Es gibt zwei amount_breakdown-Formate in der Datenbank, und alte Antraege
+    // werden nicht migriert: ein Beleg muss zeigen, was zum Zeitpunkt der
+    // Auszahlung galt. Das Altformat der ersten Portal-Fassung war eine einzige
+    // Zusammenfassung ({ satz, ganze_tage } bzw. { schicht, datum, summe }), das
+    // heutige Format eine Liste benannter Positionen. Unterschieden wird an
+    // .label, weil nur das neue Format je Zeile einen Anzeigetext mitbringt.
     var isNewFormat = breakdown[0] && breakdown[0].label !== undefined;
 
     var positionsHtml = '';

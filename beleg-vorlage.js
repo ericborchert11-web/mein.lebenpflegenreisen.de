@@ -211,7 +211,7 @@
 
     var footInfo = isPaid
       ? 'Status: ausgezahlt · Auszahlung am ' + datum(c.paid_at) + (c.approved_at ? ' · Freigegeben am ' + datum(c.approved_at) : '')
-      : 'Status: ' + escape(c.status) + (c.submitted_to_payroll_at ? ' · An Buchhaltung gesendet am ' + datum(c.submitted_to_payroll_at) : '');
+      : 'Status: ' + escape(c.status) + (c.submitted_to_payroll_at ? ' · Zahlungsanweisung an die Finanzen am ' + datum(c.submitted_to_payroll_at) : '');
 
     return '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(verein.name) + '</div><div class="beleg-logo-sub">' + escape(verein.adresse) + '</div></div><div class="beleg-nr">' + nrBlock + '</div></div>'
       + '<div class="beleg-title">' + belegTitle + '</div>'

@@ -841,6 +841,7 @@ body.compliance-locked .info-box { display: none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
 <script src="app.js?v20260729a"></script>
+<script src="beleg-vorlage.js?v20260819a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'abrechnung' });
@@ -873,11 +874,8 @@ function formatDateRange(start, end) {
 function formatIbanDisplay(iban) {
   return (iban || '').replace(/\s+/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim();
 }
-function maskIban(iban) {
-  const s = (iban || '').replace(/\s+/g, '').toUpperCase();
-  if (s.length < 8) return formatIbanDisplay(iban);
-  return s.slice(0, 4) + ' •••• •••• ' + s.slice(-4);
-}
+// Die Maskierung für den Beleg steckt jetzt in beleg-vorlage.js — sonst gäbe es
+// zwei Regeln dafür, wie viel IBAN der gemailte Beleg zeigt.
 function diffDays(start, end) {
   return Math.round((new Date(end) - new Date(start)) / 86400000) + 1;
 }
@@ -1376,97 +1374,32 @@ function showPayrollFallback(claimId, reason) {
 }
 
 // === BELEG ===
+// Der Beleg selbst wird von beleg-vorlage.js gebaut — dieselbe Funktion nutzt
+// die Edge Function für die Mail. Hier werden nur noch die Daten eingesammelt.
+
+// Summe der in diesem Jahr bereits ausgezahlten Beträge gleicher Pauschalenart,
+// inklusive dieser Zahlung. Grundlage für den Freibetrags-Balken auf dem Beleg.
+function jahresSummeFuer(c) {
+  const art = c.pauschale_art === '26a' ? '26a' : '26';
+  const yr = (c.paid_at ? new Date(c.paid_at) : new Date()).getFullYear();
+  return (_claims || [])
+    .filter(x => (x.pauschale_art === '26a' ? '26a' : '26') === art
+      && x.status === 'paid' && x.paid_at
+      && new Date(x.paid_at).getFullYear() === yr)
+    .reduce((s, x) => s + Number(x.amount || 0), 0);
+}
+
 function showBeleg(claimId) {
   const c = _claims.find(x => x.id === claimId);
   if (!c) return;
-  const isSitz = c.source_type === 'sitzwache';
-  const breakdown = c.amount_breakdown || [];
-  const isNewFormat = breakdown[0] && breakdown[0].label !== undefined;
-  
-  let positionsHtml = '';
-  let columnsHeader = '';
-  
-  if (isSitz) {
-    columnsHeader = '<tr><th>Position</th><th class="num">Betrag</th></tr>';
-    if (isNewFormat) {
-      for (const row of breakdown) {
-        const dateStr = row.date ? new Date(row.date).toLocaleDateString('de-DE') : '';
-        const positionLabel = row.label + (dateStr ? ' (' + dateStr + ')' : '');
-        positionsHtml += '<tr><td>' + escape(positionLabel) + '</td><td class="num">' + formatEUR(row.amount) + '</td></tr>';
-      }
-    } else if (breakdown[0]) {
-      const b = breakdown[0];
-      const shiftLabel = ({morning:'Frühdienst', afternoon:'Spätdienst', night:'Nachtdienst'})[b.schicht] || b.schicht || '';
-      const dateStr = b.datum ? new Date(b.datum).toLocaleDateString('de-DE') : '';
-      positionsHtml = '<tr><td>Sitzwache ' + escape(shiftLabel) + (dateStr ? ' (' + dateStr + ')' : '') + '</td><td class="num">' + formatEUR(b.summe || c.amount) + '</td></tr>';
-    }
-  } else {
-    columnsHeader = '<tr><th>Position</th><th class="num">Anzahl</th><th class="num">Satz</th><th class="num">Betrag</th></tr>';
-    if (isNewFormat) {
-      for (const row of breakdown) {
-        const positionLabel = row.label;
-        const anzahl = row.factor != null ? (row.count != null ? row.count : row.factor) : '–';
-        const satz = row.base != null ? formatEUR(row.base) : '';
-        positionsHtml += '<tr><td>' + escape(positionLabel) + '</td><td class="num">' + anzahl + '</td><td class="num">' + satz + '</td><td class="num">' + formatEUR(row.amount) + '</td></tr>';
-      }
-    } else if (breakdown[0]) {
-      const b = breakdown[0] || {};
-      const perDay = Number(b.satz || 0);
-      const ganze = Number(b.ganze_tage || 0);
-      positionsHtml = '<tr><td>Anreisetag (halber Tag)</td><td class="num">0,5</td><td class="num">' + formatEUR(perDay) + '</td><td class="num">' + formatEUR(perDay/2) + '</td></tr>' + (ganze > 2 ? '<tr><td>Volltage</td><td class="num">' + (ganze - 2) + '</td><td class="num">' + formatEUR(perDay) + '</td><td class="num">' + formatEUR((ganze-2)*perDay) + '</td></tr>' : '') + '<tr><td>Abreisetag (halber Tag)</td><td class="num">0,5</td><td class="num">' + formatEUR(perDay) + '</td><td class="num">' + formatEUR(perDay/2) + '</td></tr>';
-    }
-  }
-  
-  const totalColspan = isSitz ? 1 : 3;
-  const aktivitaet = isSitz ? 'Ehrenamtliche Sitzwache' : 'Ehrenamtliche Reisebegleitung';
 
-  const isPaid = c.status === 'paid';
-  const art = c.pauschale_art === '26a' ? '26a' : '26';
-  const limit = art === '26a' ? 960 : JAHRESFREIBETRAG;
-  const paragraf = art === '26a' ? '§ 3 Nr. 26a EStG (Ehrenamtspauschale)' : '§ 3 Nr. 26 EStG (Übungsleiterpauschale)';
-  const belegTitle = isPaid ? 'Auszahlungsbeleg' : 'Antragsbestätigung';
-  const nrBlock = isPaid
-    ? 'Beleg-Nr. <strong>' + escape(c.beleg_nr || '—') + '</strong><br>Auszahlung am ' + (c.paid_at ? new Date(c.paid_at).toLocaleDateString('de-DE') : '—')
-    : 'Antrag-ID <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong><br>Eingereicht am ' + (c.submitted_at ? new Date(c.submitted_at).toLocaleDateString('de-DE') : '—');
-  const ibanShown = isPaid ? maskIban(_profile?.iban || '') : formatIbanDisplay(_profile?.iban || '');
-
-  // Jahressummen-Balken nur auf dem Auszahlungsbeleg (Summe ausgezahlter Beträge gleicher Art, inkl. dieser Zahlung)
-  let yearBar = '';
-  if (isPaid) {
-    const yr = (c.paid_at ? new Date(c.paid_at) : new Date()).getFullYear();
-    const paidSum = (_claims || []).filter(x => (x.pauschale_art === '26a' ? '26a' : '26') === art && x.status === 'paid' && x.paid_at && new Date(x.paid_at).getFullYear() === yr).reduce((s, x) => s + Number(x.amount || 0), 0);
-    const pct = Math.min(100, limit ? (paidSum / limit) * 100 : 0);
-    const over = paidSum > limit;
-    yearBar = '<div class="beleg-block" style="grid-column:1/-1;margin-top:4px"><h4>Freibetrag ' + yr + ' bei ' + escape(VEREIN.name) + '</h4>'
-      + '<div style="background:#EDE8DB;border-radius:6px;height:14px;overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct.toFixed(0) + '%;background:' + (over ? '#C0392B' : '#2E7D46') + '"></div></div>'
-      + '<p style="font-size:14px">' + formatEUR(paidSum) + ' von ' + formatEUR(limit) + ' ausgeschöpft' + (over ? ' <strong style="color:#C0392B">— Freibetrag überschritten</strong>' : '') + '</p>'
-      + '<p class="muted" style="font-size:13px">Diese Übersicht zählt nur Zahlungen von ' + escape(VEREIN.name) + '. Gleichartige Vergütungen anderer Vereine oder Auftraggeber musst du selbst hinzurechnen.</p></div>';
-  }
-
-  let declBlock;
-  if (isPaid) {
-    declBlock = '<div class="beleg-declaration"><h4>Steuerlicher Hinweis <span style="font-weight:400;color:#9B2C2C;font-size:12px">(ENTWURF — bitte durch Vorstand / Steuerberatung prüfen)</span></h4><ul>'
-      + '<li>Diese Zahlung ist eine Aufwandsentschädigung nach ' + escape(paragraf) + ' und bis zum Jahresfreibetrag von ' + formatEUR(limit) + ' steuer- und sozialversicherungsfrei.</li>'
-      + '<li>Die Überwachung des Freibetrags liegt in deiner Verantwortung — auch über mehrere Vereine oder Auftraggeber hinweg. ' + escape(VEREIN.name) + ' kennt nur die hier gezahlten Beträge.</li>'
-      + '<li>Beträge, die den Jahresfreibetrag übersteigen, sind von dir als Einkünfte zu versteuern (Angabe in der Einkommensteuererklärung, Anlage N bzw. Anlage S) und können sozialversicherungspflichtig sein.</li>'
-      + '<li>Die Auszahlung erfolgt auf Grundlage deiner Selbstauskunft im Antrag. Für die Richtigkeit und Vollständigkeit deiner Angaben bist du selbst verantwortlich.</li>'
-      + '<li>Dieser Beleg ersetzt keine Steuerberatung. Der Verein übernimmt keine Haftung für die individuelle steuerliche oder sozialversicherungsrechtliche Behandlung dieser Zahlung; bei Fragen wende dich an dein Finanzamt oder eine:n Steuerberater:in.</li>'
-      + '</ul>' + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '') + '</div>';
-  } else {
-    declBlock = '<div class="beleg-declaration"><h4>Erklärungen der/des Ehrenamtlichen</h4><ul><li>Die angegebenen Zeiten und Tätigkeiten wurden tatsächlich und in der genannten Form erbracht.</li><li>Die Tätigkeit wird nebenberuflich ausgeübt (nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit).</li><li>Die Übungsleiterpauschale nach § 3 Nr. 26 EStG wurde im laufenden Kalenderjahr nicht anderweitig so in Anspruch genommen, dass der Jahresfreibetrag von 3.300 € überschritten wird.</li><li>Der/die Ehrenamtliche wurde über die Verarbeitung und zehnjährige Aufbewahrung der Angaben gemäß § 147 AO informiert (Art. 6 Abs. 1 lit. c DSGVO).</li></ul>' + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '') + '</div>';
-  }
-
-  const footInfo = isPaid
-    ? 'Status: ausgezahlt · Auszahlung am ' + (c.paid_at ? new Date(c.paid_at).toLocaleDateString('de-DE') : '—') + (c.approved_at ? ' · Freigegeben am ' + new Date(c.approved_at).toLocaleDateString('de-DE') : '')
-    : 'Status: ' + escape(c.status) + (c.submitted_to_payroll_at ? ' · An Buchhaltung gesendet am ' + new Date(c.submitted_to_payroll_at).toLocaleDateString('de-DE') : '');
-
-  const html = '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(VEREIN.name) + '</div><div class="beleg-logo-sub">' + escape(VEREIN.adresse) + '</div></div><div class="beleg-nr">' + nrBlock + '</div></div>'
-    + '<div class="beleg-title">' + belegTitle + '</div>'
-    + '<div class="beleg-subtitle">Aufwandsentschädigung · ' + escape(paragraf) + ' · steuer- und sozialversicherungsfrei bis ' + formatEUR(limit) + ' pro Jahr</div>'
-    + '<div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(_profile?.full_name || '') + '</strong><br>' + escape(_profile?.email || '') + '<br>IBAN: ' + escape(ibanShown) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(VEREIN.name) + '</strong><br>' + escape(VEREIN.adresse) + '<br>' + escape(VEREIN.register) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>Tätigkeit</h4><p>' + aktivitaet + '<br><span class="muted">pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins</span></p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + formatDateRange(c.period_start, c.period_end) + '</strong></p></div>' + yearBar + '</div>'
-    + '<table class="beleg-table"><thead>' + columnsHeader + '</thead><tbody>' + positionsHtml + '<tr class="beleg-total-row"><td colspan="' + totalColspan + '">Summe Aufwandsentschädigung</td><td class="num">' + formatEUR(c.amount) + '</td></tr></tbody></table>'
-    + declBlock
-    + '<div class="beleg-foot"><p class="muted">' + footInfo + ' · Vereinsbeschluss vom ' + new Date(BESCHLUSS_DATUM).toLocaleDateString('de-DE') + '</p></div>';
+  const html = LPRBeleg.belegHtml({
+    claim: c,
+    person: _profile || {},
+    verein: { name: VEREIN.name, adresse: VEREIN.adresse, register: VEREIN.register },
+    jahresSumme: jahresSummeFuer(c),
+    beschlussDatum: BESCHLUSS_DATUM
+  });
 
   document.getElementById('beleg-content').innerHTML = html;
   ['loading-state','iban-info','trips-section','sitz-section','claims-section'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; });

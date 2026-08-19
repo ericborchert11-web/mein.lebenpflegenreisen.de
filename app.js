@@ -3316,8 +3316,12 @@
     return Math.round((parseFloat(s) || 0) * 100);
   }
 
+  // Menge ist numeric(10,2) und wird deutsch getippt: '1,5' muss 1.5 werden.
+  // Number('1,5') ist NaN und landete als stille 0 auf der Rechnung.
+  function qtyToNumber(v) { return typeof v === 'number' ? v : eurToCents(v) / 100; }
+
   function itemAmountCents(quantity, unitPriceCents) {
-    return Math.round((Number(quantity) || 0) * (Number(unitPriceCents) || 0));
+    return Math.round((qtyToNumber(quantity) || 0) * (Number(unitPriceCents) || 0));
   }
 
   function invoiceSubtotalCents(items) {
@@ -3489,7 +3493,7 @@
       const rows = (items || []).map((it, idx) => ({
         invoice_id:       invoiceId,
         pos:              idx + 1,
-        quantity:         Number(it.quantity) || 0,
+        quantity:         qtyToNumber(it.quantity) || 0,
         description:      String(it.description || '').trim(),
         period_text:      it.period_text || null,
         unit_price_cents: Number(it.unit_price_cents) || 0,
@@ -3651,7 +3655,7 @@
     getRates, getRate,
     // Block D: Rechnungsstellung
     VEREIN, BILLING_DEFAULT_SHIFT_CENTS,
-    centsToEUR, eurToCents, itemAmountCents, invoiceSubtotalCents, invoiceIsOverdue,
+    centsToEUR, eurToCents, qtyToNumber, itemAmountCents, invoiceSubtotalCents, invoiceIsOverdue,
     listRecipients, saveRecipient, setRecipientActive,
     listInvoices, getInvoice, createInvoice, updateInvoiceDraft, saveInvoiceItems,
     deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid,

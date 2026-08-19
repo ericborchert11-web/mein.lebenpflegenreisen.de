@@ -125,7 +125,7 @@
 </div>
 </main>
 
-<script src="app.js?v20260815b"></script>
+<script src="app.js?v20260819a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -142,6 +142,19 @@ function escapeHtml(s) {
   return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 function deDate(iso) { return iso ? iso.slice(8,10) + '.' + iso.slice(5,7) + '.' + iso.slice(0,4) : '—'; }
+
+// ── Zahlen ───────────────────────────────────────────────────────────────
+// Grundregel: waehrend getippt wird, schreibt das Programm das Feld NIE neu.
+// Frueher rief jeder Tastendruck renderEditor(), der Editor wurde per innerHTML
+// ersetzt — das Feld unter dem Cursor verschwand mitsamt Fokus und nur die
+// erste Ziffer kam an. Getippt wird roh, gerechnet wird ueber qtyNum(),
+// aufgeraeumt erst beim Verlassen des Feldes (onchange).
+function deNum(n) { return String(n ?? '').replace('.', ','); }
+// Leeres Preisfeld statt '0,00': in ein vorbelegtes '0,00' getippt ergibt
+// '0,00150' und damit 0 Cent — eine stille Null auf der Rechnung.
+function eurField(cents) { return Number(cents) ? (Number(cents)/100).toFixed(2).replace('.',',') : ''; }
+// quantity ist numeric(10,2): '1,5' muss 1.5 werden. Number('1,5') waere NaN.
+function qtyNum(v) { return typeof v === 'number' ? v : LPR.eurToCents(v) / 100; }
 
 async function init() {
   const session = LPR.getSession();
@@ -207,11 +220,13 @@ function renderEditor() {
     .map(r => `<option value="${r.id}"${r.id === _inv.recipient_id ? ' selected' : ''}>${escapeHtml(r.name)}</option>`).join('');
   const rows = _items.map((it, i) => `
     <tr>
-      <td style="width:70px;"><input value="${escapeHtml(String(it.quantity))}" oninput="setItem(${i},'quantity',this.value)"></td>
+      <td style="width:70px;"><input value="${escapeHtml(deNum(it.quantity))}" inputmode="decimal"
+             oninput="setItem(${i},'quantity',this.value)" onchange="normQuantity(${i},this)"></td>
       <td><input value="${escapeHtml(it.description)}" placeholder="Leistung" oninput="setItem(${i},'description',this.value)"></td>
       <td style="width:150px;"><input value="${escapeHtml(it.period_text || '')}" placeholder="z. B. Juli 2026" oninput="setItem(${i},'period_text',this.value)"></td>
-      <td style="width:120px;"><input class="num" value="${(it.unit_price_cents/100).toFixed(2).replace('.',',')}" oninput="setItem(${i},'unit_price_cents',LPR.eurToCents(this.value))"></td>
-      <td class="num" style="width:110px;padding-top:14px;">${LPR.centsToEUR(LPR.itemAmountCents(it.quantity, it.unit_price_cents))}</td>
+      <td style="width:120px;"><input class="num" value="${eurField(it.unit_price_cents)}" placeholder="0,00" inputmode="decimal"
+             oninput="setItem(${i},'unit_price_cents',LPR.eurToCents(this.value))" onchange="normPrice(${i},this)"></td>
+      <td class="num" id="amt-${i}" style="width:110px;padding-top:14px;">${LPR.centsToEUR(LPR.itemAmountCents(qtyNum(it.quantity), it.unit_price_cents))}</td>
       <td style="width:86px;white-space:nowrap;">
         <button class="btn" onclick="saveRowAsTemplate(${i})" title="Als Vorlage sichern" aria-label="Als Vorlage sichern">☆</button>
         <button class="btn" onclick="removeItem(${i})" aria-label="Position entfernen">×</button>
@@ -265,7 +280,7 @@ function renderEditor() {
         <tbody>${rows}</tbody>
       </table>
       <button class="btn" style="margin-top:10px;" onclick="addItem()">+ Position</button>
-      <div class="it-sum"><span>Summe</span><strong>${LPR.centsToEUR(currentSubtotal())}</strong></div>
+      <div class="it-sum"><span>Summe</span><strong id="it-sum-val">${LPR.centsToEUR(currentSubtotal())}</strong></div>
     </div>`;
 }
 
@@ -289,12 +304,13 @@ function renderBeleg() {
   const rows = items.map((it, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td class="num">${escapeHtml(String(it.quantity))}</td>
+      <td class="num">${escapeHtml(deNum(it.quantity))}</td>
       <td>${escapeHtml(it.description)}</td>
       <td>${escapeHtml(it.period_text || '—')}</td>
       <td class="num">${LPR.centsToEUR(it.unit_price_cents)}</td>
-      <td class="num">${LPR.centsToEUR(it.amount_cents != null ? it.amount_cents
-                          : LPR.itemAmountCents(it.quantity, it.unit_price_cents))}</td>
+      <td class="num">${LPR.centsToEUR(_inv.status === 'draft'
+                          ? LPR.itemAmountCents(qtyNum(it.quantity), it.unit_price_cents)
+                          : it.amount_cents)}</td>
     </tr>`).join('');
 
   const steuerBlock = (_inv.tax_mode === 'vat')
@@ -387,19 +403,53 @@ function renderBeleg() {
 }
 
 function currentSubtotal() {
-  return _items.reduce((s, it) => s + LPR.itemAmountCents(it.quantity, it.unit_price_cents), 0);
+  return _items.reduce((s, it) => s + LPR.itemAmountCents(qtyNum(it.quantity), it.unit_price_cents), 0);
 }
 
-function setField(key, value) { _inv[key] = value; }
+function setField(key, value) {
+  _inv[key] = value;
+  // Der Empfaenger steckt im Beleg — ohne diese Zeile zeigte die Vorschau nach
+  // dem Umstellen weiter die alte Anschrift.
+  if (key === 'recipient_id') _recipient = _recipients.find(r => r.id === value) || _recipient;
+  renderBeleg();
+}
 // Leeres Feld heisst "nicht einschlaegig" und muss null werden, nicht 0 —
 // sonst stuende auf jeder Klinikrechnung "Davon Betreuungsanteil 0,00 €".
 function setCareShare(value) {
   _inv.care_share_cents = String(value).trim() === '' ? null : LPR.eurToCents(value);
+  renderBeleg();
 }
-function setTaxMode(mode) { _inv.tax_mode = mode; renderEditor(); }
+function setTaxMode(mode) { _inv.tax_mode = mode; renderEditor(); renderBeleg(); }
+
+// Waehrend des Tippens wird nur der Zustand fortgeschrieben und die abgeleiteten
+// Zellen werden nachgezogen — die Eingabefelder selbst bleiben unangetastet.
 function setItem(i, key, value) {
   _items[i][key] = value;
-  if (key === 'quantity' || key === 'unit_price_cents') renderEditor();
+  if (key === 'quantity' || key === 'unit_price_cents') refreshAmounts();
+}
+
+function refreshAmounts() {
+  _items.forEach((it, i) => {
+    const td = document.getElementById('amt-' + i);
+    if (td) td.textContent = LPR.centsToEUR(LPR.itemAmountCents(qtyNum(it.quantity), it.unit_price_cents));
+  });
+  const sum = document.getElementById('it-sum-val');
+  if (sum) sum.textContent = LPR.centsToEUR(currentSubtotal());
+}
+
+// Beim Verlassen des Feldes: aus der rohen Eingabe wird eine Zahl, und das Feld
+// zeigt sie in der Schreibweise, in der sie auch auf der Rechnung steht.
+function normQuantity(i, el) {
+  const n = qtyNum(el.value);
+  _items[i].quantity = n;
+  el.value = deNum(n);
+  refreshAmounts(); renderBeleg();
+}
+function normPrice(i, el) {
+  const c = LPR.eurToCents(el.value);
+  _items[i].unit_price_cents = c;
+  el.value = eurField(c);
+  refreshAmounts(); renderBeleg();
 }
 function addItem() { _items.push(emptyItem()); renderEditor(); }
 function removeItem(i) { _items.splice(i, 1); if (!_items.length) _items = [emptyItem()]; renderEditor(); }

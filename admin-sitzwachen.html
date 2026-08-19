@@ -533,6 +533,34 @@ function yearSum(userId, art, year, excludeId) {
     .reduce((s, c) => s + Number(c.amount || 0), 0);
 }
 
+// Die drei Prozessmails (claim-mails Edge Function) als Stempel-Anzeige.
+// Jeder Stempel wird nur bei erfolgreichem Versand gesetzt – fehlt einer, muss
+// das auffallen statt sich in der Zeile zu verstecken.
+function mailTeile(c) {
+  return [
+    { label: 'Eingang', done: !!c.intake_mail_at },
+    { label: 'Finanzen', done: !!c.submitted_to_payroll_at },
+    { label: 'Beleg', done: !!c.payout_mail_at }
+  ];
+}
+
+function mailSpalteHtml(c) {
+  return mailTeile(c).map(t =>
+    t.done
+      ? '<span>' + t.label + ' ✓</span>'
+      : '<span style="color:#8A3A22;font-weight:700">' + t.label + ' —</span>'
+  ).join(' <span style="opacity:.5">·</span> ');
+}
+
+// Zum aktuellen Status gehört genau ein Stempel – fehlt der, ist ein Versand
+// vermutlich still gescheitert und der Vorstand muss ihn nachholen können.
+function mailNachversandNoetig(c) {
+  if (c.status === 'submitted') return !c.intake_mail_at;
+  if (c.status === 'approved') return !c.submitted_to_payroll_at;
+  if (c.status === 'paid') return !c.payout_mail_at;
+  return false;
+}
+
 function renderClaims() {
   document.getElementById('cnt-antraege').textContent = _claims.filter(c => c.status === 'submitted').length;
   const el = document.getElementById('claim-list');
@@ -540,7 +568,7 @@ function renderClaims() {
   if (!rows.length) { el.innerHTML = '<div class="as-empty">Noch keine Anträge.</div>'; return; }
 
   el.innerHTML = '<table class="as-table"><thead><tr>' +
-    '<th>Eingereicht</th><th>Person</th><th>Art</th><th>Betrag</th><th>Freibetrag (Jahr)</th><th>Status</th><th>Beleg-Nr.</th><th></th>' +
+    '<th>Eingereicht</th><th>Person</th><th>Art</th><th>Betrag</th><th>Freibetrag (Jahr)</th><th>Status</th><th>Beleg-Nr.</th><th>Mail</th><th></th>' +
     '</tr></thead><tbody>' +
     rows.map(c => {
       const art = c.pauschale_art || '26';
@@ -559,6 +587,9 @@ function renderClaims() {
       } else if (c.status === 'approved') {
         actions = '<button class="as-btn" data-act="pay" data-id="' + c.id + '">Als ausgezahlt markieren</button>';
       }
+      if (mailNachversandNoetig(c)) {
+        actions += '<button class="as-btn" data-act="resend" data-id="' + c.id + '">Mail erneut senden</button>';
+      }
       return '<tr>' +
         '<td>' + fmtDate(c.submitted_at) + '</td>' +
         '<td>' + esc(c.user_name) + '</td>' +
@@ -568,6 +599,7 @@ function renderClaims() {
         '<td><span class="pill ' + c.status + '">' + (CLAIM_STATUS_LABEL[c.status] || c.status) + '</span>' +
           (c.status === 'rejected' && c.rejected_reason ? '<div style="font-size:12px;color:#7A3A28;margin-top:3px">' + esc(c.rejected_reason) + '</div>' : '') + '</td>' +
         '<td>' + esc(c.beleg_nr || '—') + '</td>' +
+        '<td style="font-size:12px;color:var(--muted)">' + mailSpalteHtml(c) + '</td>' +
         '<td><div class="as-actions">' + actions + '</div></td>' +
       '</tr>';
     }).join('') +
@@ -579,6 +611,13 @@ function renderClaims() {
 async function onClaimAction(btn) {
   const id = btn.dataset.id, act = btn.dataset.act;
   let status, reason = null;
+  if (act === 'resend') {
+    btn.disabled = true;
+    const res = await LPR.resendClaimMail(id);
+    toast(res.ok ? 'Mail verschickt.' : (res.error || 'Versand fehlgeschlagen.'), res.ok ? undefined : 'warn');
+    await loadClaims();
+    return;
+  }
   if (act === 'approve') {
     if (!confirm('Diesen Antrag freigeben? Danach ist er zur Auszahlung bereit.')) return;
     status = 'approved';

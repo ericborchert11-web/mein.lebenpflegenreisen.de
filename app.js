@@ -3091,6 +3091,23 @@
     }
   }
 
+  // Ruft claim-mails direkt auf, mit force: die Function ueberspringt dann den
+  // gesetzten Zeitstempel. Fuer den Fall, dass ein Versand still gescheitert ist.
+  async function resendClaimMail(claimId) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    try {
+      const { data, error } = await (await sb())
+        .functions.invoke('claim-mails', { body: { claim_id: claimId, force: true } });
+      if (error) return { ok: false, error: error.message };
+      if (data && data.error) return { ok: false, error: data.error };
+      return { ok: true, sent: data && data.sent };
+    } catch(e) {
+      console.error('[LPR] resendClaimMail:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function adminSetSitzRate(shift, amount, effectiveFrom, beschluss) {
     try {
       const client = await sb();
@@ -3626,6 +3643,7 @@
     pushAbmelden,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
+    resendClaimMail,
     // Fördermittel-Cockpit
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,
     foerderCreateAufgabe, foerderUpdateAufgabe, foerderCreateNotiz, foerderNamen,

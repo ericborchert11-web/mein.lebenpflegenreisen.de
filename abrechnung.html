@@ -839,7 +839,6 @@ body.compliance-locked .info-box { display: none; }
 
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
 <script src="app.js?v20260729a"></script>
 <script src="beleg-vorlage.js?v20260819a"></script>
 <script src="layout.js"></script>
@@ -1261,116 +1260,20 @@ async function submitClaim() {
     }
     closeDialog();
     submitBtn.textContent = 'Antrag einreichen';
-    showToast('✓ Antrag eingereicht. Beleg-ID: ' + resp.claim.id.substring(0,8).toUpperCase());
+
+    // Kein PDF-Erzeugen/Hochladen/Mailversand mehr im Browser: Der Datenbank-Webhook
+    // auf claims löst die Edge Function claim-mails aus, sobald der Vorstand freigibt.
+    // Vorher hier zu mailen hätte die Freigabe umgangen und fiel aus, wenn der
+    // Browser den Schritt nicht schaffte oder der Antrag von Hand nachgetragen wurde.
+    showToast('Antrag eingegangen — der Vorstand prüft ihn.', 'success');
     await loadAll();
     showBeleg(resp.claim.id);
-    
-    // Block C2: PDF generieren → Storage → Mail an Buchhaltung
-    // Läuft im Hintergrund; Margarete sieht den Beleg sofort.
-    sendBelegToPayroll(resp.claim.id);
   } catch(e) {
     console.error('[abrechnung] submit:', e);
     showToast('Netzwerkfehler beim Einreichen.', 'warn');
     submitBtn.disabled = false;
     submitBtn.textContent = 'Antrag einreichen';
   }
-}
-
-// === PDF + Mail-Versand an Buchhaltung ===
-async function sendBelegToPayroll(claimId) {
-  const c = _claims.find(x => x.id === claimId);
-  if (!c) {
-    console.warn('[abrechnung] sendBelegToPayroll: claim nicht in _claims');
-    return;
-  }
-  
-  if (typeof html2pdf === 'undefined') {
-    showPayrollFallback(claimId, 'PDF-Bibliothek nicht geladen.');
-    return;
-  }
-  
-  showToast('PDF wird erstellt…', 'info');
-  
-  // Beleg muss im DOM stehen — showBeleg() füllt #beleg-content.
-  // Kurz warten, damit der Browser das gerendert hat.
-  await new Promise(r => setTimeout(r, 250));
-  const belegEl = document.getElementById('beleg-content');
-  if (!belegEl || !belegEl.innerHTML.trim()) {
-    showPayrollFallback(claimId, 'Beleg-Container leer.');
-    return;
-  }
-  
-  // Dateiname: LPR-XXXX_2026-04-29_Reise.pdf
-  const personalNr = _profile?.personalnummer || 'LPR-XXXX';
-  const dateStr = new Date(c.submitted_at).toISOString().slice(0, 10);
-  const typeStr = c.source_type === 'sitzwache' ? 'Sitzwache' : 'Reise';
-  const filename = personalNr + '_' + dateStr + '_' + typeStr + '.pdf';
-  
-  let pdfBlob;
-  try {
-    const opt = {
-      margin: [10, 10, 10, 10],
-      filename: filename,
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    pdfBlob = await html2pdf().from(belegEl).set(opt).output('blob');
-  } catch(e) {
-    console.error('[abrechnung] PDF-Erzeugung:', e);
-    showPayrollFallback(claimId, 'PDF konnte nicht erzeugt werden.');
-    return;
-  }
-  
-  // Upload in Supabase Storage
-  const upResp = await LPR.uploadClaimPdf(claimId, pdfBlob);
-  if (!upResp.ok) {
-    console.error('[abrechnung] Upload fehlgeschlagen:', upResp.error);
-    showPayrollFallback(claimId, upResp.error);
-    return;
-  }
-  
-  showToast('PDF gespeichert. Versand an Buchhaltung läuft…', 'info');
-  
-  // Edge Function: Mail an buchhaltung@
-  const sendResp = await LPR.sendClaimToPayroll(claimId);
-  if (!sendResp.ok) {
-    console.error('[abrechnung] Mailversand fehlgeschlagen:', sendResp.error);
-    showPayrollFallback(claimId, sendResp.error);
-    return;
-  }
-  
-  showToast('✓ Antrag an Buchhaltung gesendet.', 'success');
-  await loadAll();
-  // Beleg neu rendern, damit der „gesendet"-Hinweis sichtbar wird
-  showBeleg(claimId);
-}
-
-/**
- * Fallback-Anzeige, wenn der automatische Mailversand fehlschlägt.
- * Margarete kann den Beleg manuell per Mail an buchhaltung@ schicken
- * (Beleg lässt sich über den vorhandenen Druck-Button als PDF speichern).
- */
-function showPayrollFallback(claimId, reason) {
-  console.warn('[abrechnung] Payroll-Fallback:', reason);
-  const banner = document.createElement('div');
-  banner.className = 'payroll-fallback-banner';
-  banner.style.cssText = 'background:#fff4e0;border:2px solid #f5a623;border-radius:8px;padding:16px 20px;margin:16px 0;color:#1a3a2a;line-height:1.5;';
-  banner.innerHTML =
-    '<strong style="display:block;margin-bottom:6px;">⚠ Automatischer Versand an die Buchhaltung hat nicht geklappt.</strong>' +
-    'Dein Antrag ist gespeichert (Beleg-ID <code>' + LPR.escape(claimId.substring(0,8).toUpperCase()) + '</code>). ' +
-    'Bitte nutze den Knopf <strong>„Als PDF drucken / speichern"</strong> oben rechts und sende die PDF manuell an ' +
-    '<a href="mailto:buchhaltung@lebenpflegenreisen.de?subject=Antrag%20auf%20Aufwandsentsch%C3%A4digung%20-%20Beleg-ID%20' + 
-    encodeURIComponent(claimId.substring(0,8).toUpperCase()) + '">buchhaltung@lebenpflegenreisen.de</a>.';
-  
-  const container = document.getElementById('beleg-container');
-  if (container) {
-    // Alten Banner entfernen, falls vorhanden
-    const old = container.querySelector('.payroll-fallback-banner');
-    if (old) old.remove();
-    container.insertBefore(banner, container.firstChild);
-  }
-  showToast('⚠ Versand nicht möglich. Bitte Beleg manuell an Buchhaltung senden.', 'warn');
 }
 
 // === BELEG ===

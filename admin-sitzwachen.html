@@ -536,20 +536,23 @@ function yearSum(userId, art, year, excludeId) {
 // Die drei Prozessmails (claim-mails Edge Function) als Stempel-Anzeige.
 // Jeder Stempel wird nur bei erfolgreichem Versand gesetzt – fehlt einer, muss
 // das auffallen statt sich in der Zeile zu verstecken.
+// faellig = der Schritt, der zum aktuellen Status gehoert. Nur sein Fehlen ist
+// ein Alarm; die spaeteren Schritte sind schlicht noch nicht dran und duerfen
+// nicht rot leuchten, sonst sieht jeder frische Antrag nach zwei Fehlern aus.
 function mailTeile(c) {
   return [
-    { label: 'Eingang', done: !!c.intake_mail_at },
-    { label: 'Finanzen', done: !!c.submitted_to_payroll_at },
-    { label: 'Beleg', done: !!c.payout_mail_at }
+    { label: 'Eingang',  done: !!c.intake_mail_at,          faellig: c.status === 'submitted' },
+    { label: 'Finanzen', done: !!c.submitted_to_payroll_at, faellig: c.status === 'approved' },
+    { label: 'Beleg',    done: !!c.payout_mail_at,          faellig: c.status === 'paid' }
   ];
 }
 
 function mailSpalteHtml(c) {
-  return mailTeile(c).map(t =>
-    t.done
-      ? '<span>' + t.label + ' ✓</span>'
-      : '<span style="color:#8A3A22;font-weight:700">' + t.label + ' —</span>'
-  ).join(' <span style="opacity:.5">·</span> ');
+  return mailTeile(c).map(t => {
+    if (t.done) return '<span>' + t.label + ' ✓</span>';
+    if (t.faellig) return '<span style="color:#8A3A22;font-weight:700">' + t.label + ' —</span>';
+    return '<span style="opacity:.55">' + t.label + ' ·</span>';
+  }).join(' <span style="opacity:.5">·</span> ');
 }
 
 // Zum aktuellen Status gehört genau ein Stempel – fehlt der, ist ein Versand

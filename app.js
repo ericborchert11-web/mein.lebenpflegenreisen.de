@@ -3100,8 +3100,15 @@
       const { data, error } = await (await sb())
         .functions.invoke('claim-mails', { body: { claim_id: claimId, force: true } });
       if (error) return { ok: false, error: error.message };
+      // Die Function antwortet bewusst IMMER mit 200 (sonst wiederholt der
+      // Webhook und die Mail geht doppelt raus). Der Erfolg steht deshalb im
+      // Rumpf: ok=false plus fehler. Wer nur auf data.error prueft, meldet
+      // "verschickt", wo nichts rausging.
+      if (data && data.ok === false) return { ok: false, error: data.fehler || data.error || 'Versand fehlgeschlagen.' };
       if (data && data.error) return { ok: false, error: data.error };
-      return { ok: true, sent: data && data.sent };
+      const raus = (data && data.sent) || [];
+      if (!raus.length) return { ok: false, error: data && data.hinweis ? data.hinweis : 'Zu diesem Antrag war nichts zu verschicken.' };
+      return { ok: true, sent: raus };
     } catch(e) {
       console.error('[LPR] resendClaimMail:', e);
       return { ok: false, error: 'Netzwerkfehler.' };

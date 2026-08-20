@@ -218,6 +218,9 @@ main {
 .pausch.warn { background: #FFF3D6; color: #8A6200; }
 .pausch.over { background: #FDE3E0; color: #B4231A; }
 .pausch-detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
+/* Auslagen (§ 3 Nr. 50 EStG) — bewusst eigene Angabe, nicht Teil der Pauschalenzahl */
+.auslage-stand { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); text-decoration: none; }
+.auslage-stand:hover { text-decoration: underline; }
 .day-cov { margin: 0 0 12px; background: #FAFAF7; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
 .cov-head { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
 .cov-head.warn { color: var(--warn); }
@@ -560,6 +563,7 @@ const PAUSCHALE_WARN  = (window.LPR && LPR.PAUSCHALE_WARN)  || 2800;   // ab hie
 let _rates = {};                   // compensation_rates (travel_per_day)
 let _pauschByYear = {};            // Jahr -> { userId -> {claimed, pending, claimedSignupIds:Set} }
 let _pauschRpcOk = true;           // false, wenn RPC fehlt/fehlschlägt (dann nur "verplant")
+let _auslagenBySignup = {};        // trip_signup_id -> [claims mit kind='auslage']
 
 // ══════ AUTH GUARD ══════
 async function init() {
@@ -600,6 +604,7 @@ async function loadTrips() {
     }
     _allVolunteers = (vres && vres.ok) ? (vres.members || []) : [];
     await loadPauschaleData();
+    await loadAuslagenData();
     document.getElementById('loading-state').hidden = true;
     // Ein Anker kann auf einen Entwurf oder eine abgeschlossene Reise zeigen.
     // Der Standardfilter "Offen" wuerde sie ausblenden, also oeffnen wir ihn.
@@ -704,6 +709,46 @@ async function loadPauschaleData() {
     }
     _pauschByYear[y] = map;
   });
+}
+
+// ══════ Auslagen (§ 3 Nr. 50 EStG) — eigene Anzeige, getrennt von der Pauschale ══════
+// Auslagenersatz läuft NICHT gegen den Übungsleiterfreibetrag und steckt
+// deshalb bewusst nicht in admin_pauschale_overview / renderPauschBadge.
+// Ohne diese eigene Zeile würde eine erfasste Anreisepauschale o.ä. hier
+// unsichtbar bleiben.
+async function loadAuslagenData() {
+  _auslagenBySignup = {};
+  const ids = [];
+  Object.keys(_signupsByTrip).forEach(tripId => {
+    (_signupsByTrip[tripId] || []).forEach(s => ids.push(s.id));
+  });
+  if (!ids.length) return;
+  const res = await LPR.adminAuslagenFuerAnmeldungen(ids);
+  if (!res.ok) { console.warn('[admin-reisen] Auslagen-RPC:', res.error); return; }
+  (res.claims || []).forEach(c => {
+    (_auslagenBySignup[c.trip_signup_id] = _auslagenBySignup[c.trip_signup_id] || []).push(c);
+  });
+}
+
+// Summe + Stand der Auslagen einer Anmeldung als Text. Abgelehnte Anträge
+// zählen nicht mit (dafür wurde nichts ausgezahlt oder freigegeben). Ohne
+// verbleibende Auslage bleibt der Text leer — Leere ist hier die richtige
+// Aussage, kein "0,00 € Auslagen".
+function auslagenStandText(claims) {
+  const list = (claims || []).filter(c => c.status !== 'rejected');
+  if (!list.length) return '';
+  let summe = 0;
+  list.forEach(c => { const n = parseFloat(c.amount); if (!isNaN(n)) summe += n; });
+  const label = list.every(c => c.status === 'paid') ? 'ausgezahlt' : 'freigegeben';
+  return 'zusätzlich ' + LPR.formatEUR(summe) + ' Auslagen (' + label + ')';
+}
+
+// Als Link auf admin-auszahlungen.html — dort wird bearbeitet, hier nur
+// angezeigt (gleiches Muster wie claimStandHtml in admin-sitzwachen.html).
+function auslagenStandHtml(signupId, bySignup) {
+  const text = auslagenStandText((bySignup || {})[signupId]);
+  if (!text) return '';
+  return '<a href="admin-auszahlungen.html" class="auslage-stand" title="Bearbeitet wird unter Auszahlungen">' + text + '</a>';
 }
 
 function tripPerDay(t) {
@@ -830,6 +875,7 @@ function renderSignupRows(signups, trip) {
           ${sub ? `<div class="signup-sub">${sub}</div>` : ''}
           ${dayInfo ? `<div class="signup-days">\uD83D\uDCC5 ${dayInfo}</div>` : ''}
           ${confirmed ? renderPauschBadge(s.user_id, Number(trip.start_date.slice(0,4))) : ''}
+          ${auslagenStandHtml(s.id, _auslagenBySignup)}
         </div>
         <div class="signup-meta">
           ${badge}

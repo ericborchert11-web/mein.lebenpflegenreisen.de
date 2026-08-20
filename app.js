@@ -3100,6 +3100,32 @@
     }
   }
 
+  // Zu einer Menge von Anmeldungen (trip_signups): welche Auslagen (claims mit
+  // kind='auslage') haengen daran? Fuer admin-reisen.html, damit dort je
+  // Anmeldung sichtbar ist, was zusaetzlich zur Pauschale erfasst wurde — die
+  // Pauschalen-Uebersicht (admin_pauschale_overview) zaehlt Auslagen bewusst
+  // NICHT mit, weil sie nicht gegen den Uebungsleiterfreibetrag laufen (§ 3
+  // Nr. 50 statt § 3 Nr. 26 EStG). Bearbeitet wird ausschliesslich in
+  // admin-auszahlungen.html. Eine Abfrage fuer alle IDs statt eine je Zeile.
+  async function adminAuslagenFuerAnmeldungen(signupIds) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', claims: [] };
+    const ids = (signupIds || []).filter(Boolean);
+    if (!ids.length) return { ok: true, claims: [] };
+    try {
+      const { data, error } = await (await sb())
+        .from('claims')
+        .select('id, trip_signup_id, status, amount, paid_at')
+        .eq('kind', 'auslage')
+        .in('trip_signup_id', ids);
+      if (error) return { ok: false, error: error.message, claims: [] };
+      return { ok: true, claims: data || [] };
+    } catch(e) {
+      console.error('[LPR] adminAuslagenFuerAnmeldungen:', e);
+      return { ok: false, error: 'Netzwerkfehler.', claims: [] };
+    }
+  }
+
   // Holt den eingefrorenen Auszahlungsbeleg eines einzelnen Antrags. Bewusst
   // nicht in adminListClaims mitgeladen: das Dokument ist mehrere Kilobyte gross
   // und wird nur beim Hinsehen gebraucht.
@@ -3826,7 +3852,7 @@
     pushAbmelden,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
-    resendClaimMail, getClaimBeleg, adminClaimsFuerBuchungen,
+    resendClaimMail, getClaimBeleg, adminClaimsFuerBuchungen, adminAuslagenFuerAnmeldungen,
     // Auslagenersatz (§ 3 Nr. 50 EStG) — Erfassung durch den Vorstand
     adminCreateAuslageClaim,
     // Fördermittel-Cockpit

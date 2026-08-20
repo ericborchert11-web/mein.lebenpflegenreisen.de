@@ -92,11 +92,16 @@ h1 { margin:0 0 4px; }
   color: #7A5B14; border-radius: 8px; padding: 10px 12px;
 }
 .ev-label { display: block; font-size: 13px; font-weight: 700; color: var(--green-deep); margin-bottom: 5px; }
-.ev-dialog textarea, .ev-dialog input {
+.ev-dialog textarea, .ev-dialog input, .ev-dialog select {
   width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
   padding: 9px 11px; font: inherit; font-size: 14px; background: #fff;
 }
-.ev-dialog textarea:focus, .ev-dialog input:focus { outline: none; border-color: var(--green); }
+.ev-dialog textarea:focus, .ev-dialog input:focus, .ev-dialog select:focus { outline: none; border-color: var(--green); }
+.ev-dialog select:disabled { background: #F3F1EA; color: #8A8F86; }
+/* Auswahl der Mitfahrenden: gleiche Kacheln wie bei den Taetigkeiten, damit
+   eine lange Namensliste sauber umbricht statt zu einer Spalte zu werden. */
+.au-inline { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.au-inline input { width: auto; flex-shrink: 0; }
 .ev-fehler {
   margin-top: 10px; font-size: 13.5px; color: #9B2C2C;
   background: #FBE9E2; border: 1px solid #EFC9B8; border-radius: 8px; padding: 9px 11px;
@@ -163,6 +168,9 @@ h1 { margin:0 0 4px; }
     <!-- ===== Tab: Anträge ===== -->
     <section class="as-panel" id="panel-antraege" role="tabpanel">
       <div class="as-hint" id="antraege-hint" hidden></div>
+      <div class="as-filters">
+        <button class="as-btn" id="au-oeffnen" title="Auslagenersatz (§ 3 Nr. 50 EStG) für ein Mitglied eintragen">Auslage erfassen</button>
+      </div>
       <div id="claim-list"></div>
     </section>
 
@@ -531,6 +539,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('bl-schliessen').onclick = blSchliessen;
   document.getElementById('bl-drucken').onclick = blDrucken;
   document.getElementById('bl-overlay').onclick = e => { if (e.target.id === 'bl-overlay') blSchliessen(); };
+  document.getElementById('au-oeffnen').onclick = auOeffnen;
+  document.getElementById('au-abbrechen').onclick = auSchliessen;
+  document.getElementById('au-ok').onclick = auSpeichern;
+  document.getElementById('au-overlay').onclick = e => { if (e.target.id === 'au-overlay') auSchliessen(); };
+  document.getElementById('au-reise').addEventListener('change', auReiseGewechselt);
+  document.getElementById('au-person').addEventListener('change', auPersonGewechselt);
+  document.getElementById('au-art').addEventListener('change', auArtGewechselt);
+  ['au-personen','au-bezeichnung','au-betrag'].forEach(id =>
+    document.getElementById(id).addEventListener('input', auRechnen));
+  document.getElementById('au-hinrueck').addEventListener('change', auRechnen);
 });
 
 async function onBookingAction(btn) {
@@ -578,6 +596,23 @@ async function loadClaims() {
   if (!res.ok) { toast(res.error || 'Fehler beim Laden der Anträge.', 'warn'); return; }
   _claims = res.claims || [];
   renderClaims();
+  await ladeMitfahrerNamen();
+}
+
+// Die Namen der Mitfahrenden stehen nicht am Antrag, nur ihre IDs. Sie werden
+// erst nachgeladen, wenn es überhaupt eine Auslage mit benannten Mitfahrenden
+// gibt — die Liste soll deswegen nicht bei jedem Aufruf eine zweite Abfrage
+// stellen. foerderNamen() ist trotz des Namens die allgemeine
+// Namensauflösung des Vorstands (id → full_name).
+async function ladeMitfahrerNamen() {
+  const ids = [];
+  _claims.forEach(c => (c.mitfahrer_ids || []).forEach(id => {
+    if (id && !_auMitfahrerNamen[id] && ids.indexOf(id) < 0) ids.push(id);
+  }));
+  if (!ids.length) return;
+  const namen = await LPR.foerderNamen(ids);
+  Object.assign(_auMitfahrerNamen, namen || {});
+  renderClaims();
 }
 
 // Jahressumme approved+paid je (user, pauschale_art, Jahr) – für die Ampel.
@@ -624,6 +659,23 @@ function mailNachversandNoetig(c) {
   return false;
 }
 
+// Art-Spalte. Bei einer Auslage steht dort bewusst KEINE Paragrafenangabe
+// „§ 3 Nr. 26": Auslagenersatz läuft über § 3 Nr. 50 EStG und hat mit dem
+// Übungsleiterfreibetrag nichts zu tun — die alte Angabe wäre schlicht falsch.
+// Bei einer Autoanreise stehen die benannten Mitfahrenden klein darunter, damit
+// bei der Freigabe sichtbar ist, wofür die Summe steht.
+function claimArtZelle(c) {
+  if (c.kind !== 'auslage') return '§ 3 Nr. ' + esc(c.pauschale_art || '26');
+  const unter = c.auslage_art === 'anreise' ? 'Anreise'
+              : (c.auslage_art === 'beleg' ? 'Beleg' : '—');
+  let html = '<strong>Auslage</strong> · ' + esc(unter);
+  const namen = (c.mitfahrer_ids || []).map(id => _auMitfahrerNamen[id]).filter(Boolean);
+  if (namen.length) {
+    html += '<div style="font-size:12px;color:var(--muted);margin-top:3px">mit ' + esc(namen.join(', ')) + '</div>';
+  }
+  return html;
+}
+
 function renderClaims() {
   document.getElementById('cnt-antraege').textContent = _claims.filter(c => c.status === 'submitted').length;
   const el = document.getElementById('claim-list');
@@ -665,7 +717,7 @@ function renderClaims() {
       return '<tr>' +
         '<td>' + fmtDate(c.submitted_at) + '</td>' +
         '<td>' + esc(c.user_name) + '</td>' +
-        '<td>§ 3 Nr. ' + esc(art) + '</td>' +
+        '<td>' + claimArtZelle(c) + '</td>' +
         '<td>' + eur(c.amount) + '</td>' +
         '<td>' + freibetragZelle + '</td>' +
         '<td><span class="pill ' + c.status + '">' + (CLAIM_STATUS_LABEL[c.status] || c.status) + '</span>' +
@@ -715,6 +767,282 @@ async function onClaimAction(btn) {
   const res = await LPR.adminSetClaimStatus(id, status, reason);
   if (!res.ok) { toast(res.error || 'Aktion fehlgeschlagen.', 'warn'); btn.disabled = false; return; }
   toast(status === 'paid' ? ('Als ausgezahlt markiert. Beleg-Nr.: ' + (res.claim && res.claim.beleg_nr || '—')) : 'Antrag aktualisiert.');
+  await loadClaims();
+}
+
+// ═════════════════ Auslagen erfassen (Vorstand) ═════════════════
+//
+// Auslagenersatz (§ 3 Nr. 50 EStG) ist keine Aufwandsentschädigung: er ist
+// steuerfrei und zählt nicht gegen den Übungsleiterfreibetrag. Erfasst wird er
+// hier vom Vorstand — der Selbstantrag durch die Ehrenamtlichen kommt als
+// eigene Etappe. Bis dahin ist dieser Dialog der einzige Weg, wie eine Auslage
+// ins Portal kommt.
+//
+// Der Antrag entsteht direkt als „freigegeben": der Vorstand trägt nur ein, was
+// er ohnehin genehmigt hätte, eine zweite Freigabe wäre dieselbe Person am
+// selben Vorgang. Die Zahlungsanweisung an finanzen@ löst danach der Webhook
+// aus, genau wie bei einer freigegebenen Pauschale.
+
+let _auTrips = [];      // Reisen (Vorstandssicht), erst beim ersten Öffnen geladen
+let _auSignups = [];    // ALLE Reise-Anmeldungen inkl. Namen
+let _auGeladen = false;
+let _auMitfahrerNamen = {};  // user_id → Name, nur für die Antragsliste
+
+/**
+ * Cent als deutscher Euro-Text. Der Dialog rechnet durchgehend in Cent, weil
+ * trips.anreise_vergleich_cents ein Cent-Wert ist — ein Zwischenschritt über
+ * Fließkomma-Euro könnte auf einem Beleg fürs Finanzamt einen Cent verschieben.
+ */
+function auEuro(cents) {
+  const n = Math.round(Number(cents) || 0);
+  return (n / 100).toFixed(2).replace('.', ',') + ' €';
+}
+
+/**
+ * Ist für diese Reise ein Vergleichspreis gepflegt? Ohne ihn bleibt die
+ * Autoanreise gesperrt. Ein geratener Satz stünde am Ende als Rechenweg auf
+ * einem Beleg fürs Finanzamt — lieber gar keine Erfassung als eine erfundene
+ * Grundlage. Gepflegt wird der Preis an der Reise („Reisen verwalten").
+ */
+function auslageAnreiseMoeglich(trip) {
+  const c = Number(trip && trip.anreise_vergleich_cents);
+  return Number.isFinite(c) && c > 0;
+}
+
+/**
+ * Rechnung der Autoanreise: Vergleichspreis JE STRECKE × Strecken × Personen.
+ * Erstattet wird die Fahrt, nicht die Person — deshalb zählt die Zahl der
+ * mitfahrenden Ehrenamtlichen (inklusive der fahrenden) mit: für jede von
+ * ihnen wäre sonst ein eigenes Ticket zu bezahlen gewesen.
+ * Rückgabe: { ok:true, cents, count, base, label, text } oder { ok:false, error }
+ */
+function auslageAnreiseRechnung(vergleichCents, personen, hinUndZurueck) {
+  const basis = Math.round(Number(vergleichCents));
+  if (!Number.isFinite(basis) || basis <= 0) {
+    return { ok: false, error: 'Für diese Reise ist kein Vergleichspreis hinterlegt. Bitte erst in „Reisen verwalten" pflegen.' };
+  }
+  const p = Math.round(Number(personen));
+  if (!Number.isFinite(p) || p < 1) {
+    return { ok: false, error: 'Bitte mindestens eine mitfahrende Person angeben.' };
+  }
+  const strecken = hinUndZurueck ? 2 : 1;
+  const cents = basis * strecken * p;
+  // Label ohne Umlaute: es landet unverändert als Position auf dem Beleg und
+  // wandert von dort durch Mail und PDF.
+  const label = 'Anreise mit dem eigenen Fahrzeug, ' + p + (p === 1 ? ' Person, ' : ' Personen, ')
+    + (hinUndZurueck ? 'Hin- und Rueckfahrt' : 'einfache Fahrt');
+  const text = p + (p === 1 ? ' Person' : ' Personen') + ' × ' + strecken
+    + (strecken === 1 ? ' Strecke' : ' Strecken') + ' × ' + auEuro(basis) + ' = ' + auEuro(cents);
+  return { ok: true, cents: cents, count: strecken * p, base: basis, personen: p, strecken: strecken, label: label, text: text };
+}
+
+/**
+ * Erstattung gegen Beleg: Bezeichnung und Betrag kommen von Hand. Beides wird
+ * abgewiesen statt still zu 0 bzw. leer zu werden — eine Position ohne Namen
+ * ist auf einem Beleg fürs Finanzamt wertlos, und ein stiller 0-Betrag wäre
+ * eine Auszahlung über nichts.
+ * Rückgabe: { ok:true, cents, label } oder { ok:false, error }
+ */
+function auslageBelegRechnung(bezeichnung, betragEingabe) {
+  const label = String(bezeichnung == null ? '' : bezeichnung).trim();
+  if (label.length < 3) {
+    return { ok: false, error: 'Bitte eine Bezeichnung angeben, z. B. „Bahnticket Berlin–Erfurt".' };
+  }
+  const roh = String(betragEingabe == null ? '' : betragEingabe).trim();
+  if (!/^\d{1,6}([.,]\d{1,2})?$/.test(roh)) {
+    return { ok: false, error: 'Betrag ungültig. Bitte z. B. „34,80" eingeben.' };
+  }
+  const cents = Math.round(parseFloat(roh.replace(',', '.')) * 100);
+  if (!Number.isFinite(cents) || cents <= 0) {
+    return { ok: false, error: 'Der Betrag muss größer als 0 sein.' };
+  }
+  return { ok: true, cents: cents, label: label };
+}
+
+/** Kurzes Datum für die Reise-Auswahl — die Langform von fmtDate() sprengt das Feld. */
+function auKurzDatum(iso) {
+  if (!iso) return '';
+  const [y, m, d] = String(iso).slice(0, 10).split('-');
+  return d + '.' + m + '.' + y;
+}
+
+function auTrip() {
+  const id = document.getElementById('au-reise').value;
+  return _auTrips.find(t => String(t.id) === String(id)) || null;
+}
+
+/** Bestätigte Anmeldungen der gewählten Reise, alphabetisch. */
+function auAnmeldungen(tripId) {
+  return _auSignups
+    .filter(s => String(s.trip_id) === String(tripId) && s.status === 'confirmed')
+    .sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'de'));
+}
+
+async function auOeffnen() {
+  const fehler = document.getElementById('au-fehler');
+  fehler.hidden = true;
+  document.getElementById('au-notiz').value = '';
+  document.getElementById('au-bezeichnung').value = '';
+  document.getElementById('au-betrag').value = '';
+  document.getElementById('au-personen').value = '1';
+  document.getElementById('au-hinrueck').checked = true;
+  document.getElementById('au-overlay').hidden = false;
+
+  if (!_auGeladen) {
+    const [tRes, sRes] = await Promise.all([LPR.listAllTripsAdmin(), LPR.getAllTripSignupsAdmin()]);
+    if (!tRes.ok || !sRes.ok) {
+      fehler.textContent = tRes.error || sRes.error || 'Reisen konnten nicht geladen werden.';
+      fehler.hidden = false;
+      return;
+    }
+    // listAllTripsAdmin() sortiert bereits absteigend nach Startdatum — die
+    // zuletzt gefahrene Reise steht damit oben, und genau um die geht es beim
+    // Nachtragen einer Auslage.
+    _auTrips = tRes.trips || [];
+    _auSignups = sRes.signups || [];
+    _auGeladen = true;
+  }
+
+  document.getElementById('au-reise').innerHTML = _auTrips.length
+    ? _auTrips.map(t => '<option value="' + esc(t.id) + '">' + esc(t.title)
+        + ' · ' + esc(auKurzDatum(t.start_date)) + '–' + esc(auKurzDatum(t.end_date)) + '</option>').join('')
+    : '<option value="">— keine Reisen vorhanden —</option>';
+  auReiseGewechselt();
+}
+
+function auSchliessen() { document.getElementById('au-overlay').hidden = true; }
+
+/** Reise gewechselt: Personenliste neu füllen und die Anreise-Sperre prüfen. */
+function auReiseGewechselt() {
+  const trip = auTrip();
+  const liste = trip ? auAnmeldungen(trip.id) : [];
+  const person = document.getElementById('au-person');
+  person.innerHTML = liste.length
+    ? liste.map(s => '<option value="' + esc(s.id) + '">' + esc(s.full_name || '—')
+        + (s.vereinsnummer ? ' (' + esc(s.vereinsnummer) + ')' : '') + '</option>').join('')
+    : '<option value="">— keine bestätigte Anmeldung —</option>';
+  document.getElementById('au-person-hinweis').textContent = liste.length
+    ? 'Nur Personen mit bestätigter Anmeldung: der Antrag hängt an der Anmeldung.'
+    : 'Für diese Reise ist niemand bestätigt angemeldet — dafür lässt sich keine Auslage erfassen.';
+
+  // Sperre: ohne gepflegten Vergleichspreis ist die Autoanreise nicht wählbar.
+  const artSel = document.getElementById('au-art');
+  const moeglich = auslageAnreiseMoeglich(trip);
+  artSel.querySelector('option[value="anreise"]').disabled = !moeglich;
+  const sperre = document.getElementById('au-sperre');
+  if (!moeglich) {
+    if (artSel.value === 'anreise') artSel.value = 'beleg';
+    sperre.innerHTML = 'Für diese Reise ist <strong>kein Vergleichspreis</strong> hinterlegt. '
+      + 'Die Auto-Anreisepauschale ist deshalb gesperrt — sie muss erst an der Reise in '
+      + '<a href="admin-reisen.html">Reisen verwalten</a> gepflegt werden. Geraten wird hier nichts.';
+    sperre.hidden = false;
+  } else {
+    sperre.hidden = true;
+  }
+  auArtGewechselt();
+}
+
+/** Person gewechselt: die fahrende Person steht nicht in der Mitfahrer-Liste. */
+function auPersonGewechselt() {
+  const trip = auTrip();
+  const fahrer = document.getElementById('au-person').value;
+  const liste = trip ? auAnmeldungen(trip.id).filter(s => String(s.id) !== String(fahrer)) : [];
+  document.getElementById('au-mitfahrer').innerHTML = liste.length
+    ? liste.map(s => '<label><input type="checkbox" value="' + esc(s.user_id) + '"> '
+        + esc(s.full_name || '—') + '</label>').join('')
+    : '<p class="nf-hinweis" style="margin:0">Keine weiteren bestätigten Anmeldungen.</p>';
+  document.getElementById('au-mitfahrer').querySelectorAll('input').forEach(
+    x => x.addEventListener('change', auRechnen));
+  auRechnen();
+}
+
+function auArtGewechselt() {
+  const beleg = document.getElementById('au-art').value === 'beleg';
+  document.getElementById('au-anreise-felder').hidden = beleg;
+  document.getElementById('au-beleg-felder').hidden = !beleg;
+  auPersonGewechselt();
+}
+
+/** Laufende Rechnung im Klartext — vor dem Speichern muss sichtbar sein, was gerechnet wird. */
+function auRechnen() {
+  const trip = auTrip();
+  const art = document.getElementById('au-art').value;
+  if (art === 'beleg') {
+    const r = auslageBelegRechnung(
+      document.getElementById('au-bezeichnung').value,
+      document.getElementById('au-betrag').value);
+    document.getElementById('au-beleg-summe').textContent = r.ok ? ('Erstattung: ' + auEuro(r.cents)) : '—';
+    return;
+  }
+  const r = auslageAnreiseRechnung(
+    trip && trip.anreise_vergleich_cents,
+    document.getElementById('au-personen').value,
+    document.getElementById('au-hinrueck').checked);
+  document.getElementById('au-rechnung').textContent = r.ok ? r.text : '—';
+
+  // Mehr benannte Mitfahrende als bezahlte Plätze wäre ein Widerspruch im
+  // eigenen Beleg — das muss vor dem Speichern auffallen.
+  const benannt = document.querySelectorAll('#au-mitfahrer input:checked').length;
+  const h = document.getElementById('au-mitfahrer-hinweis');
+  if (r.ok && benannt + 1 > r.personen) {
+    h.textContent = 'Es sind ' + (benannt + 1) + ' Personen benannt (inkl. der fahrenden), '
+      + 'gerechnet wird aber mit ' + r.personen + '. Bitte die Zahl oben anpassen.';
+    h.style.color = '#8A3A22';
+  } else {
+    h.textContent = 'Steht später auf dem Beleg. Für die Rechnung zählt die Zahl oben.';
+    h.style.color = '';
+  }
+}
+
+async function auSpeichern() {
+  const fehler = document.getElementById('au-fehler');
+  fehler.hidden = true;
+  const trip = auTrip();
+  const signupId = document.getElementById('au-person').value;
+  const art = document.getElementById('au-art').value;
+  if (!trip) { fehler.textContent = 'Bitte eine Reise auswählen.'; fehler.hidden = false; return; }
+  if (!signupId) { fehler.textContent = 'Bitte eine Person mit bestätigter Anmeldung auswählen.'; fehler.hidden = false; return; }
+  if (art === 'anreise' && !auslageAnreiseMoeglich(trip)) {
+    fehler.textContent = 'Ohne Vergleichspreis an der Reise lässt sich keine Anreisepauschale erfassen.';
+    fehler.hidden = false; return;
+  }
+
+  let cents, breakdown, mitfahrer = null;
+  if (art === 'anreise') {
+    const r = auslageAnreiseRechnung(trip.anreise_vergleich_cents,
+      document.getElementById('au-personen').value,
+      document.getElementById('au-hinrueck').checked);
+    if (!r.ok) { fehler.textContent = r.error; fehler.hidden = false; return; }
+    cents = r.cents;
+    // EINE Position mit sprechendem Label: Anzahl = Strecken × Personen,
+    // Satz = Vergleichspreis je Strecke. Der Beleg liest genau diese Felder.
+    breakdown = [{ label: r.label, count: r.count, factor: 1, base: r.base / 100, amount: r.cents / 100 }];
+    mitfahrer = [...document.querySelectorAll('#au-mitfahrer input:checked')].map(x => x.value);
+  } else {
+    const r = auslageBelegRechnung(
+      document.getElementById('au-bezeichnung').value,
+      document.getElementById('au-betrag').value);
+    if (!r.ok) { fehler.textContent = r.error; fehler.hidden = false; return; }
+    cents = r.cents;
+    // Kein Satz und keine Anzahl: erstattet wird ein einzelner Nachweis, nicht
+    // ein Vielfaches einer Pauschale. Der Beleg zeigt in beiden Spalten nichts.
+    breakdown = [{ label: r.label, amount: r.cents / 100 }];
+  }
+
+  const btn = document.getElementById('au-ok');
+  btn.disabled = true; const alt = btn.textContent; btn.textContent = 'Wird gespeichert…';
+  const res = await LPR.adminCreateAuslageClaim({
+    trip_signup_id: signupId,
+    auslage_art: art,
+    amount_cents: cents,
+    amount_breakdown: breakdown,
+    mitfahrer_ids: mitfahrer,
+    notes: document.getElementById('au-notiz').value.trim() || null
+  });
+  btn.disabled = false; btn.textContent = alt;
+  if (!res.ok) { fehler.textContent = res.error || 'Speichern fehlgeschlagen.'; fehler.hidden = false; return; }
+  auSchliessen();
+  toast('Auslage erfasst und freigegeben: ' + auEuro(cents) + '.');
   await loadClaims();
 }
 
@@ -812,6 +1140,71 @@ init();
     <div class="ev-actions">
       <button type="button" class="as-btn" id="nf-abbrechen">Abbrechen</button>
       <button type="button" class="as-btn" id="nf-ok">Nachtragen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Auslage erfassen (Vorstand) ═══ -->
+<div id="au-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog breit" role="dialog" aria-labelledby="au-titel">
+    <h2 id="au-titel">Auslage erfassen</h2>
+    <p class="ev-sub">Auslagenersatz nach § 3 Nr. 50 EStG — steuerfrei und ohne Anrechnung auf den Übungsleiterfreibetrag.</p>
+    <p class="ev-info">
+      Was hier eingetragen wird, gilt als <strong>bereits freigegeben</strong>: der Vorstand
+      erfasst nur, was er ohnehin genehmigt hätte. Die Zahlungsanweisung an finanzen@ geht
+      danach automatisch raus.
+    </p>
+
+    <label class="ev-label" for="au-reise">Reise</label>
+    <select id="au-reise"><option value="">— wird geladen —</option></select>
+
+    <label class="ev-label" for="au-person" style="margin-top:12px">Person</label>
+    <select id="au-person"><option value="">—</option></select>
+    <p class="nf-hinweis" id="au-person-hinweis">Nur Personen mit bestätigter Anmeldung: der Antrag hängt an der Anmeldung.</p>
+
+    <label class="ev-label" for="au-art" style="margin-top:12px">Art</label>
+    <select id="au-art">
+      <option value="anreise">Anreise mit dem eigenen Auto</option>
+      <option value="beleg">Erstattung gegen Beleg</option>
+    </select>
+    <p class="ev-info" id="au-sperre" hidden style="margin-top:8px"></p>
+
+    <div id="au-anreise-felder">
+      <div class="nf-grid" style="margin-top:12px">
+        <div>
+          <label class="ev-label" for="au-personen">Mitfahrende Ehrenamtliche (inkl. der fahrenden Person)</label>
+          <input type="number" id="au-personen" inputmode="numeric" min="1" max="9" step="1" value="1">
+        </div>
+        <div>
+          <label class="ev-label">Strecke</label>
+          <label class="au-inline" style="padding-top:9px">
+            <input type="checkbox" id="au-hinrueck" checked> Hin- und Rückfahrt
+          </label>
+        </div>
+      </div>
+
+      <label class="ev-label" style="margin-top:12px">Mitfahrende benennen (optional)</label>
+      <div class="nf-taet" id="au-mitfahrer"></div>
+      <p class="nf-hinweis" id="au-mitfahrer-hinweis">Steht später auf dem Beleg. Für die Rechnung zählt die Zahl oben.</p>
+
+      <div class="nf-netto" id="au-rechnung">—</div>
+    </div>
+
+    <div id="au-beleg-felder" hidden>
+      <label class="ev-label" for="au-bezeichnung" style="margin-top:12px">Bezeichnung</label>
+      <input type="text" id="au-bezeichnung" maxlength="120" placeholder="z. B. Bahnticket Berlin–Erfurt">
+      <label class="ev-label" for="au-betrag" style="margin-top:12px">Betrag (€)</label>
+      <input type="text" id="au-betrag" inputmode="decimal" placeholder="z. B. 34,80">
+      <div class="nf-netto" id="au-beleg-summe">—</div>
+    </div>
+
+    <label class="ev-label" for="au-notiz" style="margin-top:12px">Anmerkung (optional)</label>
+    <textarea id="au-notiz" rows="2" maxlength="300" placeholder="z. B. Beleg liegt im Ordner Reisen 2026"></textarea>
+
+    <div class="ev-fehler" id="au-fehler" hidden></div>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="au-abbrechen">Abbrechen</button>
+      <button type="button" class="as-btn" id="au-ok">Auslage erfassen</button>
     </div>
   </div>
 </div>

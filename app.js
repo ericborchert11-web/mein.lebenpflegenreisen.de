@@ -3150,6 +3150,87 @@
     }
   }
 
+  /**
+   * Vorstand: erfasst eine Auslage (§ 3 Nr. 50 EStG) für ein Mitglied.
+   *
+   * Der Antrag entsteht direkt als 'approved' und nicht als 'submitted': der
+   * Vorstand trägt hier nur ein, was er ohnehin genehmigt hätte — eine
+   * anschließende Freigabe wäre dieselbe Person am selben Vorgang. Die
+   * Zahlungsanweisung an finanzen@ folgt automatisch über den Webhook, genau
+   * wie bei einer freigegebenen Pauschale.
+   *
+   * pauschale_art bleibt leer. Eine Auslage hat keine — der Freibetragsfilter
+   * in der Vorstandsliste und der Beleg verlassen sich darauf, dass kind und
+   * pauschale_art nicht gleichzeitig gesetzt sind.
+   *
+   * Gerechnet wird im Dialog (admin-sitzwachen.html), hier wird geschrieben.
+   * Nachgeschlagen werden trotzdem user_id, Anmeldestatus und Reisezeitraum:
+   * die kommen aus der Datenbank statt aus dem Formular, damit ein Antrag
+   * nicht an einer unbestätigten oder fremden Anmeldung landet.
+   *
+   * payload: { trip_signup_id, auslage_art, amount_cents, amount_breakdown,
+   *            mitfahrer_ids, notes }
+   */
+  async function adminCreateAuslageClaim(payload) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    const p = payload || {};
+    if (p.auslage_art !== 'anreise' && p.auslage_art !== 'beleg') {
+      return { ok: false, error: 'Unbekannte Art der Auslage.' };
+    }
+    if (!p.trip_signup_id) return { ok: false, error: 'Bitte eine Person mit bestätigter Anmeldung auswählen.' };
+    const cents = Math.round(Number(p.amount_cents));
+    if (!Number.isFinite(cents) || cents <= 0) return { ok: false, error: 'Betrag fehlt oder ist ungültig.' };
+    try {
+      const client = await sb();
+      // claims_source_chk verlangt zu source_type='trip' eine Anmeldung —
+      // deshalb hängt auch eine Auslage immer an einem trip_signup, und nur an
+      // einem bestätigten: wer nicht mitgefahren ist, hatte keine Anreise.
+      const { data: signup, error: suErr } = await client
+        .from('trip_signups')
+        .select('id, user_id, status, trips(start_date, end_date)')
+        .eq('id', p.trip_signup_id)
+        .maybeSingle();
+      if (suErr) return { ok: false, error: 'Anmeldung konnte nicht geladen werden: ' + suErr.message };
+      if (!signup) return { ok: false, error: 'Anmeldung nicht gefunden.' };
+      if (signup.status !== 'confirmed') {
+        return { ok: false, error: 'Die Anmeldung ist nicht bestätigt (Status: ' + signup.status + ').' };
+      }
+      const trip = signup.trips || {};
+      const jetzt = new Date().toISOString();
+      const mitfahrer = Array.isArray(p.mitfahrer_ids) ? p.mitfahrer_ids.filter(Boolean) : [];
+      const { data: claim, error: insErr } = await client
+        .from('claims')
+        .insert({
+          user_id: signup.user_id,
+          kind: 'auslage',
+          auslage_art: p.auslage_art,
+          source_type: 'trip',
+          trip_signup_id: signup.id,
+          // claims.amount steht in Euro, gerechnet wird im Dialog in Cent.
+          amount: cents / 100,
+          amount_breakdown: Array.isArray(p.amount_breakdown) ? p.amount_breakdown : [],
+          period_start: trip.start_date || null,
+          period_end: trip.end_date || null,
+          status: 'approved',
+          // Ohne submitted_at stünde der Antrag in der nach Eingang sortierten
+          // Vorstandsliste ganz unten und ohne Datum.
+          submitted_at: jetzt,
+          approved_at: jetzt,
+          pauschale_art: null,
+          mitfahrer_ids: (p.auslage_art === 'anreise' && mitfahrer.length) ? mitfahrer : null,
+          notes: (p.notes || '').trim() || null
+        })
+        .select()
+        .single();
+      if (insErr) return { ok: false, error: 'Auslage konnte nicht gespeichert werden: ' + insErr.message };
+      return { ok: true, claim };
+    } catch(e) {
+      console.error('[LPR] adminCreateAuslageClaim:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function adminSetSitzRate(shift, amount, effectiveFrom, beschluss) {
     try {
       const client = await sb();
@@ -3711,6 +3792,8 @@
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
     resendClaimMail, getClaimBeleg,
+    // Auslagenersatz (§ 3 Nr. 50 EStG) — Erfassung durch den Vorstand
+    adminCreateAuslageClaim,
     // Fördermittel-Cockpit
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,
     foerderCreateAufgabe, foerderUpdateAufgabe, foerderCreateNotiz, foerderNamen,

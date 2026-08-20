@@ -3060,6 +3060,24 @@
     }
   }
 
+  // Holt den eingefrorenen Auszahlungsbeleg eines einzelnen Antrags. Bewusst
+  // nicht in adminListClaims mitgeladen: das Dokument ist mehrere Kilobyte gross
+  // und wird nur beim Hinsehen gebraucht.
+  async function getClaimBeleg(claimId) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    try {
+      const { data, error } = await (await sb())
+        .from('claims').select('id, beleg_nr, beleg_html, status').eq('id', claimId).maybeSingle();
+      if (error) return { ok: false, error: error.message };
+      if (!data) return { ok: false, error: 'Antrag nicht gefunden.' };
+      return { ok: true, claim: data };
+    } catch(e) {
+      console.error('[LPR] getClaimBeleg:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   function _rpcRow(data) { return Array.isArray(data) ? data[0] : data; }
 
   async function adminSetBookingStatus(bookingId, status, hours, completedAt) {
@@ -3650,7 +3668,7 @@
     pushAbmelden,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
-    resendClaimMail,
+    resendClaimMail, getClaimBeleg,
     // Fördermittel-Cockpit
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,
     foerderCreateAufgabe, foerderUpdateAufgabe, foerderCreateNotiz, foerderNamen,

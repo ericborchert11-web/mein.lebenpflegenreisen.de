@@ -465,6 +465,50 @@ async function nfSpeichern() {
   await loadBookings();
 }
 
+// ── Auszahlungsbeleg (eingefroren, read-only) ────────────────────────────
+async function blOeffnen(c) {
+  document.getElementById('bl-titel').textContent = 'Auszahlungsbeleg';
+  document.getElementById('bl-sub').textContent =
+    c.user_name + ' · Beleg-Nr. ' + (c.beleg_nr || '—');
+  const frame = document.getElementById('bl-frame');
+  const hinweis = document.getElementById('bl-hinweis');
+  const drucken = document.getElementById('bl-drucken');
+  frame.hidden = true; frame.removeAttribute('srcdoc');
+  hinweis.hidden = true; drucken.hidden = true;
+  document.getElementById('bl-overlay').hidden = false;
+
+  const res = await LPR.getClaimBeleg(c.id);
+  if (!res.ok) {
+    hinweis.textContent = res.error || 'Beleg konnte nicht geladen werden.';
+    hinweis.hidden = false;
+    return;
+  }
+  if (!res.claim.beleg_html) {
+    // Anträge, die vor Einführung dieser Funktion ausgezahlt wurden, haben
+    // keinen eingefrorenen Beleg. Kein Ersatzdokument erfinden — das Mitglied
+    // hat seine Fassung per E-Mail, hier gibt es ehrlich nichts zu zeigen.
+    hinweis.textContent = 'Für diesen Antrag liegt kein eingefrorener Beleg vor: er wurde vor Einführung '
+      + 'dieser Funktion ausgezahlt. Das Mitglied hat seine Fassung per E-Mail erhalten.';
+    hinweis.hidden = false;
+    return;
+  }
+  // srcdoc statt direktem Einbau ins DOM: der Beleg bringt einen eigenen
+  // <style>-Block mit (Layout, Schrift, Druckformat). Im iframe steht er
+  // isoliert, statt seine Stile in die Verwaltungsseite auslaufen zu lassen —
+  // und laesst sich von dort aus sauber fuer sich allein drucken.
+  frame.srcdoc = res.claim.beleg_html;
+  frame.hidden = false;
+  drucken.hidden = false;
+}
+
+function blSchliessen() { document.getElementById('bl-overlay').hidden = true; }
+
+function blDrucken() {
+  const frame = document.getElementById('bl-frame');
+  frame.contentWindow.focus();
+  frame.contentWindow.print();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('ev-abbrechen').onclick = evSchliessen;
   document.getElementById('ev-ok').onclick = evBestaetigen;
@@ -474,6 +518,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nf-overlay').onclick = e => { if (e.target.id === 'nf-overlay') nfSchliessen(); };
   ['nf-beginn','nf-ende','nf-pause'].forEach(id =>
     document.getElementById(id).addEventListener('input', nfNetto));
+  document.getElementById('bl-schliessen').onclick = blSchliessen;
+  document.getElementById('bl-drucken').onclick = blDrucken;
+  document.getElementById('bl-overlay').onclick = e => { if (e.target.id === 'bl-overlay') blSchliessen(); };
 });
 
 async function onBookingAction(btn) {
@@ -589,6 +636,8 @@ function renderClaims() {
           '<button class="as-btn warn" data-act="reject" data-id="' + c.id + '">Ablehnen</button>';
       } else if (c.status === 'approved') {
         actions = '<button class="as-btn" data-act="pay" data-id="' + c.id + '">Als ausgezahlt markieren</button>';
+      } else if (c.status === 'paid') {
+        actions = '<button class="as-btn" data-act="beleg" data-id="' + c.id + '">Beleg</button>';
       }
       if (mailNachversandNoetig(c)) {
         actions += '<button class="as-btn" data-act="resend" data-id="' + c.id + '">Mail erneut senden</button>';
@@ -614,6 +663,13 @@ function renderClaims() {
 async function onClaimAction(btn) {
   const id = btn.dataset.id, act = btn.dataset.act;
   let status, reason = null;
+  if (act === 'beleg') {
+    // Nur ansehen, kein Statuswechsel — deshalb vor der Wechsel-Logik und ohne
+    // btn.disabled/loadClaims danach.
+    const c = _claims.find(x => x.id === id);
+    if (c) await blOeffnen(c);
+    return;
+  }
   if (act === 'resend') {
     btn.disabled = true;
     const res = await LPR.resendClaimMail(id);
@@ -736,6 +792,21 @@ init();
     <div class="ev-actions">
       <button type="button" class="as-btn" id="nf-abbrechen">Abbrechen</button>
       <button type="button" class="as-btn" id="nf-ok">Nachtragen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Auszahlungsbeleg (eingefroren, nur ansehen/drucken) ═══ -->
+<div id="bl-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog breit" role="dialog" aria-labelledby="bl-titel">
+    <h2 id="bl-titel">Auszahlungsbeleg</h2>
+    <p class="ev-sub" id="bl-sub"></p>
+    <p class="ev-info" id="bl-hinweis" hidden></p>
+    <iframe id="bl-frame" title="Auszahlungsbeleg" hidden
+      style="width:100%; min-height:60vh; border:1px solid var(--border); border-radius:8px; background:#fff;"></iframe>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="bl-schliessen">Schließen</button>
+      <button type="button" class="as-btn" id="bl-drucken" hidden>Drucken</button>
     </div>
   </div>
 </div>

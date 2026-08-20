@@ -1231,6 +1231,9 @@
     let paid = 0, pending = 0;
     (claims || []).forEach(c => {
       if (!c) return;
+      // Auslagenersatz (§ 3 Nr. 50 EStG) ist steuerfrei und zaehlt nicht gegen
+      // den Uebungsleiterfreibetrag (§ 3 Nr. 26 EStG) — nur Pauschalen zaehlen.
+      if (c.kind === 'auslage') return;
       if (c.status === 'paid') {
         if (yearOf(c.paid_at, c.approved_at, c.submitted_at, c.created_at) === y) paid += num(c.amount);
       } else if (c.status === 'submitted' || c.status === 'approved') {

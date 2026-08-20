@@ -1304,6 +1304,9 @@ function jahresSummeFuer(c) {
   return (_claims || [])
     .filter(x => (x.pauschale_art === '26a' ? '26a' : '26') === art
       && x.status === 'paid' && x.paid_at
+      // Auslagenersatz (§ 3 Nr. 50 EStG) ist steuerfrei und zaehlt nicht gegen
+      // den Uebungsleiterfreibetrag (§ 3 Nr. 26 EStG) — nur Pauschalen zaehlen.
+      && x.kind !== 'auslage'
       && new Date(x.paid_at).getFullYear() === yr)
     .reduce((s, x) => s + Number(x.amount || 0), 0);
 }

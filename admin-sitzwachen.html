@@ -586,6 +586,9 @@ function yearSum(userId, art, year, excludeId) {
     .filter(c => c.user_id === userId && (c.pauschale_art || '26') === art
       && (c.status === 'approved' || c.status === 'paid')
       && c.id !== excludeId
+      // Auslagenersatz (§ 3 Nr. 50 EStG) ist steuerfrei und zaehlt nicht gegen
+      // den Uebungsleiterfreibetrag (§ 3 Nr. 26 EStG) — nur Pauschalen zaehlen.
+      && c.kind !== 'auslage'
       && (new Date(c.submitted_at || Date.now())).getFullYear() === year)
     .reduce((s, c) => s + Number(c.amount || 0), 0);
 }
@@ -631,14 +634,21 @@ function renderClaims() {
     '<th>Eingereicht</th><th>Person</th><th>Art</th><th>Betrag</th><th>Freibetrag (Jahr)</th><th>Status</th><th>Beleg-Nr.</th><th>Mail</th><th></th>' +
     '</tr></thead><tbody>' +
     rows.map(c => {
+      // Auslagenersatz (§ 3 Nr. 50 EStG) ist steuerfrei und zaehlt nicht gegen den
+      // Uebungsleiterfreibetrag (§ 3 Nr. 26 EStG) — Ampel/Freigabesperre gelten
+      // hier nicht, sonst verbraucht eine Spritkosten-Erstattung Freibetrag.
+      const istAuslage = c.kind === 'auslage';
       const art = c.pauschale_art || '26';
       const limit = FREIBETRAG[art];
       const year = (new Date(c.submitted_at || Date.now())).getFullYear();
-      const sum = yearSum(c.user_id, art, year, c.id);
+      const sum = istAuslage ? 0 : yearSum(c.user_id, art, year, c.id);
       const withThis = sum + Number(c.amount || 0);
-      const over = withThis > limit;
-      const near = !over && withThis > limit * 0.85;
+      const over = !istAuslage && withThis > limit;
+      const near = !istAuslage && !over && withThis > limit * 0.85;
       const ampel = over ? 'r' : (near ? 'y' : 'g');
+      const freibetragZelle = istAuslage
+        ? '<span title="zählt nicht gegen den Freibetrag">—</span>'
+        : '<span class="ampel ' + ampel + '"></span>' + eur(withThis) + ' / ' + eur(limit);
       let actions = '';
       if (c.status === 'submitted') {
         actions =
@@ -657,7 +667,7 @@ function renderClaims() {
         '<td>' + esc(c.user_name) + '</td>' +
         '<td>§ 3 Nr. ' + esc(art) + '</td>' +
         '<td>' + eur(c.amount) + '</td>' +
-        '<td><span class="ampel ' + ampel + '"></span>' + eur(withThis) + ' / ' + eur(limit) + '</td>' +
+        '<td>' + freibetragZelle + '</td>' +
         '<td><span class="pill ' + c.status + '">' + (CLAIM_STATUS_LABEL[c.status] || c.status) + '</span>' +
           (c.status === 'rejected' && c.rejected_reason ? '<div style="font-size:12px;color:#7A3A28;margin-top:3px">' + esc(c.rejected_reason) + '</div>' : '') + '</td>' +
         '<td>' + esc(c.beleg_nr || '—') + '</td>' +

@@ -92,6 +92,15 @@
     var jahresSumme = Number(d.jahresSumme) || 0;
 
     var isSitz = c.source_type === 'sitzwache';
+    // Auslagenersatz nach § 3 Nr. 50 EStG ist etwas anderes als eine
+    // Aufwandsentschädigung: er ist steuerfrei und zählt NICHT gegen den
+    // Übungsleiterfreibetrag. Deshalb bekommt er eine eigene Fassung des
+    // Belegs — gleicher Rahmen, aber eigener Titel, eigener Hinweis und kein
+    // Jahresbalken. Der Balken behauptete sonst eine Ausschöpfung, die es
+    // nicht gibt, und der Beleg träfe eine falsche Aussage über die
+    // Steuerpflicht. Antragsart und Unterart stehen an claims.kind bzw.
+    // claims.auslage_art.
+    var isAuslage = c.kind === 'auslage';
     var breakdown = c.amount_breakdown || [];
     // Es gibt zwei amount_breakdown-Formate in der Datenbank, und alte Antraege
     // werden nicht migriert: ein Beleg muss zeigen, was zum Zeitpunkt der
@@ -156,7 +165,18 @@
       }
     }
 
-    var aktivitaet = isSitz ? 'Ehrenamtliche Sitzwache' : 'Ehrenamtliche Reisebegleitung';
+    // Bei einer Auslage steht in diesem Block nicht die Tätigkeit, sondern die
+    // Herkunft der Auslage — erstattet wird eine Ausgabe, nicht ein Einsatz.
+    var aktivitaet, aktivitaetSub;
+    if (isAuslage) {
+      aktivitaet = 'Erstattete Auslagen';
+      aktivitaetSub = c.auslage_art === 'anreise'
+        ? 'Anreise mit dem eigenen Fahrzeug'
+        : (c.auslage_art === 'beleg' ? 'Erstattung gegen eingereichten Nachweis' : '');
+    } else {
+      aktivitaet = isSitz ? 'Ehrenamtliche Sitzwache' : 'Ehrenamtliche Reisebegleitung';
+      aktivitaetSub = 'pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins';
+    }
 
     var isPaid = c.status === 'paid';
     var art = c.pauschale_art === '26a' ? '26a' : '26';
@@ -166,7 +186,19 @@
       : '§ 3 Nr. 26 EStG (Übungsleiterpauschale)';
     var anlage = art === '26a' ? 'Anlage N bzw. Anlage S' : 'Anlage N';
 
-    var belegTitle = isPaid ? 'Auszahlungsbeleg' : 'Antragsbestätigung';
+    // Der Auslagenbeleg heißt in beiden Zuständen gleich: er bestätigt eine
+    // Erstattung, nicht die Ausschöpfung eines Freibetrags.
+    var belegTitle = isAuslage
+      ? 'Erstattung von Auslagen'
+      : (isPaid ? 'Auszahlungsbeleg' : 'Antragsbestätigung');
+    var untertitel = isAuslage
+      ? 'Auslagenersatz · § 3 Nr. 50 EStG · steuerfrei'
+      : 'Aufwandsentschädigung · ' + escape(paragraf)
+        + ' · steuer- und sozialversicherungsfrei bis ' + eur(limit) + ' pro Jahr';
+    // Punkt 1 des Hinweises sagt ausdrücklich, dass die Zahlung KEINE
+    // Aufwandsentschädigung ist — dann darf die Summenzeile darüber nicht das
+    // Gegenteil behaupten.
+    var summenLabel = isAuslage ? 'Summe Auslagenersatz' : 'Summe Aufwandsentschädigung';
     var nrBlock = isPaid
       ? 'Beleg-Nr. <strong>' + escape(c.beleg_nr || '—') + '</strong><br>Auszahlung am ' + datum(c.paid_at)
       : 'Antrag-ID <strong>' + escape(String(c.id || '').substring(0, 8).toUpperCase()) + '</strong><br>Eingereicht am ' + datum(c.submitted_at);
@@ -174,8 +206,10 @@
 
     // Jahressummen-Balken nur auf dem Auszahlungsbeleg. Die Summe rechnet der
     // Aufrufer aus — der Beleg kennt nur diesen einen Antrag.
+    // Bei Auslagen bleibt der Balken weg (siehe isAuslage oben) — die
+    // Jahressumme kommt weiterhin von außen, sie wird hier nur nicht gezeigt.
     var yearBar = '';
-    if (isPaid) {
+    if (isPaid && !isAuslage) {
       var yr = jahr(c.paid_at);
       var pct = Math.min(100, limit ? (jahresSumme / limit) * 100 : 0);
       var over = jahresSumme > limit;
@@ -186,7 +220,38 @@
     }
 
     var declBlock;
-    if (isPaid) {
+    if (isAuslage) {
+      // Wortlaut aus der Spec (Abschnitt „Der Beleg für Auslagen"),
+      // unverändert übernommen. Vier Punkte statt der fünf des
+      // Steuerhinweises, und in beiden Zuständen derselbe Text: die
+      // Erklärungen der Pauschale (nebenberufliche Tätigkeit,
+      // Jahresfreibetrag) haben mit einer Auslage nichts zu tun.
+      //
+      // Punkt 3 nur bei der Autoanreise — bei einer Erstattung gegen Beleg
+      // stünde die Vergleichspreis-Begründung sinnlos da. Das Wort
+      // „Übungsleiterpauschale" kommt genau einmal vor, nämlich in Punkt 2,
+      // wo es den Freibetrag benennt, gegen den NICHT gezählt wird.
+      declBlock = '<div class="beleg-declaration"><h4>Hinweis</h4><ul>'
+        + '<li>Diese Zahlung ist <strong>Ersatz tatsächlich entstandener Auslagen</strong> nach '
+        + '§ 3 Nr. 50 EStG. Sie ist <strong>kein Arbeitslohn, kein Honorar und keine '
+        + 'Aufwandsentschädigung</strong>.</li>'
+        + '<li>Sie ist <strong>steuerfrei</strong> und <strong>zählt nicht gegen den '
+        + 'Jahresfreibetrag</strong> der Übungsleiterpauschale (§ 3 Nr. 26 EStG). In der '
+        + 'Einkommensteuererklärung ist sie nicht anzugeben.</li>'
+        + (c.auslage_art === 'anreise'
+          ? '<li>Bei Anreise mit dem eigenen Fahrzeug erstattet der Verein pauschal in Höhe der '
+            + 'günstigsten zumutbaren Alternative des öffentlichen Verkehrs; die Berechnung steht '
+            + 'oben. Ein zusätzlicher Abzug als Werbungskosten für dieselbe Fahrt ist damit nicht '
+            + 'möglich.</li>'
+          : '')
+        + '<li>Die Nachweise verbleiben beim Verein und werden zehn Jahre aufbewahrt '
+        + '(§ 147 AO, Art. 6 Abs. 1 lit. c DSGVO).'
+        + (c.auslage_art === 'beleg' ? ' Der eingereichte Nachweis liegt dem Verein vor.' : '')
+        + '</li>'
+        + '</ul>'
+        + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '')
+        + '</div>';
+    } else if (isPaid) {
       // Wortlaut vom Vorstand am 19.08.2026 freigegeben — kein Entwurf mehr.
       declBlock = '<div class="beleg-declaration"><h4>Steuerlicher Hinweis</h4><ul>'
         + '<li>Diese Zahlung ist eine Aufwandsentschädigung nach <strong>' + escape(paragraf)
@@ -229,9 +294,9 @@
     return '<div class="beleg-claim">' + escape(verein.claim || CLAIM) + '</div>'
       + '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(verein.name) + '</div><div class="beleg-logo-sub">' + escape(verein.adresse) + '</div></div><div class="beleg-nr">' + nrBlock + '</div></div>'
       + '<div class="beleg-title">' + belegTitle + '</div>'
-      + '<div class="beleg-subtitle">Aufwandsentschädigung · ' + escape(paragraf) + ' · steuer- und sozialversicherungsfrei bis ' + eur(limit) + ' pro Jahr</div>'
-      + '<div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(person.full_name || '') + '</strong><br>' + escape(person.email || '') + '<br>IBAN: ' + escape(ibanShown) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(verein.name) + '</strong><br>' + escape(verein.adresse) + '<br>' + escape(verein.register) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>Tätigkeit</h4><p>' + aktivitaet + '<br><span class="muted">pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins</span></p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + zeitraum(c.period_start, c.period_end) + '</strong></p></div>' + yearBar + '</div>'
-      + '<table class="beleg-table"><thead>' + columnsHeader + '</thead><tbody>' + positionsHtml + '<tr class="beleg-total-row"><td colspan="' + totalColspan + '">Summe Aufwandsentschädigung</td><td class="num">' + eur(c.amount) + '</td></tr></tbody></table>'
+      + '<div class="beleg-subtitle">' + untertitel + '</div>'
+      + '<div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(person.full_name || '') + '</strong><br>' + escape(person.email || '') + '<br>IBAN: ' + escape(ibanShown) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(verein.name) + '</strong><br>' + escape(verein.adresse) + '<br>' + escape(verein.register) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>Tätigkeit</h4><p>' + aktivitaet + (aktivitaetSub ? '<br><span class="muted">' + aktivitaetSub + '</span>' : '') + '</p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + zeitraum(c.period_start, c.period_end) + '</strong></p></div>' + yearBar + '</div>'
+      + '<table class="beleg-table"><thead>' + columnsHeader + '</thead><tbody>' + positionsHtml + '<tr class="beleg-total-row"><td colspan="' + totalColspan + '">' + summenLabel + '</td><td class="num">' + eur(c.amount) + '</td></tr></tbody></table>'
       + declBlock
       + '<div class="beleg-foot"><p class="muted">' + footInfo + ' · Vereinsbeschluss vom ' + datum(d.beschlussDatum) + '</p></div>';
   }

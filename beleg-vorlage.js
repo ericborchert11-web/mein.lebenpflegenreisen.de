@@ -166,6 +166,9 @@
     }
 
     // Bei einer Auslage steht in diesem Block nicht die Tätigkeit, sondern die
+    // Herkunft der Erstattung — die Überschrift wechselt deshalb mit (sonst
+    // stünde dort "Tätigkeit: Erstattete Auslagen").
+    //
     // Herkunft der Auslage — erstattet wird eine Ausgabe, nicht ein Einsatz.
     var aktivitaet, aktivitaetSub;
     if (isAuslage) {
@@ -295,7 +298,7 @@
       + '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(verein.name) + '</div><div class="beleg-logo-sub">' + escape(verein.adresse) + '</div></div><div class="beleg-nr">' + nrBlock + '</div></div>'
       + '<div class="beleg-title">' + belegTitle + '</div>'
       + '<div class="beleg-subtitle">' + untertitel + '</div>'
-      + '<div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(person.full_name || '') + '</strong><br>' + escape(person.email || '') + '<br>IBAN: ' + escape(ibanShown) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(verein.name) + '</strong><br>' + escape(verein.adresse) + '<br>' + escape(verein.register) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>Tätigkeit</h4><p>' + aktivitaet + (aktivitaetSub ? '<br><span class="muted">' + aktivitaetSub + '</span>' : '') + '</p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + zeitraum(c.period_start, c.period_end) + '</strong></p></div>' + yearBar + '</div>'
+      + '<div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(person.full_name || '') + '</strong><br>' + escape(person.email || '') + '<br>IBAN: ' + escape(ibanShown) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(verein.name) + '</strong><br>' + escape(verein.adresse) + '<br>' + escape(verein.register) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>' + (isAuslage ? 'Grund der Erstattung' : 'Tätigkeit') + '</h4><p>' + aktivitaet + (aktivitaetSub ? '<br><span class="muted">' + aktivitaetSub + '</span>' : '') + '</p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + zeitraum(c.period_start, c.period_end) + '</strong></p></div>' + yearBar + '</div>'
       + '<table class="beleg-table"><thead>' + columnsHeader + '</thead><tbody>' + positionsHtml + '<tr class="beleg-total-row"><td colspan="' + totalColspan + '">' + summenLabel + '</td><td class="num">' + eur(c.amount) + '</td></tr></tbody></table>'
       + declBlock
       + '<div class="beleg-foot"><p class="muted">' + footInfo + ' · Vereinsbeschluss vom ' + datum(d.beschlussDatum) + '</p></div>';

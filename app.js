@@ -580,6 +580,8 @@
     if (!end_date || !/^\d{4}-\d{2}-\d{2}$/.test(end_date)) return { ok: false, error: 'Enddatum ungültig.' };
     if (end_date < start_date) return { ok: false, error: 'Enddatum darf nicht vor Startdatum liegen.' };
     if (!Number.isFinite(max_spots) || max_spots < 1) return { ok: false, error: 'Anzahl Begleiter:innen muss mindestens 1 sein.' };
+    const vergleichspreis = parseVergleichspreisCents(payload.anreise_vergleich_eur);
+    if (!vergleichspreis.ok) return { ok: false, error: vergleichspreis.error };
     const insertData = {
       title, location, start_date, end_date, max_spots,
       status: payload.status || 'open',
@@ -587,6 +589,8 @@
       description: (payload.description || '').trim() || null,
       description_ls: (payload.description_ls || '').trim() || null,
       rate_override_per_day: payload.rate_override_per_day != null && payload.rate_override_per_day !== '' ? Number(payload.rate_override_per_day) : null,
+      anreise_vergleich_cents: vergleichspreis.cents,
+      anreise_vergleich_notiz: (payload.anreise_vergleich_notiz || '').trim() || null,
       created_by: s.id
     };
     try {
@@ -599,7 +603,7 @@
   async function updateTrip(tripId, patch) {
     if (!tripId) return { ok: false, error: 'tripId fehlt.' };
     if (!patch || typeof patch !== 'object') return { ok: false, error: 'Kein Patch übergeben.' };
-    const allowedKeys = ['title','location','start_date','end_date','partner','description','description_ls','max_spots','status','rate_override_per_day'];
+    const allowedKeys = ['title','location','start_date','end_date','partner','description','description_ls','max_spots','status','rate_override_per_day','anreise_vergleich_eur','anreise_vergleich_notiz'];
     const filtered = {};
     for (const k of allowedKeys) { if (k in patch) filtered[k] = patch[k]; }
     if (Object.keys(filtered).length === 0) return { ok: false, error: 'Nichts zu aktualisieren.' };
@@ -613,7 +617,7 @@
     if ('status' in filtered && !['draft','open','closed','completed','cancelled'].includes(filtered.status)) return { ok: false, error: 'status ungültig.' };
     
     // Normalisiere optionale Strings/Numbers: leere Strings -> null
-    for (const k of ['partner','description','description_ls']) {
+    for (const k of ['partner','description','description_ls','anreise_vergleich_notiz']) {
       if (k in filtered) {
         const v = (filtered[k] || '').trim();
         filtered[k] = v || null;
@@ -628,6 +632,16 @@
         if (!Number.isFinite(n) || n < 0) return { ok: false, error: 'rate_override_per_day ungueltig.' };
         filtered.rate_override_per_day = n;
       }
+    }
+    // anreise_vergleich_eur ist kein DB-Feld, sondern die rohe Formular-Eingabe
+    // in Euro; parseVergleichspreisCents() ist die EINE Stelle, die daraus Cent
+    // fuer die Spalte anreise_vergleich_cents macht (siehe dort: leer -> null,
+    // nicht 0).
+    if ('anreise_vergleich_eur' in filtered) {
+      const vergleichspreis = parseVergleichspreisCents(filtered.anreise_vergleich_eur);
+      if (!vergleichspreis.ok) return { ok: false, error: vergleichspreis.error };
+      delete filtered.anreise_vergleich_eur;
+      filtered.anreise_vergleich_cents = vergleichspreis.cents;
     }
     try {
       const { data, error } = await (await sb()).from('trips').update(filtered).eq('id', tripId).select().single();
@@ -3297,6 +3311,31 @@
   // Menge ist numeric(10,2) und wird deutsch getippt: '1,5' muss 1.5 werden.
   // Number('1,5') ist NaN und landete als stille 0 auf der Rechnung.
   function qtyToNumber(v) { return typeof v === 'number' ? v : eurToCents(v) / 100; }
+
+  // Wandelt die Euro-Eingabe des Vergleichspreises (trips.anreise_vergleich_cents)
+  // in Cent um. Anders als eurToCents() selbst, die bei leerer oder kaputter
+  // Eingabe still 0 liefert, MUSS dieses Feld "leer" strikt von "0 Euro"
+  // unterscheiden: leer heißt "für diese Reise ist keine Auto-Anreisepauschale
+  // hinterlegt", während 0 Euro fälschlich eine Erstattung von 0 EUR
+  // rechtfertigen würde. Ungültige Eingaben werden abgewiesen statt still zu
+  // 0 zu werden.
+  // Rückgabe: { ok:true, cents:number|null } oder { ok:false, error:string }
+  function parseVergleichspreisCents(v) {
+    const s = String(v ?? '').trim();
+    if (!s) return { ok: true, cents: null };
+    // eurToCents() behandelt '.' immer als Tausendertrenner (deutsches Format).
+    // Für dieses Feld sollen aber auch einfache Eingaben mit Punkt als
+    // Dezimaltrenner funktionieren (z. B. aus Copy-Paste), deshalb hier erst
+    // prüfen/normalisieren, bevor eurToCents() genutzt wird.
+    if (!/^\d{1,6}([.,]\d{1,2})?$/.test(s)) {
+      return { ok: false, error: 'Vergleichspreis ungültig. Bitte z. B. "25" oder "25,00" eingeben.' };
+    }
+    const cents = eurToCents(s.replace('.', ','));
+    if (!Number.isFinite(cents) || cents <= 0) {
+      return { ok: false, error: 'Vergleichspreis ungültig.' };
+    }
+    return { ok: true, cents };
+  }
 
   function itemAmountCents(quantity, unitPriceCents) {
     return Math.round((qtyToNumber(quantity) || 0) * (Number(unitPriceCents) || 0));

@@ -521,6 +521,18 @@ main {
           <input class="form-input" id="f-rate" type="number" min="0" step="0.01" placeholder="leer = Standardsatz 150 €">
           <div class="form-hint">Nur ausfüllen, wenn diese Reise abweichend vergütet werden soll.</div>
         </div>
+
+        <div class="form-row cols-2">
+          <div>
+            <label class="form-label" for="f-anreise-preis">Vergleichspreis je Strecke (€)</label>
+            <input class="form-input" id="f-anreise-preis" type="number" min="0" step="0.01" placeholder="z. B. 25">
+          </div>
+          <div>
+            <label class="form-label" for="f-anreise-notiz">Herkunft des Preises</label>
+            <input class="form-input" id="f-anreise-notiz" type="text" maxlength="200" placeholder="z. B. Flixbus-Jahresdurchschnitt 2026">
+          </div>
+        </div>
+        <div class="form-hint">Grundlage der Erstattung bei Anreise mit dem eigenen Auto — zählt je Person und Strecke. Leer lassen, wenn für diese Reise keine Auto-Pauschale möglich ist.</div>
       </div>
     </div>
     <div class="modal-foot">
@@ -1008,8 +1020,10 @@ function openEditModal(tripId) {
   document.getElementById('f-partner').value = t.partner || '';
   document.getElementById('f-description').value = t.description || '';
   document.getElementById('f-rate').value = t.rate_override_per_day != null ? Number(t.rate_override_per_day) : '';
+  document.getElementById('f-anreise-preis').value = t.anreise_vergleich_cents != null ? (Number(t.anreise_vergleich_cents) / 100) : '';
+  document.getElementById('f-anreise-notiz').value = t.anreise_vergleich_notiz || '';
   // Wenn was Optionales gesetzt ist, klappe es auf
-  if (t.partner || t.description || t.rate_override_per_day || t.status !== 'open') {
+  if (t.partner || t.description || t.rate_override_per_day || t.anreise_vergleich_cents != null || t.status !== 'open') {
     document.getElementById('form-extra').classList.add('visible');
   }
   document.getElementById('trip-modal').hidden = false;
@@ -1022,7 +1036,7 @@ function closeModal() {
 }
 
 function resetForm() {
-  ['f-title','f-location','f-start','f-end','f-partner','f-description','f-rate'].forEach(id => {
+  ['f-title','f-location','f-start','f-end','f-partner','f-description','f-rate','f-anreise-preis','f-anreise-notiz'].forEach(id => {
     document.getElementById(id).value = '';
   });
   document.getElementById('f-spots').value = 1;
@@ -1055,7 +1069,9 @@ async function saveTrip() {
     status: document.getElementById('f-status').value,
     partner: document.getElementById('f-partner').value,
     description: document.getElementById('f-description').value,
-    rate_override_per_day: document.getElementById('f-rate').value
+    rate_override_per_day: document.getElementById('f-rate').value,
+    anreise_vergleich_eur: document.getElementById('f-anreise-preis').value,
+    anreise_vergleich_notiz: document.getElementById('f-anreise-notiz').value
   };
   
   const btn = document.getElementById('modal-save-btn');

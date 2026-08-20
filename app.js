@@ -3382,9 +3382,21 @@
   function centsToEUR(c) { return formatEUR((Number(c) || 0) / 100); }
 
   // Nimmt deutsche Eingaben ('1.234,56', '200', '19,5') und liefert Cent.
+  //
+  // Ein Punkt ist hier normalerweise der Tausendertrenner. ABER: Ein Punkt ohne
+  // Komma, der auf genau zwei Ziffern endet, ist in der Praxis ein
+  // Dezimalpunkt -- so kommen Betraege aus Mails, Tabellen und englischen
+  // Oberflaechen. Ohne diese Ausnahme wurde aus '19.90' der Betrag 1.990 EUR,
+  // und zwar still: auf einer Rechnung an eine Klinik das Hundertfache.
+  // '1.234' bleibt dagegen 1.234 EUR (drei Ziffern), '1.234,56' ebenfalls,
+  // weil dort ein Komma steht.
   function eurToCents(v) {
     if (typeof v === 'number') return Math.round(v * 100);
-    const s = String(v ?? '').trim().replace(/\./g, '').replace(',', '.').replace(/[^\d.\-]/g, '');
+    let roh = String(v ?? '').trim();
+    if (!roh.includes(',') && /\.\d{2}$/.test(roh) && (roh.match(/\./g) || []).length === 1) {
+      roh = roh.replace('.', ',');
+    }
+    const s = roh.replace(/\./g, '').replace(',', '.').replace(/[^\d.\-]/g, '');
     if (!s) return 0;
     return Math.round((parseFloat(s) || 0) * 100);
   }

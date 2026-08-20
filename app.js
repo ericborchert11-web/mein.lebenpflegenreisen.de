@@ -3077,6 +3077,29 @@
     }
   }
 
+  // Zu einer Menge von Buchungen: welche Antraege (claims) haengen daran?
+  // Fuer admin-sitzwachen.html, damit dort je Dienst sichtbar ist, ob schon
+  // abgerechnet wurde — bearbeitet wird ausschliesslich in
+  // admin-auszahlungen.html, sonst gaebe es zwei Wahrheiten darueber, ob ein
+  // Antrag freigegeben ist. Eine Abfrage fuer alle IDs statt eine je Zeile.
+  async function adminClaimsFuerBuchungen(bookingIds) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', claims: [] };
+    const ids = (bookingIds || []).filter(Boolean);
+    if (!ids.length) return { ok: true, claims: [] };
+    try {
+      const { data, error } = await (await sb())
+        .from('claims')
+        .select('id, booking_id, status, amount, paid_at, beleg_nr')
+        .in('booking_id', ids);
+      if (error) return { ok: false, error: error.message, claims: [] };
+      return { ok: true, claims: data || [] };
+    } catch(e) {
+      console.error('[LPR] adminClaimsFuerBuchungen:', e);
+      return { ok: false, error: 'Netzwerkfehler.', claims: [] };
+    }
+  }
+
   // Holt den eingefrorenen Auszahlungsbeleg eines einzelnen Antrags. Bewusst
   // nicht in adminListClaims mitgeladen: das Dokument ist mehrere Kilobyte gross
   // und wird nur beim Hinsehen gebraucht.
@@ -3803,7 +3826,7 @@
     pushAbmelden,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
-    resendClaimMail, getClaimBeleg,
+    resendClaimMail, getClaimBeleg, adminClaimsFuerBuchungen,
     // Auslagenersatz (§ 3 Nr. 50 EStG) — Erfassung durch den Vorstand
     adminCreateAuslageClaim,
     // Fördermittel-Cockpit

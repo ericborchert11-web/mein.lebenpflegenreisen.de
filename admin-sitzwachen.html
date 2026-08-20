@@ -50,6 +50,12 @@
   font-size:11.5px; font-weight:700; white-space:nowrap;
 }
 .as-ohne-us-grund { display:block; font-size:11.5px; color:#6B7771; margin-top:2px; }
+/* Abrechnungsstand je Dienst — nur Anzeige/Link, bearbeitet wird unter
+   Auszahlungen. "offen" bei einem abgeschlossenen Dienst faellt bewusst auf,
+   das ist der Fall, den jemand uebersehen koennte. */
+.as-claim-stand { display:block; margin-top:3px; font-size:11.5px; color:var(--muted); text-decoration:none; }
+.as-claim-stand:hover { text-decoration:underline; }
+.as-claim-offen { color:#9B2C2C; font-weight:700; }
 .as-e-pill {
   display:inline-block; margin-top:3px; padding:2px 8px; border-radius:99px;
   font-size:11.5px; font-weight:700; white-space:nowrap; border:1px solid;
@@ -226,10 +232,49 @@ async function loadBookings() {
   // Rechnungsstellung an die Klinik.
   const info = await LPR.getEinsatzInfoFuerBuchungen(_bookings.map(b => b.id));
   _einsatzInfo = info.ok ? info.info : {};
+  // Abrechnungsstand je Dienst — nur zur Anzeige. Bearbeitet wird ausschliesslich
+  // unter Auszahlungen, sonst gaebe es zwei Wahrheiten ueber den Status.
+  const claimsRes = await LPR.adminClaimsFuerBuchungen(_bookings.map(b => b.id));
+  _claimsByBooking = {};
+  (claimsRes.ok ? claimsRes.claims : []).forEach(c => {
+    (_claimsByBooking[c.booking_id] = _claimsByBooking[c.booking_id] || []).push(c);
+  });
   renderBookings();
 }
 
 let _einsatzInfo = {};
+let _claimsByBooking = {};
+
+/** Massgeblicher Antrag zu einer Buchung: der nicht abgelehnte (davon kann es
+ * wegen der Sperre in submitSitzClaim hoechstens einen gleichzeitig geben),
+ * sonst der zuletzt abgelehnte, sonst keiner. */
+function claimAktuell(bookingClaims) {
+  const list = bookingClaims || [];
+  return list.find(c => c.status !== 'rejected') || list[list.length - 1] || null;
+}
+
+/**
+ * Abrechnungsstand je Dienst, als Link auf admin-auszahlungen.html — dort wird
+ * bearbeitet, hier nur angezeigt. Nur bei abgeschlossenen Buchungen: vorher
+ * gibt es nichts abzurechnen, und "offen" waere an einem erst kuenftigen
+ * Dienst eine falsche Aufforderung.
+ */
+function claimStandHtml(b, claimsByBooking) {
+  if (b.status !== 'completed') return '';
+  const c = claimAktuell((claimsByBooking || {})[b.id]);
+  const LABEL = { approved: 'freigegeben', submitted: 'beantragt', rejected: 'abgelehnt' };
+  let text, klasse = 'as-claim-stand';
+  if (!c) {
+    text = 'offen';
+    klasse += ' as-claim-offen';
+  } else if (c.status === 'paid') {
+    text = 'ausgezahlt' + (c.paid_at ? ' am ' + fmtDate(c.paid_at) : '')
+         + (c.beleg_nr ? ' · ' + esc(c.beleg_nr) : '');
+  } else {
+    text = esc(LABEL[c.status] || c.status);
+  }
+  return '<a href="admin-auszahlungen.html" class="' + klasse + '" title="Bearbeitet wird unter Auszahlungen">' + text + '</a>';
+}
 
 /** Kennzeichnung, wenn der Einsatz ohne Unterschrift der Pflege abgeschlossen wurde. */
 const EINSATZ_LABEL = {
@@ -311,7 +356,7 @@ function renderBookings() {
         '<td>' + esc(b.patient_room || '—') + '</td>' +
         '<td>' + (b.hours != null ? esc(String(b.hours)) : '—') + '</td>' +
         '<td>' + (b.compensation_eur != null ? eur(b.compensation_eur) : '<span style="color:#9B2C2C">offen</span>') + '</td>' +
-        '<td><span class="pill ' + b.status + '">' + (BOOKING_STATUS_LABEL[b.status] || b.status) + '</span>' + einsatzHinweis(b) + ohneUnterschriftHinweis(b) + '</td>' +
+        '<td><span class="pill ' + b.status + '">' + (BOOKING_STATUS_LABEL[b.status] || b.status) + '</span>' + einsatzHinweis(b) + ohneUnterschriftHinweis(b) + claimStandHtml(b, _claimsByBooking) + '</td>' +
         '<td><div class="as-actions">' + actions + '</div></td>' +
       '</tr>';
     }).join('') +

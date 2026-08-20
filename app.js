@@ -558,7 +558,7 @@
     try {
       const { data, error } = await (await sb())
         .from('trips')
-        .select('id, title, location, start_date, end_date, partner, description, max_spots, status, rate_override_per_day, created_at')
+        .select('id, title, location, start_date, end_date, partner, description, max_spots, status, rate_override_per_day, created_at, anreise_vergleich_cents, anreise_vergleich_notiz')
         .order('start_date', { ascending: false });
       if (error) return { ok: false, error: error.message, trips: [] };
       return { ok: true, trips: data || [] };
@@ -1195,7 +1195,7 @@
     try {
       let q = (await sb())
         .from('claims')
-        .select('id, source_type, trip_signup_id, booking_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, rejected_reason, notes, beleg_nr, pauschale_art, submitted_to_payroll_at, intake_mail_at, payout_mail_at')
+        .select('id, source_type, trip_signup_id, booking_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, rejected_reason, notes, beleg_nr, pauschale_art, submitted_to_payroll_at, intake_mail_at, payout_mail_at, kind, auslage_art, nachweis_pfad, mitfahrer_ids')
         .eq('user_id', s.id)
         .order('submitted_at', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
@@ -3046,7 +3046,7 @@
     try {
       const client = await sb();
       const { data, error } = await client.from('claims')
-        .select('id, user_id, source_type, booking_id, amount, status, submitted_at, approved_at, paid_at, pauschale_art, beleg_nr, notes, rejected_reason, submitted_to_payroll_at, intake_mail_at, payout_mail_at')
+        .select('id, user_id, source_type, booking_id, amount, status, submitted_at, approved_at, paid_at, pauschale_art, beleg_nr, notes, rejected_reason, submitted_to_payroll_at, intake_mail_at, payout_mail_at, kind, auslage_art, nachweis_pfad, mitfahrer_ids')
         .order('submitted_at', { ascending: false, nullsFirst: false });
       if (error) return { ok: false, error: error.message, claims: [] };
       const rows = data || [];

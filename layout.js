@@ -83,6 +83,7 @@
           <li><a href="admin-reisen.html" class="${c('reisen-admin')}">Reisen</a></li>
           <li><a href="admin-jahreskalender.html" class="${c('jahreskalender')}">Jahreskalender</a></li>
           <li><a href="admin-pauschalen.html" class="${c('pauschalen-admin')}">Pauschalen</a></li>
+          <li><a href="admin-auszahlungen.html" class="${c('auszahlungen-admin')}">Auszahlungen</a></li>
           <li><a href="kalkulation.html" class="${c('kalkulation')}">Kalkulation</a></li>
           <li><a href="admin-kliniken.html" class="${c('kliniken-admin')}">Kliniken</a></li>
           <li><a href="admin-sitzwachen.html" class="${c('sitzwachen-admin')}">Sitzwachen</a></li>

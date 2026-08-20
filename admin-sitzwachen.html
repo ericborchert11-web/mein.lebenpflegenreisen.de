@@ -496,7 +496,17 @@ async function blOeffnen(c) {
   // <style>-Block mit (Layout, Schrift, Druckformat). Im iframe steht er
   // isoliert, statt seine Stile in die Verwaltungsseite auslaufen zu lassen —
   // und laesst sich von dort aus sauber fuer sich allein drucken.
-  frame.srcdoc = res.claim.beleg_html;
+  //
+  // Vollstaendiges Dokument statt nur des gespeicherten Fragments, und zwar
+  // wegen des <title>: gedruckt wird das iframe, und der Browser schreibt den
+  // Dokumenttitel in die Kopfzeile jeder Seite. Ohne eigenen Titel erbt das
+  // iframe den der Verwaltungsseite — auf einem Beleg fuers Finanzamt stuende
+  // dann "Sitzwachen-Verwaltung · Leben Pflegen Reisen e.V." ueber dem Blatt.
+  const belegTitel = 'Auszahlungsbeleg' + (c.beleg_nr ? ' ' + c.beleg_nr : '');
+  frame.srcdoc = '<!doctype html><html lang="de"><head><meta charset="utf-8">'
+    + '<title>' + esc(belegTitel) + '</title></head><body>'
+    + res.claim.beleg_html
+    + '</body></html>';
   frame.hidden = false;
   drucken.hidden = false;
 }

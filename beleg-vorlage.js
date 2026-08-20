@@ -13,6 +13,12 @@
   // Jahresfreibeträge nach EStG, Stand 2026.
   var FREIBETRAG = { '26': 3300, '26a': 960 };
 
+  // Vereinsclaim, wie er auch über den Rechnungen steht (VEREIN.claim in
+  // app.js). Hier als Vorgabewert hinterlegt, weil die Edge Function ihr
+  // VEREIN-Objekt selbst mitbringt und app.js dort nicht existiert; wer den
+  // Claim mitgibt, überschreibt ihn.
+  var CLAIM = 'Menschen begleiten. Würde bewahren. Teilhabe ermöglichen.';
+
   // Eigene Escape-Funktion statt DOM-Trick: in Deno gibt es kein document.
   function escape(s) {
     return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -96,15 +102,18 @@
     var isNewFormat = breakdown[0] && breakdown[0].label !== undefined;
 
     var positionsHtml = '';
-    var columnsHeader = '';
-    var totalColspan = isSitz ? 1 : 3;
     var i, row, b;
 
-    if (isSitz) {
-      columnsHeader = '<tr><th>Position</th><th class="num">Betrag</th></tr>';
-    } else {
-      columnsHeader = '<tr><th>Position</th><th class="num">Anzahl</th><th class="num">Satz</th><th class="num">Betrag</th></tr>';
-    }
+    // Zwei Spalten immer dann, wenn es weder Anzahl noch Satz zu zeigen gibt:
+    // Sitzwachen rechnen mit Schichtpauschalen, und eine Nacherfassung durch
+    // den Vorstand hat gar keine Positionen. Vorher standen in diesem Fall die
+    // Kopfspalten „Anzahl“ und „Satz“ über leeren Zellen — im Ausdruck sieht
+    // das aus, als fehle etwas am Beleg.
+    var zweiSpaltig = isSitz || !breakdown.length;
+    var totalColspan = zweiSpaltig ? 1 : 3;
+    var columnsHeader = zweiSpaltig
+      ? '<tr><th>Position</th><th class="num">Betrag</th></tr>'
+      : '<tr><th>Position</th><th class="num">Anzahl</th><th class="num">Satz</th><th class="num">Betrag</th></tr>';
 
     if (!breakdown.length) {
       // Nacherfassung durch den Vorstand: es gibt keine Positionen, weil der
@@ -213,7 +222,12 @@
       ? 'Status: ausgezahlt · Auszahlung am ' + datum(c.paid_at) + (c.approved_at ? ' · Freigegeben am ' + datum(c.approved_at) : '')
       : 'Status: ' + escape(c.status) + (c.submitted_to_payroll_at ? ' · Zahlungsanweisung an die Finanzen am ' + datum(c.submitted_to_payroll_at) : '');
 
-    return '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(verein.name) + '</div><div class="beleg-logo-sub">' + escape(verein.adresse) + '</div></div><div class="beleg-nr">' + nrBlock + '</div></div>'
+    // Akzentlinie in Limette plus Vereinsclaim ueber dem Kopf — dasselbe Muster
+    // wie auf den Rechnungen (.beleg-claim in rechnung.html). Der Beleg verlaesst
+    // das Portal und wird ausgedruckt weitergereicht; ohne diese Zeile ist ihm
+    // auf Papier nicht anzusehen, von wem er kommt.
+    return '<div class="beleg-claim">' + escape(verein.claim || CLAIM) + '</div>'
+      + '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(verein.name) + '</div><div class="beleg-logo-sub">' + escape(verein.adresse) + '</div></div><div class="beleg-nr">' + nrBlock + '</div></div>'
       + '<div class="beleg-title">' + belegTitle + '</div>'
       + '<div class="beleg-subtitle">Aufwandsentschädigung · ' + escape(paragraf) + ' · steuer- und sozialversicherungsfrei bis ' + eur(limit) + ' pro Jahr</div>'
       + '<div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(person.full_name || '') + '</strong><br>' + escape(person.email || '') + '<br>IBAN: ' + escape(ibanShown) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(verein.name) + '</strong><br>' + escape(verein.adresse) + '<br>' + escape(verein.register) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>Tätigkeit</h4><p>' + aktivitaet + '<br><span class="muted">pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins</span></p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + zeitraum(c.period_start, c.period_end) + '</strong></p></div>' + yearBar + '</div>'

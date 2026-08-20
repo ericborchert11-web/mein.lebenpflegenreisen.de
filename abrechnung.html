@@ -404,6 +404,15 @@ dialog::backdrop {
   background: #fff; padding: 48px 56px;
   box-shadow: var(--shadow-lg); border-radius: var(--radius);
 }
+/* Akzentlinie + Claim ueber dem Kopf, wie auf den Rechnungen (rechnung.html).
+   Bewusst border-top statt box-shadow: Chrome exportiert Schatten als
+   Soft-Mask, Vorschau und Keynote zeichnen daraus harte graue Kaesten. */
+.beleg-claim {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 13px; font-style: italic; color: var(--green-deep);
+  border-top: 3px solid var(--lime);
+  padding-top: 10px; margin-bottom: 18px;
+}
 .beleg-head {
   border-bottom: 2px solid var(--green);
   padding-bottom: 16px; margin-bottom: 24px;
@@ -553,11 +562,18 @@ footer a { color: var(--lime); text-decoration: none; }
   .a11y-bar, header, .hero, footer, .toolbar, main > *:not(#beleg-container) { display: none !important; }
   #beleg-container { display: block !important; }
   .beleg-wrap {
-    box-shadow: none; border: none;
+    box-shadow: none; border: none; border-radius: 0;
     padding: 0; margin: 0; max-width: 100%;
   }
   body { background: #fff; padding: 0; }
-  @page { size: A4; margin: 20mm; }
+  /* Dieselben Seitenraender wie auf den Rechnungen — der Beleg soll neben
+     ihnen im Ordner nicht aus der Reihe fallen. */
+  @page { size: A4; margin: 16mm 14mm; }
+  /* Der Steuerhinweis ist ein zusammenhaengender Text: mitten im Satz
+     umzubrechen macht ihn auf Papier unlesbar. Dasselbe fuer Tabellenzeilen. */
+  .beleg-declaration { page-break-inside: avoid; }
+  .beleg-table { page-break-inside: auto; }
+  .beleg-table tr { page-break-inside: avoid; }
 }
 
 /* Sitz-spezifische Erweiterungen */
@@ -840,7 +856,7 @@ body.compliance-locked .info-box { display: none; }
 
 
 <script src="app.js?v20260729a"></script>
-<script src="beleg-vorlage.js?v20260819a"></script>
+<script src="beleg-vorlage.js?v20260820a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'abrechnung' });

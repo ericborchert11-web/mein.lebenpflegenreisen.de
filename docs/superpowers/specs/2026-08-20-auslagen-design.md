@@ -108,15 +108,19 @@ Anreise-Pauschale braucht keine.
 Die digitale Kopie genügt für die Buchführung, solange sie vollständig und
 lesbar ist. Die Originale müssen nicht eingeschickt werden.
 
-## Die vier Stellen, an denen Auslagen nicht mitzählen dürfen
+## Die Stellen, an denen Auslagen nicht mitzählen dürfen
 
 Der einzige ernsthafte Fehlerweg dieses Umbaus. Jede Stelle bekommt eine eigene
 Prüfung:
 
 1. der Jahresbalken auf dem Auszahlungsbeleg,
-2. die Pauschalen-Übersicht des Vorstands,
+2. die Pauschalen-Übersicht des Vorstands (Datenbankfunktion),
 3. die Freibetrags-Ampel in der Antragsliste,
-4. die Budget-Anzeige und die Warnung im Antragsformular.
+4. die Jahressumme in der Edge Function,
+5. `claimTotals()` in `app.js` — beim Bauen gefunden: Budget-Balken, die
+   85-Prozent-Warnung, der Bestätigungsdialog beim Einreichen **und** die Kachel
+   in „Mein Bereich" rechnen alle über diese eine Funktion. Ohne sie wäre die
+   Korrektur in `abrechnung.html` wirkungslos gewesen.
 
 ## Fehlerfälle
 

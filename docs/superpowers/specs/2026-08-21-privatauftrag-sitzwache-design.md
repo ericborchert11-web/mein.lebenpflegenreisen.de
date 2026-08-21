@@ -61,8 +61,10 @@ seit 21:55" —, der im Bestand schon erfasst wird und den bisher nur die Klinik
 sehen bekam. Das ist die eine Live-Auskunft, die Angehörige nachts wirklich
 brauchen. Nach dem Abschluss ist derselbe Link die Abholseite für den Bericht.
 
-Der Schlüssel ist zufällig, wird nur als Prüfwert gespeichert und verliert seine
-Gültigkeit mit dem Ende des Dienstes. Gelesen und geschrieben wird ausschließlich
+Der Schlüssel ist zufällig und wird nur als Prüfwert gespeichert. **Geschrieben**
+werden kann das Briefing bis zum Ende des Dienstes, **gelesen** werden kann der
+Link noch vierzehn Tage darüber hinaus — danach ist er tot. Der Vorstand kann
+einen verlorenen Link ersetzen; der alte verfällt dabei. Gelesen und geschrieben wird ausschließlich
 über zwei eng geschnittene Funktionen, die nichts außer diesem einen Auftrag
 herausgeben — kein Zugriff auf Einsätze, Ereignisse oder andere Buchungen. In der
 Adresse steht kein Name.

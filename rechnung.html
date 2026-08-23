@@ -93,6 +93,11 @@
      nicht am Blattrand kleben. */
   @page { size: A4; margin: 6mm 0; }
   html, body { background:#fff !important; }
+  /* shared.css gibt dem body min-height:100vh. Im Druck ist 1vh eine
+     Seitenhoehe: der body wird damit hoeher als der bedruckbare Bereich und
+     Chrome haengt eine fast leere zweite Seite an, auch wenn die Rechnung
+     laengst fertig ist. Deshalb hier zurueckgenommen. */
+  html, body { min-height:0; margin:0; }
   .re-wrap { max-width:none; margin:0; padding:0; }
   /* 6 mm (@page) + 8 mm = 14 mm oben/unten, seitlich 14 mm. */
   .beleg { border:none; border-radius:0; padding:8mm 14mm; font-size:11pt; }

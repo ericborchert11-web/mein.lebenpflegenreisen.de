@@ -563,12 +563,55 @@ footer a { color: var(--lime); text-decoration: none; }
   #beleg-container { display: block !important; }
   .beleg-wrap {
     box-shadow: none; border: none; border-radius: 0;
-    padding: 0; margin: 0; max-width: 100%;
+    margin: 0; max-width: 100%;
   }
   body { background: #fff; padding: 0; }
-  /* Dieselben Seitenraender wie auf den Rechnungen — der Beleg soll neben
-     ihnen im Ordner nicht aus der Reihe fallen. */
-  @page { size: A4; margin: 16mm 14mm; }
+  /* WARUM DER SEITENRAND FAST NULL IST — bitte nicht "aufraeumen":
+     Chrome druckt Datum, Seitentitel, Dateipfad und Seitenzahl in den
+     Seitenrand von @page. Auf einem Beleg fuers Finanzamt hat ein
+     "https://mein.lebenpflegenreisen.de/abrechnung.html" nichts zu suchen,
+     und wer den Beleg ausdruckt, kann die Kopfzeilen im eigenen Druckdialog
+     nicht zuverlaessig abschalten. Ist der Rand zu schmal fuer diese Zeilen,
+     laesst Chrome sie weg. Gemessen am 23.08.2026 gegen Chrome (headless,
+     A4): bei 12 mm stehen sie noch da, bei 8 mm sind sie weg. 6 mm haelt
+     Abstand zu dieser Schwelle. Der sichtbare Rand kommt aus dem Padding des
+     Belegs; die 6 mm bleiben stehen, damit Folgeseiten eines langen Belegs
+     nicht am Blattrand kleben. Dieselbe Regel steht in rechnung.html. */
+  @page { size: A4; margin: 6mm 0; }
+  /* 6 mm (@page) + 8 mm = 14 mm oben/unten, seitlich 14 mm — wie die Rechnung. */
+  .beleg-wrap { padding: 8mm 14mm; }
+  /* shared.css gibt dem body min-height:100vh. Im Druck ist 1vh eine
+     Seitenhoehe: der body wird damit hoeher als der bedruckbare Bereich und
+     Chrome haengt eine fast leere zweite Seite an, auch wenn der Beleg
+     laengst fertig ist. Deshalb hier zurueckgenommen. */
+  html, body { min-height: 0; margin: 0; }
+  main { padding: 0 !important; }
+
+  /* Ein Auszahlungsbeleg gehoert auf EIN Blatt: er wird geheftet, gemailt und
+     zehn Jahre aufbewahrt, und der Steuerhinweis darf nicht vom Betrag
+     getrennt werden. Papier hat weniger Platz als der Bildschirm, deshalb
+     ruecken die Groessen im Druck zusammen. Gemessen an einem Beleg mit drei
+     Positionen plus Anmerkung: eine Seite. Mit deutlich mehr Positionen
+     bricht er weiterhin um — dann aber sauber, siehe die Umbruchregeln unten. */
+  .beleg-claim { font-size: 11px; padding-top: 8px; margin-bottom: 12px; }
+  .beleg-head { padding-bottom: 10px; margin-bottom: 14px; }
+  .beleg-logo-name { font-size: 17px; }
+  .beleg-nr { font-size: 11px; }
+  .beleg-title { font-size: 22px; margin-bottom: 4px; }
+  .beleg-subtitle { font-size: 12px; margin-bottom: 12px; }
+  .beleg-grid { gap: 12px 28px; margin: 12px 0; }
+  .beleg-block h4 { margin-bottom: 4px; }
+  /* !important, weil der Freibetrags-Balken seine Schriftgroessen inline
+     mitbringt (beleg-vorlage.js) — ohne das bleiben genau diese Zeilen gross. */
+  .beleg-block p { font-size: 12.5px !important; line-height: 1.45; }
+  .beleg-block p.muted { font-size: 11px !important; }
+  .beleg-table { margin: 12px 0; font-size: 12px; }
+  .beleg-table th, .beleg-table td { padding: 6px 10px; }
+  .beleg-total-row { font-size: 14px; }
+  .beleg-declaration { font-size: 10.5px; line-height: 1.5; padding: 12px 16px; margin-top: 12px; }
+  .beleg-declaration li { margin-bottom: 2px; }
+  .beleg-foot, .beleg-footer { margin-top: 10px; padding-top: 7px; font-size: 10px; }
+
   /* Der Steuerhinweis ist ein zusammenhaengender Text: mitten im Satz
      umzubrechen macht ihn auf Papier unlesbar. Dasselbe fuer Tabellenzeilen. */
   .beleg-declaration { page-break-inside: avoid; }

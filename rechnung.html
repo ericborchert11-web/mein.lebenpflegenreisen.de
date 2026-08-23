@@ -627,9 +627,13 @@ function renderBrief() {
     return absatz(b.text);
   }).join('');
 
+  // Reihenfolge wie im Empfaengerblock der Rechnung und wie es DIN 5008 fuer
+  // Geschaeftspost vorsieht: erst das Haus, dann die Person. Umgekehrt liest
+  // sich eine Rechnung an eine Einrichtung wie Privatpost an die Mitarbeiterin.
+  // Bei Privatempfaengern ist contact_person leer und es aendert sich nichts.
   const anschrift = [
-    r.contact_person ? escapeHtml(r.contact_person) : '',
     escapeHtml(r.name || ''),
+    r.contact_person ? escapeHtml(r.contact_person) : '',
     escapeHtml(r.address || ''),
     escapeHtml(((r.postal_code || '') + ' ' + (r.city || '')).trim()),
   ].filter(Boolean).join('<br>');

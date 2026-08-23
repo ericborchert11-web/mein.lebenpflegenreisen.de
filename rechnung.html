@@ -79,13 +79,29 @@
 .beleg-hint { clear:both; font-size:11.5px; color:#4A4A46; margin:10px 0 0; }
 
 @media print {
-  @page { size: A4; margin: 16mm 14mm; }
+  /* WARUM DER SEITENRAND FAST NULL IST — bitte nicht "aufraeumen":
+     Chrome druckt Datum, Seitentitel, Dateipfad und Seitenzahl in den
+     Seitenrand von @page. Auf einer Rechnung, die an einen Kunden geht und
+     zehn Jahre in der Buchhaltung liegt, hat ein "file:///Users/..." nichts
+     zu suchen, und der Empfaenger kann die Kopfzeilen im eigenen Druckdialog
+     nicht abschalten. Ist der Rand zu schmal fuer diese Zeilen, laesst Chrome
+     sie weg. Gemessen am 23.08.2026 gegen Chrome (headless, A4): bei 12 mm
+     stehen sie noch da, bei 8 mm sind sie weg. 6 mm haelt Abstand zu dieser
+     Schwelle.
+     Der sichtbare Rand kommt deshalb aus dem Padding des Belegs, nicht aus
+     @page. Die 6 mm bleiben stehen, damit Folgeseiten einer langen Rechnung
+     nicht am Blattrand kleben. */
+  @page { size: A4; margin: 6mm 0; }
   html, body { background:#fff !important; }
   .re-wrap { max-width:none; margin:0; padding:0; }
-  .beleg { border:none; border-radius:0; padding:0; font-size:11.5pt; }
-  .beleg h1 { font-size:22pt; }
+  /* 6 mm (@page) + 8 mm = 14 mm oben/unten, seitlich 14 mm. */
+  .beleg { border:none; border-radius:0; padding:8mm 14mm; font-size:11pt; }
+  .beleg h1 { font-size:21pt; }
   .beleg-table { page-break-inside:auto; }
   .beleg-table tr { page-break-inside:avoid; }
+  /* Der Pflichtfussteil gehoert unter die Rechnung, nicht allein auf ein
+     zweites Blatt. */
+  .beleg-pay, .beleg-foot { page-break-inside:avoid; }
   a { text-decoration:none; color:inherit; }
 }
 </style>

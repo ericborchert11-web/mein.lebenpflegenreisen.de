@@ -284,6 +284,18 @@ async function reload() {
   render();
 }
 
+/**
+ * Sind die Felder aus der Migration vom 23.08.2026 nutzbar?
+ *
+ * Zwischen Push und Migration liegen Minuten, in denen die Spalten fehlen.
+ * app.js merkt das an der ersten Abfrage; die Oberflaeche blendet die Felder
+ * so lange aus, statt Eingaben anzubieten, die beim Speichern verloren gehen.
+ * Die Klammer auf typeof faengt zusaetzlich eine alte app.js aus dem Cache ab.
+ */
+function neueFelderDa() {
+  return typeof LPR.hatBriefFelder !== 'function' || LPR.hatBriefFelder();
+}
+
 function emptyItem() {
   return { quantity: 1, description: '', detail_text: '', nachweis_text: '',
            period_text: '', unit_price_cents: 0 };
@@ -447,6 +459,7 @@ function renderEditor() {
         <button class="btn" onclick="removeItem(${i})" aria-label="Position entfernen">×</button>
       </td>
     </tr>
+    ${!neueFelderDa() ? '' : `
     <tr class="it-detail">
       <td></td>
       <td colspan="5">
@@ -455,7 +468,7 @@ function renderEditor() {
         <textarea rows="1" placeholder="Nachweis, z. B. „Endabrechnung lt. beigefügten Belegen: Mietwagen 182,85 € + Navi 10,94 €“"
                   oninput="setItem(${i},'nachweis_text',this.value)">${escapeHtml(it.nachweis_text || '')}</textarea>
       </td>
-    </tr>`).join('');
+    </tr>`}`).join('');
 
   document.getElementById('editor').innerHTML = `
     <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:16px;">
@@ -482,13 +495,14 @@ function renderEditor() {
         ${_inv.tax_mode === 'vat'
           ? `<input class="f-in" value="${_inv.tax_rate}" onchange="setField('tax_rate', this.value)">`
           : `<input class="f-in" value="${escapeHtml(_inv.tax_note)}" onchange="setField('tax_note', this.value)">`}</label>
+      ${!neueFelderDa() ? '' : `
       <label class="f-lbl">Betreff (steht fett über der Rechnung)
         <input class="f-in" value="${escapeHtml(_inv.betreff || '')}"
                placeholder="z. B. Verhinderungspflege gem. § 39 SGB XI — begleitete Fahrt Berlin–Rerik"
                onchange="setField('betreff', this.value)"></label>
       <label class="f-lbl" style="max-width:260px;">Kostenvoranschlag vom (optional)
         <input class="f-in" type="date" value="${_inv.kv_datum || ''}"
-               onchange="setField('kv_datum', this.value)"></label>
+               onchange="setField('kv_datum', this.value)"></label>`}
       <label class="f-lbl">Einleitungssatz (optional)
         <input class="f-in" value="${escapeHtml(_inv.intro_text || '')}" onchange="setField('intro_text', this.value)"></label>
       <label class="f-lbl">Davon Betreuungsanteil § 45b SGB XI (optional, in Euro)
@@ -523,6 +537,14 @@ function renderEditor() {
  * Klick zurückkommt und nicht neu getippt werden muss.
  */
 function briefEditorHtml() {
+  if (!neueFelderDa()) {
+    return `
+    <div class="re-warn" style="margin-bottom:16px;">
+      Die Datenbankfelder für Betreff, Kostenvoranschlag und Begleitschreiben fehlen noch.
+      Die Migration vom 23.08.2026 muss im Supabase-Dashboard laufen; danach genügt ein
+      Neuladen dieser Seite. Rechnungen lassen sich bis dahin ganz normal schreiben.
+    </div>`;
+  }
   const an = !!_inv.mit_brief;
   const d = briefDaten();
   const felder = BRIEF_BAUSTEINE.map(bs => {

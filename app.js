@@ -3557,24 +3557,85 @@
 
   // PostgREST liefert nur, was hier steht. Fehlt eine Spalte, ist sie im Browser
   // still undefined — der Beleg druckt sie dann nie, ohne dass etwas meckert.
-  const INVOICE_COLS = 'id, invoice_no, status, recipient_id, recipient_snapshot, invoice_date, ' +
+  const INVOICE_COLS_BASIS = 'id, invoice_no, status, recipient_id, recipient_snapshot, invoice_date, ' +
     'service_from, service_to, due_date, tax_mode, tax_rate, tax_note, intro_text, ' +
-    'betreff, kv_datum, mit_brief, brief, ' +
     'subtotal_cents, tax_cents, total_cents, care_share_cents, paid_on, ' +
     'cancels_invoice_id, cancelled_by_invoice_id, created_at, issued_at';
+
+  // Felder aus der Migration vom 23.08.2026 (Betreff, Kostenvoranschlag,
+  // Begleitschreiben). Sie stehen getrennt, weil sie fehlen koennen — siehe
+  // unten.
+  const INVOICE_COLS_BRIEF = 'betreff, kv_datum, mit_brief, brief';
+
+  /* ── WARUM DIESE KLAMMER ──────────────────────────────────────────────────
+     Die Datenbank wird von Hand im Dashboard migriert, das Frontend geht beim
+     Push automatisch live. Zwischen beidem liegen im besten Fall Minuten. In
+     dieser Zeit fragt eine neue app.js Spalten ab, die es noch nicht gibt —
+     PostgREST antwortet dann mit 42703 und JEDE Rechnungsseite bleibt leer,
+     auch die Uebersicht.
+
+     Deshalb wird die erste Abfrage mit den neuen Spalten versucht; scheitert
+     sie an einer fehlenden Spalte, merkt sich das Modul das und arbeitet ohne
+     sie weiter. Fehlen tun dann nur die neuen Felder, nicht die Rechnungen.
+     Nach der Migration genuegt ein Neuladen.
+
+     `null` heisst: noch nicht geprueft. */
+  let _hatBriefFelder = null;
+
+  function invoiceCols() {
+    return _hatBriefFelder === false
+      ? INVOICE_COLS_BASIS
+      : INVOICE_COLS_BASIS + ', ' + INVOICE_COLS_BRIEF;
+  }
+
+  const ITEM_COLS_BASIS = 'id, pos, quantity, description, period_text, unit_price_cents, amount_cents';
+  function itemCols() {
+    return _hatBriefFelder === false
+      ? ITEM_COLS_BASIS
+      : 'id, pos, quantity, description, detail_text, nachweis_text, period_text, unit_price_cents, amount_cents';
+  }
+
+  /** Meldet PostgREST eine unbekannte Spalte? Dann fehlt die Migration. */
+  function spalteFehlt(error) {
+    if (!error) return false;
+    return error.code === '42703' || /column .* does not exist/i.test(error.message || '');
+  }
+
+  /**
+   * Fuehrt `bauen(cols)` aus und wiederholt es einmal ohne die neuen Spalten,
+   * falls die Datenbank sie noch nicht kennt.
+   */
+  async function mitSpaltenrueckfall(bauen) {
+    let res = await bauen();
+    if (spalteFehlt(res.error) && _hatBriefFelder !== false) {
+      console.warn('[LPR] Rechnungsfelder aus der Migration vom 23.08.2026 fehlen noch — '
+                 + 'Betreff, Kostenvoranschlag und Begleitschreiben bleiben ausgeblendet.');
+      _hatBriefFelder = false;
+      res = await bauen();
+    } else if (!res.error && _hatBriefFelder === null) {
+      _hatBriefFelder = true;
+    }
+    return res;
+  }
+
+  /** Fuer die Oberflaeche: sind die neuen Felder benutzbar? */
+  function hatBriefFelder() { return _hatBriefFelder !== false; }
 
   async function listInvoices(filter) {
     const f = filter || {};
     try {
-      let q = (await sb())
-        .from('invoices')
-        .select(INVOICE_COLS + ', billing_recipients(name)')
-        .order('invoice_date', { ascending: false })
-        .order('created_at', { ascending: false });
-      if (f.year)        q = q.gte('invoice_date', f.year + '-01-01').lte('invoice_date', f.year + '-12-31');
-      if (f.status)      q = q.eq('status', f.status);
-      if (f.recipientId) q = q.eq('recipient_id', f.recipientId);
-      const { data, error } = await q;
+      const client = await sb();
+      const { data, error } = await mitSpaltenrueckfall(() => {
+        let q = client
+          .from('invoices')
+          .select(invoiceCols() + ', billing_recipients(name)')
+          .order('invoice_date', { ascending: false })
+          .order('created_at', { ascending: false });
+        if (f.year)        q = q.gte('invoice_date', f.year + '-01-01').lte('invoice_date', f.year + '-12-31');
+        if (f.status)      q = q.eq('status', f.status);
+        if (f.recipientId) q = q.eq('recipient_id', f.recipientId);
+        return q;
+      });
       if (error) return { ok: false, error: error.message, invoices: [] };
       const invoices = (data || []).map(i => ({
         ...i,
@@ -3590,12 +3651,14 @@
   async function getInvoice(id) {
     try {
       const client = await sb();
-      const [invRes, itemRes] = await Promise.all([
-        client.from('invoices').select(INVOICE_COLS + ', billing_recipients(*)').eq('id', id).maybeSingle(),
-        client.from('invoice_items')
-              .select('id, pos, quantity, description, detail_text, nachweis_text, period_text, unit_price_cents, amount_cents')
-              .eq('invoice_id', id).order('pos', { ascending: true })
-      ]);
+      // Erst die Rechnung — sie stellt fest, ob die neuen Spalten da sind. Die
+      // Positionen danach, damit sie dieselbe Antwort schon kennen und nicht
+      // ein zweites Mal ins Leere greifen.
+      const invRes = await mitSpaltenrueckfall(() =>
+        client.from('invoices').select(invoiceCols() + ', billing_recipients(*)').eq('id', id).maybeSingle());
+      const itemRes = await mitSpaltenrueckfall(() =>
+        client.from('invoice_items').select(itemCols())
+              .eq('invoice_id', id).order('pos', { ascending: true }));
       if (invRes.error)  return { ok: false, error: invRes.error.message };
       if (!invRes.data)  return { ok: false, error: 'Rechnung nicht gefunden.' };
       if (itemRes.error) return { ok: false, error: itemRes.error.message };
@@ -3619,7 +3682,7 @@
           invoice_date: patch.invoice_date || dateKey(new Date()),
           intro_text:   patch.intro_text || null
         })
-        .select(INVOICE_COLS).single();
+        .select(invoiceCols()).single();
       if (error) return { ok: false, error: error.message };
       return { ok: true, invoice: data };
     } catch(e) {
@@ -3630,14 +3693,17 @@
 
   async function updateInvoiceDraft(id, patch) {
     const allowed = ['recipient_id','invoice_date','service_from','service_to','due_date',
-                     'tax_mode','tax_rate','tax_note','intro_text','care_share_cents',
-                     'betreff','kv_datum','mit_brief','brief'];
+                     'tax_mode','tax_rate','tax_note','intro_text','care_share_cents']
+                     // Nur mitschicken, wenn die Migration durch ist — sonst
+                     // wiese PostgREST das ganze Update zurueck und der Entwurf
+                     // liesse sich gar nicht mehr speichern.
+                     .concat(hatBriefFelder() ? ['betreff','kv_datum','mit_brief','brief'] : []);
     const row = {};
     allowed.forEach(k => { if (patch && k in patch) row[k] = patch[k] === '' ? null : patch[k]; });
     if (!Object.keys(row).length) return { ok: true };
     try {
       const { data, error } = await (await sb())
-        .from('invoices').update(row).eq('id', id).select(INVOICE_COLS).single();
+        .from('invoices').update(row).eq('id', id).select(invoiceCols()).single();
       if (error) return { ok: false, error: error.message };
       return { ok: true, invoice: data };
     } catch(e) {
@@ -3658,12 +3724,18 @@
         pos:              idx + 1,
         quantity:         qtyToNumber(it.quantity) || 0,
         description:      String(it.description || '').trim(),
-        detail_text:      it.detail_text || null,
-        nachweis_text:    it.nachweis_text || null,
         period_text:      it.period_text || null,
         unit_price_cents: Number(it.unit_price_cents) || 0,
         amount_cents:     itemAmountCents(it.quantity, it.unit_price_cents)
       })).filter(r => r.description);
+      // Dieselbe Ruecksicht wie oben: vor der Migration kennt die Tabelle die
+      // beiden Textspalten nicht, und ein Insert damit schluege komplett fehl.
+      if (hatBriefFelder()) {
+        rows.forEach((r, idx) => {
+          r.detail_text   = items[idx] && items[idx].detail_text   || null;
+          r.nachweis_text = items[idx] && items[idx].nachweis_text || null;
+        });
+      }
       if (!rows.length) return { ok: true, items: [] };
       const { data, error } = await client.from('invoice_items').insert(rows).select();
       if (error) return { ok: false, error: error.message };
@@ -3731,7 +3803,7 @@
     try {
       const { data, error } = await (await sb())
         .from('invoice_item_templates')
-        .select('id, name, detail_text, unit_price_cents')
+        .select(hatBriefFelder() ? 'id, name, detail_text, unit_price_cents' : 'id, name, unit_price_cents')
         .order('name', { ascending: true });
       if (error) return { ok: false, error: error.message, templates: [] };
       return { ok: true, templates: data || [] };
@@ -3753,7 +3825,7 @@
     const price = Number(tpl.unit_price_cents) || 0;
     // Die Beschreibung faehrt mit: sie ist bei wiederkehrenden Positionen
     // (Mietwagen, Kraftstoff, Parkgebuehren) jedes Mal fast derselbe Satz.
-    const detail = (tpl.detail_text || '').trim() || null;
+    const detail = hatBriefFelder() ? ((tpl.detail_text || '').trim() || null) : undefined;
     try {
       const client = await sb();
       // Mit id ist die Zeile bekannt — dann wird stur sie aktualisiert. Der
@@ -3766,9 +3838,12 @@
       }
       const q = ziel
         ? client.from('invoice_item_templates')
-                .update({ name, unit_price_cents: price, detail_text: detail }).eq('id', ziel.id)
+                .update(detail === undefined ? { name, unit_price_cents: price }
+                                             : { name, unit_price_cents: price, detail_text: detail })
+                .eq('id', ziel.id)
         : client.from('invoice_item_templates')
-                .insert({ name, unit_price_cents: price, detail_text: detail });
+                .insert(detail === undefined ? { name, unit_price_cents: price }
+                                             : { name, unit_price_cents: price, detail_text: detail });
       const { data, error } = await q.select().single();
       if (error) {
         if (error.code === '23505') {
@@ -3827,7 +3902,7 @@
     listRecipients, saveRecipient, setRecipientActive,
     listInvoices, getInvoice, createInvoice, updateInvoiceDraft, saveInvoiceItems,
     deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid,
-    listItemTemplates, saveItemTemplate, deleteItemTemplate,
+    listItemTemplates, saveItemTemplate, hatBriefFelder, deleteItemTemplate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     // Besetzungsregel — geteilt von admin-reisen.html und admin-jahreskalender.html
     enumTripDays, formatTripDay, signupEffectiveDays, signupEffectiveHalf,

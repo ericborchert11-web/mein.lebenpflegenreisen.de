@@ -3555,8 +3555,11 @@
     }
   }
 
+  // PostgREST liefert nur, was hier steht. Fehlt eine Spalte, ist sie im Browser
+  // still undefined — der Beleg druckt sie dann nie, ohne dass etwas meckert.
   const INVOICE_COLS = 'id, invoice_no, status, recipient_id, recipient_snapshot, invoice_date, ' +
     'service_from, service_to, due_date, tax_mode, tax_rate, tax_note, intro_text, ' +
+    'betreff, kv_datum, mit_brief, brief, ' +
     'subtotal_cents, tax_cents, total_cents, care_share_cents, paid_on, ' +
     'cancels_invoice_id, cancelled_by_invoice_id, created_at, issued_at';
 
@@ -3590,7 +3593,7 @@
       const [invRes, itemRes] = await Promise.all([
         client.from('invoices').select(INVOICE_COLS + ', billing_recipients(*)').eq('id', id).maybeSingle(),
         client.from('invoice_items')
-              .select('id, pos, quantity, description, period_text, unit_price_cents, amount_cents')
+              .select('id, pos, quantity, description, detail_text, nachweis_text, period_text, unit_price_cents, amount_cents')
               .eq('invoice_id', id).order('pos', { ascending: true })
       ]);
       if (invRes.error)  return { ok: false, error: invRes.error.message };
@@ -3627,7 +3630,8 @@
 
   async function updateInvoiceDraft(id, patch) {
     const allowed = ['recipient_id','invoice_date','service_from','service_to','due_date',
-                     'tax_mode','tax_rate','tax_note','intro_text','care_share_cents'];
+                     'tax_mode','tax_rate','tax_note','intro_text','care_share_cents',
+                     'betreff','kv_datum','mit_brief','brief'];
     const row = {};
     allowed.forEach(k => { if (patch && k in patch) row[k] = patch[k] === '' ? null : patch[k]; });
     if (!Object.keys(row).length) return { ok: true };
@@ -3654,6 +3658,8 @@
         pos:              idx + 1,
         quantity:         qtyToNumber(it.quantity) || 0,
         description:      String(it.description || '').trim(),
+        detail_text:      it.detail_text || null,
+        nachweis_text:    it.nachweis_text || null,
         period_text:      it.period_text || null,
         unit_price_cents: Number(it.unit_price_cents) || 0,
         amount_cents:     itemAmountCents(it.quantity, it.unit_price_cents)
@@ -3725,7 +3731,7 @@
     try {
       const { data, error } = await (await sb())
         .from('invoice_item_templates')
-        .select('id, name, unit_price_cents')
+        .select('id, name, detail_text, unit_price_cents')
         .order('name', { ascending: true });
       if (error) return { ok: false, error: error.message, templates: [] };
       return { ok: true, templates: data || [] };
@@ -3745,6 +3751,9 @@
     const name = String((tpl && tpl.name) || '').trim();
     if (!name) return { ok: false, error: 'Name ist Pflicht.' };
     const price = Number(tpl.unit_price_cents) || 0;
+    // Die Beschreibung faehrt mit: sie ist bei wiederkehrenden Positionen
+    // (Mietwagen, Kraftstoff, Parkgebuehren) jedes Mal fast derselbe Satz.
+    const detail = (tpl.detail_text || '').trim() || null;
     try {
       const client = await sb();
       // Mit id ist die Zeile bekannt — dann wird stur sie aktualisiert. Der
@@ -3757,9 +3766,9 @@
       }
       const q = ziel
         ? client.from('invoice_item_templates')
-                .update({ name, unit_price_cents: price }).eq('id', ziel.id)
+                .update({ name, unit_price_cents: price, detail_text: detail }).eq('id', ziel.id)
         : client.from('invoice_item_templates')
-                .insert({ name, unit_price_cents: price });
+                .insert({ name, unit_price_cents: price, detail_text: detail });
       const { data, error } = await q.select().single();
       if (error) {
         if (error.code === '23505') {

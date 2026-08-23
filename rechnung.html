@@ -40,6 +40,12 @@
 .it-table .num, .it-table th.num { text-align:right; }
 .it-table input { width:100%; font-family:inherit; font-size:14px; padding:7px 9px;
                   border:1.5px solid var(--border); border-radius:7px; }
+/* Beschreibung und Nachweis haengen unter ihrer Position. Eigene Zeile statt
+   eigener Spalte: der Text ist laenger als alles andere in der Tabelle. */
+.it-table textarea { width:100%; font-family:inherit; font-size:13.5px; padding:7px 9px;
+                     border:1.5px solid var(--border); border-radius:7px; resize:vertical; }
+.it-table textarea + textarea { margin-top:6px; }
+.it-detail td { border-bottom:1.5px solid var(--border); padding-top:0; }
 .it-sum { display:flex; justify-content:flex-end; gap:28px; padding:14px 8px 0; font-size:15px; }
 .it-sum strong { font-family:'Bricolage Grotesque',sans-serif; font-size:19px; color:var(--green-deep); }
 
@@ -75,8 +81,69 @@
 .beleg-pay { margin:14px 0; }
 .beleg-foot { border-top:1px solid #E4E2DC; margin-top:18px; padding-top:10px;
               font-size:10.5px; line-height:1.55; color:#6B6B65; }
+.beleg-betreff { font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px;
+                 color:#2D4A3A; margin:-10px 0 18px; }
+/* Beschreibung und Nachweis haengen unter der Leistung, kleiner und ruhiger —
+   die Zahlen rechts sollen die Zeile weiter fuehren. */
+.beleg-detail { font-weight:400; margin-top:3px; }
+.beleg-nachweis { font-weight:400; font-style:italic; font-size:.88em; color:#6B6B65; margin-top:3px; }
 .beleg-storno { color:#8A3A18; font-weight:700; }
 .beleg-hint { clear:both; font-size:11.5px; color:#4A4A46; margin:10px 0 0; }
+
+
+/* ═════════ BEGLEITSCHREIBEN ═════════
+   Die Millimeter hier sind keine Geschmacksfrage: sie entscheiden, ob die
+   Anschrift im Fenster eines DIN-lang-Kuverts steht (DIN 5008 Form B).
+   Gerechnet wird ab Kante des SEITENKASTENS, nicht ab Blattkante — @page hat
+   oben 6 mm Rand (die Regel gegen Chromes Kopfzeilen), alle Werte sind
+   deshalb um diese 6 mm kleiner als die DIN-Masse:
+     Anschriftfeld  45 mm ab Blatt  ->  39 mm hier, 20 mm von links, 85 x 45 mm
+     Textbeginn     98 mm ab Blatt  ->  92 mm hier
+   Der Brief wird NIE gezoomt (siehe druck-anpassen.js) — ein Faktor von 0,92
+   schoebe die Anschrift um 3,6 mm nach oben und damit aus dem Fenster. */
+.brief {
+  position: relative; width: 210mm; min-height: 285mm;
+  background: #fff; color: #1A1A18;
+  font-size: 10pt; line-height: 1.45;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  margin: 0 auto 20px;
+}
+.brief-kopf { position: absolute; top: 8mm; left: 25mm; right: 20mm;
+              display: flex; justify-content: space-between; align-items: flex-start; }
+.brief-logo { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+              font-size: 15pt; color: #1A3A2A; letter-spacing: -.01em; }
+.brief-logo em { font-style: normal; color: #6E9B1F; }
+.brief-kopf-sub { font-size: 8pt; color: #6B6B65; letter-spacing: .1em;
+                  text-transform: uppercase; margin-top: 2px; }
+.brief-adresse { position: absolute; top: 39mm; left: 20mm; width: 85mm; height: 45mm; }
+.brief-ruecksende { font-size: 7pt; color: #6B6B65; padding-bottom: 2mm;
+                    border-bottom: .3mm solid #C9C6BE; margin-bottom: 4mm; }
+.brief-anschrift { font-size: 11pt; line-height: 1.5; }
+.brief-info { position: absolute; top: 39mm; right: 20mm; width: 62mm; font-size: 9.5pt; }
+.brief-info div { display: flex; justify-content: space-between; gap: 8px; padding: 1.2mm 0; }
+.brief-info span { color: #6B6B65; }
+.brief-info strong { font-variant-numeric: tabular-nums; }
+/* Der Abstand nach oben ist PADDING, nicht margin. Als margin faellt er mit dem
+   Rand von .brief zusammen (margin collapsing), sobald der Rahmen im Druck
+   wegfaellt — dann rutscht der ganze Brief samt Anschriftfeld 92 mm nach unten
+   und die Anschrift steht nicht mehr im Fenster. Am 23.08.2026 genau so passiert. */
+.brief-body { margin: 0 20mm 0 25mm; padding-top: 92mm; }
+.brief-kicker { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700;
+                font-size: 8.5pt; letter-spacing: .16em; text-transform: uppercase;
+                color: #6E9B1F; margin-bottom: 3mm; }
+.brief-head { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+              font-size: 20pt; line-height: 1.12; color: #1A3A2A;
+              letter-spacing: -.02em; margin: 0 0 3.5mm; }
+.brief-hl { background: #C8F135; color: #1A3A2A; font-style: italic;
+            padding: 0 .1em; border-radius: 2px; }
+.brief-lead { font-size: 10.5pt; color: #2D4A3A; margin-bottom: 4mm; }
+.brief-body p { margin-bottom: 2.6mm; }
+.brief-anlagen { margin: 0 0 3.5mm 5mm; padding: 0; }
+.brief-anlagen li { margin-bottom: .5mm; }
+.brief-gruss { margin-top: 4mm; white-space: pre-line; }
+.brief-fuss { position: absolute; bottom: 8mm; left: 25mm; right: 20mm;
+              border-top: 1px solid #E4E2DC; padding-top: 2mm;
+              font-size: 8pt; line-height: 1.5; color: #6B6B65; }
 
 @media print {
   /* WARUM DER SEITENRAND FAST NULL IST — bitte nicht "aufraeumen":
@@ -98,11 +165,14 @@
      Chrome haengt eine fast leere zweite Seite an, auch wenn die Rechnung
      laengst fertig ist. Deshalb hier zurueckgenommen. */
   html, body { min-height:0; margin:0; }
-  /* 6 mm (@page) + 8 mm = 14 mm oben/unten, seitlich 14 mm. Der Rand sitzt
-     bewusst am Rahmen und nicht am Beleg: der Beleg selbst wird bei Bedarf
-     gezoomt (siehe --druck-faktor), und ein mitskalierter Rand waere dann
-     keine 14 mm mehr. */
-  .re-wrap { max-width:none; margin:0; padding:8mm 14mm; }
+  /* 6 mm (@page) + 8 mm = 14 mm oben/unten, seitlich 14 mm. Der Rand sitzt am
+     Rahmen um den Beleg und nicht am Beleg selbst: der wird bei Bedarf gezoomt
+     (siehe --druck-faktor), ein mitskalierter Rand waere dann keine 14 mm mehr.
+     Und er sitzt an #beleg statt an .re-wrap, weil das Begleitschreiben in
+     derselben .re-wrap steckt — dort wuerde der Rand das Anschriftfeld um
+     14 mm nach rechts und 8 mm nach unten schieben, aus dem Kuvertfenster heraus. */
+  .re-wrap { max-width:none; margin:0; padding:0; }
+  #beleg { padding:8mm 14mm; }
   /* --druck-faktor setzt druck-anpassen.js, wenn die Rechnung sonst knapp
      ueber eine Seite laufen wuerde. Ohne das Skript bleibt es bei 1. */
   .beleg { border:none; border-radius:0; padding:0; font-size:11pt;
@@ -114,6 +184,13 @@
      zweites Blatt. */
   .beleg-pay, .beleg-foot { page-break-inside:avoid; }
   a { text-decoration:none; color:inherit; }
+
+  /* Der Brief ist ein eigenes Blatt und steht vor der Rechnung. Ohne Rahmen,
+     ohne Rundung — auf Papier ist der Seitenrand der Rand. */
+  .brief { border:none; border-radius:0; margin:0; width:auto; min-height:0;
+           height:285mm; }
+  #brief-wrap { page-break-after: always; }
+  #brief-wrap[hidden] { display:none; }
 }
 </style>
 </head>
@@ -135,6 +212,9 @@
 
   <div class="re-bar no-print" id="action-bar"></div>
   <div id="editor" hidden></div>
+  <!-- Der Brief steht vor der Rechnung — am Bildschirm wie im Druck, damit die
+       Vorschau der Reihenfolge im Umschlag entspricht. -->
+  <div id="brief-wrap" hidden><div class="brief" id="brief-content"></div></div>
   <div id="beleg"></div>
   <dialog id="tpl-dlg" class="no-print" style="border:none;border-radius:14px;padding:0;max-width:560px;width:92vw;">
     <div style="padding:26px 28px;">
@@ -205,7 +285,113 @@ async function reload() {
 }
 
 function emptyItem() {
-  return { quantity: 1, description: '', period_text: '', unit_price_cents: 0 };
+  return { quantity: 1, description: '', detail_text: '', nachweis_text: '',
+           period_text: '', unit_price_cents: 0 };
+}
+
+/* ═════════ BEGLEITSCHREIBEN — BAUKASTEN ═════════
+   Alle Texte des Briefs stehen hier und nirgends sonst. Verteilt man sie über
+   die Datei, weiß später niemand mehr, welche Bausteine es überhaupt gibt und
+   welcher Satz wo herkommt.
+
+   `standard(ctx)` liefert die Vorbelegung aus den Rechnungsdaten — Nummer,
+   Betrag, Frist, Kostenvoranschlag und IBAN stehen bereits in der Rechnung und
+   sollen nicht abgetippt werden. Vorbelegung heißt Vorschlag: sobald der Brief
+   einmal gespeichert ist, gilt der gespeicherte Text. Was rausgegangen ist,
+   muss zehn Jahre nachvollziehbar bleiben. */
+const BRIEF_BAUSTEINE = [
+  { id: 'anrede', label: 'Anrede', standard: c =>
+      c.ansprechpartner ? 'Sehr geehrte/r ' + c.ansprechpartner + ',' : 'Sehr geehrte Damen und Herren,' },
+
+  { id: 'dank', label: 'Dank und Einleitung', standard: c =>
+      'vielen Dank für Ihr Vertrauen. Anbei erhalten Sie unsere Rechnung '
+      + c.nummer + ' über ' + c.betrag + (c.betreff ? ' für ' + c.betreff : '') + '.' },
+
+  { id: 'grundlage', label: 'Abrechnungsgrundlage', standard: c =>
+      (c.kvDatum
+        ? 'Grundlage ist unser Kostenvoranschlag vom ' + c.kvDatum + '. '
+        : '')
+      + 'Die variablen Positionen haben wir anhand der tatsächlichen Belege endabgerechnet; '
+      + 'die Einzelheiten stehen auf der beiliegenden Rechnung.' },
+
+  { id: 'anlagen', label: 'Anlagen (eine je Zeile)', liste: true, standard: () =>
+      'Rechnung\nBelege zu den variablen Positionen' },
+
+  { id: 'kasse', label: 'Hinweis Pflegekasse', standard: () =>
+      'Die Rechnung ist so ausgestellt, dass Sie sie bei Ihrer Pflegekasse einreichen können. '
+      + 'Fehlt der Kasse eine Angabe, sagen Sie kurz Bescheid — wir ergänzen sie umgehend.' },
+
+  { id: 'zahlung', label: 'Zahlung', standard: c =>
+      'Bitte überweisen Sie ' + c.betrag + (c.frist ? ' bis zum ' + c.frist : '')
+      + ' auf unser Konto bei der ' + c.bank + ', IBAN ' + c.iban
+      + '. Als Verwendungszweck genügt die Rechnungsnummer ' + c.nummer + '.' },
+
+  /* Der Absatz, für den dieser Brief überhaupt gebaut wurde. Er steht bewusst
+     NACH der Zahlungsangabe: erst die Sache, dann das Anliegen. */
+  { id: 'motto', label: 'Was Ihre Zahlung bewirkt', standard: () =>
+      'Wir sind ein gemeinnütziger Verein: Was nach den Kosten übrig bleibt, fließt zurück in '
+      + 'begleitete Reisen, Sitzwachen und Teilhabe für Menschen, die sich das sonst nicht '
+      + 'leisten könnten.' },
+
+  { id: 'rueckfragen', label: 'Rückfragen', standard: () =>
+      'Für Rückfragen erreichen Sie uns unter 0174 3409116 oder info@lebenpflegenreisen.de.' },
+
+  { id: 'gruss', label: 'Grußformel', standard: () =>
+      'Mit freundlichen Grüßen\n\nEric Borchert\nVorstand' },
+];
+
+const BRIEF_VORGABE = {
+  kicker:    'Begleitschreiben',
+  headline:  'Mehr als eine Rechnung',
+  highlight: 'Mehr',
+  lead:      'Mit Ihrer Überweisung ermöglichen Sie uns, mehr Gutes zu tun.',
+};
+
+/**
+ * Die Werte, aus denen sich die Bausteine bedienen. Bewusst als fertige
+ * Anzeigetexte (Euro formatiert, Datum deutsch) — ein Baustein soll Text
+ * zusammensetzen, nicht rechnen.
+ */
+function briefKontext() {
+  const r = _recipient || {};
+  const V = LPR.VEREIN;
+  const sub = (_inv.status === 'draft') ? currentSubtotal() : _inv.subtotal_cents;
+  const tax = (_inv.status === 'draft')
+    ? (_inv.tax_mode === 'vat' ? Math.round(sub * (Number(_inv.tax_rate) || 0) / 100) : 0)
+    : _inv.tax_cents;
+  return {
+    nummer:         _inv.invoice_no || 'diese Rechnung',
+    betrag:         LPR.centsToEUR((_inv.status === 'draft') ? sub + tax : _inv.total_cents),
+    betreff:        _inv.betreff || '',
+    kvDatum:        _inv.kv_datum ? deDate(_inv.kv_datum) : '',
+    frist:          _inv.due_date ? deDate(_inv.due_date) : '',
+    ansprechpartner: r.contact_person || '',
+    empfaenger:     r.name || '',
+    iban:           V.iban,
+    bank:           V.bank,
+  };
+}
+
+/** Gespeicherter Brief, mit Vorbelegung für alles, was noch nie gesetzt wurde. */
+function briefDaten() {
+  const b = (_inv.brief && typeof _inv.brief === 'object') ? _inv.brief : {};
+  const ctx = briefKontext();
+  const bloecke = b.bloecke || {};
+  const out = {
+    kicker:    b.kicker    != null ? b.kicker    : BRIEF_VORGABE.kicker + ' · ' + ctx.nummer,
+    headline:  b.headline  != null ? b.headline  : BRIEF_VORGABE.headline,
+    highlight: b.highlight != null ? b.highlight : BRIEF_VORGABE.highlight,
+    lead:      b.lead      != null ? b.lead      : BRIEF_VORGABE.lead,
+    bloecke: {},
+  };
+  BRIEF_BAUSTEINE.forEach(bs => {
+    const vorhanden = bloecke[bs.id] || {};
+    out.bloecke[bs.id] = {
+      an:   vorhanden.an   != null ? !!vorhanden.an : true,
+      text: vorhanden.text != null ? vorhanden.text : bs.standard(ctx),
+    };
+  });
+  return out;
 }
 
 // Absichtlich defensiv: liegt im Browser noch eine alte app.js im Cache, fehlt
@@ -224,6 +410,7 @@ function render() {
   const isDraft = _inv.status === 'draft';
   document.getElementById('editor').hidden = !isDraft;
   if (isDraft) renderEditor();
+  renderBrief();
   renderBeleg();
 }
 
@@ -259,6 +446,15 @@ function renderEditor() {
         <button class="btn" onclick="saveRowAsTemplate(${i})" title="Als Vorlage sichern" aria-label="Als Vorlage sichern">☆</button>
         <button class="btn" onclick="removeItem(${i})" aria-label="Position entfernen">×</button>
       </td>
+    </tr>
+    <tr class="it-detail">
+      <td></td>
+      <td colspan="5">
+        <textarea rows="2" placeholder="Beschreibung: was genau, für wen, wann — das liest die Pflegekasse"
+                  oninput="setItem(${i},'detail_text',this.value)">${escapeHtml(it.detail_text || '')}</textarea>
+        <textarea rows="1" placeholder="Nachweis, z. B. „Endabrechnung lt. beigefügten Belegen: Mietwagen 182,85 € + Navi 10,94 €“"
+                  oninput="setItem(${i},'nachweis_text',this.value)">${escapeHtml(it.nachweis_text || '')}</textarea>
+      </td>
     </tr>`).join('');
 
   document.getElementById('editor').innerHTML = `
@@ -286,6 +482,13 @@ function renderEditor() {
         ${_inv.tax_mode === 'vat'
           ? `<input class="f-in" value="${_inv.tax_rate}" onchange="setField('tax_rate', this.value)">`
           : `<input class="f-in" value="${escapeHtml(_inv.tax_note)}" onchange="setField('tax_note', this.value)">`}</label>
+      <label class="f-lbl">Betreff (steht fett über der Rechnung)
+        <input class="f-in" value="${escapeHtml(_inv.betreff || '')}"
+               placeholder="z. B. Verhinderungspflege gem. § 39 SGB XI — begleitete Fahrt Berlin–Rerik"
+               onchange="setField('betreff', this.value)"></label>
+      <label class="f-lbl" style="max-width:260px;">Kostenvoranschlag vom (optional)
+        <input class="f-in" type="date" value="${_inv.kv_datum || ''}"
+               onchange="setField('kv_datum', this.value)"></label>
       <label class="f-lbl">Einleitungssatz (optional)
         <input class="f-in" value="${escapeHtml(_inv.intro_text || '')}" onchange="setField('intro_text', this.value)"></label>
       <label class="f-lbl">Davon Betreuungsanteil § 45b SGB XI (optional, in Euro)
@@ -309,7 +512,172 @@ function renderEditor() {
       </table>
       <button class="btn" style="margin-top:10px;" onclick="addItem()">+ Position</button>
       <div class="it-sum"><span>Summe</span><strong id="it-sum-val">${LPR.centsToEUR(currentSubtotal())}</strong></div>
+    </div>
+
+    ${briefEditorHtml()}`;
+}
+
+/**
+ * Der Baukasten. Jeder Baustein hat einen Schalter und ein Textfeld — an- und
+ * abwählen statt löschen, damit ein versehentlich entfernter Absatz mit einem
+ * Klick zurückkommt und nicht neu getippt werden muss.
+ */
+function briefEditorHtml() {
+  const an = !!_inv.mit_brief;
+  const d = briefDaten();
+  const felder = BRIEF_BAUSTEINE.map(bs => {
+    const b = d.bloecke[bs.id];
+    return `
+      <div style="border-top:1px solid var(--border);padding:10px 0;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted);">
+          <input type="checkbox" ${b.an ? 'checked' : ''} onchange="setBriefBlock('${bs.id}','an',this.checked)">
+          ${escapeHtml(bs.label)}
+        </label>
+        <textarea rows="${bs.id === 'gruss' ? 4 : 3}" style="width:100%;margin-top:6px;font-family:inherit;font-size:14px;
+                  padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;"
+                  oninput="setBriefBlock('${bs.id}','text',this.value)">${escapeHtml(b.text)}</textarea>
+      </div>`;
+  }).join('');
+
+  return `
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:16px;">
+      <label style="display:flex;align-items:center;gap:10px;font-weight:700;color:var(--green-deep);">
+        <input type="checkbox" ${an ? 'checked' : ''} onchange="setField('mit_brief', this.checked)">
+        Begleitschreiben mitdrucken
+      </label>
+      <p style="font-size:12px;color:var(--muted);margin:8px 0 0;">
+        Eigenes Blatt vor der Rechnung, mit Anschriftfeld für Fensterkuvert (DIN 5008).
+        Die Rechnung bleibt für sich vollständig — sie muss bei der Kasse allein tragen.</p>
+      <div id="brief-warn" class="re-warn" style="margin:12px 0 0;" hidden></div>
+      ${an ? `
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:16px;">
+        <label class="f-lbl" style="flex:2;min-width:220px;">Kicker (klein, grün, gesperrt)
+          <input class="f-in" value="${escapeHtml(d.kicker)}" onchange="setBriefFeld('kicker', this.value)"></label>
+        <label class="f-lbl" style="flex:2;min-width:220px;">Überschrift
+          <input class="f-in" value="${escapeHtml(d.headline)}" onchange="setBriefFeld('headline', this.value)"></label>
+        <label class="f-lbl" style="flex:1;min-width:140px;">Hervorgehobenes Wort
+          <input class="f-in" value="${escapeHtml(d.highlight)}" onchange="setBriefFeld('highlight', this.value)"></label>
+      </div>
+      <label class="f-lbl">Vorspann
+        <input class="f-in" value="${escapeHtml(d.lead)}" onchange="setBriefFeld('lead', this.value)"></label>
+      ${felder}
+      <button class="btn" style="margin-top:12px;" onclick="briefZuruecksetzen()">Texte auf Vorgabe zurücksetzen</button>
+      ` : ''}
     </div>`;
+}
+
+/**
+ * Das Begleitschreiben. Kein Beleg: keine Beträge in Tabellenform, kein
+ * Steuerhinweis, keine Summe. Was die Kasse braucht, steht auf der Rechnung.
+ */
+function renderBrief() {
+  const wrap = document.getElementById('brief-wrap');
+  wrap.hidden = !_inv.mit_brief;
+  if (!_inv.mit_brief) return;
+
+  const V = LPR.VEREIN;
+  const r = _recipient || {};
+  const d = briefDaten();
+  const ctx = briefKontext();
+
+  // Highlight: das erste Vorkommen des Wortes bekommt den limettenen Kasten.
+  // Ersetzt wird im bereits maskierten Text — sonst brächte ein '<' im
+  // Empfängernamen die Überschrift durcheinander.
+  const kopf = escapeHtml(d.headline);
+  const hl = String(d.highlight || '').trim();
+  const headline = hl && kopf.indexOf(escapeHtml(hl)) !== -1
+    ? kopf.replace(escapeHtml(hl), '<span class="brief-hl">' + escapeHtml(hl) + '</span>')
+    : kopf;
+
+  const absatz = t => String(t || '').split(/\n{2,}/).filter(x => x.trim())
+    .map(x => '<p>' + escapeHtml(x.trim()).replace(/\n/g, '<br>') + '</p>').join('');
+
+  const bloecke = BRIEF_BAUSTEINE.map(bs => {
+    const b = d.bloecke[bs.id];
+    if (!b || !b.an || !String(b.text || '').trim()) return '';
+    if (bs.liste) {
+      const zeilen = String(b.text).split('\n').map(x => x.trim()).filter(Boolean);
+      if (!zeilen.length) return '';
+      return '<p style="margin-bottom:1.5mm">Anlagen:</p><ul class="brief-anlagen">'
+           + zeilen.map(x => '<li>' + escapeHtml(x) + '</li>').join('') + '</ul>';
+    }
+    if (bs.id === 'gruss') return '<div class="brief-gruss">' + escapeHtml(b.text) + '</div>';
+    return absatz(b.text);
+  }).join('');
+
+  const anschrift = [
+    r.contact_person ? escapeHtml(r.contact_person) : '',
+    escapeHtml(r.name || ''),
+    escapeHtml(r.address || ''),
+    escapeHtml(((r.postal_code || '') + ' ' + (r.city || '')).trim()),
+  ].filter(Boolean).join('<br>');
+
+  const infoZeile = (k, v) => v ? '<div><span>' + k + '</span><strong>' + escapeHtml(v) + '</strong></div>' : '';
+
+  document.getElementById('brief-content').innerHTML = `
+    <div class="brief-kopf">
+      <div>
+        <div class="brief-logo">Leben <em>Pflegen</em> Reisen e.V.</div>
+        <div class="brief-kopf-sub">Gemeinnütziger Verein · Berlin</div>
+      </div>
+    </div>
+
+    <div class="brief-adresse">
+      <div class="brief-ruecksende">${escapeHtml(V.name)} · ${escapeHtml(V.strasse)} · ${escapeHtml(V.ort)}</div>
+      <div class="brief-anschrift">${anschrift || '—'}</div>
+    </div>
+
+    <div class="brief-info">
+      ${infoZeile('Rechnung', _inv.invoice_no || 'Entwurf')}
+      ${infoZeile('Datum', deDate(_inv.invoice_date))}
+      ${infoZeile('Betrag', ctx.betrag)}
+      ${infoZeile('Zahlbar bis', ctx.frist)}
+    </div>
+
+    <div class="brief-body">
+      ${d.kicker ? '<div class="brief-kicker">' + escapeHtml(d.kicker) + '</div>' : ''}
+      ${d.headline ? '<h2 class="brief-head">' + headline + '</h2>' : ''}
+      ${d.lead ? '<p class="brief-lead">' + escapeHtml(d.lead) + '</p>' : ''}
+      ${bloecke}
+    </div>
+
+    <div class="brief-fuss">
+      <strong>${escapeHtml(V.name)}</strong> · ${escapeHtml(V.strasse)} · ${escapeHtml(V.ort)} ·
+      ${escapeHtml(V.email)} · ${escapeHtml(V.web)}<br>
+      Vereinsregister: ${escapeHtml(V.register)} · Gemeinnütziger Verein (§ 52 AO) ·
+      Vorstand: ${escapeHtml(V.vorstand)} · ${escapeHtml(V.iban)} · ${escapeHtml(V.bank)}
+    </div>`;
+
+  briefLaengePruefen();
+}
+
+/**
+ * Passt der Brief auf ein Blatt?
+ *
+ * Der Beleg darf im Druck gezoomt werden, der Brief nicht — sein Anschriftfeld
+ * muss auf den Millimeter im Kuvertfenster bleiben. Zu langer Text wird deshalb
+ * nicht kleiner gerechnet, sondern gemeldet: dann werden Bausteine abgewählt
+ * oder gekürzt.
+ *
+ * Gemessen wird am Bildschirm, und das ist hier ehrlich: der Brief hat feste
+ * Millimetermaße und in beiden Medien dieselbe Breite.
+ */
+function briefLaengePruefen() {
+  const warn = document.getElementById('brief-warn');
+  if (!warn) return;
+  const body = document.querySelector('#brief-content .brief-body');
+  const fuss = document.querySelector('#brief-content .brief-fuss');
+  if (!body || !fuss) { warn.hidden = true; return; }
+
+  const proMm = 96 / 25.4;
+  // 2 mm Luft zur Fußzeile. Mehr Reserve waere schoener, wuerde aber bei einem
+  // Brief warnen, der noch sauber auf das Blatt passt.
+  const zuviel = (body.getBoundingClientRect().bottom + 2 * proMm) - fuss.getBoundingClientRect().top;
+  if (zuviel <= 0) { warn.hidden = true; return; }
+  warn.hidden = false;
+  warn.textContent = 'Der Brieftext läuft rund ' + Math.ceil(zuviel / proMm)
+    + ' mm in die Fußzeile. Bitte einen Baustein abwählen oder kürzen — der Brief '
+    + 'wird bewusst nicht verkleinert, sonst rutscht die Anschrift aus dem Kuvertfenster.';
 }
 
 // Der Beleg ist die Rechnung selbst — am Bildschirm und im Druck identisch.
@@ -329,11 +697,16 @@ function renderBeleg() {
         ? ' – ' + deDate(_inv.service_to) : '')
     : deDate(_inv.invoice_date);
 
+  // Beschreibung und Nachweis stehen unter der Leistungsbezeichnung, nicht in
+  // eigenen Spalten: die Kasse liest den Satz im Zusammenhang, und § 14 Abs. 4
+  // Nr. 5 UStG verlangt Art und Umfang der Leistung auf der Rechnung selbst.
   const rows = items.map((it, i) => `
     <tr>
       <td>${i + 1}</td>
       <td class="num">${escapeHtml(deNum(it.quantity))}</td>
-      <td>${escapeHtml(it.description)}</td>
+      <td><strong>${escapeHtml(it.description)}</strong>
+        ${it.detail_text ? '<div class="beleg-detail">' + escapeHtml(it.detail_text) + '</div>' : ''}
+        ${it.nachweis_text ? '<div class="beleg-nachweis">' + escapeHtml(it.nachweis_text) + '</div>' : ''}</td>
       <td>${escapeHtml(it.period_text || '—')}</td>
       <td class="num">${LPR.centsToEUR(it.unit_price_cents)}</td>
       <td class="num">${LPR.centsToEUR(_inv.status === 'draft'
@@ -371,6 +744,7 @@ function renderBeleg() {
   <div class="beleg">
     <div class="beleg-claim">${escapeHtml(V.claim)}</div>
     <h1>${_inv.cancels_invoice_id ? 'Storno-Rechnung' : 'Rechnung'}</h1>
+    ${_inv.betreff ? '<div class="beleg-betreff">' + escapeHtml(_inv.betreff) + '</div>' : ''}
     ${stornoHinweis}
 
     <div class="beleg-parties">
@@ -396,6 +770,7 @@ function renderBeleg() {
       <div><div class="beleg-lbl">Rechnungsnummer</div><strong>${escapeHtml(_inv.invoice_no || 'Entwurf — noch nicht festgeschrieben')}</strong></div>
       <div><div class="beleg-lbl">Rechnungsdatum</div>${deDate(_inv.invoice_date)}</div>
       <div><div class="beleg-lbl">Leistungs-/Lieferdatum</div>${leistung}</div>
+      ${_inv.kv_datum ? '<div><div class="beleg-lbl">Kostenvoranschlag vom</div>' + deDate(_inv.kv_datum) + '</div>' : ''}
     </div>
 
     ${_inv.intro_text ? '<p>' + escapeHtml(_inv.intro_text) + '</p>' : ''}
@@ -439,7 +814,42 @@ function setField(key, value) {
   // Der Empfaenger steckt im Beleg — ohne diese Zeile zeigte die Vorschau nach
   // dem Umstellen weiter die alte Anschrift.
   if (key === 'recipient_id') _recipient = _recipients.find(r => r.id === value) || _recipient;
+  // Der Schalter blendet den halben Baukasten ein oder aus, deshalb hier den
+  // Editor komplett neu zeichnen statt nur die Vorschau.
+  if (key === 'mit_brief') { renderEditor(); renderBrief(); renderBeleg(); return; }
+  renderBrief();
   renderBeleg();
+}
+
+/**
+ * Kicker, Überschrift, Highlight, Vorspann.
+ *
+ * Beim ersten Schreiben wird der komplette Brief eingefroren — inklusive aller
+ * Bausteintexte, die bis dahin nur Vorbelegung waren. Sonst änderte sich der
+ * fertige Brief nachträglich, sobald jemand den Rechnungsbetrag oder die Frist
+ * korrigiert.
+ */
+function setBriefFeld(key, value) {
+  const d = briefDaten();
+  d[key] = value;
+  _inv.brief = d;
+  renderBrief();
+}
+
+function setBriefBlock(id, key, value) {
+  const d = briefDaten();
+  if (!d.bloecke[id]) return;
+  d.bloecke[id][key] = value;
+  _inv.brief = d;
+  renderBrief();
+}
+
+/** Zurück auf die Vorgabetexte — mit den aktuellen Rechnungsdaten. */
+function briefZuruecksetzen() {
+  if (!confirm('Alle Texte des Begleitschreibens auf die Vorgabe zurücksetzen?')) return;
+  _inv.brief = null;
+  renderEditor();
+  renderBrief();
 }
 // Leeres Feld heisst "nicht einschlaegig" und muss null werden, nicht 0 —
 // sonst stuende auf jeder Klinikrechnung "Davon Betreuungsanteil 0,00 €".
@@ -494,9 +904,11 @@ function insertTemplate(id) {
             && !Number(_items[0].unit_price_cents);
   if (leer) {
     _items[0].description      = t.name;
+    _items[0].detail_text      = t.detail_text || '';
     _items[0].unit_price_cents = t.unit_price_cents;
   } else {
-    _items.push({ quantity: 1, description: t.name, period_text: '', unit_price_cents: t.unit_price_cents });
+    _items.push({ quantity: 1, description: t.name, detail_text: t.detail_text || '',
+                  nachweis_text: '', period_text: '', unit_price_cents: t.unit_price_cents });
   }
   renderEditor();
 }
@@ -519,7 +931,10 @@ async function saveRowAsTemplate(i) {
   if (!bez) { LPR.showToast('Erst eine Bezeichnung eintragen.', 'warn'); return; }
   const name = prompt('Name der Vorlage:', bez);
   if (name === null) return;
-  const res = await LPR.saveItemTemplate({ name, unit_price_cents: it.unit_price_cents });
+  // Die Beschreibung faehrt mit in die Vorlage: bei Mietwagen, Kraftstoff und
+  // Parkgebuehren ist sie jedes Mal fast derselbe Satz.
+  const res = await LPR.saveItemTemplate({ name, unit_price_cents: it.unit_price_cents,
+                                           detail_text: it.detail_text });
   if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
   await loadTemplates();
   refreshTemplateOptions();

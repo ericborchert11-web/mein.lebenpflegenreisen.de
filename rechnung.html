@@ -437,6 +437,10 @@ function renderBar() {
   } else {
     bits.push('<button class="btn btn-primary" onclick="printInvoice()">Drucken / Als PDF sichern</button>');
     if (s === 'issued') bits.push('<button class="btn" onclick="markPaid()">Als bezahlt markieren</button>');
+    // Nur bei 'issued': eine bezahlte oder stornierte Rechnung laesst die
+    // Datenbankfunktion ohnehin nicht zurueck, und ein Knopf, der immer eine
+    // Fehlermeldung wirft, ist schlimmer als keiner.
+    if (s === 'issued') bits.push('<button class="btn" onclick="reopen()">Wieder öffnen</button>');
     if (s === 'issued' || s === 'paid') bits.push('<button class="btn" onclick="storno()">Stornieren</button>');
   }
   document.getElementById('action-bar').innerHTML = bits.join(' ');
@@ -1072,6 +1076,26 @@ async function storno() {
   if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
   LPR.showToast('Storno ' + res.invoice.invoice_no + ' erstellt');
   location.href = 'rechnung.html?id=' + res.invoice.id;
+}
+
+/**
+ * Zurueck in den Entwurf — fuer Rechnungen, die noch nicht raus sind.
+ *
+ * Die Pruefungen macht die Datenbank (offen, kein Papierkorb, kein Storno,
+ * juengste Nummer). Hier steht nur die Warnung davor, weil der Schritt fuer den
+ * Empfaenger unsichtbar ist und deshalb leicht unterschaetzt wird.
+ */
+async function reopen() {
+  if (!confirm('Diese Rechnung wieder zum Entwurf machen?\n\n'
+             + 'Nur sinnvoll, solange sie das Haus nicht verlassen hat: Nummer, '
+             + 'Zahlungsziel und der eingefrorene Empfänger fallen weg. Die Nummer '
+             + 'wird frei und beim erneuten Festschreiben wieder vergeben, solange '
+             + 'dazwischen keine andere Rechnung festgeschrieben wird.\n\n'
+             + 'Ist die Rechnung schon beim Empfänger, gehört sie storniert.')) return;
+  const res = await LPR.reopenInvoice(INV_ID);
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  LPR.showToast('Wieder als Entwurf geöffnet.');
+  await reload();
 }
 
 function printInvoice() {

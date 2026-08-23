@@ -3691,6 +3691,30 @@
     }
   }
 
+  /**
+   * Eine festgeschriebene Rechnung zurueck in den Entwurf.
+   *
+   * Die Datenbankfunktion gibt es seit dem 17.08.2026, aufgerufen hat sie bis
+   * zum 23.08.2026 niemand — es fehlte schlicht der Knopf. Sie prueft selbst,
+   * dass die Rechnung offen ist, im Papierkorb nicht liegt, kein Storno daran
+   * haengt und dass ihre Nummer die zuletzt vergebene war; sonst bleibt nur der
+   * Storno. Beim Wiederoeffnen fallen Nummer, Zahlungsziel und der eingefrorene
+   * Empfaenger-Schnappschuss weg, der Zaehler geht einen Schritt zurueck.
+   *
+   * Gedacht ist das ausschliesslich fuer Rechnungen, die das Haus noch nicht
+   * verlassen haben: dort gibt es beim Empfaenger nichts zu berichtigen.
+   */
+  async function reopenInvoice(id) {
+    try {
+      const { data, error } = await (await sb()).rpc('reopen_invoice', { p_id: id });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, invoice: _rpcRow(data) };
+    } catch(e) {
+      console.error('[LPR] reopenInvoice:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function updateInvoiceDraft(id, patch) {
     const allowed = ['recipient_id','invoice_date','service_from','service_to','due_date',
                      'tax_mode','tax_rate','tax_note','intro_text','care_share_cents']
@@ -3906,7 +3930,7 @@
     VEREIN, BILLING_DEFAULT_SHIFT_CENTS,
     centsToEUR, eurToCents, qtyToNumber, itemAmountCents, invoiceSubtotalCents, invoiceIsOverdue,
     listRecipients, saveRecipient, setRecipientActive,
-    listInvoices, getInvoice, createInvoice, updateInvoiceDraft, saveInvoiceItems,
+    listInvoices, getInvoice, createInvoice, updateInvoiceDraft, reopenInvoice, saveInvoiceItems,
     deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid,
     listItemTemplates, saveItemTemplate, hatBriefFelder, deleteItemTemplate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,

@@ -3801,10 +3801,16 @@
 
   async function listItemTemplates() {
     try {
-      const { data, error } = await (await sb())
+      const client = await sb();
+      // Ueber den Rueckfall und nicht nur ueber hatBriefFelder(): die Vorlagen
+      // werden auf rechnung.html geladen, bevor die Rechnungsabfrage
+      // feststellen konnte, ob die Spalten da sind. Die Merkvariable stand dann
+      // noch auf "unbekannt", detail_text ging trotzdem raus und der Nutzer sah
+      // eine rote Meldung ueber eine fehlende Spalte. Am 23.08.2026 passiert.
+      const { data, error } = await mitSpaltenrueckfall(() => client
         .from('invoice_item_templates')
         .select(hatBriefFelder() ? 'id, name, detail_text, unit_price_cents' : 'id, name, unit_price_cents')
-        .order('name', { ascending: true });
+        .order('name', { ascending: true }));
       if (error) return { ok: false, error: error.message, templates: [] };
       return { ok: true, templates: data || [] };
     } catch(e) {

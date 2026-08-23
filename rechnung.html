@@ -98,9 +98,15 @@
      Chrome haengt eine fast leere zweite Seite an, auch wenn die Rechnung
      laengst fertig ist. Deshalb hier zurueckgenommen. */
   html, body { min-height:0; margin:0; }
-  .re-wrap { max-width:none; margin:0; padding:0; }
-  /* 6 mm (@page) + 8 mm = 14 mm oben/unten, seitlich 14 mm. */
-  .beleg { border:none; border-radius:0; padding:8mm 14mm; font-size:11pt; }
+  /* 6 mm (@page) + 8 mm = 14 mm oben/unten, seitlich 14 mm. Der Rand sitzt
+     bewusst am Rahmen und nicht am Beleg: der Beleg selbst wird bei Bedarf
+     gezoomt (siehe --druck-faktor), und ein mitskalierter Rand waere dann
+     keine 14 mm mehr. */
+  .re-wrap { max-width:none; margin:0; padding:8mm 14mm; }
+  /* --druck-faktor setzt druck-anpassen.js, wenn die Rechnung sonst knapp
+     ueber eine Seite laufen wuerde. Ohne das Skript bleibt es bei 1. */
+  .beleg { border:none; border-radius:0; padding:0; font-size:11pt;
+           zoom: var(--druck-faktor, 1); }
   .beleg h1 { font-size:21pt; }
   .beleg-table { page-break-inside:auto; }
   .beleg-table tr { page-break-inside:avoid; }
@@ -147,6 +153,7 @@
 </main>
 
 <script src="app.js?v20260819a"></script>
+<script src="druck-anpassen.js?v20260823a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -631,6 +638,13 @@ function printInvoice() {
   document.title = (_inv.invoice_no || 'Rechnung') + ' ' + ((_recipient && _recipient.name) || '');
   window.print();
   setTimeout(() => { document.title = alt; }, 1000);
+}
+
+// Auf ein Blatt bringen, wenn es knapp ist — auch bei Cmd+P, deshalb am
+// beforeprint-Ereignis und nicht nur am Knopf. Was das Skript tut und warum,
+// steht in druck-anpassen.js.
+if (window.LPRDruck) {
+  window.LPRDruck.beiDruck(() => document.querySelector('#beleg .beleg'));
 }
 
 init();

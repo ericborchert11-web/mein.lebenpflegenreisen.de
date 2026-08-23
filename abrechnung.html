@@ -578,8 +578,13 @@ footer a { color: var(--lime); text-decoration: none; }
      Belegs; die 6 mm bleiben stehen, damit Folgeseiten eines langen Belegs
      nicht am Blattrand kleben. Dieselbe Regel steht in rechnung.html. */
   @page { size: A4; margin: 6mm 0; }
-  /* 6 mm (@page) + 8 mm = 14 mm oben/unten, seitlich 14 mm — wie die Rechnung. */
-  .beleg-wrap { padding: 8mm 14mm; }
+  /* 6 mm (@page) + 8 mm = 14 mm oben/unten, seitlich 14 mm — wie die Rechnung.
+     Der Rand sitzt am Rahmen und nicht am Beleg: der Beleg wird bei Bedarf
+     gezoomt (--druck-faktor), ein mitskalierter Rand waere dann keine 14 mm. */
+  #beleg-container { padding: 8mm 14mm; }
+  /* --druck-faktor setzt druck-anpassen.js, wenn der Beleg sonst knapp ueber
+     eine Seite laufen wuerde. Ohne das Skript bleibt es bei 1. */
+  .beleg-wrap { padding: 0; zoom: var(--druck-faktor, 1); }
   /* shared.css gibt dem body min-height:100vh. Im Druck ist 1vh eine
      Seitenhoehe: der body wird damit hoeher als der bedruckbare Bereich und
      Chrome haengt eine fast leere zweite Seite an, auch wenn der Beleg
@@ -900,6 +905,7 @@ body.compliance-locked .info-box { display: none; }
 
 <script src="app.js?v20260729a"></script>
 <script src="beleg-vorlage.js?v20260820a"></script>
+<script src="druck-anpassen.js?v20260823a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'abrechnung' });
@@ -1333,6 +1339,13 @@ async function submitClaim() {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Antrag einreichen';
   }
+}
+
+// Auf ein Blatt bringen, wenn es knapp ist — auch bei Cmd+P, deshalb am
+// beforeprint-Ereignis und nicht nur am Knopf. Was das Skript tut und warum,
+// steht in druck-anpassen.js.
+if (window.LPRDruck) {
+  window.LPRDruck.beiDruck(() => document.getElementById('beleg-content'));
 }
 
 // === BELEG ===

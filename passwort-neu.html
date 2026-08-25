@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Neues Passwort setzen · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.auth-wrap { max-width: 480px; margin: 40px auto; padding: 0 24px; }
+.auth-card {
+  background: #fff; border-radius: var(--radius);
+  padding: 36px 32px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.auth-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 24px;
+  color: var(--green); margin-bottom: 6px;
+}
+.auth-card .sub { color: var(--muted); font-size: 14px; margin-bottom: 22px; }
+.info-small {
+  background: var(--lime-soft); border-radius: var(--radius-sm);
+  padding: 14px 16px; font-size: 14px; line-height: 1.55;
+  margin-top: 16px; color: var(--green-deep);
+}
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Zum Hauptinhalt</a>
+
+<main id="main">
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h2>Neues Passwort setzen</h2>
+    <p class="sub">Sie sind über den Link aus der E-Mail hier. Jetzt nur noch das neue Passwort.</p>
+
+    <form id="np-form" onsubmit="event.preventDefault(); doSet();">
+      <div class="field">
+        <label for="np-password">Neues Passwort <span class="req">*</span></label>
+        <input type="password" id="np-password" autocomplete="new-password" minlength="8" required>
+        <div class="field-hint">Mindestens 8 Zeichen.</div>
+      </div>
+      <div class="field-error" id="np-error" hidden></div>
+      <button type="submit" class="btn btn-primary btn-block" id="np-submit">Passwort speichern</button>
+    </form>
+
+    <div class="info-small" id="np-ok" hidden>
+      <strong>Fertig.</strong> Ihr Passwort ist gesetzt.
+      <a href="login.html" style="color:var(--green-deep);font-weight:700">Jetzt anmelden →</a>
+    </div>
+
+    <div class="info-small" id="np-kein-link" hidden>
+      <strong>Dieser Link trägt keine gültige Sitzung mehr.</strong>
+      Das passiert, wenn der Link älter als eine Stunde ist oder schon einmal benutzt wurde.
+      <a href="passwort-vergessen.html" style="color:var(--green-deep);font-weight:700">Neuen Link anfordern →</a>
+    </div>
+  </div>
+</div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: '' });
+
+/**
+ * Supabase legt die Recovery-Sitzung beim Aufruf dieser Seite selbst an — der
+ * Token steht im Fragment der URL (#access_token=…&type=recovery) und wird vom
+ * Client eingelesen. Bis das passiert ist, vergeht ein Augenblick; deshalb wird
+ * hier auf das Ereignis gewartet, statt sofort zu pruefen.
+ *
+ * FALLE: Das Fragment erreicht den Server nie. Wer diese Seite ohne den Link
+ * aufruft, hat keine Sitzung — und bekommt hier einen Hinweis statt eines
+ * Formulars, das beim Absenden scheitern wuerde.
+ */
+(async function pruefeSitzung() {
+  const sb = await LPR.supabase();
+  let hat = false;
+
+  sb.auth.onAuthStateChange((ereignis) => {
+    if (ereignis === 'PASSWORD_RECOVERY' || ereignis === 'SIGNED_IN') hat = true;
+  });
+
+  // Kurz warten, dann nachsehen. Der Client liest das Fragment beim Start.
+  await new Promise(r => setTimeout(r, 600));
+  const { data } = await sb.auth.getSession();
+  if (data && data.session) hat = true;
+
+  if (!hat) {
+    document.getElementById('np-form').hidden = true;
+    document.getElementById('np-kein-link').hidden = false;
+  }
+})();
+
+async function doSet() {
+  const pw = document.getElementById('np-password').value;
+  const err = document.getElementById('np-error');
+  const btn = document.getElementById('np-submit');
+  err.hidden = true;
+  btn.disabled = true;
+  btn.textContent = 'Wird gespeichert …';
+
+  const res = await LPR.setNewPassword(pw);
+
+  if (!res.ok) {
+    err.textContent = res.error;
+    err.hidden = false;
+    btn.disabled = false;
+    btn.textContent = 'Passwort speichern';
+    return;
+  }
+
+  document.getElementById('np-form').hidden = true;
+  document.getElementById('np-ok').hidden = false;
+}
+</script>
+</body>
+</html>

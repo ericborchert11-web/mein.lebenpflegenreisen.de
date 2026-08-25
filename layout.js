@@ -80,6 +80,7 @@
       } else if (session.role === 'admin') {
         navItems = `
           <li><a href="admin-mitwirkende.html" class="${c('admin')}">Mitwirkende</a></li>
+          <li><a href="admin-ehrenamt-interesse.html" class="${c('ehrenamt-interesse')}">Interessenten<span id="nav-interesse-zahl" class="nav-badge" hidden></span></a></li>
           <li><a href="admin-reisen.html" class="${c('reisen-admin')}">Reisen</a></li>
           <li><a href="admin-jahreskalender.html" class="${c('jahreskalender')}">Jahreskalender</a></li>
           <li><a href="admin-pauschalen.html" class="${c('pauschalen-admin')}">Pauschalen</a></li>
@@ -198,9 +199,37 @@
       if (opts.header !== false) renderHeader(opts.page || '');
       if (opts.footer !== false) renderFooter();
       if (opts.chatbot !== false) loadChatbot();
+      zeigeOffeneInteressenten();
     },
     escapeHtml
   };
+
+  /**
+   * Zahl offener Interessenten-Meldungen ins Menue.
+   *
+   * Der Grund, warum diese Zahl ueberhaupt existiert: Eine Meldung, von der
+   * niemand weiss, ist dasselbe wie keine Meldung. Genau dieser Fehler lag
+   * vorher bei den Registrierungen vor — sie standen auf "pending" und niemand
+   * bekam davon eine Nachricht. Die Mail an ehrenamt@ ist der eine Weg, diese
+   * Zahl der zweite.
+   *
+   * Scheitert still: fehlt die Migration oder ist jemand kein Vorstand, bleibt
+   * das Menue einfach ohne Zahl. Eine Fehlermeldung im Menue waere fuer alle
+   * anderen Seiten laestig und fuer diese Zahl nicht wichtig genug.
+   */
+  async function zeigeOffeneInteressenten() {
+    const el = document.getElementById('nav-interesse-zahl');
+    if (!el || !window.LPR || !LPR.getSession) return;
+    const s = LPR.getSession();
+    if (!s || s.role !== 'admin') return;
+    try {
+      const sb = await LPR.supabase();
+      const { data, error } = await sb.rpc('ehrenamt_interesse_offen');
+      if (error || !data) return;
+      el.textContent = data;
+      el.hidden = false;
+    } catch (_) { /* still */ }
+  }
 
   function loadChatbot() {
     // Chatbot nur einmal laden

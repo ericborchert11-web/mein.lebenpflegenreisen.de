@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Passwort zurücksetzen · Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Neues Passwort für den Mitgliederbereich anfordern.">
+<meta name="robots" content="noindex, follow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.auth-wrap { max-width: 480px; margin: 40px auto; padding: 0 24px; }
+.auth-card {
+  background: #fff; border-radius: var(--radius);
+  padding: 36px 32px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.auth-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 24px;
+  color: var(--green); margin-bottom: 6px;
+}
+.auth-card .sub { color: var(--muted); font-size: 14px; margin-bottom: 22px; }
+.info-small {
+  background: var(--lime-soft); border-radius: var(--radius-sm);
+  padding: 14px 16px; font-size: 14px; line-height: 1.55;
+  margin-top: 16px; color: var(--green-deep);
+}
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Zum Hauptinhalt</a>
+
+<main id="main">
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h2 data-ls="Passwort vergessen">Passwort zurücksetzen</h2>
+    <p class="sub">Wir schicken Ihnen einen Link, mit dem Sie sich ein neues Passwort setzen.</p>
+
+    <form id="pw-form" onsubmit="event.preventDefault(); doReset();">
+      <div class="field">
+        <label for="pw-email">E-Mail <span class="req">*</span></label>
+        <input type="email" id="pw-email" autocomplete="email" required>
+        <div class="field-hint">Die Adresse, mit der Sie sich registriert haben.</div>
+      </div>
+      <div class="field-error" id="pw-error" hidden></div>
+      <button type="submit" class="btn btn-primary btn-block" id="pw-submit">Link anfordern</button>
+    </form>
+
+    <div class="info-small" id="pw-ok" hidden>
+      <strong>Wenn es zu dieser Adresse ein Konto gibt, ist die Mail unterwegs.</strong>
+      Der Link gilt eine Stunde. Schauen Sie auch im Spam-Ordner nach — und wenn
+      nach zehn Minuten nichts da ist, rufen Sie uns an:
+      <a href="tel:+491743409116" style="color:var(--green-deep);font-weight:700">0174 3409116</a>.
+    </div>
+
+    <p class="sub" style="margin:20px 0 0; text-align:center;">
+      <a href="login.html" style="color:var(--green); font-weight:700;">← Zurück zur Anmeldung</a>
+    </p>
+  </div>
+</div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: '' });
+
+async function doReset() {
+  const email = document.getElementById('pw-email').value.trim();
+  const err = document.getElementById('pw-error');
+  const btn = document.getElementById('pw-submit');
+  err.hidden = true;
+  btn.disabled = true;
+  btn.textContent = 'Wird gesendet …';
+
+  const res = await LPR.requestPasswordReset(email);
+
+  if (!res.ok) {
+    err.textContent = res.error;
+    err.hidden = false;
+    btn.disabled = false;
+    btn.textContent = 'Link anfordern';
+    return;
+  }
+
+  // Das Formular verschwindet, damit niemand aus Unsicherheit dreimal klickt
+  // und drei Links bekommt, von denen nur der letzte gilt.
+  document.getElementById('pw-form').hidden = true;
+  document.getElementById('pw-ok').hidden = false;
+}
+</script>
+</body>
+</html>

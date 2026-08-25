@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Ehrenamt-Interesse · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.seite { max-width: 1080px; margin: 32px auto 60px; padding: 0 24px; }
+.seite h1 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+  font-size: 30px; color: var(--green); margin-bottom: 6px;
+}
+.seite .lead { color: var(--muted); font-size: 15px; margin-bottom: 24px; max-width: 720px; line-height: 1.6; }
+
+.filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.filter button {
+  padding: 7px 15px; border: 1.5px solid var(--border); border-radius: 20px;
+  background: #fff; cursor: pointer; font-family: inherit; font-size: 14px;
+  color: var(--green-deep);
+}
+.filter button.aktiv { background: var(--green); color: var(--lime); border-color: var(--green); font-weight: 700; }
+
+.karte {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px 22px; margin-bottom: 14px; box-shadow: var(--shadow);
+}
+.karte-kopf { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; justify-content: space-between; }
+.karte-name { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 19px; color: var(--green-deep); }
+.karte-zeit { font-size: 13px; color: var(--muted); }
+.karte-zeilen { margin: 12px 0 0; font-size: 15px; line-height: 1.8; color: var(--green-deep); }
+.karte-zeilen a { color: var(--green); font-weight: 700; }
+.karte-nachricht {
+  margin: 12px 0 0; padding-left: 14px; border-left: 3px solid var(--lime);
+  font-size: 15px; line-height: 1.6; white-space: pre-wrap; color: var(--green-deep);
+}
+.marke {
+  display: inline-block; padding: 2px 10px; border-radius: 12px;
+  font-size: 12px; font-weight: 700; letter-spacing: .04em;
+}
+.marke-neu     { background: var(--lime); color: var(--green-deep); }
+.marke-sonst   { background: #EEF2EC; color: var(--muted); }
+.warnung { color: var(--warn); font-weight: 700; font-size: 14px; }
+
+.aktionen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
+.aktionen select, .aktionen textarea {
+  font-family: inherit; font-size: 14px; padding: 7px 10px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+}
+.aktionen textarea { flex: 1 1 260px; min-height: 38px; resize: vertical; }
+.leer { background: #fff; border: 1px dashed var(--border); border-radius: var(--radius); padding: 40px 24px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Zum Hauptinhalt</a>
+
+<main id="main">
+<div class="seite">
+  <h1>Ehrenamt-Interesse</h1>
+  <p class="lead">
+    Meldungen aus dem Formular auf der Website. Das sind noch keine Konten und keine
+    Bewerbungen — es sind Menschen, die zurückgerufen werden möchten. Der nächste
+    Schritt ist immer ein Telefonat, nicht eine Mail.
+  </p>
+
+  <div class="filter" id="filter"></div>
+  <div id="liste"><p class="lead">Wird geladen …</p></div>
+</div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: 'ehrenamt-interesse' });
+
+const STATUS_TEXT = {
+  neu:          'Neu',
+  kontaktiert:  'Kontaktiert',
+  gespraech:    'Gespräch vereinbart',
+  uebernommen:  'Übernommen',
+  abgelehnt:    'Abgelehnt',
+  kein_kontakt: 'Nicht erreicht'
+};
+
+const INTERESSE_TEXT = {
+  sitzwache: 'Sitzwachen am Krankenbett',
+  reise:     'Begleitete Reisen',
+  beides:    'Sitzwachen und Reisen',
+  unklar:    'Noch offen'
+};
+
+let alleZeilen = [];
+let filterStatus = 'neu';
+
+if (!LPR.requireRole('admin', 'login.html?next=admin-ehrenamt-interesse.html')) throw new Error('kein Zugriff');
+
+laden();
+
+async function laden() {
+  const sb = await LPR.supabase();
+  const { data, error } = await sb
+    .from('ehrenamt_interessenten')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    document.getElementById('liste').innerHTML =
+      '<div class="leer"><strong>Die Liste ließ sich nicht laden.</strong><br>' +
+      LPR.escape(error.message) + '</div>';
+    return;
+  }
+  alleZeilen = data || [];
+  zeichneFilter();
+  zeichneListe();
+}
+
+function zeichneFilter() {
+  const zaehl = (s) => alleZeilen.filter(z => z.status === s).length;
+  const knoepfe = [['neu', 'Neu'], ['kontaktiert', 'Kontaktiert'], ['gespraech', 'Gespräch'],
+                   ['uebernommen', 'Übernommen'], ['kein_kontakt', 'Nicht erreicht'],
+                   ['abgelehnt', 'Abgelehnt'], ['alle', 'Alle']];
+  document.getElementById('filter').innerHTML = knoepfe.map(([wert, text]) => {
+    const n = wert === 'alle' ? alleZeilen.length : zaehl(wert);
+    return `<button class="${wert === filterStatus ? 'aktiv' : ''}" onclick="setzeFilter('${wert}')">${text} (${n})</button>`;
+  }).join('');
+}
+
+function setzeFilter(wert) {
+  filterStatus = wert;
+  zeichneFilter();
+  zeichneListe();
+}
+
+/** Wie lange liegt die Meldung schon? Ab drei Tagen wird das sichtbar gemacht —
+ *  zugesagt sind zwei Werktage. */
+function alter(iso) {
+  const tage = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (tage <= 0) return 'heute';
+  if (tage === 1) return 'gestern';
+  return `vor ${tage} Tagen`;
+}
+
+function zeichneListe() {
+  const zeilen = filterStatus === 'alle'
+    ? alleZeilen
+    : alleZeilen.filter(z => z.status === filterStatus);
+
+  if (!zeilen.length) {
+    document.getElementById('liste').innerHTML =
+      '<div class="leer">Hier liegt gerade nichts.</div>';
+    return;
+  }
+
+  document.getElementById('liste').innerHTML = zeilen.map(z => {
+    const tage = Math.floor((Date.now() - new Date(z.created_at).getTime()) / 86400000);
+    const ueberfaellig = z.status === 'neu' && tage >= 3;
+    const tel = z.phone ? LPR.escape(z.phone.replace(/\s+/g, '')) : null;
+
+    return `
+    <div class="karte">
+      <div class="karte-kopf">
+        <div>
+          <span class="karte-name">${LPR.escape(z.full_name)}</span>
+          <span class="marke ${z.status === 'neu' ? 'marke-neu' : 'marke-sonst'}"
+                style="margin-left:10px">${STATUS_TEXT[z.status] || z.status}</span>
+        </div>
+        <div class="karte-zeit">
+          ${alter(z.created_at)}
+          ${ueberfaellig ? '<span class="warnung"> · liegt zu lange</span>' : ''}
+        </div>
+      </div>
+
+      <div class="karte-zeilen">
+        ${z.phone ? `📞 <a href="tel:${tel}">${LPR.escape(z.phone)}</a><br>` : ''}
+        ✉️ <a href="mailto:${LPR.escape(z.email)}">${LPR.escape(z.email)}</a><br>
+        🤝 ${INTERESSE_TEXT[z.interesse] || LPR.escape(z.interesse)}
+        ${z.quelle ? `<br>🔗 kam über <code>${LPR.escape(z.quelle)}</code>` : ''}
+        ${z.mail_ok === false ? '<br><span class="warnung">⚠ Eingangsbestätigung wurde NICHT zugestellt</span>' : ''}
+      </div>
+
+      ${z.nachricht ? `<div class="karte-nachricht">${LPR.escape(z.nachricht)}</div>` : ''}
+
+      <div class="aktionen">
+        <select id="st-${z.id}">
+          ${Object.entries(STATUS_TEXT).map(([w, t]) =>
+            `<option value="${w}" ${w === z.status ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+        <textarea id="nz-${z.id}" placeholder="Notiz zum Verlauf — keine Gesundheitsdaten">${LPR.escape(z.notizen || '')}</textarea>
+        <button class="btn btn-primary" onclick="speichern('${z.id}')">Speichern</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function speichern(id) {
+  const status = document.getElementById('st-' + id).value;
+  const notizen = document.getElementById('nz-' + id).value.trim() || null;
+  const sb = await LPR.supabase();
+  const s = LPR.getSession();
+
+  const { error } = await sb.from('ehrenamt_interessenten')
+    .update({
+      status,
+      notizen,
+      bearbeitet_von: s ? s.id : null,
+      bearbeitet_am: new Date().toISOString()
+    })
+    .eq('id', id);
+
+  if (error) { alert('Konnte nicht gespeichert werden: ' + error.message); return; }
+  await laden();
+}
+</script>
+</body>
+</html>

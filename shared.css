@@ -275,3 +275,21 @@ footer.site {
 @media print {
   .a11y-bar, header.site, footer.site, .no-print { display: none !important; }
 }
+
+/* Zahl offener Interessenten-Meldungen im Vorstandsmenue.
+   Sitzt direkt am Menuepunkt, damit die Meldung nicht erst auffaellt, wenn
+   jemand zufaellig die Seite oeffnet. */
+.nav-badge {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: var(--lime);
+  color: var(--green-deep);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  vertical-align: 1px;
+}

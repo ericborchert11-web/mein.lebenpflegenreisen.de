@@ -206,6 +206,33 @@
         return { ok: false, error: error.message || 'Registrierung fehlgeschlagen.' };
       }
 
+      /*
+       * BEREITS REGISTRIERT — und Supabase sagt es nicht.
+       *
+       * Bei einer schon vorhandenen, bestaetigten Adresse liefert signUp
+       * KEINEN Fehler. Das ist Absicht: sonst koennte jeder durchprobieren,
+       * welche Adressen ein Konto haben. Erkennbar ist der Fall nur daran,
+       * dass der zurueckgegebene Benutzer eine LEERE identities-Liste hat.
+       *
+       * Ohne diese Pruefung lief der Ablauf auf die Bestaetigungsseite und
+       * versprach eine Freigabe "innerhalb von 1-2 Werktagen" — fuer ein Konto,
+       * das es laengst gibt und das niemand freischalten wird. Am 25.08.2026
+       * beim Webhook-Test aufgefallen: die Erfolgsseite erschien, in profiles
+       * stand aber ein Eintrag vom 11.06.
+       *
+       * Der Schutz gegen das Ausspaehen von Adressen wird damit aufgegeben.
+       * Bewusst: Bei einem Verein mit vierzig Mitgliedern wiegt eine stille
+       * Sackgasse fuer die betroffene Person schwerer als die Auskunft, dass
+       * eine Adresse hier ein Konto hat.
+       */
+      const identitaeten = data && data.user && data.user.identities;
+      if (Array.isArray(identitaeten) && identitaeten.length === 0) {
+        return {
+          ok: false,
+          error: 'Für diese E-Mail gibt es bereits ein Konto. Bitte melden Sie sich an — oder setzen Sie Ihr Passwort zurück, falls Sie es nicht mehr wissen.'
+        };
+      }
+
       return {
         ok: true,
         pending: true,
@@ -213,6 +240,53 @@
       };
     } catch(e) {
       console.error('[LPR] register failed:', e);
+      return { ok: false, error: 'Netzwerkfehler. Bitte erneut versuchen.' };
+    }
+  }
+
+  /**
+   * Passwort zuruecksetzen — ohne Umweg ueber den Vorstand.
+   *
+   * Vorher stand unter dem Anmeldefeld "Passwort vergessen? — Schreib uns kurz,
+   * wir setzen es zurueck." Das ist Handarbeit an einer Stelle, an der Supabase
+   * den Weg fertig mitbringt, und es liest sich als Bastelloesung genau dort,
+   * wo man gerade Kontodaten anvertrauen soll.
+   *
+   * MELDET IMMER ERFOLG, auch wenn es die Adresse nicht gibt. Eine ehrliche
+   * Fehlermeldung waere hier ein Auskunftsdienst darueber, wer ein Konto hat.
+   */
+  async function requestPasswordReset(email) {
+    email = (email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { ok: false, error: 'Bitte gültige E-Mail eingeben.' };
+    }
+    try {
+      await (await sb()).auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/passwort-neu.html'
+      });
+      return { ok: true };
+    } catch (e) {
+      console.error('[LPR] requestPasswordReset:', e);
+      return { ok: false, error: 'Netzwerkfehler. Bitte erneut versuchen.' };
+    }
+  }
+
+  /**
+   * Neues Passwort setzen. Laeuft nur, wenn der Link aus der Mail eine gueltige
+   * Recovery-Sitzung hergestellt hat — sonst gibt updateUser einen Fehler.
+   */
+  async function setNewPassword(password) {
+    if (!password || password.length < 8) {
+      return { ok: false, error: 'Passwort muss mindestens 8 Zeichen lang sein.' };
+    }
+    try {
+      const { error } = await (await sb()).auth.updateUser({ password });
+      if (error) {
+        return { ok: false, error: 'Der Link ist abgelaufen oder wurde schon benutzt. Bitte fordern Sie einen neuen an.' };
+      }
+      return { ok: true };
+    } catch (e) {
+      console.error('[LPR] setNewPassword:', e);
       return { ok: false, error: 'Netzwerkfehler. Bitte erneut versuchen.' };
     }
   }
@@ -3909,6 +3983,10 @@
   }
 
   global.LPR = {
+    // Der fertig eingerichtete Supabase-Client. Seiten, die selbst an der
+    // Auth-Schicht arbeiten (passwort-neu.html), brauchen ihn direkt —
+    // window.LPRSupabase ist erst nach dem ersten Aufruf gesetzt.
+    supabase: sb,
     // Freibetrag § 3 Nr. 26 EStG (zentral, statt mehrfach hartkodiert)
     PAUSCHALE_LIMIT, PAUSCHALE_WARN,
     KEYS, load, save, del,
@@ -3922,6 +4000,7 @@
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
     register, loginWithPassword, requireRole,
+    requestPasswordReset, setNewPassword,
     listUsersByStatus, approveUser, rejectUser,
     getMyCompliance, getComplianceForUser, setComplianceStatus, isComplianceComplete,
     // Block C

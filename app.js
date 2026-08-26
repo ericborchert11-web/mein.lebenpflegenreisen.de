@@ -558,6 +558,65 @@
   }
 
   /**
+   * Termine fuer die Vorstandsansicht — wahlweise zu einem Kunden.
+   *
+   * Der Vorstand konnte Termine anlegen und danach nirgends sehen: Sie tauchten
+   * nur in der Liste der zugeteilten Person auf. Wer etwas anlegt, muss
+   * nachsehen koennen, ob es richtig angelegt ist.
+   *
+   * Die Namen der zugeteilten Personen kommen ueber eine zweite Abfrage statt
+   * ueber einen Join: Der Fremdschluesselname muesste sonst geraten werden, und
+   * ein falsch geratener Join laesst die ganze Liste scheitern statt nur die
+   * Namen fehlen.
+   */
+  async function listTermine(kundeId) {
+    try {
+      const client = await sb();
+      let q = client
+        .from('bookings')
+        .select('id, kunde_id, volunteer_id, date, beginn_zeit, hours, stunden_geplant, status')
+        .eq('shift', 'termin')
+        .order('date', { ascending: false })
+        .order('beginn_zeit', { ascending: false });
+      if (kundeId) q = q.eq('kunde_id', kundeId);
+
+      const { data, error } = await q;
+      if (error) return { ok: false, error: error.message, termine: [] };
+      const termine = data || [];
+      if (!termine.length) return { ok: true, termine: [] };
+
+      const ids = [...new Set(termine.map(t => t.volunteer_id).filter(Boolean))];
+      const namen = {};
+      if (ids.length) {
+        const { data: p } = await client
+          .from('profiles').select('id, full_name').in('id', ids);
+        (p || []).forEach(x => { namen[x.id] = x.full_name; });
+      }
+      termine.forEach(t => { t.person = namen[t.volunteer_id] || '(unbekannt)'; });
+      return { ok: true, termine };
+    } catch(e) {
+      console.error('[LPR] listTermine:', e);
+      return { ok: false, error: 'Netzwerkfehler.', termine: [] };
+    }
+  }
+
+  /**
+   * Termin absagen. Kein Loeschen: Eine abgesagte Zuteilung ist eine
+   * Information — die Person hat den Abend womoeglich schon freigehalten.
+   */
+  async function cancelTermin(bookingId) {
+    try {
+      const { error } = await (await sb())
+        .from('bookings').update({ status: 'cancelled' }).eq('id', bookingId);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] cancelTermin:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
    * Abschluss durch die Mitwirkende. Niemand unterschreibt — in einer
    * Privatwohnung gibt es keine Station, die gegenzeichnet.
    *
@@ -4336,6 +4395,7 @@
     requestPasswordReset, setNewPassword,
     listUsersByStatus, approveUser, rejectUser, deleteRegistration,
     listKunden, saveKunde, setKundeAktiv, createTermin, finishTermin,
+    listTermine, cancelTermin,
     getMyCompliance, getComplianceForUser, setComplianceStatus, isComplianceComplete,
     // Block C
     getRates, getRate,

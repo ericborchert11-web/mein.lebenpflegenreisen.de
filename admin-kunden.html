@@ -101,6 +101,16 @@
   background: rgba(26,58,42,.08); border: 1px solid var(--green);
   color: var(--green-deep); font-size: 14px; font-weight: 600;
 }
+.termin-block { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.termin-titel { font-size: 12px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.termin-liste { list-style: none; margin: 0; padding: 0; }
+.termin-liste li { font-size: 14.5px; line-height: 1.9; color: var(--green-deep);
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.termin-status { font-size: 12px; font-weight: 700; padding: 1px 8px;
+  border-radius: 10px; background: #EEF2EC; color: var(--muted); }
+.muted { color: var(--muted); font-weight: 400; }
+
 .leer { background: #fff; border: 1px dashed var(--border); border-radius: var(--radius); padding: 40px 24px; text-align: center; color: var(--muted); }
 </style>
 </head>
@@ -208,6 +218,15 @@ async function ladePersonen() {
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
 }
 
+let _termine = [];   // alle Termine, nach Kunde gruppiert abrufbar
+
+/** Termine je Kunde. Ohne diese Liste konnte der Vorstand anlegen und nie nachsehen. */
+async function ladeTermine() {
+  const res = await LPR.listTermine();
+  _termine = res.ok ? res.termine : [];
+  if (!res.ok) console.warn('[Kunden] Termine nicht ladbar:', res.error);
+}
+
 async function laden() {
   const res = await LPR.listKunden(false);
   if (!res.ok) {
@@ -217,6 +236,7 @@ async function laden() {
     return;
   }
   kunden = res.kunden || [];
+  await ladeTermine();
   zeichneListe();
 }
 
@@ -302,6 +322,54 @@ async function kundeSpeichern() {
 
 // ── Liste ───────────────────────────────────────────────────────────────────
 
+const TERMIN_STATUS = {
+  planned:   'geplant',
+  confirmed: 'abgeschlossen',
+  cancelled: 'abgesagt',
+  completed: 'abgeschlossen'
+};
+
+/** Die Termine eines Kunden, jüngste zuerst. */
+function terminBlock(kundeId) {
+  const meine = _termine.filter(t => t.kunde_id === kundeId);
+  if (!meine.length) return '';
+
+  const zeile = (t) => {
+    const d = new Date(t.date + 'T00:00:00');
+    const datum = d.toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'2-digit', year:'2-digit' });
+    const zeit  = t.beginn_zeit ? String(t.beginn_zeit).slice(0,5) : '—';
+    const dauer = t.hours ? String(t.hours).replace('.', ',') + ' Std.' : '';
+    // Weicht die geleistete von der vereinbarten Dauer ab, steht beides da —
+    // sonst wäre später nicht erkennbar, was abgesprochen und was geworden ist.
+    const geplant = (t.stunden_geplant && Number(t.stunden_geplant) !== Number(t.hours))
+      ? ` <span class="muted">(vereinbart ${String(t.stunden_geplant).replace('.', ',')})</span>` : '';
+    const abgesagt = t.status === 'cancelled';
+    return `<li style="${abgesagt ? 'opacity:.5; text-decoration:line-through;' : ''}">
+      <strong>${datum}</strong> · ${zeit} Uhr · ${dauer}${geplant}
+      · ${LPR.escape(t.person)}
+      <span class="termin-status">${TERMIN_STATUS[t.status] || t.status}</span>
+      ${t.status === 'planned'
+        ? `<button type="button" class="btn-klein" onclick="terminAbsagen('${t.id}')">Absagen</button>` : ''}
+    </li>`;
+  };
+
+  return `<div class="termin-block">
+    <div class="termin-titel">Termine</div>
+    <ul class="termin-liste">${meine.map(zeile).join('')}</ul>
+  </div>`;
+}
+
+async function terminAbsagen(id) {
+  const res = await LPR.cancelTermin(id);
+  if (!res.ok) {
+    const f = document.getElementById('termin-fehler');
+    if (f) { f.textContent = 'Konnte nicht abgesagt werden: ' + res.error; f.hidden = false; }
+    return;
+  }
+  await ladeTermine();
+  zeichneListe();
+}
+
 function zeichneListe() {
   if (!kunden.length) {
     document.getElementById('liste').innerHTML =
@@ -328,6 +396,8 @@ function zeichneListe() {
       </div>
 
       ${k.hinweise ? `<div class="karte-hinweise">${LPR.escape(k.hinweise)}</div>` : ''}
+
+      ${terminBlock(k.id)}
 
       <div class="aktionen">
         ${k.aktiv ? `

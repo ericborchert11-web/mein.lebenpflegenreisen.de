@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Kunden · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.seite { max-width: 1080px; margin: 32px auto 60px; padding: 0 24px; }
+.seite h1 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+  font-size: 30px; color: var(--green); margin-bottom: 6px;
+}
+.seite .lead { color: var(--muted); font-size: 15px; margin-bottom: 24px; max-width: 720px; line-height: 1.6; }
+.seite h2 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+  font-size: 20px; color: var(--green-deep); margin: 0 0 14px;
+}
+
+.karte {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px 22px; margin-bottom: 14px; box-shadow: var(--shadow);
+}
+/* Stillgelegte Kunden bleiben sichtbar, treten aber zurueck: an ihnen haengen
+   Termine, die Liste soll sie zeigen, ohne sie anzubieten. */
+.karte-still { background: #F7F8F6; opacity: .72; }
+
+.formular { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.formular label { display: block; font-size: 13px; font-weight: 600; color: var(--green-deep); margin-bottom: 4px; }
+.formular input, .formular textarea, .formular select {
+  width: 100%; font-family: inherit; font-size: 15px; padding: 9px 11px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff; color: var(--green-deep); box-sizing: border-box;
+}
+.formular textarea { min-height: 80px; resize: vertical; }
+.feld-breit { grid-column: 1 / -1; }
+.feld-hinweis { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 6px 0 0; }
+.formular-fuss { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 16px; }
+
+.karte-kopf { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; justify-content: space-between; }
+.karte-name { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 19px; color: var(--green-deep); }
+.karte-zeilen { margin: 10px 0 0; font-size: 15px; line-height: 1.8; color: var(--green-deep); }
+.karte-zeilen a { color: var(--green); font-weight: 700; }
+.karte-hinweise {
+  margin: 12px 0 0; padding-left: 14px; border-left: 3px solid var(--lime);
+  font-size: 15px; line-height: 1.6; white-space: pre-wrap; color: var(--green-deep);
+}
+.marke {
+  display: inline-block; padding: 2px 10px; border-radius: 12px;
+  font-size: 12px; font-weight: 700; letter-spacing: .04em;
+  background: #EEF2EC; color: var(--muted);
+}
+
+.aktionen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
+.btn-klein {
+  font-family: inherit; font-size: 14px; padding: 7px 14px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff; color: var(--green-deep); cursor: pointer;
+}
+.btn-klein:hover { border-color: var(--green); }
+
+/* Stilllegen sitzt am rechten Rand und ist zurueckhaltend gestaltet:
+   Es ist die seltene Handlung, nicht die naheliegende. */
+.stillbereich { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn-still { color: var(--muted); }
+.btn-still:hover { border-color: var(--warn); color: var(--warn); }
+.btn-still-ja { background: var(--warn); border-color: var(--warn); color: #fff; font-weight: 700; }
+.btn-still-ja:hover { color: #fff; border-color: var(--warn); }
+.stillfrage { font-size: 14px; color: var(--warn); font-weight: 700; }
+
+.terminbox {
+  margin-top: 16px; padding: 16px; border-radius: var(--radius-sm);
+  background: #F4F8F1; border: 1px solid var(--border);
+}
+.terminbox h3 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+  font-size: 16px; color: var(--green-deep); margin: 0 0 12px;
+}
+.termin-felder { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.termin-felder label { display: block; font-size: 13px; font-weight: 600; color: var(--green-deep); margin-bottom: 4px; }
+.termin-felder input, .termin-felder select {
+  width: 100%; font-family: inherit; font-size: 15px; padding: 9px 11px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff; color: var(--green-deep); box-sizing: border-box;
+}
+
+.zeilen-fehler {
+  margin-top: 10px; padding: 8px 12px; border-radius: var(--radius-sm);
+  background: rgba(200,91,48,.12); border: 1px solid var(--warn);
+  color: var(--warn); font-size: 14px;
+}
+.zeilen-ok {
+  margin-bottom: 16px; padding: 10px 14px; border-radius: var(--radius-sm);
+  background: rgba(26,58,42,.08); border: 1px solid var(--green);
+  color: var(--green-deep); font-size: 14px; font-weight: 600;
+}
+.leer { background: #fff; border: 1px dashed var(--border); border-radius: var(--radius); padding: 40px 24px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Zum Hauptinhalt</a>
+
+<main id="main">
+<div class="seite">
+  <h1>Kunden</h1>
+  <p class="lead">
+    Menschen, die einen Termin zu Hause bekommen — privat bezahlt, ohne Klinik.
+    Sie haben keinen Portalzugang: Ein Kunde meldet sich nicht an, er wird hier
+    verwaltet. Angelegt wird nur, was für den Weg zur Wohnungstür nötig ist.
+  </p>
+
+  <div class="zeilen-ok" id="meldung" hidden></div>
+
+  <div class="karte">
+    <h2 id="form-titel">Neuen Kunden anlegen</h2>
+    <div class="formular">
+      <div>
+        <label for="k-name">Name</label>
+        <input type="text" id="k-name" maxlength="120" autocomplete="off">
+      </div>
+      <div>
+        <label for="k-telefon">Telefon</label>
+        <input type="tel" id="k-telefon" maxlength="40" autocomplete="off">
+      </div>
+      <div class="feld-breit">
+        <label for="k-strasse">Straße und Hausnummer</label>
+        <input type="text" id="k-strasse" maxlength="120" autocomplete="off">
+      </div>
+      <div>
+        <label for="k-plz">Postleitzahl</label>
+        <input type="text" id="k-plz" inputmode="numeric" maxlength="5" autocomplete="off">
+      </div>
+      <div>
+        <label for="k-ort">Ort</label>
+        <input type="text" id="k-ort" maxlength="80" value="Berlin" autocomplete="off">
+      </div>
+      <div>
+        <label for="k-bezirk">Bezirk</label>
+        <input type="text" id="k-bezirk" maxlength="60" autocomplete="off">
+      </div>
+      <div>
+        <label for="k-email">E-Mail</label>
+        <input type="email" id="k-email" maxlength="200" autocomplete="off">
+      </div>
+      <div class="feld-breit">
+        <label for="k-hinweise">Hinweise für den Einsatz</label>
+        <textarea id="k-hinweise" maxlength="1000"></textarea>
+        <p class="feld-hinweis">
+          Keine Diagnosen, keine Medikamente. Nur was für den Weg zur Tür nötig ist —
+          Klingel, Schlüssel, Hund, beste Uhrzeit.
+        </p>
+      </div>
+    </div>
+    <div class="formular-fuss">
+      <button type="button" class="btn btn-primary" id="btn-speichern" onclick="kundeSpeichern()">Kunde anlegen</button>
+      <button type="button" class="btn-klein" id="btn-form-abbruch" onclick="formularLeeren()" hidden>Abbrechen</button>
+    </div>
+    <div class="zeilen-fehler" id="form-fehler" hidden></div>
+  </div>
+
+  <h2 style="margin-top:32px">Alle Kunden</h2>
+  <div id="liste"><p class="lead">Wird geladen …</p></div>
+</div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: 'kunden' });
+
+if (!LPR.requireRole('admin', 'login.html?next=admin-kunden.html')) throw new Error('kein Zugriff');
+
+let kunden = [];
+let personen = [];
+
+/* Nur eine Karte darf auf einmal aufgeklappt sein: Das Terminformular und die
+   Stilllegen-Rueckfrage benutzen feste Element-IDs. Zwei offene Formulare
+   gleichzeitig haetten doppelte IDs und wuerden auf dieselben Felder greifen. */
+let offenerTermin = null;
+let stillFrage = null;
+
+start();
+
+async function start() {
+  personen = await ladePersonen();
+  await laden();
+}
+
+/**
+ * Auswahlliste der Personen, denen ein Termin zugeteilt werden kann.
+ *
+ * listUsersByStatus('approved') liefert ALLE freigegebenen Konten, auch
+ * Kliniken und Vorstand. Ohne den Rollenfilter stuenden hier Klinikkonten in
+ * der Liste — und ein Termin, der einem Klinikkonto zugeteilt wird, taucht in
+ * keiner Einsatzliste auf.
+ */
+async function ladePersonen() {
+  const alle = await LPR.listUsersByStatus('approved');
+  return (alle || [])
+    .filter(u => u.role === 'ehrenamt')
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+}
+
+async function laden() {
+  const res = await LPR.listKunden(false);
+  if (!res.ok) {
+    document.getElementById('liste').innerHTML =
+      '<div class="leer"><strong>Die Liste ließ sich nicht laden.</strong><br>' +
+      LPR.escape(res.error || '') + '</div>';
+    return;
+  }
+  kunden = res.kunden || [];
+  zeichneListe();
+}
+
+function zeigeMeldung(text) {
+  const el = document.getElementById('meldung');
+  if (!text) { el.hidden = true; return; }
+  el.textContent = text;
+  el.hidden = false;
+}
+
+// ── Formular ────────────────────────────────────────────────────────────────
+
+function formularLeeren() {
+  document.getElementById('form-titel').textContent = 'Neuen Kunden anlegen';
+  document.getElementById('btn-speichern').textContent = 'Kunde anlegen';
+  document.getElementById('btn-form-abbruch').hidden = true;
+  document.getElementById('form-fehler').hidden = true;
+  document.getElementById('k-name').value = '';
+  document.getElementById('k-strasse').value = '';
+  document.getElementById('k-plz').value = '';
+  document.getElementById('k-ort').value = 'Berlin';
+  document.getElementById('k-bezirk').value = '';
+  document.getElementById('k-telefon').value = '';
+  document.getElementById('k-email').value = '';
+  document.getElementById('k-hinweise').value = '';
+  delete document.getElementById('btn-speichern').dataset.id;
+}
+
+function bearbeiten(id) {
+  const k = kunden.find(x => x.id === id);
+  if (!k) return;
+  document.getElementById('form-titel').textContent = 'Kunde ändern: ' + k.name;
+  document.getElementById('btn-speichern').textContent = 'Änderungen speichern';
+  document.getElementById('btn-speichern').dataset.id = id;
+  document.getElementById('btn-form-abbruch').hidden = false;
+  document.getElementById('form-fehler').hidden = true;
+  document.getElementById('k-name').value = k.name || '';
+  document.getElementById('k-strasse').value = k.strasse || '';
+  document.getElementById('k-plz').value = k.plz || '';
+  document.getElementById('k-ort').value = k.ort || 'Berlin';
+  document.getElementById('k-bezirk').value = k.bezirk || '';
+  document.getElementById('k-telefon').value = k.telefon || '';
+  document.getElementById('k-email').value = k.email || '';
+  document.getElementById('k-hinweise').value = k.hinweise || '';
+  document.getElementById('form-titel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function kundeSpeichern() {
+  const knopf = document.getElementById('btn-speichern');
+  const fehler = document.getElementById('form-fehler');
+  fehler.hidden = true;
+  zeigeMeldung('');
+
+  const id = knopf.dataset.id || null;
+  knopf.disabled = true;
+
+  const res = await LPR.saveKunde({
+    id:       id,
+    name:     document.getElementById('k-name').value,
+    strasse:  document.getElementById('k-strasse').value,
+    plz:      document.getElementById('k-plz').value,
+    ort:      document.getElementById('k-ort').value,
+    bezirk:   document.getElementById('k-bezirk').value,
+    telefon:  document.getElementById('k-telefon').value,
+    email:    document.getElementById('k-email').value,
+    hinweise: document.getElementById('k-hinweise').value
+  });
+
+  knopf.disabled = false;
+
+  // Kein alert(): Ein Browser-Dialog blockiert die Seite und sagt nicht, welches
+  // Feld gemeint ist. Die Meldung gehoert an das Formular, um das es geht.
+  if (!res.ok) {
+    fehler.textContent = res.error;
+    fehler.hidden = false;
+    return;
+  }
+  const name = document.getElementById('k-name').value.trim();
+  formularLeeren();
+  zeigeMeldung(id ? name + ' wurde geändert.' : name + ' wurde angelegt.');
+  await laden();
+}
+
+// ── Liste ───────────────────────────────────────────────────────────────────
+
+function zeichneListe() {
+  if (!kunden.length) {
+    document.getElementById('liste').innerHTML =
+      '<div class="leer">Noch kein Kunde angelegt.</div>';
+    return;
+  }
+
+  document.getElementById('liste').innerHTML = kunden.map(k => {
+    const tel = k.telefon ? LPR.escape(k.telefon.replace(/\s+/g, '')) : null;
+    return `
+    <div class="karte ${k.aktiv ? '' : 'karte-still'}">
+      <div class="karte-kopf">
+        <div>
+          <span class="karte-name">${LPR.escape(k.name)}</span>
+          ${k.aktiv ? '' : '<span class="marke" style="margin-left:10px">Stillgelegt</span>'}
+        </div>
+      </div>
+
+      <div class="karte-zeilen">
+        📍 ${LPR.escape(k.strasse)}, ${LPR.escape(k.plz)} ${LPR.escape(k.ort)}<br>
+        🗺️ ${LPR.escape(k.bezirk)}
+        ${k.telefon ? `<br>📞 <a href="tel:${tel}">${LPR.escape(k.telefon)}</a>` : ''}
+        ${k.email ? `<br>✉️ <a href="mailto:${LPR.escape(k.email)}">${LPR.escape(k.email)}</a>` : ''}
+      </div>
+
+      ${k.hinweise ? `<div class="karte-hinweise">${LPR.escape(k.hinweise)}</div>` : ''}
+
+      <div class="aktionen">
+        ${k.aktiv ? `
+          <button type="button" class="btn-klein" onclick="terminOeffnen('${k.id}')">Termin anlegen</button>
+          <button type="button" class="btn-klein" onclick="bearbeiten('${k.id}')">Bearbeiten</button>
+          <span class="stillbereich">${stillKnopf(k)}</span>
+        ` : `
+          <button type="button" class="btn-klein" onclick="aktivSetzen('${k.id}', true)">Wieder aktivieren</button>
+        `}
+      </div>
+      <div class="zeilen-fehler" id="fe-${k.id}" hidden></div>
+      ${offenerTermin === k.id ? terminFormular(k) : ''}
+    </div>`;
+  }).join('');
+}
+
+function stillKnopf(k) {
+  // Rueckfrage in der Karte statt als Browser-Dialog: confirm() blockiert die
+  // Seite, laesst sich nicht pruefen und benennt nicht, WEN es trifft.
+  if (stillFrage !== k.id) {
+    return `<button type="button" class="btn-klein btn-still" onclick="stilllegenFragen('${k.id}')">Stilllegen</button>`;
+  }
+  return `<span class="stillfrage">${LPR.escape(k.name)} stilllegen? Bestehende Termine bleiben.</span>` +
+         `<button type="button" class="btn-klein btn-still-ja" onclick="aktivSetzen('${k.id}', false)">Ja, stilllegen</button>` +
+         `<button type="button" class="btn-klein" onclick="stilllegenAbbrechen()">Abbrechen</button>`;
+}
+
+function stilllegenFragen(id) {
+  stillFrage = id;
+  offenerTermin = null;
+  zeichneListe();
+}
+
+function stilllegenAbbrechen() {
+  stillFrage = null;
+  zeichneListe();
+}
+
+/**
+ * Stilllegen statt loeschen.
+ *
+ * An einem Kunden haengen Termine. Waere er weg, waeren auch die abgerechneten
+ * Einsaetze ohne Bezug — deshalb gibt es hier bewusst kein Loeschen, nur den
+ * Weg zurueck ueber "Wieder aktivieren".
+ */
+async function aktivSetzen(id, aktiv) {
+  const fehler = document.getElementById('fe-' + id);
+  if (fehler) fehler.hidden = true;
+  zeigeMeldung('');
+
+  const res = await LPR.setKundeAktiv(id, aktiv);
+  if (!res.ok) {
+    if (fehler) {
+      fehler.textContent = 'Konnte nicht geändert werden: ' + res.error;
+      fehler.hidden = false;
+    }
+    return;
+  }
+  stillFrage = null;
+  await laden();
+}
+
+// ── Termin ──────────────────────────────────────────────────────────────────
+
+function terminOeffnen(id) {
+  offenerTermin = (offenerTermin === id) ? null : id;
+  stillFrage = null;
+  zeichneListe();
+}
+
+function terminFormular(k) {
+  if (!personen.length) {
+    return `<div class="terminbox">
+      <h3>Termin bei ${LPR.escape(k.name)}</h3>
+      <p class="feld-hinweis">Es gibt keine freigegebenen Mitwirkenden, denen ein
+      Termin zugeteilt werden könnte.</p>
+    </div>`;
+  }
+  const optionen = personen.map(p =>
+    `<option value="${LPR.escape(p._id)}">${LPR.escape(p.name || p.email)}</option>`).join('');
+
+  return `
+    <div class="terminbox">
+      <h3>Termin bei ${LPR.escape(k.name)} · ${LPR.escape(k.bezirk)}</h3>
+      <div class="termin-felder">
+        <div>
+          <label for="t-datum">Datum</label>
+          <input type="date" id="t-datum">
+        </div>
+        <div>
+          <label for="t-beginn">Beginn</label>
+          <input type="time" id="t-beginn">
+        </div>
+        <div>
+          <label for="t-dauer">Dauer in Stunden</label>
+          <input type="number" id="t-dauer" step="0.25" min="0.25" max="12" value="2">
+        </div>
+        <div>
+          <label for="t-person">Wer übernimmt</label>
+          <select id="t-person">${optionen}</select>
+        </div>
+      </div>
+      <div class="formular-fuss">
+        <button type="button" class="btn btn-primary" onclick="terminAnlegen('${k.id}')">Termin zuteilen</button>
+        <button type="button" class="btn-klein" onclick="terminOeffnen('${k.id}')">Abbrechen</button>
+      </div>
+      <div class="zeilen-fehler" id="termin-fehler" hidden></div>
+    </div>`;
+}
+
+/** Termin anlegen. Feldnamen genau wie in LPR.createTermin. */
+async function terminAnlegen(kundeId) {
+  const fehler = document.getElementById('termin-fehler');
+  fehler.hidden = true;
+  zeigeMeldung('');
+
+  const personEl = document.getElementById('t-person');
+  const name = personEl.options[personEl.selectedIndex]
+    ? personEl.options[personEl.selectedIndex].text : '';
+  const datum = document.getElementById('t-datum').value;
+  const beginn = document.getElementById('t-beginn').value;
+
+  const res = await LPR.createTermin({
+    kunde_id:     kundeId,
+    volunteer_id: personEl.value,
+    datum:        datum,                                        // YYYY-MM-DD
+    beginn:       beginn,                                       // HH:MM
+    stunden:      parseFloat(document.getElementById('t-dauer').value)
+  });
+
+  if (!res.ok) {
+    fehler.textContent = res.error;
+    fehler.hidden = false;
+    return;
+  }
+  const k = kunden.find(x => x.id === kundeId);
+  offenerTermin = null;
+  zeigeMeldung(`Termin bei ${k ? k.name : 'dem Kunden'} am ${datum} um ${beginn} Uhr — ${name} übernimmt.`);
+  await laden();
+}
+</script>
+</body>
+</html>

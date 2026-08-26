@@ -55,6 +55,29 @@
   border: 1.5px solid var(--border); border-radius: var(--radius-sm);
 }
 .aktionen textarea { flex: 1 1 260px; min-height: 38px; resize: vertical; }
+
+/* Löschen sitzt bewusst am rechten Rand und ist zurückhaltend gestaltet:
+   Es ist die seltene Handlung, nicht die naheliegende. */
+.loeschbereich { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn-loeschen {
+  font-family: inherit; font-size: 14px; padding: 7px 14px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff; color: var(--muted); cursor: pointer;
+}
+.btn-loeschen:hover { border-color: var(--warn); color: var(--warn); }
+.btn-loeschen-ja { background: var(--warn); border-color: var(--warn); color: #fff; font-weight: 700; }
+.btn-loeschen-ja:hover { color: #fff; }
+.btn-abbruch {
+  font-family: inherit; font-size: 14px; padding: 7px 14px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff; color: var(--green-deep); cursor: pointer;
+}
+.loeschfrage { font-size: 14px; color: var(--warn); font-weight: 700; }
+.zeilen-fehler {
+  margin-top: 10px; padding: 8px 12px; border-radius: var(--radius-sm);
+  background: rgba(200,91,48,.12); border: 1px solid var(--warn);
+  color: var(--warn); font-size: 14px;
+}
 .leer { background: #fff; border: 1px dashed var(--border); border-radius: var(--radius); padding: 40px 24px; text-align: center; color: var(--muted); }
 </style>
 </head>
@@ -194,14 +217,68 @@ function zeichneListe() {
         </select>
         <textarea id="nz-${z.id}" placeholder="Notiz zum Verlauf — keine Gesundheitsdaten">${LPR.escape(z.notizen || '')}</textarea>
         <button class="btn btn-primary" onclick="speichern('${z.id}')">Speichern</button>
+        <span class="loeschbereich" id="lb-${z.id}">
+          <button type="button" class="btn-loeschen" onclick="loeschenFragen('${z.id}')">Löschen</button>
+        </span>
       </div>
+      <div class="zeilen-fehler" id="fe-${z.id}" hidden></div>
     </div>`;
   }).join('');
+}
+
+/**
+ * Rückfrage in der Zeile statt als Browser-Dialog.
+ *
+ * Zwei Gründe: Ein `confirm()` blockiert die ganze Seite und lässt sich nicht
+ * automatisiert prüfen — und die Rückfrage soll benennen, WEN man löscht.
+ * "Wirklich löschen?" ohne Namen ist keine Rückfrage, sondern eine Formalie.
+ */
+function loeschenFragen(id) {
+  const z = alleZeilen.find(x => x.id === id);
+  const bereich = document.getElementById('lb-' + id);
+  bereich.innerHTML =
+    `<span class="loeschfrage">${LPR.escape(z ? z.full_name : 'Diesen Eintrag')} endgültig löschen?</span>` +
+    `<button type="button" class="btn-loeschen btn-loeschen-ja" onclick="loeschen('${id}')">Ja, löschen</button>` +
+    `<button type="button" class="btn-abbruch" onclick="loeschenAbbrechen('${id}')">Abbrechen</button>`;
+}
+
+function loeschenAbbrechen(id) {
+  document.getElementById('lb-' + id).innerHTML =
+    `<button type="button" class="btn-loeschen" onclick="loeschenFragen('${id}')">Löschen</button>`;
+}
+
+/**
+ * Endgültig löschen, nicht auf "abgelehnt" setzen.
+ *
+ * Wer sich gemeldet hat und nicht übernommen wird, hat ein Recht darauf, dass
+ * seine Daten verschwinden — Name, Telefonnummer und die Angabe, worauf jemand
+ * angesprochen hat. Für "hat sich nicht gemeldet" gibt es den Status
+ * 'kein_kontakt'; das Löschen ist für den Fall gedacht, dass die Zeile ganz
+ * weg soll. Es gibt bewusst kein Wiederherstellen.
+ */
+async function loeschen(id) {
+  const fehler = document.getElementById('fe-' + id);
+  fehler.hidden = true;
+  const bereich = document.getElementById('lb-' + id);
+  bereich.innerHTML = '<span class="loeschfrage">Wird gelöscht …</span>';
+
+  const sb = await LPR.supabase();
+  const { error } = await sb.from('ehrenamt_interessenten').delete().eq('id', id);
+
+  if (error) {
+    fehler.textContent = 'Konnte nicht gelöscht werden: ' + error.message;
+    fehler.hidden = false;
+    loeschenAbbrechen(id);
+    return;
+  }
+  await laden();
 }
 
 async function speichern(id) {
   const status = document.getElementById('st-' + id).value;
   const notizen = document.getElementById('nz-' + id).value.trim() || null;
+  const fehler = document.getElementById('fe-' + id);
+  fehler.hidden = true;
   const sb = await LPR.supabase();
   const s = LPR.getSession();
 
@@ -214,7 +291,13 @@ async function speichern(id) {
     })
     .eq('id', id);
 
-  if (error) { alert('Konnte nicht gespeichert werden: ' + error.message); return; }
+  // Kein alert(): ein Browser-Dialog blockiert die Seite und sagt nicht, welche
+  // Zeile betroffen ist. Die Meldung gehoert an die Zeile, um die es geht.
+  if (error) {
+    fehler.textContent = 'Konnte nicht gespeichert werden: ' + error.message;
+    fehler.hidden = false;
+    return;
+  }
   await laden();
 }
 </script>

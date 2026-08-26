@@ -494,11 +494,12 @@ async function renderPending() {
         <div style="font-size: 11px; color: #aaa; margin-top: 4px;">Registriert: ${dateStr}</div>
         ${isRejected ? `<div style="font-size: 12px; color: #c00; margin-top: 4px;">❌ Abgelehnt${u.rejectedReason ? ': ' + escape(u.rejectedReason) : ''}</div>` : ''}
       </div>
-      <div style="display: flex; gap: 8px; flex-shrink: 0;">
+      <div style="display: flex; gap: 8px; flex-shrink: 0; align-items: center; flex-wrap: wrap;">
         ${!isRejected
           ? `<button class="btn-approve" data-email="${escape(u.email)}" style="background: #1A3A2A; color: #C8F135; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px;">✓ Freigeben</button>
              <button class="btn-reject"  data-email="${escape(u.email)}" style="background: transparent; color: #c00; border: 1px solid #c00; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Ablehnen</button>`
           : `<button class="btn-approve" data-email="${escape(u.email)}" style="background: #1A3A2A; color: #C8F135; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px;">✓ Doch freigeben</button>`}
+        <button class="btn-del" data-email="${escape(u.email)}" data-name="${escape(u.name || u.email)}" style="background: transparent; color: #888; border: 1px solid #ddd; padding: 8px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Löschen</button>
       </div>
     </div>`;
   }).join('');
@@ -516,6 +517,44 @@ async function renderPending() {
         btn.disabled = false; btn.textContent = '✓ Freigeben';
         showToast('Fehler: ' + res.error);
       }
+    });
+  });
+
+  // Loeschen: Rueckfrage in der Karte, nicht als Browser-Dialog.
+  //
+  // Bewusst anders als Freigeben (confirm) und Ablehnen (prompt) daneben: Das
+  // hier ist die einzige Handlung auf dieser Seite, die sich nicht zuruecknehmen
+  // laesst. Sie soll den Namen nennen und einen zweiten, bewussten Klick
+  // verlangen — ein confirm() klickt man nach dem dritten Mal blind weg.
+  list.querySelectorAll('.btn-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const email = btn.getAttribute('data-email');
+      const name  = btn.getAttribute('data-name');
+      const leiste = btn.parentElement;
+      const vorher = leiste.innerHTML;
+
+      leiste.innerHTML =
+        `<span style="font-size:13px; color:#c00; font-weight:700;">${escape(name)} endgültig löschen?</span>
+         <button class="btn-del-ja" style="background:#c00; color:#fff; border:none; padding:8px 14px; border-radius:6px; font-weight:700; cursor:pointer; font-size:13px;">Ja, löschen</button>
+         <button class="btn-del-nein" style="background:transparent; color:#1A3A2A; border:1px solid #ddd; padding:8px 14px; border-radius:6px; font-weight:600; cursor:pointer; font-size:13px;">Abbrechen</button>`;
+
+      leiste.querySelector('.btn-del-nein').addEventListener('click', () => {
+        leiste.innerHTML = vorher;
+        renderPending();
+      });
+
+      leiste.querySelector('.btn-del-ja').addEventListener('click', async () => {
+        leiste.innerHTML = '<span style="font-size:13px; color:#666;">Wird gelöscht …</span>';
+        const res = await LPR.deleteRegistration(email);
+        if (res.ok) {
+          showToast('Registrierung gelöscht: ' + email);
+          await render();
+        } else {
+          showToast('Fehler: ' + res.error);
+          leiste.innerHTML = vorher;
+          renderPending();
+        }
+      });
     });
   });
 

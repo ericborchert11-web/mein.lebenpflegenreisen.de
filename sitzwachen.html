@@ -591,6 +591,42 @@ dialog::backdrop {
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.warn { background: var(--warn); }
 
+/* ───── Termin beim Kunden ─────
+   Eigener Kartentyp neben den Klinikschichten: ein Termin hat keine Schicht
+   und keine Station, dafuer eine Adresse und einen Abschluss durch die
+   Mitwirkende selbst. */
+.termin-karte {
+  border: 1px solid #E4DFD2; border-left: 4px solid var(--green);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; background: #fff;
+}
+.termin-adresse { font-size: 14px; color: #555; margin-top: 2px; }
+.termin-hinweise {
+  margin-top: 10px; padding: 10px 12px; border-radius: var(--radius-sm);
+  background: #F4F7FB; border: 1px solid #D5E0EE;
+  font-size: 14px; line-height: 1.5; color: #24456E;
+}
+.termin-aktion { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.termin-frage { width: 100%; }
+.termin-frage label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.termin-frage-zeile { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.termin-frage-zeile input {
+  width: 92px; padding: 10px 12px; min-height: 44px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 15px; background: var(--white);
+}
+.btn-abbruch {
+  font-family: inherit; font-size: 14px; padding: 11px 16px; min-height: 44px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff; color: var(--green-deep); cursor: pointer;
+}
+/* Fehler gehoert an die Karte, um die es geht — nicht in einen Browser-Kasten,
+   der die eingestellte Schriftgroesse und den Kontrastmodus ignoriert. */
+.zeilen-fehler {
+  margin-top: 10px; padding: 8px 12px; border-radius: var(--radius-sm);
+  background: rgba(200,91,48,.12); border: 1px solid var(--warn);
+  color: var(--warn); font-size: 14px;
+}
+
 /* Footer */
 footer {
   background: var(--green-deep); color: rgba(255,255,255,.7);
@@ -974,6 +1010,13 @@ let _dbAvail = {};
 // Format: { 'YYYY-MM-DD|frueh': { id, clinic_name, patient_room, patient_flags, patient_notes, status, shift_de } }
 let _dbBookings = {};
 
+// In-Memory-Cache der Termine beim Kunden (shift = 'termin'), nach Buchungs-ID.
+// BEWUSST NICHT in _dbBookings: dort ist der Schluessel "Datum|Schicht", und
+// zwei Termine am selben Tag wuerden sich gegenseitig ueberschreiben. Ausserdem
+// bleiben Kalender und Zaehler damit unveraendert — die zaehlen Klinikdienste.
+// Format: { '<booking-id>': { …Buchung, kunde: { name, strasse, … } | null } }
+let _dbTermine = {};
+
 function getSession() {
   const s = (window.LPR && window.LPR.getSession) ? window.LPR.getSession() : null;
   if (!s) return null;
@@ -1038,6 +1081,11 @@ async function loadBookingsFromDb() {
     if (res.ok && res.bookings) {
       for (const b of res.bookings) {
         if (b.status === 'cancelled') continue;
+        // Termine beim Kunden kommen aus derselben Tabelle, sind aber keine
+        // Schicht: sie haetten hier weder Klinik noch Zeitfenster und wuerden
+        // im Kalender als "gebuchte Schicht" mitgezaehlt. Sie laufen ueber
+        // loadTermineFromDb.
+        if (b.shift === 'termin') continue;
         const shiftDe = SHIFT_DB_TO_DE[b.shift] || b.shift;
         const key = `${b.date}|${shiftDe}`;
         _dbBookings[key] = {
@@ -1062,6 +1110,50 @@ async function loadBookingsFromDb() {
 }
 
 // ═══════════════════════════════════════════════════════
+// TERMINE beim Kunden laden (DB → Cache)
+// ═══════════════════════════════════════════════════════
+// Eigene Abfrage statt LPR.getMyBookings: die Terminspalten (kunde_id,
+// beginn_zeit, stunden_geplant, bezirk) gehoeren nur zu diesem Fall, und ein
+// Fehler hier darf die Schichtanzeige nicht mitreissen.
+async function loadTermineFromDb() {
+  const session = getSession();
+  if (!session) { _dbTermine = {}; return; }
+  try {
+    const client = await window.LPR.supabase();
+    const { data, error } = await client
+      .from('bookings')
+      .select('id, date, shift, hours, beginn_zeit, stunden_geplant, bezirk, kunde_id, status')
+      .eq('volunteer_id', session.id)
+      .eq('shift', 'termin')
+      .neq('status', 'cancelled')
+      .order('date', { ascending: true });
+    _dbTermine = {};
+    if (error) { console.warn('[LPR] loadTermineFromDb:', error.message); return; }
+    if (!data || !data.length) return;
+
+    // Name und Adresse stehen NICHT auf der Buchung — auf ihr steht nur der
+    // Bezirk. Die Policy kunden_zugeteilt_read gibt genau die Kunden frei, zu
+    // denen die angemeldete Person einen Termin hat; ein einziges in() liefert
+    // deshalb dasselbe wie eine Abfrage je Termin und spart die Runden.
+    const kundenIds = Array.from(new Set(data.map(t => t.kunde_id).filter(Boolean)));
+    const kunden = {};
+    if (kundenIds.length) {
+      const { data: kdata, error: kerr } = await client
+        .from('kunden')
+        .select('id, name, strasse, plz, ort, telefon, hinweise')
+        .in('id', kundenIds);
+      if (kerr) console.warn('[LPR] loadTermineFromDb kunden:', kerr.message);
+      (kdata || []).forEach(k => { kunden[k.id] = k; });
+    }
+    data.forEach(t => {
+      _dbTermine[t.id] = Object.assign({}, t, { kunde: kunden[t.kunde_id] || null });
+    });
+  } catch (e) {
+    console.error('[LPR] loadTermineFromDb failed:', e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
 // RENDER
 // ═══════════════════════════════════════════════════════
 async function render() {
@@ -1078,7 +1170,7 @@ async function render() {
     `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
 
   await processConfirmParam();
-  await Promise.all([loadAvailFromDb(), loadBookingsFromDb()]);
+  await Promise.all([loadAvailFromDb(), loadBookingsFromDb(), loadTermineFromDb()]);
   renderCalendar();
   renderStats();
   renderSitzRateHint();
@@ -1117,7 +1209,13 @@ function renderUpcoming() {
     .filter(b => new Date(b.date + 'T00:00:00') >= today || laeuftUeberMitternacht(b))
     .sort((a, b) => a.date.localeCompare(b.date) || a.shift_de.localeCompare(b.shift_de));
 
-  if (!items.length) { section.hidden = true; list.innerHTML = ''; badge.textContent = ''; return; }
+  // Termine beim Kunden stehen in derselben Liste. Ein bereits vergangener,
+  // aber noch nicht abgeschlossener Termin bleibt bewusst stehen: Wer erst am
+  // Abend danach abschliesst, faende den Knopf sonst nirgends mehr.
+  const termine = Object.values(_dbTermine)
+    .filter(t => new Date(t.date + 'T00:00:00') >= today || t.status !== 'confirmed');
+
+  if (!items.length && !termine.length) { section.hidden = true; list.innerHTML = ''; badge.textContent = ''; return; }
   section.hidden = false;
 
   const openCount = items.filter(b => b.status === 'planned').length;
@@ -1125,7 +1223,7 @@ function renderUpcoming() {
     ? `<span style="background:#F6E0D6;color:#9B2C2C;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;">${openCount} wartet auf Bestätigung</span>`
     : '';
 
-  list.innerHTML = items.map(b => {
+  const buchungKarten = items.map(b => {
     const dstr = new Date(b.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
     const pillColor = b.status === 'confirmed' ? '#2E7D46' : (b.status === 'completed' ? '#1E5B36' : '#9B2C2C');
     const offen = b.status === 'planned' || b.status === 'confirmed';
@@ -1158,7 +1256,16 @@ function renderUpcoming() {
       <div style="display:flex;gap:8px;flex-wrap:wrap">${actions}</div>
       ${unterwegs}
     </div>`;
-  }).join('');
+  });
+
+  // Schichten und Termine in EINER Zeitfolge: getrennte Bloecke wuerden am
+  // selben Tag zwei Listen erzeugen, und wer morgens Fruehdienst und abends
+  // einen Termin hat, muesste zweimal suchen.
+  const eintraege = items
+    .map((b, i) => ({ sort: b.date + ' ' + (BUCHUNG_START[b.shift_de] || '00:00'), html: buchungKarten[i] }))
+    .concat(termine.map(t => ({ sort: t.date + ' ' + uhrzeit(t.beginn_zeit), html: terminKarte(t) })));
+  eintraege.sort((a, b) => a.sort.localeCompare(b.sort));
+  list.innerHTML = eintraege.map(e => e.html).join('');
 
   list.querySelectorAll('.up-confirm').forEach(btn => btn.addEventListener('click', () => onUpcomingConfirm(btn)));
   list.querySelectorAll('.up-cancel').forEach(btn => btn.addEventListener('click', () => onUpcomingCancel(btn)));
@@ -1167,6 +1274,120 @@ function renderUpcoming() {
     wahl.hidden = !wahl.hidden;
   }));
   list.querySelectorAll('.up-eta-btn').forEach(btn => btn.addEventListener('click', () => onUnterwegs(btn)));
+}
+
+// ═══════════════════════════════════════════════════════
+// TERMIN BEIM KUNDEN
+// ═══════════════════════════════════════════════════════
+// Beginn der drei Schichten — nur zum Sortieren gegen die Uhrzeit eines
+// Termins. SHIFTS.startH ist eine Zahl und liesse sich nicht mit "19:00"
+// vergleichen.
+const BUCHUNG_START = { frueh: '06:00', spaet: '14:00', nacht: '22:00' };
+
+// 'confirmed' heisst bei einem Termin nicht "bestaetigt", sondern
+// "abgeschlossen": Es gibt niemanden, der gegenzeichnet, also ist der
+// Abschluss durch die Mitwirkende der letzte Schritt.
+const TERMIN_STATUS = { planned: 'geplant', confirmed: 'abgeschlossen' };
+
+// Postgres liefert eine time-Spalte als "19:00:00".
+function uhrzeit(t) { return String(t || '').slice(0, 5); }
+
+// 1.5 → "1,5". toLocaleString statt Ersetzen des Punktes, damit auch 10,25
+// und ganze Stunden ohne Nachkommastellen stimmen.
+function stundenText(h) {
+  const n = Number(h);
+  return isFinite(n) ? n.toLocaleString('de-DE', { maximumFractionDigits: 2 }) : '—';
+}
+
+function terminKarte(t) {
+  const dstr = new Date(t.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const k = t.kunde;
+  const dauer = t.stunden_geplant != null ? t.stunden_geplant : t.hours;
+  const fertig = t.status === 'confirmed';
+  const pillColor = fertig ? '#1E5B36' : '#9B2C2C';
+  // Ohne Kundensatz bleibt der Bezirk von der Buchung: besser eine grobe
+  // Ortsangabe als eine leere Karte.
+  const wo = k
+    ? escape(k.strasse) + ', ' + escape(k.plz) + ' ' + escape(k.ort)
+    : (t.bezirk ? escape(t.bezirk) : '');
+  const tel = k && k.telefon
+    ? `<div style="font-size:14px;margin-top:6px">Telefon: <a href="tel:${escape(String(k.telefon).replace(/[^\d+]/g, ''))}" style="color:#1E5B36;font-weight:700">${escape(k.telefon)}</a></div>`
+    : '';
+  const hinweise = k && k.hinweise
+    ? `<div class="termin-hinweise"><strong>Hinweise für den Einsatz</strong><br>${escape(k.hinweise)}</div>`
+    : '';
+  const aktion = fertig
+    ? ''
+    : `<div class="termin-aktion" id="t-akt-${t.id}">
+         <button type="button" class="btn btn-primary" onclick="terminFragen('${t.id}')">Beendet</button>
+       </div>
+       <div class="zeilen-fehler" id="t-fehler-${t.id}" hidden></div>`;
+
+  return `<div class="termin-karte">
+    <div style="font-weight:700">${dstr} · Termin · ${escape(uhrzeit(t.beginn_zeit))} Uhr · ${stundenText(dauer)} Std.</div>
+    <div style="font-size:15px;font-weight:600;margin-top:4px">${k ? escape(k.name) : 'Kunde'}</div>
+    ${wo ? `<div class="termin-adresse">${wo}</div>` : ''}
+    <div style="font-size:14px;color:${pillColor};font-weight:600;margin-top:4px">${TERMIN_STATUS[t.status] || t.status}</div>
+    ${tel}
+    ${hinweise}
+    ${aktion}
+  </div>`;
+}
+
+/**
+ * Rückfrage in der Karte statt als Browser-Dialog.
+ *
+ * Ein prompt() blockiert die Seite, ignoriert die eingestellte Schriftgröße
+ * und den Kontrastmodus — und die Frage nach der Dauer braucht eine Vorbelegung
+ * mit dem, was vereinbart war. Die trägt ein Eingabefeld, ein prompt() nicht.
+ */
+function terminFragen(id) {
+  const t = _dbTermine[id];
+  if (!t) return;
+  const geplant = t.stunden_geplant != null ? t.stunden_geplant : t.hours;
+  document.getElementById('t-akt-' + id).innerHTML =
+    `<div class="termin-frage">
+       <label for="t-dauer-${id}">Wie lange hat der Termin gedauert?</label>
+       <div class="termin-frage-zeile">
+         <input type="text" inputmode="decimal" id="t-dauer-${id}" value="${escape(stundenText(geplant))}">
+         <span>Std.</span>
+         <button type="button" class="btn btn-primary" onclick="terminBeenden('${id}')">Termin abschließen</button>
+         <button type="button" class="btn-abbruch" onclick="terminAbbrechen('${id}')">Abbrechen</button>
+       </div>
+     </div>`;
+  const feld = document.getElementById('t-dauer-' + id);
+  feld.focus();
+  feld.select();
+}
+
+function terminAbbrechen(id) {
+  document.getElementById('t-fehler-' + id).hidden = true;
+  document.getElementById('t-akt-' + id).innerHTML =
+    `<button type="button" class="btn btn-primary" onclick="terminFragen('${id}')">Beendet</button>`;
+}
+
+async function terminBeenden(id) {
+  const fehler = document.getElementById('t-fehler-' + id);
+  const bereich = document.getElementById('t-akt-' + id);
+  fehler.hidden = true;
+  // Deutsche Eingabe: "1,5" ist hier die Regel, nicht die Ausnahme.
+  const dauer = Number((document.getElementById('t-dauer-' + id).value || '').trim().replace(',', '.'));
+  if (!(dauer > 0) || dauer > 12) {
+    fehler.textContent = 'Bitte eine Dauer zwischen 0 und 12 Stunden eintragen.';
+    fehler.hidden = false;
+    return;
+  }
+  bereich.querySelectorAll('button, input').forEach(el => el.disabled = true);
+  const res = await window.LPR.finishTermin(id, dauer);
+  if (!res.ok) {
+    fehler.textContent = res.error || 'Der Abschluss hat nicht geklappt.';
+    fehler.hidden = false;
+    bereich.querySelectorAll('button, input').forEach(el => el.disabled = false);
+    return;
+  }
+  showToast('Termin abgeschlossen — danke!');
+  await loadTermineFromDb();
+  renderUpcoming();
 }
 
 async function onUnterwegs(btn) {
@@ -1649,7 +1870,12 @@ try {
 render();
 // Auto-Refresh alle 15s — fängt Klinik-Buchungen ab, die in einem anderen
 // Browser-Tab oder von Klinik-Seite frisch erstellt wurden.
-setInterval(() => { if (getSession()) render(); }, 15000);
+// Offene Rückfrage zum Terminabschluss ausgenommen: der Neuaufbau der Liste
+// würde das Eingabefeld mitsamt der gerade getippten Dauer ersetzen.
+setInterval(() => {
+  if (document.querySelector('.termin-frage')) return;
+  if (getSession()) render();
+}, 15000);
 </script>
 </body>
 </html>

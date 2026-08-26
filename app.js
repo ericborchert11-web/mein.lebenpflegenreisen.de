@@ -561,6 +561,15 @@
    * Abschluss durch die Mitwirkende. Niemand unterschreibt — in einer
    * Privatwohnung gibt es keine Station, die gegenzeichnet.
    *
+   * LAEUFT UEBER EINE FUNKTION, NICHT UEBER EIN UPDATE. Die Policy
+   * bookings_update_own_volunteer erlaubt als Zielstatus nur 'planned' und
+   * 'cancelled' — ein direktes update auf 'confirmed' prallt ab. Das ist
+   * Absicht: Eine Sitzwache soll ihren Dienst nicht selbst abschliessen
+   * koennen, dort ist die Unterschrift der Station der Nachweis. Die Policy
+   * dafuer aufzuweiten haette genau diesen Schutz ausgehebelt. Die Funktion
+   * termin_abschliessen gilt deshalb nur fuer shift = 'termin' und prueft die
+   * Eigentuemerschaft dort, wo sie sich nicht umgehen laesst.
+   *
    * Geaendert wird nur `hours` (die geleistete Dauer). `stunden_geplant` bleibt
    * unangetastet — sonst waere spaeter nicht mehr erkennbar, was vereinbart und
    * was geworden ist. Etappe 2 braucht beides.
@@ -568,21 +577,14 @@
   async function finishTermin(bookingId, tatsaechlicheStunden) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    const stunden = Number(tatsaechlicheStunden);
     try {
-      const client = await sb();
-      const { data: b, error: bErr } = await client
-        .from('bookings').select('id, volunteer_id, shift, hours').eq('id', bookingId).single();
-      if (bErr || !b) return { ok: false, error: 'Termin nicht gefunden.' };
-      if (b.volunteer_id !== s.id) return { ok: false, error: 'Dieser Termin gehört nicht dir.' };
-      if (b.shift !== 'termin')    return { ok: false, error: 'Das ist kein Termin.' };
-
-      const patch = { status: 'confirmed' };
-      const neu = Number(tatsaechlicheStunden);
-      if (neu > 0 && neu !== Number(b.hours)) patch.hours = neu;
-
-      const { error } = await client.from('bookings').update(patch).eq('id', bookingId);
+      const { data, error } = await (await sb()).rpc('termin_abschliessen', {
+        p_booking: bookingId,
+        p_stunden: (stunden > 0 && stunden <= 12) ? stunden : null
+      });
       if (error) return { ok: false, error: error.message };
-      return { ok: true };
+      return { ok: true, geplant: data && data.geplant };
     } catch(e) {
       console.error('[LPR] finishTermin:', e);
       return { ok: false, error: 'Netzwerkfehler.' };

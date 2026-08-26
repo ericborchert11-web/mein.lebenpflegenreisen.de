@@ -462,10 +462,18 @@
    * Zuteilung sichtbar wird.
    */
   async function saveKunde(k) {
-    const pflicht = ['name', 'strasse', 'plz', 'bezirk'];
-    for (const f of pflicht) {
-      if (!k || !String(k[f] || '').trim()) {
-        return { ok: false, error: 'Bitte ' + f + ' ausfüllen.' };
+    // Die Meldung nennt das Feld so, wie es im Formular beschriftet ist — nicht
+    // den Spaltennamen. "Bitte bezirk ausfuellen." liest sich wie ein Fehler
+    // der Software, nicht wie eine Bitte an den Menschen davor.
+    const pflicht = [
+      ['name',    'den Namen'],
+      ['strasse', 'die Straße'],
+      ['plz',     'die Postleitzahl'],
+      ['bezirk',  'den Bezirk']
+    ];
+    for (const [feld, beschriftung] of pflicht) {
+      if (!k || !String(k[feld] || '').trim()) {
+        return { ok: false, error: 'Bitte ' + beschriftung + ' ausfüllen.' };
       }
     }
     if (!/^[0-9]{5}$/.test(String(k.plz).trim())) {

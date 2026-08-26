@@ -54,45 +54,96 @@
                                      'Mein Bereich')
       : 'e.V. · Berlin';
 
-    // Navigation: Eingeloggt = App-Menü; Ausgeloggt = nur Login-Link
+    // ── Navigation ────────────────────────────────────────────────────────
+    //
+    // Der Vorstandsbereich hatte zwoelf Punkte in einer Zeile — auf dem Desktop
+    // eine Aufzaehlung, auf dem Handy eine Liste zum Scrollen. Gruppiert sind es
+    // vier. Die Schnittlinie ist nicht Taxonomie, sondern WOZU man die Seite
+    // oeffnet: Menschen betreut man, Einsaetze plant man, Geld rechnet man ab.
+    //
+    // Geklappt wird mit <details>/<summary>, nicht mit einem eigenen Bauteil:
+    // Tastaturbedienung, Vorlesbarkeit und Auf/Zu bringt das Element mit. Bei
+    // einem Portal mit eigener Barrierefreiheits-Seite ist ein handgeschnitztes
+    // Dropdown die schlechtere Wahl.
+
+    /** Ein Menuepunkt. */
+    const punkt = (href, seite, text, extra) =>
+      `<li><a href="${href}" class="${c(seite)}">${text}${extra || ''}</a></li>`;
+
+    /**
+     * Eine Gruppe. Sie steht offen, wenn die aktuelle Seite darin liegt — sonst
+     * muesste man sich beim Navigieren jedes Mal neu durchklicken.
+     */
+    const gruppe = (titel, seiten, eintraege, zusatz) => {
+      const offen = seiten.indexOf(currentPage) !== -1 ? ' open' : '';
+      // name= macht die Gruppen gegenseitig ausschliessend: Beim Oeffnen der
+      // einen schliesst der Browser die andere. Ohne das staenden zwei
+      // Klappmenues nebeneinander offen und ueberlappten sich.
+      // Aeltere Browser ignorieren das Attribut — dann sind eben mehrere offen,
+      // kaputt ist nichts.
+      return `<li class="nav-gruppe"><details name="hauptnav"${offen}>
+        <summary>${titel}${zusatz || ''}</summary>
+        <ul class="nav-unter">${eintraege}</ul>
+      </details></li>`;
+    };
+
+    const abmelden = `<li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;" style="color:var(--warn);">Abmelden</a></li>`;
+
     let navItems = '';
     if (session) {
       if (session.role === 'ehrenamt') {
-        // Sitzwachen, Abrechnung und Unterlagen standen frueher nur als Kachel
-        // auf mein-bereich. Wer als Sitzwache arbeitet, hat seine Hauptaufgabe
-        // damit ausserhalb des Menues gehabt — direkt nach "Mein Bereich".
-        navItems = `
-          <li><a href="mein-bereich.html" class="${c('mein-bereich')}">Mein Bereich</a></li>
-          <li><a href="sitzwachen.html" class="${c('sitzwachen')}">Sitzwachen</a></li>
-          <li><a href="schichtplaner.html" class="${c('schichtplaner')}">Reisen</a></li>
-          <li><a href="abrechnung.html" class="${c('abrechnung')}">Abrechnung</a></li>
-          <li><a href="mein-compliance.html" class="${c('compliance')}">Unterlagen</a></li>
-          <li><a href="profil.html" class="${c('profil')}">Profil</a></li>
-          <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;" style="color:var(--warn);">Abmelden</a></li>
-        `;
+        // Schulung und Praeferenzen hingen bisher nur an Kacheln auf
+        // mein-bereich. Wer die Kachel einmal weggescrollt hatte, fand sie
+        // nicht wieder — dabei ist die Schulung eine der drei Saeulen, mit
+        // denen die Portal-Startseite wirbt.
+        navItems =
+          punkt('mein-bereich.html', 'mein-bereich', 'Mein Bereich') +
+          punkt('sitzwachen.html', 'sitzwachen', 'Sitzwachen') +
+          punkt('schichtplaner.html', 'schichtplaner', 'Reisen') +
+          punkt('abrechnung.html', 'abrechnung', 'Abrechnung') +
+          gruppe('Mein Konto',
+            ['compliance', 'schulung', 'praeferenzen', 'profil'],
+            punkt('mein-compliance.html', 'compliance', 'Unterlagen') +
+            punkt('schulung.html', 'schulung', 'Schulung') +
+            punkt('meine-praeferenzen.html', 'praeferenzen', 'Präferenzen') +
+            punkt('profil.html', 'profil', 'Profil')) +
+          abmelden;
+
       } else if (session.role === 'klinik') {
-        navItems = `
-          <li><a href="kliniken.html" class="${c('kliniken')}">Klinik-Portal</a></li>
-          <li><a href="klinik-buchen.html" class="${c('klinik-buchen')}">Sitzwache buchen</a></li>
-        <li><a href="klinik-buchungen.html" class="${c('klinik-buchungen')}">Meine Buchungen</a></li>
-          <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;" style="color:var(--warn);">Abmelden</a></li>
-        `;
+        // Drei Punkte — hier gibt es nichts zu gruppieren.
+        navItems =
+          punkt('kliniken.html', 'kliniken', 'Klinik-Portal') +
+          punkt('klinik-buchen.html', 'klinik-buchen', 'Sitzwache buchen') +
+          punkt('klinik-buchungen.html', 'klinik-buchungen', 'Meine Buchungen') +
+          abmelden;
+
       } else if (session.role === 'admin') {
-        navItems = `
-          <li><a href="admin-mitwirkende.html" class="${c('admin')}">Mitwirkende</a></li>
-          <li><a href="admin-ehrenamt-interesse.html" class="${c('ehrenamt-interesse')}">Interessenten<span id="nav-interesse-zahl" class="nav-badge" hidden></span></a></li>
-          <li><a href="admin-kunden.html" class="${c('kunden')}">Kunden</a></li>
-          <li><a href="admin-reisen.html" class="${c('reisen-admin')}">Reisen</a></li>
-          <li><a href="admin-jahreskalender.html" class="${c('jahreskalender')}">Jahreskalender</a></li>
-          <li><a href="admin-pauschalen.html" class="${c('pauschalen-admin')}">Pauschalen</a></li>
-          <li><a href="admin-auszahlungen.html" class="${c('auszahlungen-admin')}">Auszahlungen</a></li>
-          <li><a href="kalkulation.html" class="${c('kalkulation')}">Kalkulation</a></li>
-          <li><a href="admin-kliniken.html" class="${c('kliniken-admin')}">Kliniken</a></li>
-          <li><a href="admin-sitzwachen.html" class="${c('sitzwachen-admin')}">Sitzwachen</a></li>
-          <li><a href="admin-rechnungen.html" class="${c('rechnungen-admin')}">Rechnungen</a></li>
-          <li><a href="admin-foerdermittel.html" class="${c('foerdermittel')}">Fördermittel</a></li>
-          <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;" style="color:var(--warn);">Abmelden</a></li>
-        `;
+        // Die Zahl offener Interessenten sitzt auf der GRUPPE, nicht auf dem
+        // Eintrag: eingeklappt waere sie unsichtbar, und dann koennte man sie
+        // sich sparen. Sie ist das eine Signal in diesem Menue, das sagt
+        // "hier wartet jemand auf dich".
+        const zahl = `<span id="nav-interesse-zahl" class="nav-badge" hidden></span>`;
+        navItems =
+          gruppe('Menschen',
+            ['admin', 'ehrenamt-interesse'],
+            punkt('admin-mitwirkende.html', 'admin', 'Mitwirkende') +
+            punkt('admin-ehrenamt-interesse.html', 'ehrenamt-interesse', 'Interessenten'),
+            zahl) +
+          gruppe('Einsätze',
+            ['sitzwachen-admin', 'kunden', 'kliniken-admin', 'reisen-admin', 'jahreskalender'],
+            punkt('admin-sitzwachen.html', 'sitzwachen-admin', 'Sitzwachen') +
+            punkt('admin-kunden.html', 'kunden', 'Kunden') +
+            punkt('admin-kliniken.html', 'kliniken-admin', 'Kliniken') +
+            punkt('admin-reisen.html', 'reisen-admin', 'Reisen') +
+            punkt('admin-jahreskalender.html', 'jahreskalender', 'Jahreskalender')) +
+          gruppe('Finanzen',
+            ['auszahlungen-admin', 'pauschalen-admin', 'rechnungen-admin', 'kalkulation', 'foerdermittel'],
+            punkt('admin-auszahlungen.html', 'auszahlungen-admin', 'Auszahlungen') +
+            punkt('admin-pauschalen.html', 'pauschalen-admin', 'Pauschalen') +
+            punkt('admin-rechnungen.html', 'rechnungen-admin', 'Rechnungen') +
+            punkt('kalkulation.html', 'kalkulation', 'Kalkulation') +
+            punkt('admin-foerdermittel.html', 'foerdermittel', 'Fördermittel')) +
+          abmelden;
       }
     } else {
       navItems = `
@@ -128,6 +179,19 @@
     else document.body.insertBefore(header, document.body.firstChild);
     header.querySelectorAll('nav ul a').forEach(a => {
       a.addEventListener('click', () => header.querySelector('nav ul').classList.remove('open'));
+    });
+
+    // Eine offene Gruppe legt sich ueber die Seite. Sie muss sich schliessen
+    // lassen, ohne den Menuepunkt noch einmal zu treffen — sonst verdeckt sie
+    // genau das, was man lesen will.
+    const gruppenZu = () => header.querySelectorAll('.nav-gruppe > details[open]')
+      .forEach(d => { d.open = false; });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.nav-gruppe')) gruppenZu();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') gruppenZu();
     });
   }
 

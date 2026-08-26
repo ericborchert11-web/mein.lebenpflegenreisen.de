@@ -293,3 +293,72 @@ footer.site {
   text-align: center;
   vertical-align: 1px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   GRUPPIERTE NAVIGATION                                    ergaenzt 26.08.2026
+
+   Der Vorstandsbereich hatte zwoelf Punkte in einer Zeile. Gruppiert sind es
+   vier. Geklappt wird mit <details>/<summary> — Tastatur, Vorlesbarkeit und
+   Auf/Zu bringt das Element mit, ohne eine Zeile JavaScript.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.nav-gruppe { position: relative; }
+.nav-gruppe > details > summary {
+  list-style: none;                 /* das Standard-Dreieck weg */
+  cursor: pointer;
+  color: #fff; font-weight: 500; font-size: 16px;
+  padding: 8px 14px; border-radius: 6px;
+  display: inline-flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+.nav-gruppe > details > summary::-webkit-details-marker { display: none; }
+.nav-gruppe > details > summary::after {
+  content: '▾'; font-size: 11px; opacity: .7; transition: transform .15s;
+}
+.nav-gruppe > details[open] > summary::after { transform: rotate(180deg); }
+.nav-gruppe > details > summary:hover { background: rgba(255,255,255,.1); }
+/* Sichtbarer Fokus: die Gruppe ist per Tabulator erreichbar und muss es zeigen. */
+.nav-gruppe > details > summary:focus-visible {
+  outline: 3px solid var(--lime); outline-offset: 2px;
+}
+
+/* Ab Tablet: die Gruppe klappt als Ebene UEBER der Seite auf, damit die
+   Kopfzeile nicht in der Hoehe springt. */
+@media (min-width: 641px) {
+  .nav-gruppe > details[open] > .nav-unter {
+    position: absolute; top: calc(100% + 6px); left: 0;
+    flex-direction: column; align-items: stretch;
+    min-width: 210px; padding: 8px;
+    background: var(--green-deep);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.28);
+    z-index: 120;
+  }
+  .nav-gruppe > details > .nav-unter a { display: block; width: 100%; }
+}
+
+/* Auf dem Handy fuegt sich die Gruppe in die aufgeklappte Burger-Liste ein,
+   statt sie zu verdoppeln: eingerueckt, ohne eigene Ebene. */
+@media (max-width: 640px) {
+  .nav-gruppe, .nav-gruppe > details { width: 100%; }
+  .nav-gruppe > details > summary { display: flex; width: 100%; }
+  /* `nav ul { display: none }` weiter oben trifft auch die Untermenues — sie
+     sind ja ebenfalls nav ul. Ohne diese Zeile bliebe eine aufgeklappte Gruppe
+     auf dem Handy leer. */
+  .nav-gruppe > details[open] > .nav-unter {
+    display: flex;
+    flex-direction: column; align-items: stretch;
+    padding: 2px 0 6px 14px;
+    border-left: 2px solid rgba(255,255,255,.18);
+    margin-left: 14px;
+  }
+}
+
+/* Die Zahl offener Interessenten sitzt auf der Gruppe. Eingeklappt waere sie
+   auf dem Eintrag unsichtbar — und dann koennte man sie sich sparen. */
+.nav-gruppe > details > summary .nav-badge { margin-left: 2px; }
+
+/* `display: inline-block` an .nav-badge schlaegt das [hidden] des Browsers in
+   der Spezifitaet — ohne diese Zeile stand neben "Menschen" dauerhaft ein
+   leeres Abzeichen. Am 26.08.2026 in der Vorschau aufgefallen. */
+.nav-badge[hidden] { display: none; }

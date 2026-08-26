@@ -26,22 +26,37 @@ gebaut.
 
 ## Die Entscheidung, die das Datenmodell trägt
 
-Der Kunde ist **kein neuer Weg neben dem Auftrag**, sondern ein Stammsatz
-darüber. Die Kette lautet:
+Der Kunde ist ein **dritter Träger einer Buchung**, gleichrangig neben
+Klinikkonto und Auftrag. Es gibt zwei Ketten nebeneinander:
 
-    Kunde (Stammdaten)  →  Auftrag (ein Anlass)  →  Buchung (ein Termin)
+    Klinik-Privatauftrag:   Auftrag → Buchung      (unverändert)
+    Termin beim Kunden:     Kunde   → Buchung      (neu)
 
-Eine einmalige Anfrage ist ein Auftrag **ohne** Kunden — genau wie heute. Ein
-Stammkunde ist ein Auftrag **mit** Kunden, und die Felder sind vorbelegt. Damit
-funktioniert der gemischte Betrieb ohne Sonderfall, und die Bedingung in
-`bookings` — genau eines von Klinikkonto und Auftrag — bleibt zweiwertig.
+Die Bedingung in `bookings` lautet heute „genau eines von Klinikkonto und
+Auftrag" und wird zu „genau eines von Klinikkonto, Auftrag und Kunde".
 
-Die verworfene Alternative war, `bookings` eine dritte Möglichkeit zu geben
-(Klinik, Auftrag **oder** Kunde). Sie hätte die Bedingung dreiwertig gemacht,
-ohne etwas zu gewinnen. Die zweite verworfene Alternative war eine eigene
-Tabelle `einsaetze`: sauber getrennt, aber die Mitwirkende hätte zwei Listen und
-zwei Abläufe — und „wie eine Sitzwachenbuchung" wäre nachgebaut statt wirklich
-dasselbe. Nachgebaute Abläufe laufen mit der Zeit auseinander.
+**Warum kein Kunde über dem Auftrag.** Der naheliegende Weg wäre gewesen, den
+Kunden als Stammsatz über `auftraege` zu hängen und die Kette
+Kunde → Auftrag → Buchung zu bilden. Er scheitert daran, dass `auftraege` eng auf
+den Klinikfall zugeschnitten ist: `klinik_name`, `dienst_schicht`
+(nur morning/afternoon/night), `auftraggeber_email`, `vertretung` und
+`token_hash` sind Pflicht, und **keines davon** passt auf einen einstündigen
+Hausbesuch. Die beiden letzten tragen den Familienlink, den es hier gar nicht
+gibt. Man müsste alle fünf bedingt machen — „Pflicht, außer bei Einsatzort zu
+Hause" — und `auftraege` bekäme zwei Gesichter. Das ist die Sorte Tabelle, die
+später niemand mehr sicher ändert.
+
+Was der Termin braucht, steht ohnehin am Kunden: Name und Adresse. Ein Auftrag
+dazwischen wäre eine leere Hülle mit fünf unpassenden Pflichtfeldern.
+
+**Was „gemischt" dann heißt.** Ein einmaliger Hausbesuch ist ein Kunde, den man
+einmal anlegt und vielleicht nie wieder braucht — das kostet nichts. Die
+Klinik-Privataufträge laufen unverändert über `auftraege` weiter.
+
+Die zweite verworfene Alternative war eine eigene Tabelle `einsaetze`: sauber
+getrennt, aber die Mitwirkende hätte zwei Listen und zwei Abläufe — und „wie eine
+Sitzwachenbuchung" wäre nachgebaut statt wirklich dasselbe. Nachgebaute Abläufe
+laufen mit der Zeit auseinander.
 
 ## Datenmodell
 
@@ -60,15 +75,17 @@ Die Hinweise sind ausdrücklich **nicht-medizinisch**: Klingel, Schlüssel, Hund
 Privatauftrag — der Verein erhebt keine Pflegedaten, und ein freies Feld lädt
 sonst dazu ein. Der Feldhinweis sagt das.
 
-**`auftraege` wird erweitert** um einen optionalen Verweis auf den Kunden und um
-den **Einsatzort** als Aufzählung aus `klinik` und `zuhause`. Bei `klinik` gilt
-alles wie bisher. Bei `zuhause` kommt die Adresse aus dem Kunden, und Station,
-Stationstelefon, Zimmer und Fallnummer bleiben leer.
+**`auftraege` bleibt unangetastet.** Der Klinik-Privatauftrag funktioniert
+weiter wie beschrieben; dieses Design fasst ihn nicht an.
 
-**`bookings` bleibt strukturell wie es ist.** Zwei Ergänzungen:
+**`bookings` bekommt drei Ergänzungen:**
 
-- `shift` bekommt den zusätzlichen Wert `termin`
-- neue Spalte `beginn_zeit`, Pflicht wenn `shift = 'termin'`, sonst leer
+- neue Spalte `kunde_id` mit Verweis auf `kunden`
+- die Trägerbedingung wird dreiwertig: genau eines von Klinikkonto, Auftrag und
+  Kunde. Die vorhandene Stichtagsklausel für die sieben Altbuchungen aus den
+  Einsatzdoku-Testtagen bleibt erhalten
+- `shift` bekommt den zusätzlichen Wert `termin`, dazu die neue Spalte
+  `beginn_zeit` — Pflicht wenn `shift = 'termin'`, sonst leer
 
 Die vorhandene Spalte `hours` trägt die Dauer bereits; eine Stunde ist kein
 Sonderfall. Bestehende Zeilen bleiben unberührt. Ein Termin ist damit eine

@@ -221,7 +221,7 @@
   <div class="ak-header">
     <div>
       <h1>Kliniken verwalten</h1>
-      <p>Klinik-Anmeldungen prüfen, freigeben oder ablehnen</p>
+      <p>Anmeldungen prüfen und den Klinik-Katalog pflegen, an dem die Präferenzen hängen</p>
     </div>
   </div>
 
@@ -229,6 +229,7 @@
     <button class="ak-tab active" data-tab="pending"  onclick="setTab('pending')">Offen <span class="ak-count" id="cnt-pending">0</span></button>
     <button class="ak-tab"        data-tab="approved" onclick="setTab('approved')">Freigegeben <span class="ak-count" id="cnt-approved">0</span></button>
     <button class="ak-tab"        data-tab="rejected" onclick="setTab('rejected')">Abgelehnt <span class="ak-count" id="cnt-rejected">0</span></button>
+    <button class="ak-tab"        data-tab="stamm"    onclick="setTab('stamm')">Stammdaten <span class="ak-count" id="cnt-stamm">0</span></button>
   </div>
 
   <div id="list-area">
@@ -342,6 +343,7 @@ async function init() {
     return;
   }
   await loadAllTabs();
+  await ladeStamm();
 }
 
 async function loadAllTabs() {
@@ -377,6 +379,11 @@ function setTab(tab) {
 }
 
 function renderTab() {
+  // Die Stammdaten sind eine andere Sache als die Konto-Anmeldungen: Hier geht
+  // es um den Katalog, an dem die Praeferenzen haengen — eine Klinik darin
+  // braucht kein Konto und bekommt oft nie eines.
+  if (_currentTab === 'stamm') { renderStamm(); return; }
+
   const list = _cache[_currentTab] || [];
   const area = document.getElementById('list-area');
   if (list.length === 0) {
@@ -549,6 +556,160 @@ document.querySelectorAll('.ak-modal-bg').forEach(bg => {
   });
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Stammdaten: der Katalog, an dem die Praeferenzen haengen
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _stamm = [];
+let _bearbeitet = null;   // id der Klinik, deren Formular offen ist; '' = neu
+
+async function ladeStamm() {
+  const res = await LPR.listAllClinics();
+  _stamm = res.ok ? res.clinics : [];
+  const z = document.getElementById('cnt-stamm');
+  if (z) z.textContent = _stamm.filter(k => k.active).length;
+  if (!res.ok) showToast('Fehler: ' + res.error);
+}
+
+function renderStamm() {
+  const area = document.getElementById('list-area');
+  const esc = (t) => String(t == null ? '' : t)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  const formular = (k) => {
+    const neu = !k;
+    const v = k || { id:'', name:'', plz:'', city:'', sort_order:999 };
+    return `
+      <div class="ak-card" style="border:2px solid var(--green);">
+        <h3 style="margin-bottom:12px;">${neu ? 'Neue Klinik anlegen' : 'Klinik ändern'}</h3>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;">
+          <label>Name<br><input type="text" id="k-name" value="${esc(v.name)}" maxlength="120" style="width:100%"></label>
+          <label>PLZ<br><input type="text" id="k-plz" value="${esc(v.plz)}" maxlength="5" style="width:100%"></label>
+          <label>Ort<br><input type="text" id="k-city" value="${esc(v.city)}" maxlength="80" style="width:100%"></label>
+          <label>Reihenfolge<br><input type="number" id="k-sort" value="${Number(v.sort_order)||999}" style="width:100%"></label>
+        </div>
+        <label style="display:block; margin-top:12px;">Kennung
+          <br><input type="text" id="k-id" value="${esc(v.id)}" maxlength="40" style="width:100%"
+                     ${neu ? '' : 'disabled'}>
+        </label>
+        <p class="muted" style="font-size:13px; margin-top:4px;">
+          ${neu
+            ? 'Wird aus dem Namen vorgeschlagen. Kleinbuchstaben, Ziffern, Bindestriche.'
+            : 'Die Kennung steht in Präferenzen und Verknüpfungen — sie lässt sich nachträglich nicht ändern.'}
+        </p>
+        <div class="ak-error" id="k-fehler" style="display:none;"></div>
+        <div style="margin-top:14px; display:flex; gap:8px;">
+          <button class="ak-btn ak-btn-approve" onclick="stammSpeichern(${neu ? 'true' : 'false'})">Speichern</button>
+          <button class="ak-btn" onclick="stammAbbrechen()">Abbrechen</button>
+        </div>
+      </div>`;
+  };
+
+  const zeile = (k) => `
+    <div class="ak-card" style="${k.active ? '' : 'opacity:.55;'}">
+      <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center;">
+        <div>
+          <strong>${esc(k.name)}</strong>${k.active ? '' : ' <span class="muted">(stillgelegt)</span>'}
+          <div class="muted" style="font-size:13px;">
+            ${esc([k.plz, k.city].filter(Boolean).join(' '))}
+            ${k.plz || k.city ? ' · ' : ''}<code>${esc(k.id)}</code>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;" id="akt-${esc(k.id)}">
+          <button class="ak-btn" onclick="stammBearbeiten('${esc(k.id)}')">Ändern</button>
+          ${k.active
+            ? `<button class="ak-btn" onclick="stammStilllegen('${esc(k.id)}', false)">Stilllegen</button>`
+            : `<button class="ak-btn" onclick="stammStilllegen('${esc(k.id)}', true)">Wieder aufnehmen</button>`}
+          <button class="ak-btn" onclick="stammLoeschenFragen('${esc(k.id)}')">Löschen</button>
+        </div>
+      </div>
+      <div class="ak-error" id="fe-${esc(k.id)}" style="display:none;"></div>
+    </div>`;
+
+  area.innerHTML =
+    (_bearbeitet === '' ? formular(null) : '') +
+    (_bearbeitet && _bearbeitet !== ''
+      ? formular(_stamm.find(k => k.id === _bearbeitet))
+      : '') +
+    (_bearbeitet === null
+      ? `<div style="margin-bottom:14px;"><button class="ak-btn ak-btn-approve" onclick="stammNeu()">+ Klinik anlegen</button></div>`
+      : '') +
+    (_stamm.length ? _stamm.map(zeile).join('') : '<p class="muted">Noch keine Kliniken im Katalog.</p>');
+
+  // Kennung aus dem Namen vorschlagen, solange sie nicht von Hand angefasst wurde
+  const nameEl = document.getElementById('k-name');
+  const idEl   = document.getElementById('k-id');
+  if (nameEl && idEl && !idEl.disabled) {
+    let angefasst = idEl.value !== '';
+    idEl.addEventListener('input', () => { angefasst = true; });
+    nameEl.addEventListener('input', () => {
+      if (!angefasst) idEl.value = LPR.clinicIdVorschlag(nameEl.value);
+    });
+  }
+}
+
+function stammNeu()        { _bearbeitet = '';  renderStamm(); }
+function stammBearbeiten(id){ _bearbeitet = id; renderStamm(); }
+function stammAbbrechen()  { _bearbeitet = null; renderStamm(); }
+
+async function stammSpeichern(istNeu) {
+  const fehler = document.getElementById('k-fehler');
+  fehler.style.display = 'none';
+  const res = await LPR.saveClinic({
+    id:   document.getElementById('k-id').value,
+    name: document.getElementById('k-name').value,
+    plz:  document.getElementById('k-plz').value,
+    city: document.getElementById('k-city').value,
+    sort_order: document.getElementById('k-sort').value
+  }, istNeu);
+  if (!res.ok) { fehler.textContent = res.error; fehler.style.display = 'block'; return; }
+  showToast(istNeu ? 'Klinik angelegt.' : 'Klinik geändert.');
+  _bearbeitet = null;
+  await ladeStamm();
+  renderStamm();
+}
+
+async function stammStilllegen(id, aktiv) {
+  const res = await LPR.setClinicActive(id, aktiv);
+  if (!res.ok) { showToast('Fehler: ' + res.error); return; }
+  showToast(aktiv ? 'Wieder aufgenommen.' : 'Stillgelegt.');
+  await ladeStamm(); renderStamm();
+}
+
+/**
+ * Rueckfrage in der Zeile, und sie sagt VORHER, was passieren wird.
+ *
+ * Der Grund: clinic_preferences haengt an CASCADE. Ein Loeschen wuerde die
+ * Praeferenzen aller Mitarbeitenden fuer diese Klinik stillschweigend
+ * mitnehmen — also genau die Daten, wegen derer man den Katalog pflegt.
+ * deleteClinic prueft das und legt in dem Fall still statt zu loeschen.
+ */
+async function stammLoeschenFragen(id) {
+  const k = _stamm.find(x => x.id === id);
+  const bereich = document.getElementById('akt-' + id);
+  bereich.innerHTML = '<span class="muted">Wird geprüft …</span>';
+
+  const nutzung = await LPR.clinicUsage(id);
+  const hinweis = nutzung.inGebrauch
+    ? (nutzung.unklar
+        ? 'Es lässt sich nicht sicher feststellen, was daran hängt — sie wird deshalb nur stillgelegt.'
+        : 'Daran hängen noch: ' + nutzung.teile.join(', ') + '. Sie wird deshalb nur stillgelegt.')
+    : 'Nichts hängt daran — sie wird endgültig gelöscht.';
+
+  bereich.innerHTML =
+    `<span style="font-size:13px; color:var(--warn); font-weight:700;">${
+      String(k ? k.name : id).replace(/</g,'&lt;')} — ${hinweis}</span>
+     <button class="ak-btn ak-btn-reject" onclick="stammLoeschen('${id}')">Fortfahren</button>
+     <button class="ak-btn" onclick="renderStamm()">Abbrechen</button>`;
+}
+
+async function stammLoeschen(id) {
+  const res = await LPR.deleteClinic(id);
+  if (!res.ok) { showToast('Fehler: ' + res.error); renderStamm(); return; }
+  showToast(res.geloescht ? 'Klinik gelöscht.' : 'Stillgelegt: ' + res.grund);
+  await ladeStamm(); renderStamm();
+}
+
 // Globals für onclick
 window.setTab             = setTab;
 window.openApproveModal   = openApproveModal;
@@ -557,6 +718,14 @@ window.confirmApprove     = confirmApprove;
 window.openRejectModal    = openRejectModal;
 window.closeRejectModal   = closeRejectModal;
 window.confirmReject      = confirmReject;
+window.stammNeu           = stammNeu;
+window.stammBearbeiten    = stammBearbeiten;
+window.stammAbbrechen     = stammAbbrechen;
+window.stammSpeichern     = stammSpeichern;
+window.stammStilllegen    = stammStilllegen;
+window.stammLoeschenFragen= stammLoeschenFragen;
+window.stammLoeschen      = stammLoeschen;
+window.renderStamm        = renderStamm;
 
 init();
 </script>

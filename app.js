@@ -2152,6 +2152,157 @@
     }
   }
 
+  // ── Klinik-Stammdaten (Vorstand) ──────────────────────────────────────────
+  //
+  // Ein clinics-Eintrag entstand bisher nur als Nebenwirkung: wenn der Vorstand
+  // ein Klinikkonto freigab und dabei "neue ID anlegen" waehlte. Fuer eine
+  // Praeferenz muss die Klinik aber im Katalog stehen — auch wenn sie nie ein
+  // Konto hatte und nie eines haben wird.
+
+  /** Alle Kliniken, auch die stillgelegten. Nur fuer den Vorstand sinnvoll. */
+  async function listAllClinics() {
+    try {
+      const { data, error } = await (await sb())
+        .from('clinics')
+        .select('id, name, plz, city, sort_order, active')
+        .order('active', { ascending: false })
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+      if (error) return { ok: false, error: error.message, clinics: [] };
+      return { ok: true, clinics: data || [] };
+    } catch(e) {
+      console.error('[LPR] listAllClinics:', e);
+      return { ok: false, error: 'Netzwerkfehler.', clinics: [] };
+    }
+  }
+
+  /**
+   * Vorschlag fuer die ID aus dem Namen. Sie ist Text und taucht in
+   * Praeferenzen und Verknuepfungen auf — sie soll lesbar sein, nicht zufaellig.
+   */
+  function clinicIdVorschlag(name) {
+    return String(name || '')
+      .toLowerCase()
+      // Erst die deutschen Umlaute ausschreiben — sie werden zu zwei Buchstaben.
+      .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
+      // Dann alle uebrigen Akzente abtrennen: é wird zu e, ñ zu n. Ohne diesen
+      // Schritt verschwand der Buchstabe ganz — aus "Charité" wurde "charit".
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-z0-9]+/g,'-')
+      .replace(/^-+|-+$/g,'')
+      .slice(0, 40);
+  }
+
+  /** Anlegen oder aendern. Ohne vorhandene id wird angelegt. */
+  async function saveClinic(k, istNeu) {
+    const id   = String((k && k.id) || '').trim();
+    const name = String((k && k.name) || '').trim();
+    if (!id)   return { ok: false, error: 'Bitte eine Kennung angeben.' };
+    if (!/^[a-z0-9-]+$/.test(id)) {
+      return { ok: false, error: 'Die Kennung darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten.' };
+    }
+    if (name.length < 2) return { ok: false, error: 'Bitte den Namen der Klinik angeben.' };
+
+    const satz = {
+      name:       name,
+      plz:        String((k && k.plz) || '').trim() || null,
+      city:       String((k && k.city) || '').trim() || null,
+      sort_order: Number(k && k.sort_order) || 999
+    };
+    try {
+      const client = await sb();
+      const { error } = istNeu
+        ? await client.from('clinics').insert({ id, active: true, ...satz })
+        : await client.from('clinics').update(satz).eq('id', id);
+      if (error) {
+        if (error.code === '23505') return { ok: false, error: 'Diese Kennung ist schon vergeben.' };
+        return { ok: false, error: error.message };
+      }
+      return { ok: true, id };
+    } catch(e) {
+      console.error('[LPR] saveClinic:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /** Stilllegen oder wieder aufnehmen. listClinics zeigt nur aktive. */
+  async function setClinicActive(id, active) {
+    try {
+      const { error } = await (await sb())
+        .from('clinics').update({ active: !!active }).eq('id', id);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] setClinicActive:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Was haengt an dieser Klinik?
+   *
+   * DAS IST DER GRUND, WARUM NICHT EINFACH GELOESCHT WIRD. Die Fremdschluessel
+   * verhalten sich unterschiedlich: billing_recipients und unstaffed_requests
+   * blockieren ein Loeschen, clinic_details wird auf NULL gesetzt (das Konto
+   * bliebe stehen und zeigte ins Leere) — und clinic_preferences haengt an
+   * CASCADE. Ein Loeschversuch wuerde dort also NICHT scheitern, sondern die
+   * Praeferenzen aller Mitarbeitenden stillschweigend mitnehmen. Genau die
+   * Daten, wegen derer man den Katalog ueberhaupt pflegt.
+   *
+   * Ein Fehler beim Zaehlen gilt als "in Gebrauch". Lieber einmal zu viel
+   * stillgelegt als einmal zu viel geloescht.
+   */
+  async function clinicUsage(id) {
+    const tabellen = [
+      ['clinic_preferences', 'clinic_id', 'Präferenzen'],
+      ['clinic_details',     'linked_clinic_id', 'verknüpfte Konten'],
+      ['billing_recipients', 'clinic_id', 'Rechnungsempfänger'],
+      ['unstaffed_requests', 'clinic_id', 'offene Anfragen']
+    ];
+    const teile = [];
+    let unklar = false;
+    try {
+      const client = await sb();
+      for (const [tabelle, spalte, bezeichnung] of tabellen) {
+        const { count, error } = await client
+          .from(tabelle).select('*', { count: 'exact', head: true }).eq(spalte, id);
+        if (error) { unklar = true; continue; }
+        if (count > 0) teile.push(count + ' ' + bezeichnung);
+      }
+      return { ok: true, inGebrauch: teile.length > 0 || unklar, teile, unklar };
+    } catch(e) {
+      console.error('[LPR] clinicUsage:', e);
+      return { ok: false, error: 'Netzwerkfehler.', inGebrauch: true, teile: [], unklar: true };
+    }
+  }
+
+  /**
+   * Loescht nur, wenn nichts daran haengt. Sonst wird stillgelegt und gesagt,
+   * woran es lag — statt still Geschichte zu zerreissen.
+   */
+  async function deleteClinic(id) {
+    const nutzung = await clinicUsage(id);
+    if (nutzung.inGebrauch) {
+      const still = await setClinicActive(id, false);
+      if (!still.ok) return still;
+      return {
+        ok: true,
+        geloescht: false,
+        grund: nutzung.unklar
+          ? 'Es liess sich nicht sicher feststellen, was an dieser Klinik haengt.'
+          : 'Daran hängen noch: ' + nutzung.teile.join(', ') + '.'
+      };
+    }
+    try {
+      const { error } = await (await sb()).from('clinics').delete().eq('id', id);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, geloescht: true };
+    } catch(e) {
+      console.error('[LPR] deleteClinic:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   /**
    * Lädt das vollständige Präferenz-Bündel des aktuellen Users:
    * - profile-Felder (qualifications, activity_types, preferred_shifts, home_plz, max_km)
@@ -4178,6 +4329,7 @@
     getMyProfile, updateMyIban,
     // Präferenzen — Self-Service
     listClinics, getMyPreferences, updateMySoftPreferences, setClinicPreference,
+    listAllClinics, clinicIdVorschlag, saveClinic, setClinicActive, clinicUsage, deleteClinic,
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
     register, loginWithPassword, requireRole,

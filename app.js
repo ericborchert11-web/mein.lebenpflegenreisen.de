@@ -436,6 +436,151 @@
     }
   }
 
+  // ── Kunden (Vorstand) ─────────────────────────────────────────────────────
+
+  /** Alle Kunden, aktive zuerst, dann alphabetisch. */
+  async function listKunden(nurAktive) {
+    try {
+      let q = (await sb())
+        .from('kunden')
+        .select('id, name, strasse, plz, ort, bezirk, telefon, email, hinweise, aktiv')
+        .order('aktiv', { ascending: false })
+        .order('name');
+      if (nurAktive) q = q.eq('aktiv', true);
+      const { data, error } = await q;
+      if (error) return { ok: false, error: error.message, kunden: [] };
+      return { ok: true, kunden: data || [] };
+    } catch(e) {
+      console.error('[LPR] listKunden:', e);
+      return { ok: false, error: 'Netzwerkfehler.', kunden: [] };
+    }
+  }
+
+  /**
+   * Anlegen oder aendern. Ohne id wird angelegt, mit id geaendert.
+   * Der Bezirk ist Pflicht — er ist die einzige Ortsangabe, die vor der
+   * Zuteilung sichtbar wird.
+   */
+  async function saveKunde(k) {
+    const pflicht = ['name', 'strasse', 'plz', 'bezirk'];
+    for (const f of pflicht) {
+      if (!k || !String(k[f] || '').trim()) {
+        return { ok: false, error: 'Bitte ' + f + ' ausfüllen.' };
+      }
+    }
+    if (!/^[0-9]{5}$/.test(String(k.plz).trim())) {
+      return { ok: false, error: 'Die Postleitzahl braucht fünf Ziffern.' };
+    }
+    const satz = {
+      name:     String(k.name).trim(),
+      strasse:  String(k.strasse).trim(),
+      plz:      String(k.plz).trim(),
+      ort:      String(k.ort || 'Berlin').trim(),
+      bezirk:   String(k.bezirk).trim(),
+      telefon:  String(k.telefon || '').trim() || null,
+      email:    String(k.email || '').trim() || null,
+      hinweise: String(k.hinweise || '').trim() || null
+    };
+    try {
+      const client = await sb();
+      const { data, error } = k.id
+        ? await client.from('kunden').update(satz).eq('id', k.id).select('id').single()
+        : await client.from('kunden').insert(satz).select('id').single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, id: data.id };
+    } catch(e) {
+      console.error('[LPR] saveKunde:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /** Kunden stilllegen statt loeschen — an ihm haengen Termine. */
+  async function setKundeAktiv(id, aktiv) {
+    try {
+      const { error } = await (await sb())
+        .from('kunden').update({ aktiv: !!aktiv }).eq('id', id);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] setKundeAktiv:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  // ── Termine ───────────────────────────────────────────────────────────────
+
+  /**
+   * Termin beim Kunden anlegen und direkt zuteilen.
+   *
+   * Der Bezirk wird vom Kunden auf die Buchung kopiert: Eine Terminliste soll
+   * ohne Leserecht auf kunden auskommen.
+   */
+  async function createTermin({ kunde_id, volunteer_id, datum, beginn, stunden }) {
+    if (!kunde_id || !volunteer_id || !datum || !beginn) {
+      return { ok: false, error: 'Kunde, Person, Datum und Uhrzeit sind Pflicht.' };
+    }
+    const dauer = Number(stunden);
+    if (!(dauer > 0) || dauer > 12) {
+      return { ok: false, error: 'Die Dauer muss zwischen 0 und 12 Stunden liegen.' };
+    }
+    try {
+      const client = await sb();
+      const { data: kunde, error: kErr } = await client
+        .from('kunden').select('bezirk, aktiv').eq('id', kunde_id).single();
+      if (kErr || !kunde) return { ok: false, error: 'Kunde nicht gefunden.' };
+      if (!kunde.aktiv)   return { ok: false, error: 'Dieser Kunde ist stillgelegt.' };
+
+      const { data, error } = await client.from('bookings').insert({
+        kunde_id:     kunde_id,
+        volunteer_id: volunteer_id,
+        date:         datum,
+        shift:        'termin',
+        beginn_zeit:  beginn,
+        hours:          dauer,
+        stunden_geplant: dauer,
+        bezirk:         kunde.bezirk,
+        status:         'planned'
+      }).select('id').single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, id: data.id };
+    } catch(e) {
+      console.error('[LPR] createTermin:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Abschluss durch die Mitwirkende. Niemand unterschreibt — in einer
+   * Privatwohnung gibt es keine Station, die gegenzeichnet.
+   *
+   * Geaendert wird nur `hours` (die geleistete Dauer). `stunden_geplant` bleibt
+   * unangetastet — sonst waere spaeter nicht mehr erkennbar, was vereinbart und
+   * was geworden ist. Etappe 2 braucht beides.
+   */
+  async function finishTermin(bookingId, tatsaechlicheStunden) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const client = await sb();
+      const { data: b, error: bErr } = await client
+        .from('bookings').select('id, volunteer_id, shift, hours').eq('id', bookingId).single();
+      if (bErr || !b) return { ok: false, error: 'Termin nicht gefunden.' };
+      if (b.volunteer_id !== s.id) return { ok: false, error: 'Dieser Termin gehört nicht dir.' };
+      if (b.shift !== 'termin')    return { ok: false, error: 'Das ist kein Termin.' };
+
+      const patch = { status: 'confirmed' };
+      const neu = Number(tatsaechlicheStunden);
+      if (neu > 0 && neu !== Number(b.hours)) patch.hours = neu;
+
+      const { error } = await client.from('bookings').update(patch).eq('id', bookingId);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] finishTermin:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function getMyCompliance() {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.', records: [] };
@@ -4028,6 +4173,7 @@
     register, loginWithPassword, requireRole,
     requestPasswordReset, setNewPassword,
     listUsersByStatus, approveUser, rejectUser, deleteRegistration,
+    listKunden, saveKunde, setKundeAktiv, createTermin, finishTermin,
     getMyCompliance, getComplianceForUser, setComplianceStatus, isComplianceComplete,
     // Block C
     getRates, getRate,

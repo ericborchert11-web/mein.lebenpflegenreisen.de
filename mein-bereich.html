@@ -708,8 +708,9 @@ async function renderUpcomingBookings() {
       // Nach Datum UND Schichtbeginn: an einem Tag mit zwei Diensten stand
       // sonst womoeglich der Nachtdienst ueber dem Fruehdienst, der gerade
       // ansteht.
-      .sort((a, b) => a.date.localeCompare(b.date)
-        || ((SHIFT_LABELS[a.shift] || {}).start || 0) - ((SHIFT_LABELS[b.shift] || {}).start || 0));
+      // Termine haben keine Schicht, sondern eine Uhrzeit. Ohne den Zweig
+      // bekaemen sie den Startwert 0 und stuenden vor der Fruehschicht.
+      .sort((a, b) => a.date.localeCompare(b.date) || beginnStunde(a) - beginnStunde(b));
 
     if (upcoming.length === 0) return;
 
@@ -786,7 +787,45 @@ async function renderUpcomingBookings() {
         </div>`;
     };
 
+    /** Beginn in Stunden — aus der Schicht oder aus der Uhrzeit des Termins. */
+    function beginnStunde(b) {
+      if (b.shift === 'termin') {
+        const t = String(b.beginn_zeit || '00:00').split(':');
+        return Number(t[0]) + Number(t[1] || 0) / 60;
+      }
+      return (SHIFT_LABELS[b.shift] || {}).start || 0;
+    }
+
     const html = upcoming.map(b => {
+      // TERMIN BEIM KUNDEN — eigene, schmale Karte.
+      //
+      // Die Karte darunter ist fuer Klinikschichten gebaut: Sie faellt beim
+      // Namen auf "Klinik" zurueck, zeigt Station, Zimmer und Fallnummer und
+      // bietet "Einsatz beginnen" an — also den Weg in die Einsatzdoku mit
+      // Unterschrift der Station. Ein Termin in einer Privatwohnung hat davon
+      // nichts, und die Unterschrift gibt es dort bewusst nicht.
+      //
+      // Kundenname und Adresse stehen hier absichtlich NICHT: Sie muessten aus
+      // kunden nachgeladen werden, und auf einer Uebersichtsseite haben sie
+      // nichts verloren. Wer die Anschrift braucht, geht in seine Einsaetze.
+      if (b.shift === 'termin') {
+        return `
+        <div class="bb-card">
+          ${statusZeile(b)}
+          <div class="bb-card-top">
+            <div>
+              <div class="bb-clinic">Termin beim Kunden</div>
+              <div class="bb-date">${escape(fmtDateLong(b.date))}</div>
+            </div>
+            <span class="bb-shift-pill">${escape(
+              (b.beginn_zeit ? String(b.beginn_zeit).slice(0,5) + ' Uhr' : 'Termin')
+              + (b.hours ? ' · ' + b.hours + ' Std.' : '')
+            )}</span>
+          </div>
+          <a class="bb-termin-link" href="sitzwachen.html">Adresse und Hinweise ansehen →</a>
+        </div>`;
+      }
+
       const sh = SHIFT_LABELS[b.shift] || { label: b.shift, time: '' };
       const flags = (b.patient_flags || []).map(f =>
         `<span class="bb-flag-mini">${escape(FLAG_LABELS[f] || f)}</span>`
@@ -1073,6 +1112,14 @@ async function doLogout() {
   .bb-eta-btn:hover { background: #E8EFF8; }
   .bb-eta-btn:disabled, .bb-unterwegs-btn:disabled { opacity: .5; cursor: not-allowed; }
   body.contrast .bb-unterwegs-btn, body.contrast .bb-eta-btn { border: 2px solid #000; background: #fff; color: #000; }
+  .bb-termin-link {
+    display: inline-block; margin-top: 12px;
+    background: #fff; color: #24456E; border: 1.5px solid #7E9CC4;
+    border-radius: 8px; padding: 10px 14px; min-height: 44px;
+    font-size: 14.5px; font-weight: 700; text-decoration: none;
+  }
+  .bb-termin-link:hover { background: #E8EFF8; }
+  body.contrast .bb-termin-link { border: 2px solid #000; background: #fff; color: #000; }
 </style>
 <script>
 (function () {

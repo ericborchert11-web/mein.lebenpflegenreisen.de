@@ -1424,7 +1424,7 @@
     try {
       let q = (await sb())
         .from('bookings')
-        .select('id, request_id, clinic_id, date, shift, hours, compensation_eur, status, station, fallnummer, patient_room, patient_flags, patient_notes, created_at, station_phone, unterwegs_ts, eta_ts, profiles!bookings_clinic_id_fkey(full_name)')
+        .select('id, request_id, clinic_id, date, shift, hours, compensation_eur, status, station, fallnummer, patient_room, patient_flags, patient_notes, created_at, station_phone, unterwegs_ts, eta_ts, beginn_zeit, stunden_geplant, kunde_id, profiles!bookings_clinic_id_fkey(full_name)')
         .eq('volunteer_id', s.id)
         .order('date', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);

@@ -410,6 +410,32 @@
     } catch(e) { console.error('[LPR] rejectUser:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
 
+  /**
+   * Wartende oder abgelehnte Registrierung endgueltig loeschen.
+   *
+   * Laeuft ueber die RPC registrierung_loeschen, weil an einer Registrierung
+   * ein Konto in auth.users haengt: Wuerde nur die profiles-Zeile verschwinden,
+   * bliebe das Konto zurueck und die Person liefe beim Anmelden in "Profil
+   * konnte nicht geladen werden". An auth.users kommt der Browser mit dem
+   * oeffentlichen Schluessel ohnehin nicht heran.
+   *
+   * Die Grenze auf pending/rejected sitzt in der Datenbank, nicht hier — eine
+   * Pruefung im Browser waere eine Bitte, keine Regel.
+   */
+  async function deleteRegistration(email) {
+    email = (email || '').trim().toLowerCase();
+    if (!email) return { ok: false, error: 'Keine Adresse angegeben.' };
+    try {
+      const { data, error } = await (await sb())
+        .rpc('registrierung_loeschen', { p_email: email });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, name: data && data.name, status: data && data.status };
+    } catch(e) {
+      console.error('[LPR] deleteRegistration:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function getMyCompliance() {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.', records: [] };
@@ -4001,7 +4027,7 @@
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
     register, loginWithPassword, requireRole,
     requestPasswordReset, setNewPassword,
-    listUsersByStatus, approveUser, rejectUser,
+    listUsersByStatus, approveUser, rejectUser, deleteRegistration,
     getMyCompliance, getComplianceForUser, setComplianceStatus, isComplianceComplete,
     // Block C
     getRates, getRate,

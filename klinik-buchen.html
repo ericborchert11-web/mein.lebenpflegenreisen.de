@@ -258,6 +258,17 @@
 
 .kb-flags { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 @media (max-width: 480px) { .kb-flags { grid-template-columns: 1fr; } }
+.kb-anzahl { display: flex; gap: 8px; }
+.kb-anzahl-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 18px; border: 1px solid var(--line, #D8D4CC); border-radius: 999px;
+  cursor: pointer; font-size: 15px; font-weight: 600; background: #fff;
+  min-width: 62px; justify-content: center;
+}
+.kb-anzahl-chip:hover { border-color: var(--green-deep); }
+.kb-anzahl-chip.active { background: #E8F0E8; border-color: var(--green-deep); color: var(--green-deep); }
+.kb-anzahl-chip input[type="radio"] { margin: 0; cursor: pointer; }
+
 .kb-flag-chip {
   display: flex;
   align-items: center;
@@ -354,6 +365,27 @@
     <div class="kb-modal-section">
       <label class="kb-section-label" for="kb-station">Station</label>
       <input type="text" id="kb-station" placeholder="z.B. Station 4B" maxlength="60">
+    </div>
+
+    <div class="kb-modal-section">
+      <label class="kb-section-label">Patient:innen</label>
+      <!--
+        Radios statt Auswahlliste: zwei Moeglichkeiten, beide sollen ohne
+        Aufklappen sichtbar sein. Der Name bindet sie zur Gruppe, damit die
+        Tastatur mit den Pfeiltasten dazwischen wechselt.
+      -->
+      <div class="kb-anzahl" id="kb-patient-count">
+        <label class="kb-anzahl-chip active">
+          <input type="radio" name="kb-pc" value="1" checked> 1
+        </label>
+        <label class="kb-anzahl-chip">
+          <input type="radio" name="kb-pc" value="2"> 2
+        </label>
+      </div>
+      <div class="kb-field-hint">
+        Zwei Patient:innen nur im selben Zimmer oder Bereich. Getrennte Zimmer
+        bitte als zwei Buchungen anlegen.
+      </div>
     </div>
 
     <div class="kb-modal-section">
@@ -574,6 +606,23 @@ function renderFlagChips() {
 }
 
 /**
+ * Faerbt den gewaehlten Anzahl-Chip.
+ *
+ * Eigene Funktion statt eines Ausdrucks im Listener, weil sie an zwei Stellen
+ * gebraucht wird: beim Klick und beim Zuruecksetzen des Dialogs. Ein
+ * zurueckgesetztes Radio faerbt sich nicht von selbst um.
+ */
+function markiereAnzahl() {
+  document.querySelectorAll('#kb-patient-count .kb-anzahl-chip').forEach(chip => {
+    const rb = chip.querySelector('input');
+    chip.classList.toggle('active', !!rb && rb.checked);
+  });
+}
+
+document.querySelectorAll('#kb-patient-count input[name="kb-pc"]')
+  .forEach(rb => rb.addEventListener('change', markiereAnzahl));
+
+/**
  * Kurzfristige Buchungen ehrlich benennen.
  *
  * Eine Buchung ist kein Personaleinsatz: die Sitzwache erfaehrt sie per Mail,
@@ -618,6 +667,10 @@ function openBookingModal(slot) {
   document.getElementById('kb-station-phone').value = '';
   document.getElementById('kb-room').value = '';
   document.getElementById('kb-fallnummer').value = '';
+  // Zuruecksetzen auf 1: der Dialog wird wiederverwendet, und eine
+  // stehengebliebene 2 waere in der naechsten Buchung nicht zu sehen.
+  const pcEins = document.querySelector('#kb-patient-count input[value="1"]');
+  if (pcEins) { pcEins.checked = true; markiereAnzahl(); }
   document.getElementById('kb-notes').value = '';
   document.querySelectorAll('#kb-flags input[type="checkbox"]').forEach(cb => {
     cb.checked = false;
@@ -650,6 +703,11 @@ async function confirmBooking() {
     return;
   }
   const flags = [...document.querySelectorAll('#kb-flags input[type="checkbox"]:checked')].map(cb => cb.value);
+  // Number, nicht der rohe String: die RPC erwartet smallint, und PostgREST
+  // schickt einen String als String weiter.
+  const patientCount = Number(
+    (document.querySelector('#kb-patient-count input[name="kb-pc"]:checked') || {}).value || 1
+  );
 
   const btn = document.getElementById('kb-confirm');
   btn.disabled = true;
@@ -665,7 +723,8 @@ async function confirmBooking() {
     fallnummer: fallnummer,
     patient_room: room,
     patient_flags: flags,
-    patient_notes: notes
+    patient_notes: notes,
+    patient_count: patientCount
   });
 
   if (!res.ok) {

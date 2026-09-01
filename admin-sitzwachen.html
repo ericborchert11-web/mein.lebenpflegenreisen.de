@@ -34,6 +34,8 @@
 .pill.confirmed { background:#E7F3EA; color:#2E7D46; }
 .pill.completed { background:#E4EEE6; color:#1E5B36; }
 .pill.no_show   { background:#FBEAEA; color:#9B2C2C; }
+.pc2 { display:inline-block; padding:1px 7px; border-radius:999px; font-size:11px;
+       font-weight:700; background:#EDF6D3; color:#3D5A14; border:1px solid #C8D98A; }
 .pill.cancelled { background:#F0E5E1; color:#7A3A28; }
 .as-actions { display:flex; gap:6px; flex-wrap:wrap; }
 .as-btn { padding:6px 12px; font-size:13px; font-weight:600; border-radius:7px; border:1px solid var(--green); background:#fff; color:var(--green); cursor:pointer; }
@@ -353,7 +355,8 @@ function renderBookings() {
         '<td>' + esc(SHIFT_SHORT[b.shift] || b.shift) + '</td>' +
         '<td>' + esc(b.volunteer_name) + '</td>' +
         '<td>' + esc(b.clinic_name) + '</td>' +
-        '<td>' + esc(b.patient_room || '—') + '</td>' +
+        '<td>' + esc(b.patient_room || '—') +
+          (b.patient_count === 2 ? ' <span class="pc2" title="Zwei Patient:innen mit einer Sitzwache">2 Pat.</span>' : '') + '</td>' +
         '<td>' + (b.hours != null ? esc(String(b.hours)) : '—') + '</td>' +
         '<td>' + (b.compensation_eur != null ? eur(b.compensation_eur) : '<span style="color:#9B2C2C">offen</span>') + '</td>' +
         '<td><span class="pill ' + b.status + '">' + (BOOKING_STATUS_LABEL[b.status] || b.status) + '</span>' + einsatzHinweis(b) + ohneUnterschriftHinweis(b) + claimStandHtml(b, _claimsByBooking) + '</td>' +

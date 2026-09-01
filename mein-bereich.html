@@ -840,9 +840,10 @@ async function renderUpcomingBookings() {
             </div>
             <span class="bb-shift-pill ${escape(b.shift)}">${escape(sh.label)} · ${escape(sh.time)}</span>
           </div>
-          ${(b.station || b.patient_room || b.fallnummer || flags || b.patient_notes) ? `
+          ${(b.station || b.patient_room || b.fallnummer || flags || b.patient_notes || b.patient_count === 2) ? `
             <dl class="bb-detail-grid">
               ${b.station ? `<dt>Station</dt><dd>${escape(b.station)}</dd>` : ''}
+              ${b.patient_count === 2 ? `<dt>Patient:innen</dt><dd><strong>2</strong> — beide im selben Zimmer/Bereich</dd>` : ''}
               ${b.patient_room ? `<dt>Zimmer</dt><dd>${escape(b.patient_room)}</dd>` : ''}
               ${b.fallnummer ? `<dt>Fall-Nr.</dt><dd>${escape(b.fallnummer)}</dd>` : ''}
               ${b.station_phone ? `<dt>Telefon</dt><dd><a class="bb-tel" href="tel:${escape(b.station_phone.replace(/[^\d+]/g, ''))}">${escape(b.station_phone)}</a></dd>` : ''}

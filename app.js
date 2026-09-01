@@ -1483,7 +1483,7 @@
     try {
       let q = (await sb())
         .from('bookings')
-        .select('id, request_id, clinic_id, date, shift, hours, compensation_eur, status, station, fallnummer, patient_room, patient_flags, patient_notes, created_at, station_phone, unterwegs_ts, eta_ts, beginn_zeit, stunden_geplant, kunde_id, profiles!bookings_clinic_id_fkey(full_name)')
+        .select('id, request_id, clinic_id, date, shift, hours, compensation_eur, status, station, fallnummer, patient_room, patient_flags, patient_notes, patient_count, created_at, station_phone, unterwegs_ts, eta_ts, beginn_zeit, stunden_geplant, kunde_id, profiles!bookings_clinic_id_fkey(full_name)')
         .eq('volunteer_id', s.id)
         .order('date', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
@@ -1504,6 +1504,7 @@
         patient_room: b.patient_room,
         patient_flags: b.patient_flags || [],
         patient_notes: b.patient_notes,
+        patient_count: b.patient_count || 1,
         created_at: b.created_at,
         station_phone: b.station_phone,
         unterwegs_ts: b.unterwegs_ts,
@@ -3052,7 +3053,11 @@
         p_room:          payload.patient_room || null,
         p_fallnummer:    payload.fallnummer || null,
         p_flags:         Array.isArray(payload.patient_flags) ? payload.patient_flags : [],
-        p_notes:         payload.patient_notes || null
+        p_notes:         payload.patient_notes || null,
+        // 1 oder 2 — mehr laesst die Datenbank nicht zu. Alles andere wird
+        // hier auf 1 gezogen, damit ein verirrter Wert nicht als Fehler beim
+        // Buchen ankommt.
+        p_patient_count: payload.patient_count === 2 ? 2 : 1
       });
       if (error) return { ok: false, error: error.message };
       const z = Array.isArray(data) ? data[0] : data;
@@ -3120,7 +3125,8 @@
           station_phone: stationPhone,
           patient_room: room,
           patient_flags: flags,
-          patient_notes: notes
+          patient_notes: notes,
+          patient_count: payload.patient_count === 2 ? 2 : 1
         })
         .select()
         .single();
@@ -3145,7 +3151,7 @@
     try {
       let q = (await sb())
         .from('bookings')
-        .select('id, volunteer_id, date, shift, status, station, fallnummer, patient_room, patient_flags, patient_notes, created_at, cancelled_at, cancelled_by_user_id, cancellation_reason, station_phone, unterwegs_ts, eta_ts, profiles!bookings_volunteer_id_fkey(full_name)')
+        .select('id, volunteer_id, date, shift, status, station, fallnummer, patient_room, patient_flags, patient_notes, patient_count, created_at, cancelled_at, cancelled_by_user_id, cancellation_reason, station_phone, unterwegs_ts, eta_ts, profiles!bookings_volunteer_id_fkey(full_name)')
         .eq('clinic_id', s.id)
         .order('date', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
@@ -3165,6 +3171,7 @@
         patient_room: b.patient_room,
         patient_flags: b.patient_flags || [],
         patient_notes: b.patient_notes,
+        patient_count: b.patient_count || 1,
         created_at: b.created_at,
         cancelled_at: b.cancelled_at,
         cancelled_by_user_id: b.cancelled_by_user_id,
@@ -3495,7 +3502,7 @@
     try {
       const client = await sb();
       let q = client.from('bookings')
-        .select('id, volunteer_id, clinic_id, date, shift, hours, compensation_eur, status, completed_at, late_cancellation, patient_room, patient_flags, patient_notes, cancellation_reason, cancelled_at, cancelled_by_user_id')
+        .select('id, volunteer_id, clinic_id, date, shift, hours, compensation_eur, status, completed_at, late_cancellation, patient_room, patient_flags, patient_notes, patient_count, cancellation_reason, cancelled_at, cancelled_by_user_id')
         .order('date', { ascending: false });
       if (fromDate) q = q.gte('date', fromDate);
       if (toDate)   q = q.lte('date', toDate);

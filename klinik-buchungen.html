@@ -124,6 +124,13 @@
 .kbl-status-pill.completed { background: #DCE8E0; color: #1A3A2A; border-color: #2A5740; }
 .kbl-status-pill.cancelled { background: #F0E5E1; color: #7A3A28; border-color: #B07058; }
 .kbl-status-pill.no_show   { background: #FBEAEA; color: #9B2C2C; border-color: #C06060; }
+/* Nur bei zwei Patient:innen sichtbar — eine 1 ueberall hinzuschreiben waere
+   Laerm, der Regelfall braucht keine Beschriftung. */
+.kbl-pc-pill {
+  display: inline-flex; align-items: center; padding: 3px 10px;
+  border-radius: 999px; font-size: 12px; font-weight: 700;
+  background: #EDF6D3; color: #3D5A14; border: 1px solid #C8D98A;
+}
     .kbl-ohne-us {
   margin-top: 10px; padding: 10px 12px;
   background: #FBF3DC; border: 1px solid #E4D6A6;
@@ -419,6 +426,7 @@ function renderList() {
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <span class="kbl-card-shiftpill ${escape(b.shift)}">${escape(sh.label)} · ${escape(sh.time)}</span>
             <span class="kbl-status-pill ${escape(b.status)}">${escape(STATUS_LABELS[b.status] || b.status)}</span>
+            ${b.patient_count === 2 ? '<span class="kbl-pc-pill">2 Patient:innen</span>' : ''}
           </div>
         </div>
         ${anreiseZeile(b)}

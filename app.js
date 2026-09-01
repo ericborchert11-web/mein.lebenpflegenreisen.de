@@ -2356,6 +2356,101 @@
     }
   }
 
+  /**
+   * Beide Ampeln in einem Aufruf.
+   *
+   * Ueber eine Funktion und nicht ueber die Sichten: die Sichten kommen an
+   * bookings vorbei an der RLS (Eigentuemerrechte), deshalb haben sie kein
+   * Leserecht fuer authenticated. Das Tor ist is_board() in kpi_ampeln.
+   */
+  async function getKpiAmpeln() {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur für den Vorstand.' };
+    }
+    try {
+      const { data, error } = await (await sb()).rpc('kpi_ampeln');
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, ampeln: data || {} };
+    } catch(e) {
+      console.error('[LPR] getKpiAmpeln:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /** Zuverlaessigkeit je Person — die Detailliste hinter der Ampel. */
+  async function getKpiPersonen() {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur für den Vorstand.', personen: [] };
+    }
+    try {
+      const { data, error } = await (await sb()).rpc('kpi_personen');
+      if (error) return { ok: false, error: error.message, personen: [] };
+      return { ok: true, personen: data || [] };
+    } catch(e) {
+      console.error('[LPR] getKpiPersonen:', e);
+      return { ok: false, error: 'Netzwerkfehler.', personen: [] };
+    }
+  }
+
+  /**
+   * Dienstsperre setzen oder aufheben.
+   *
+   * NICHT profiles.status: das steuert die Anmeldung. Wer gesperrt ist, soll
+   * sich weiter anmelden und seine bereits zugesagten Dienste sehen koennen —
+   * er bekommt nur keine neuen mehr zugeteilt.
+   */
+  async function setDienstsperre(volunteerId, gesperrt, grund) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur für den Vorstand.' };
+    }
+    try {
+      const { error } = await (await sb()).rpc('set_dienstsperre', {
+        p_volunteer: volunteerId, p_gesperrt: !!gesperrt, p_grund: (grund || null)
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] setDienstsperre:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /** Schwellenwerte lesen und schreiben — ohne Deploy aenderbar. */
+  async function getAppSettings(praefix) {
+    try {
+      let q = (await sb()).from('app_settings').select('key, value, beschreibung').order('key');
+      if (praefix) q = q.like('key', praefix + '%');
+      const { data, error } = await q;
+      if (error) return { ok: false, error: error.message, settings: [] };
+      return { ok: true, settings: data || [] };
+    } catch(e) {
+      console.error('[LPR] getAppSettings:', e);
+      return { ok: false, error: 'Netzwerkfehler.', settings: [] };
+    }
+  }
+
+  async function setAppSetting(key, wert) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur für den Vorstand.' };
+    }
+    const zahl = Number(String(wert).replace(',', '.'));
+    if (!Number.isFinite(zahl)) return { ok: false, error: 'Bitte eine Zahl angeben.' };
+    try {
+      const { error } = await (await sb()).from('app_settings')
+        .update({ value: zahl, updated_at: new Date().toISOString(), updated_by: s.id })
+        .eq('key', key);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] setAppSetting:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   /** Stilllegen oder wieder aufnehmen. listClinics zeigt nur aktive. */
   async function setClinicActive(id, active) {
     try {
@@ -4516,6 +4611,7 @@
     listAllClinics, clinicIdVorschlag, saveClinic, setClinicActive, clinicUsage, deleteClinic,
     setClinicNotifySettings, getBookingNotifications,
     setBookingNoShow, clearBookingNoShow,
+    getKpiAmpeln, getKpiPersonen, setDienstsperre, getAppSettings, setAppSetting,
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
     register, loginWithPassword, requireRole,

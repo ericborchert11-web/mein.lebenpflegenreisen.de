@@ -44,12 +44,18 @@ if (!dateien.length) {
   process.exit(1);
 }
 
+// Zweiter Rahmen ohne Buchungstabelle. Eine Vorlage waehlt ihn ueber den
+// Vermerk "RAHMEN: schlicht" in ihrer ersten Zeile — Meldungen, die zu keiner
+// einzelnen Buchung gehoeren, haetten in der Tabelle sonst nur leere Zeilen.
+const rahmenSchlicht = readFileSync(join(ordner, '_rahmen-schlicht.html'), 'utf8');
+
 const eintraege = dateien.map((f) => {
   const name = f.replace(/\.html$/, '');
   const rumpf = readFileSync(join(ordner, f), 'utf8').trim();
+  const gewaehlt = /RAHMEN:\s*schlicht/.test(rumpf.split('\n')[0]) ? rahmenSchlicht : rahmen;
   // Der Rumpf wird in den Rahmen gesetzt; alle uebrigen {{platzhalter}}
   // bleiben stehen und fuellt die Function zur Laufzeit.
-  const ganz = rahmen.replace('{{inhalt}}', rumpf);
+  const ganz = gewaehlt.replace('{{inhalt}}', rumpf);
   // Backticks und ${ muessen escaped werden, sonst entsteht in der .ts-Datei
   // ein Template-Literal mit Ausdruecken darin.
   const sicher = ganz.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');

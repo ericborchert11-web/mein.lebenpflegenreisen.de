@@ -34,6 +34,20 @@
 .pill.confirmed { background:#E7F3EA; color:#2E7D46; }
 .pill.completed { background:#E4EEE6; color:#1E5B36; }
 .pill.no_show   { background:#FBEAEA; color:#9B2C2C; }
+.as-ampel-reihe { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
+.as-ampel { border:1px solid #E0DACE; border-left:6px solid #999; border-radius:12px; padding:16px 18px; }
+.as-ampel.gruen { border-left-color:#2E7D32; }
+.as-ampel.gelb  { border-left-color:#B8860B; }
+.as-ampel.rot   { border-left-color:#9B2C2C; }
+.as-ampel h3 { margin:0; font-size:14px; color:#7A8270; font-weight:600; }
+.as-ampel .wert { font-size:24px; font-weight:800; margin:3px 0 6px; }
+.as-ampel.gruen .wert { color:#2E7D32; }
+.as-ampel.gelb  .wert { color:#B8860B; }
+.as-ampel.rot   .wert { color:#9B2C2C; }
+.as-ampel .zahl { font-size:14px; color:#3A423A; }
+.as-ampel .warum { font-size:12.5px; color:#7A8270; margin-top:8px; cursor:help; border-bottom:1px dotted #B8B2A4; display:inline-block; }
+.as-details { margin-top:18px; border-top:1px solid #EEE9DD; padding-top:12px; }
+.as-details summary { cursor:pointer; font-weight:600; color:var(--green); }
 .as-notify { display:inline-block; margin-left:5px; padding:1px 7px; border-radius:999px;
              font-size:11px; font-weight:700; cursor:help; }
 .as-notify-fehler { background:#FBEAEA; color:#9B2C2C; }
@@ -147,6 +161,7 @@ h1 { margin:0 0 4px; }
     <div class="as-tabs" role="tablist">
       <button class="as-tab active" data-tab="buchungen" role="tab">Buchungen <span class="as-tab-count" id="cnt-buchungen">0</span></button>
       <button class="as-tab" data-tab="saetze" role="tab">Sätze</button>
+      <button class="as-tab" data-tab="ampeln" role="tab">Ampeln</button>
     </div>
 
     <!-- ===== Tab: Buchungen ===== -->
@@ -176,6 +191,26 @@ h1 { margin:0 0 4px; }
         Sitzwachen-Abrechnung für alle gesperrt. Trage hier den vom Vorstand beschlossenen Betrag ein.
       </div>
       <div id="rate-cards"></div>
+    </section>
+
+    <section class="as-panel" id="panel-ampeln" role="tabpanel">
+      <div id="ampel-karten" class="as-ampel-reihe">
+        <div class="as-empty">Wird geladen…</div>
+      </div>
+      <details class="as-details">
+        <summary>Zuverlässigkeit je Person</summary>
+        <div id="ampel-personen"></div>
+      </details>
+      <details class="as-details">
+        <summary>Schwellenwerte ändern</summary>
+        <p class="as-hint" style="margin:10px 0;">
+          Es gibt keinen amtlichen Grenzwert. Die Werte unten sind Startwerte aus der
+          Praxis anderer Krankenhaus-Ehrenamtsprogramme — Gespräch nach dem ersten,
+          Pause nach dem zweiten unentschuldigten Fehlen.
+          <strong>Nach drei Monaten echter Daten gehören sie nachjustiert.</strong>
+        </p>
+        <div id="ampel-settings"></div>
+      </details>
     </section>
   </div>
 </div>
@@ -219,12 +254,109 @@ async function init() {
   document.querySelectorAll('.as-tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
   document.getElementById('f-booking-apply').addEventListener('click', loadBookings);
 
-  await Promise.all([loadBookings(), loadRates()]);
+  await Promise.all([loadBookings(), loadRates(), loadAmpeln()]);
 }
 
 function switchTab(name) {
   document.querySelectorAll('.as-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.as-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+}
+
+// ===================== Ampeln =====================
+const AMPEL_WORT = { gruen: 'Grün', gelb: 'Gelb', rot: 'Rot' };
+
+async function loadAmpeln() {
+  const el = document.getElementById('ampel-karten');
+  const res = await LPR.getKpiAmpeln();
+  if (!res.ok) { el.innerHTML = '<div class="as-empty">' + esc(res.error || 'Fehler.') + '</div>'; return; }
+
+  const z = (res.ampeln && res.ampeln.zuverlaessigkeit) || {};
+  const k = (res.ampeln && res.ampeln.kapazitaet) || {};
+
+  // Der Tooltip nennt Schwelle UND Ist-Wert. Eine Ampel ohne Begruendung ist
+  // eine Farbe, ueber die man diskutiert statt zu handeln.
+  const karte = (titel, a, wert, zahl, warum) =>
+    '<div class="as-ampel ' + esc(a || '') + '">' +
+      '<h3>' + esc(titel) + '</h3>' +
+      '<div class="wert">' + esc(AMPEL_WORT[a] || '—') + '</div>' +
+      '<div class="zahl">' + zahl + '</div>' +
+      '<div class="warum" title="' + esc(warum) + '">Warum?</div>' +
+    '</div>';
+
+  el.innerHTML =
+    karte('Zuverlässigkeit · 90 Tage', z.ampel, z.quote_prozent,
+      esc(z.no_shows_90t ?? 0) + ' No-Shows bei ' + esc(z.dienste_90t ?? 0) + ' Diensten ('
+        + esc(z.quote_prozent ?? 0) + ' %)<br>' + esc(z.kurzfrist_90t ?? 0) + ' kurzfristige Absagen',
+      'Grün unter 3 % und kein No-Show in 30 Tagen · Gelb 3–8 % oder 1 in 30 Tagen · '
+        + 'Rot über 8 % oder 2 in 30 Tagen. Aktuell: ' + (z.quote_prozent ?? 0) + ' %, '
+        + (z.no_shows_30t ?? 0) + ' in den letzten 30 Tagen.') +
+    karte('Kapazität · Akquise-Signal', k.ampel, null,
+      esc(k.aktive_personen ?? 0) + ' aktive Ehrenamtliche<br>Bedarf ' + esc(k.bedarf_monat ?? 0)
+        + '/Monat · Besetzung ' + esc(k.besetzungsquote ?? 0) + ' %',
+      'Grün ab dem 1,3-fachen des benötigten Pools und ab 95 % Besetzung. '
+        + 'Bei GELB mit der Akquise anfangen, nicht erst bei Rot — bis jemand einsatzbereit '
+        + 'ist, vergehen 4 bis 6 Wochen. Aktuell: ' + (k.aktive_personen ?? 0) + ' aktiv, '
+        + (k.benoetigt_bei_2 ?? 0) + ' benötigt.');
+
+  ladePersonen();
+  ladeSchwellen();
+}
+
+async function ladePersonen() {
+  const el = document.getElementById('ampel-personen');
+  const res = await LPR.getKpiPersonen();
+  if (!res.ok) { el.innerHTML = '<div class="as-empty">' + esc(res.error) + '</div>'; return; }
+  // Nur wer auffaellt. Eine Liste aller Ehrenamtlichen mit lauter Nullen waere
+  // eine Liste, die niemand liest.
+  const auf = (res.personen || []).filter(p =>
+    p.no_shows_12m > 0 || p.kurzfrist_absagen_90t >= 3 || p.dienstsperre_seit);
+  if (!auf.length) { el.innerHTML = '<div class="as-empty">Niemand auffällig. </div>'; return; }
+  el.innerHTML = '<table class="as-table"><thead><tr><th>Person</th><th>No-Shows 12 Mon.</th>'
+    + '<th>Kurzfristige Absagen 90 T.</th><th>Dienste 12 Mon.</th><th>Stand</th><th></th></tr></thead><tbody>'
+    + auf.map(p => {
+        const gesperrt = !!p.dienstsperre_seit;
+        const stand = gesperrt ? '<span class="pill no_show">gesperrt</span>'
+                    : (p.no_shows_12m >= 1 ? '<span class="pill">Gespräch fällig</span>' : '—');
+        return '<tr><td>' + esc(p.full_name || '—') + '</td><td>' + esc(p.no_shows_12m) + '</td><td>'
+          + esc(p.kurzfrist_absagen_90t) + '</td><td>' + esc(p.dienste_12m) + '</td><td>' + stand + '</td>'
+          + '<td><button class="as-btn" data-sperre="' + esc(p.volunteer_id) + '" data-an="'
+          + (gesperrt ? '0' : '1') + '">' + (gesperrt ? 'Sperre aufheben' : 'Sperren') + '</button></td></tr>';
+      }).join('') + '</tbody></table>';
+
+  el.querySelectorAll('button[data-sperre]').forEach(b => {
+    b.addEventListener('click', async () => {
+      const an = b.dataset.an === '1';
+      if (an && !confirm('Diese Person bekommt keine NEUEN Dienste mehr zugeteilt.\n\n'
+        + 'Bereits zugesagte Dienste bleiben bestehen — darüber entscheidest du.')) return;
+      const grund = an ? prompt('Grund (erscheint nur intern):', 'Nach Gespräch pausiert') : null;
+      if (an && grund === null) return;
+      b.disabled = true;
+      const r = await LPR.setDienstsperre(b.dataset.sperre, an, grund);
+      if (!r.ok) { toast(r.error || 'Fehler.', 'warn'); b.disabled = false; return; }
+      toast(an ? 'Gesperrt.' : 'Sperre aufgehoben.');
+      loadAmpeln();
+    });
+  });
+}
+
+async function ladeSchwellen() {
+  const el = document.getElementById('ampel-settings');
+  const res = await LPR.getAppSettings('ampel.');
+  if (!res.ok) { el.innerHTML = '<div class="as-empty">' + esc(res.error) + '</div>'; return; }
+  el.innerHTML = (res.settings || []).map(x =>
+    '<div style="display:flex;gap:10px;align-items:center;margin:7px 0;flex-wrap:wrap;">'
+    + '<input type="text" value="' + esc(x.value) + '" data-key="' + esc(x.key) + '" '
+    + 'style="width:80px;padding:5px 8px;">'
+    + '<span style="font-size:13.5px;">' + esc(x.beschreibung || x.key) + '</span></div>').join('');
+
+  el.querySelectorAll('input[data-key]').forEach(i => {
+    i.addEventListener('change', async () => {
+      const r = await LPR.setAppSetting(i.dataset.key, i.value);
+      if (!r.ok) { toast(r.error || 'Fehler.', 'warn'); return; }
+      toast('Gespeichert.');
+      loadAmpeln();
+    });
+  });
 }
 
 // ===================== Buchungen =====================

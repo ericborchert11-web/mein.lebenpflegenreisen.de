@@ -418,9 +418,31 @@ function renderCard(c) {
         <button class="ak-btn ak-btn-approve" onclick="openApproveModal('${escape(c.id)}', ${JSON.stringify(c.clinic_name).replace(/"/g, '&quot;')})">Doch freigeben</button>
       </div>`;
   } else if (c.status === 'approved') {
+    // Abteilung und Zustellwuensche stehen direkt auf der Karte und nicht in
+    // einem eigenen Dialog: es sind drei Felder, und wer die Klinik ansieht,
+    // will genau hier wissen, wer von ihr Post bekommt.
     actions = `
-      <div class="ak-actions">
+      <div class="ak-actions" style="flex-direction:column; align-items:stretch; gap:10px;">
         <span style="font-size: 12.5px; color: var(--muted);">Verknüpft mit Stammdaten-ID: <code style="background: #FAFAF5; padding: 2px 6px; border-radius: 4px;">${escape(c.linked_clinic_id || '—')}</code></span>
+        <div style="border-top:1px solid #EFEDE6; padding-top:10px;">
+          <label style="display:block; font-size:13px; font-weight:600;">Station / Abteilung
+            <br><input type="text" id="dept-${escape(c.id)}" value="${escape(c.department || '')}"
+                       maxlength="80" placeholder="z.B. Station 4B" style="width:100%; margin-top:4px;">
+          </label>
+          <label style="display:flex; gap:7px; align-items:center; margin-top:9px; font-size:13.5px;">
+            <input type="checkbox" id="nm-${escape(c.id)}" ${c.notify_email === false ? '' : 'checked'}>
+            Bekommt Benachrichtigungen per E-Mail
+          </label>
+          <label style="display:flex; gap:7px; align-items:center; margin-top:6px; font-size:13.5px;">
+            <input type="checkbox" id="na-${escape(c.id)}" ${c.notify_all_departments ? 'checked' : ''}>
+            Alle Abteilungen dieser Klinik (für PDL)
+          </label>
+          <p class="muted" style="font-size:12.5px; margin:7px 0 0;">
+            Ohne Abteilung bekommt dieses Konto nur die Buchungen, die es selbst anlegt.
+          </p>
+          <button class="ak-btn ak-btn-approve" style="margin-top:9px;"
+                  onclick="zustellungSpeichern('${escape(c.id)}')">Zustellung speichern</button>
+        </div>
       </div>`;
   }
 
@@ -578,7 +600,7 @@ function renderStamm() {
 
   const formular = (k) => {
     const neu = !k;
-    const v = k || { id:'', name:'', plz:'', city:'', sort_order:999 };
+    const v = k || { id:'', name:'', plz:'', city:'', sort_order:999, notification_cc:'' };
     return `
       <div class="ak-card" style="border:2px solid var(--green);">
         <h3 style="margin-bottom:12px;">${neu ? 'Neue Klinik anlegen' : 'Klinik ändern'}</h3>
@@ -588,6 +610,14 @@ function renderStamm() {
           <label>Ort<br><input type="text" id="k-city" value="${esc(v.city)}" maxlength="80" style="width:100%"></label>
           <label>Reihenfolge<br><input type="number" id="k-sort" value="${Number(v.sort_order)||999}" style="width:100%"></label>
         </div>
+        <label style="display:block; margin-top:12px;">Sammelpostfach für Benachrichtigungen (optional)
+          <br><input type="email" id="k-cc" value="${esc(v.notification_cc || '')}" maxlength="200"
+                     placeholder="z.B. station4b@klinik.de" style="width:100%">
+        </label>
+        <p class="muted" style="font-size:13px; margin-top:4px;">
+          Bekommt jede Buchungs- und Stornomeldung dieser Klinik zusätzlich zu den
+          einzelnen Konten. Leer lassen, wenn es kein Stationspostfach gibt.
+        </p>
         <label style="display:block; margin-top:12px;">Kennung
           <br><input type="text" id="k-id" value="${esc(v.id)}" maxlength="40" style="width:100%"
                      ${neu ? '' : 'disabled'}>
@@ -660,13 +690,27 @@ async function stammSpeichern(istNeu) {
     name: document.getElementById('k-name').value,
     plz:  document.getElementById('k-plz').value,
     city: document.getElementById('k-city').value,
-    sort_order: document.getElementById('k-sort').value
+    sort_order: document.getElementById('k-sort').value,
+    notification_cc: document.getElementById('k-cc').value
   }, istNeu);
   if (!res.ok) { fehler.textContent = res.error; fehler.style.display = 'block'; return; }
   showToast(istNeu ? 'Klinik angelegt.' : 'Klinik geändert.');
   _bearbeitet = null;
   await ladeStamm();
   renderStamm();
+}
+
+/** Abteilung und Zustellwuensche eines Klinikkontos sichern. */
+async function zustellungSpeichern(accountId) {
+  const res = await LPR.setClinicNotifySettings(accountId, {
+    department:             document.getElementById('dept-' + accountId).value,
+    notify_email:           document.getElementById('nm-' + accountId).checked,
+    notify_all_departments: document.getElementById('na-' + accountId).checked
+  });
+  if (!res.ok) { showToast('Fehler: ' + res.error); return; }
+  showToast('Zustellung gespeichert.');
+  await loadAllTabs();
+  renderTab();
 }
 
 async function stammStilllegen(id, aktiv) {

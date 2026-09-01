@@ -34,6 +34,10 @@
 .pill.confirmed { background:#E7F3EA; color:#2E7D46; }
 .pill.completed { background:#E4EEE6; color:#1E5B36; }
 .pill.no_show   { background:#FBEAEA; color:#9B2C2C; }
+.as-notify { display:inline-block; margin-left:5px; padding:1px 7px; border-radius:999px;
+             font-size:11px; font-weight:700; cursor:help; }
+.as-notify-fehler { background:#FBEAEA; color:#9B2C2C; }
+.as-notify-offen  { background:#F5F0DC; color:#6B5A16; }
 .pc2 { display:inline-block; padding:1px 7px; border-radius:999px; font-size:11px;
        font-weight:700; background:#EDF6D3; color:#3D5A14; border:1px solid #C8D98A; }
 .pill.cancelled { background:#F0E5E1; color:#7A3A28; }
@@ -236,6 +240,10 @@ async function loadBookings() {
   _einsatzInfo = info.ok ? info.info : {};
   // Abrechnungsstand je Dienst — nur zur Anzeige. Bearbeitet wird ausschliesslich
   // unter Auszahlungen, sonst gaebe es zwei Wahrheiten ueber den Status.
+  // Sind die Benachrichtigungen rausgegangen? Ein stiller Ausfall im
+  // Mailversand faellt sonst erst auf, wenn die Klinik anruft.
+  const nRes = await LPR.getBookingNotifications(_bookings.map(b => b.id));
+  _notifyStand = nRes.ok ? nRes.nach : {};
   const claimsRes = await LPR.adminClaimsFuerBuchungen(_bookings.map(b => b.id));
   _claimsByBooking = {};
   (claimsRes.ok ? claimsRes.claims : []).forEach(c => {
@@ -246,6 +254,9 @@ async function loadBookings() {
 
 let _einsatzInfo = {};
 let _claimsByBooking = {};
+// Zustellstand je Buchung: { gesendet, offen, fehler }. Kommt aus der Sicht
+// v_booking_notifications, nicht aus der Outbox — dort stehen Mailadressen.
+let _notifyStand = {};
 
 /** Massgeblicher Antrag zu einer Buchung: der nicht abgelehnte (davon kann es
  * wegen der Sperre in submitSitzClaim hoechstens einen gleichzeitig geben),
@@ -261,6 +272,27 @@ function claimAktuell(bookingClaims) {
  * gibt es nichts abzurechnen, und "offen" waere an einem erst kuenftigen
  * Dienst eine falsche Aufforderung.
  */
+/**
+ * Zustellstand der Benachrichtigungen zu einer Buchung.
+ *
+ * Zeigt nur, was auffallen soll: einen Fehler und noch offene Zeilen. Ein
+ * gruenes Haekchen an jeder Zeile waere Laerm — dass Mails ankommen, ist der
+ * Normalfall und braucht keine Meldung.
+ */
+function notifyStandHtml(b) {
+  const n = (_notifyStand || {})[b.id];
+  if (!n) return '';
+  if (n.fehler) {
+    return ' <span class="as-notify as-notify-fehler" title="' + n.fehler +
+           ' Benachrichtigung(en) konnten nicht zugestellt werden">✗ Mail</span>';
+  }
+  if (n.offen) {
+    return ' <span class="as-notify as-notify-offen" title="' + n.offen +
+           ' Benachrichtigung(en) noch nicht verschickt">… Mail</span>';
+  }
+  return '';
+}
+
 function claimStandHtml(b, claimsByBooking) {
   if (b.status !== 'completed') return '';
   const c = claimAktuell((claimsByBooking || {})[b.id]);
@@ -359,7 +391,7 @@ function renderBookings() {
           (b.patient_count === 2 ? ' <span class="pc2" title="Zwei Patient:innen mit einer Sitzwache">2 Pat.</span>' : '') + '</td>' +
         '<td>' + (b.hours != null ? esc(String(b.hours)) : '—') + '</td>' +
         '<td>' + (b.compensation_eur != null ? eur(b.compensation_eur) : '<span style="color:#9B2C2C">offen</span>') + '</td>' +
-        '<td><span class="pill ' + b.status + '">' + (BOOKING_STATUS_LABEL[b.status] || b.status) + '</span>' + einsatzHinweis(b) + ohneUnterschriftHinweis(b) + claimStandHtml(b, _claimsByBooking) + '</td>' +
+        '<td><span class="pill ' + b.status + '">' + (BOOKING_STATUS_LABEL[b.status] || b.status) + '</span>' + einsatzHinweis(b) + ohneUnterschriftHinweis(b) + notifyStandHtml(b) + claimStandHtml(b, _claimsByBooking) + '</td>' +
         '<td><div class="as-actions">' + actions + '</div></td>' +
       '</tr>';
     }).join('') +

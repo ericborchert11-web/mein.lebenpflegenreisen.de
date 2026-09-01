@@ -2224,7 +2224,7 @@
     try {
       const { data, error } = await (await sb())
         .from('clinics')
-        .select('id, name, plz, city, sort_order, active')
+        .select('id, name, plz, city, sort_order, active, notification_cc')
         .order('active', { ascending: false })
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true });
@@ -2263,11 +2263,19 @@
     }
     if (name.length < 2) return { ok: false, error: 'Bitte den Namen der Klinik angeben.' };
 
+    // Sammelpostfach der Klinik. Leer ist ausdruecklich erlaubt: nicht jede
+    // Klinik hat eins, und ein Pflichtfeld waere hier eine erfundene Anforderung.
+    const cc = String((k && k.notification_cc) || '').trim();
+    if (cc && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cc)) {
+      return { ok: false, error: 'Das Sammelpostfach ist keine gültige E-Mail-Adresse.' };
+    }
+
     const satz = {
       name:       name,
       plz:        String((k && k.plz) || '').trim() || null,
       city:       String((k && k.city) || '').trim() || null,
-      sort_order: Number(k && k.sort_order) || 999
+      sort_order: Number(k && k.sort_order) || 999,
+      notification_cc: cc || null
     };
     try {
       const client = await sb();
@@ -2282,6 +2290,69 @@
     } catch(e) {
       console.error('[LPR] saveClinic:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Abteilung und Zustellwuensche eines Klinikkontos.
+   *
+   * WARUM DAS NOETIG IST: Ein Klinikkonto ist ein profiles-Satz mit einem
+   * clinic_details daneben. Mehrere Abteilungsleitungen derselben Klinik sind
+   * mehrere Konten mit demselben linked_clinic_id — welche Abteilung dahinter
+   * steht, stand bisher nirgends. Ohne die Angabe bekaeme entweder jede
+   * Abteilung alles oder nur die buchende Person etwas.
+   *
+   * notify_all_departments ist fuer die Pflegedienstleitung: sie will alles
+   * sehen, nicht nur ihre eigene Station.
+   */
+  async function setClinicNotifySettings(accountId, opts) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur der Vorstand kann das ändern.' };
+    }
+    try {
+      const { error } = await (await sb())
+        .from('clinic_details')
+        .update({
+          department:             String((opts && opts.department) || '').trim() || null,
+          notify_email:           !!(opts && opts.notify_email),
+          notify_all_departments: !!(opts && opts.notify_all_departments)
+        })
+        .eq('id', accountId);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] setClinicNotifySettings:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Zustellstand der Benachrichtigungen zu einer Buchung.
+   *
+   * Liest die Sicht, nicht die Outbox: dort stehen Mailadressen aus vielen
+   * Buchungen nebeneinander, und der Vorstand braucht nur die Frage
+   * "ist es rausgegangen?".
+   */
+  async function getBookingNotifications(bookingIds) {
+    if (!Array.isArray(bookingIds) || !bookingIds.length) return { ok: true, nach: {} };
+    try {
+      const { data, error } = await (await sb())
+        .from('v_booking_notifications')
+        .select('booking_id, event, recipient_role, status, error, sent_at')
+        .in('booking_id', bookingIds);
+      if (error) return { ok: false, error: error.message, nach: {} };
+      const nach = {};
+      (data || []).forEach(z => {
+        const e = nach[z.booking_id] || (nach[z.booking_id] = { gesendet: 0, offen: 0, fehler: 0 });
+        if (z.status === 'sent')        e.gesendet++;
+        else if (z.status === 'failed') e.fehler++;
+        else if (z.status === 'pending') e.offen++;
+      });
+      return { ok: true, nach };
+    } catch(e) {
+      console.error('[LPR] getBookingNotifications:', e);
+      return { ok: false, error: 'Netzwerkfehler.', nach: {} };
     }
   }
 
@@ -2812,6 +2883,7 @@
         .select(`
           id, clinic_name, address, postal_code, city, contact_person, phone,
           status, linked_clinic_id, rejection_reason,
+          department, notify_email, notify_all_departments,
           created_at, approved_at, approved_by,
           profiles:profiles!clinic_details_id_fkey(email, full_name)
         `)
@@ -4396,6 +4468,7 @@
     // Präferenzen — Self-Service
     listClinics, getMyPreferences, updateMySoftPreferences, setClinicPreference,
     listAllClinics, clinicIdVorschlag, saveClinic, setClinicActive, clinicUsage, deleteClinic,
+    setClinicNotifySettings, getBookingNotifications,
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
     register, loginWithPassword, requireRole,

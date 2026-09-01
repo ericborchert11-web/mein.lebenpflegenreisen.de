@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Flyer A5 — Sitzwache Ehrenamt</title>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+  FLYER A5 · Angehoerige und Interessierte            Entwurf 01.09.2026
+
+  DRUCKEN:
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+        --headless --disable-gpu --no-pdf-header-footer \
+        --print-to-pdf=flyer-a5.pdf flyer-a5.html
+
+  DANACH PRUEFEN — nicht ueberspringen:
+      grep -c /SMask flyer-a5.pdf     # muss 0 sein
+      qlmanage -p flyer-a5.pdf
+
+  KEINE box-shadow. Chrome exportiert Schatten als Soft-Mask; Vorschau und
+  Keynote malen daraus harte graue Kaesten, und der Chrome-Screenshot zeigt
+  den Fehler NICHT. Rahmen statt Schatten — die Regel hat hier schon einmal
+  einen Abend gekostet.
+
+  DER QR-CODE entsteht beim Rendern aus der URL unten (cdnjs). Deshalb muss
+  beim Drucken eine Internetverbindung bestehen. So muss niemand qrencode
+  installieren, und der Code kann nie zu einer alten Adresse zeigen.
+
+  CHARITE UND ST. HEDWIG WERDEN NICHT GENANNT — keine bestaetigten Partner.
+  ═══════════════════════════════════════════════════════════════════════════
+-->
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  @page { size: A5; margin: 0; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Instrument Sans',-apple-system,sans-serif;
+         color:#1A1A18; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .blatt { width:148mm; height:210mm; display:flex; flex-direction:column; }
+
+  .kopf { background:#1A3A2A; color:#fff; padding:14mm 12mm 11mm; }
+  .marke { font-size:10pt; font-weight:600; color:#C8F135; letter-spacing:.04em; }
+  h1 { font-family:'Bricolage Grotesque',sans-serif; font-weight:800;
+       font-size:26pt; line-height:1.08; margin:5mm 0 4mm; }
+  .lead { font-size:11pt; line-height:1.5; color:rgba(255,255,255,.9); margin:0; }
+
+  .rumpf { padding:10mm 12mm; flex:1; }
+  h2 { font-family:'Bricolage Grotesque',sans-serif; font-weight:700;
+       font-size:13pt; color:#1A3A2A; margin:0 0 3mm; }
+  p  { font-size:10.5pt; line-height:1.55; margin:0 0 4mm; }
+  ul { margin:0 0 5mm; padding-left:5mm; }
+  li { font-size:10.5pt; line-height:1.5; margin-bottom:1.5mm; }
+  .betont { border-left:3px solid #C8F135; padding-left:4mm; }
+
+  .fuss { background:#E8E4DC; padding:8mm 12mm; display:flex; gap:6mm; align-items:center; }
+  .qr { width:26mm; height:26mm; background:#fff; border:1px solid #CFCBC0;
+        display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .qr canvas, .qr img { width:24mm; height:24mm; display:block; }
+  .fuss-text { font-size:9.5pt; line-height:1.5; }
+  .fuss-text strong { display:block; font-size:11pt; color:#1A3A2A; margin-bottom:1mm; }
+  .url { font-weight:600; color:#1A3A2A; word-break:break-all; }
+</style>
+</head>
+<body>
+<div class="blatt">
+  <div class="kopf">
+    <div class="marke">Leben Pflegen Reisen e.V. · Ehrenamt</div>
+    <h1>Dasein, wenn niemand sonst bleiben kann</h1>
+    <p class="lead">
+      Im Krankenhaus gibt es Menschen, die nachts nicht allein sein sollten.
+      Die Pflege auf Station kann nicht bleiben. Sie schon.
+    </p>
+  </div>
+
+  <div class="rumpf">
+    <h2>Was eine Sitzwache tut</h2>
+    <p>
+      Sie sitzt für einige Stunden am Bett eines Menschen, der Angst hat, verwirrt
+      ist oder sich nicht mehr orientieren kann. Sie hält eine Hand, spricht ein
+      paar Sätze oder ist einfach da — und holt die Pflege, wenn etwas ist.
+    </p>
+    <p class="betont">
+      Pflegerische Aufgaben übernimmt eine Sitzwache nicht. Dafür ist das
+      Personal zuständig.
+    </p>
+
+    <h2>Was Sie mitbringen</h2>
+    <ul>
+      <li>Ruhe und Zuverlässigkeit</li>
+      <li>Ein erweitertes Führungszeugnis — gebührenfrei, wir stellen die Bescheinigung aus</li>
+      <li><strong>Keinen Pflegeberuf.</strong> Den brauchen Sie nicht.</li>
+    </ul>
+
+    <h2>Was wir mitbringen</h2>
+    <ul>
+      <li>Einführung und feste Ansprechpersonen</li>
+      <li>Versicherungsschutz über den Verein</li>
+      <li>Steuerfreie Aufwandsentschädigung nach § 3 Nr. 26a EStG</li>
+      <li>Dienste, die Sie selbst wählen — zwei Nächte im Monat sind ein
+          vollwertiger Beitrag</li>
+    </ul>
+
+    <p style="font-size:10pt; color:#3A423A;">
+      Wir arbeiten mit dem <strong>Sana Klinikum Lichtenberg</strong> zusammen.
+    </p>
+  </div>
+
+  <div class="fuss">
+    <div class="qr" id="qr"></div>
+    <div class="fuss-text">
+      <strong>Melden Sie sich — unverbindlich</strong>
+      Vier Felder, kein Konto. Wir rufen an und erklären in Ruhe, wie es läuft.<br>
+      <span class="url" id="url-text"></span><br>
+      ehrenamt@lebenpflegenreisen.de · 0174 3409116
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  // Eine Stelle fuer die Adresse: QR-Code und Klartext duerfen nie
+  // auseinanderlaufen. Wer die Variante "Aushang Sana" baut, aendert nur diese
+  // Zeile (?src=flyer-sana).
+  var ZIEL = 'https://lebenpflegenreisen.de/ehrenamt-sitzwache?src=flyer-a5';
+  document.getElementById('url-text').textContent =
+    ZIEL.replace('https://', '').split('?')[0];
+  new QRCode(document.getElementById('qr'), {
+    text: ZIEL, width: 200, height: 200,
+    colorDark: '#1A3A2A', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+</script>
+</body>
+</html>

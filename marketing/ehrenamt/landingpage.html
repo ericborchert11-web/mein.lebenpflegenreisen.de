@@ -1,0 +1,167 @@
+<!--
+  Landingpage-Text fuer lebenpflegenreisen.de/ehrenamt-sitzwache
+
+  ═══════════════════════════════════════════════════════════════════════════
+  NICHT AUTOMATISCH AUSGESPIELT. Diese Datei ist ein Entwurf zum Einsetzen in
+  WordPress (Blocksy, ein einzelner wp:html-Block). Das Portal-Repo liefert sie
+  nicht aus, und Claude fasst WordPress nicht an — siehe Default D12.
+
+  BEIM EINSETZEN BEACHTEN (aus frueheren Laeufen bekannt):
+    * Ueber die REST-API einsetzen, nicht ueber Gutenberg. Jede Seite ist EIN
+      wp:html-Block.
+    * WordPress escaped `&` AUCH innerhalb von <script> — eingebettetes JS mit
+      `&&` bricht dabei. Deshalb steht hier kein Skript; das Formular ist ein
+      normales <form> mit POST.
+    * `.lpr-content h2` aus dem Theme schlaegt eigene Klassen. Darum eigene
+      Klassennamen mit Praefix und keine nackten Elementselektoren.
+    * Ratgeberseiten duzen, Angebotsseiten siezen. Diese Seite SIEZT.
+  ═══════════════════════════════════════════════════════════════════════════
+
+  Charite und St. Hedwig werden NICHT genannt — keine bestaetigten Partner.
+  Sana Klinikum Lichtenberg darf genannt werden.
+-->
+<style>
+  .es-hero { background:#1A3A2A; color:#fff; padding:48px 32px; border-radius:16px; }
+  .es-hero .es-h1 { font-family:'Bricolage Grotesque',sans-serif; font-weight:800;
+    font-size:clamp(28px,4vw,44px); line-height:1.15; margin:0 0 14px; }
+  .es-hero .es-lead { font-size:19px; line-height:1.6; max-width:640px;
+    color:rgba(255,255,255,.9); margin:0 0 26px; }
+  .es-cta { display:inline-block; background:#C8F135; color:#12291d; font-weight:800;
+    font-size:18px; text-decoration:none; padding:15px 30px; border-radius:12px; }
+  .es-cta:hover { background:#d6f760; }
+  .es-block { max-width:760px; margin:40px auto; }
+  .es-h2 { font-family:'Bricolage Grotesque',sans-serif; font-weight:800;
+    font-size:26px; margin:36px 0 12px; color:#1A3A2A; }
+  .es-p { font-size:17px; line-height:1.65; margin:0 0 16px; }
+  .es-karten { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; margin:22px 0; }
+  .es-karte { border:1px solid #E4E2DC; border-left:5px solid #C8F135; border-radius:12px; padding:18px 20px; }
+  .es-karte h3 { font-size:17px; margin:0 0 7px; color:#1A3A2A; }
+  .es-karte p { font-size:15px; line-height:1.55; margin:0; color:#3A423A; }
+  .es-form { background:#F4F7EE; border-radius:16px; padding:28px 30px; margin:40px auto; max-width:760px; }
+  .es-form label { display:block; font-weight:600; font-size:15px; margin:14px 0 5px; }
+  .es-form input, .es-form select, .es-form textarea {
+    width:100%; padding:11px 13px; border:1px solid #CFCBC0; border-radius:9px; font-size:16px; }
+  .es-klein { font-size:14px; color:#5B6660; line-height:1.55; }
+</style>
+
+<div class="es-hero">
+  <p class="es-h1">Dasein, wenn niemand sonst bleiben kann</p>
+  <p class="es-lead">
+    Im Krankenhaus gibt es Menschen, die nachts nicht allein sein sollten. Die
+    Pflege auf Station kann nicht bleiben. Sie schon — für ein paar Stunden.
+  </p>
+  <a class="es-cta" href="#melden">Unverbindlich melden</a>
+</div>
+
+<div class="es-block">
+  <p class="es-h2">Worum es geht</p>
+  <p class="es-p">
+    Ältere Menschen nach einer Operation, die im Halbschlaf nicht wissen, wo sie
+    sind. Demenzkranke, für die jedes fremde Geräusch bedrohlich ist. Menschen
+    mit Angst und ohne Angehörige in der Nähe.
+  </p>
+  <p class="es-p">
+    Auf einer Station mit dreißig Betten ist niemand für eine Nacht abkömmlich.
+    Genau diese Lücke füllen unsere Sitzwachen. Seit dem 1. September 2026
+    arbeiten wir mit dem <strong>Sana Klinikum Lichtenberg</strong> zusammen.
+  </p>
+
+  <p class="es-h2">Was Sie tun — und was nicht</p>
+  <div class="es-karten">
+    <div class="es-karte">
+      <h3>Sie sind da</h3>
+      <p>Sie sitzen am Bett, halten eine Hand, sprechen ein paar Sätze oder
+         schweigen. Sie merken, wenn jemand unruhig wird, und holen die Pflege.</p>
+    </div>
+    <div class="es-karte">
+      <h3>Sie pflegen nicht</h3>
+      <p>Für pflegerische Aufgaben ist das Personal zuständig. Nur ausgebildete
+         Pflegekräfte unter unseren Ehrenamtlichen unterstützen zusätzlich bei
+         der Grundpflege — das ist die Ausnahme.</p>
+    </div>
+    <div class="es-karte">
+      <h3>Sie entscheiden, wann</h3>
+      <p>Sie tragen ein, wann Sie können. Zwei Nächte im Monat sind ein
+         vollwertiger Beitrag.</p>
+    </div>
+  </div>
+
+  <p class="es-h2">Was Sie mitbringen</p>
+  <p class="es-p">
+    Ruhe, Zuverlässigkeit und ein erweitertes Führungszeugnis. Einen Pflegeberuf
+    brauchen Sie nicht. Insgesamt sind fünf Unterlagen nötig — bei jeder
+    einzelnen helfen wir, und die Bescheinigung für das gebührenfreie
+    Führungszeugnis stellen wir aus.
+  </p>
+  <p class="es-p">
+    Rechnen Sie mit <strong>vier bis sechs Wochen</strong>, bis alles vorliegt.
+    Das meiste davon ist Wartezeit beim Bürgeramt.
+  </p>
+
+  <p class="es-h2">Was wir mitbringen</p>
+  <p class="es-p">
+    Eine Einführung, feste Ansprechpersonen, Versicherungsschutz über den Verein
+    und eine steuerfreie Aufwandsentschädigung nach § 3 Nr. 26a EStG. Die
+    Zuteilung der Dienste folgt einer festen Regel: Wer am wenigsten Dienste
+    hatte, kommt zuerst. Die Klinik sucht sich niemanden aus.
+  </p>
+</div>
+
+<!--
+  Das Formular schickt an die Edge Function ehrenamt-interesse.
+  BEWUSST OHNE JAVASCRIPT: WordPress escaped `&` auch im <script>, wodurch
+  eingebettetes JS bricht und das Formular still per GET abschickt. Ein
+  normales POST-Formular hat dieses Problem nicht.
+  Die verborgenen Felder quelle und ref werden beim Einsetzen mit dem
+  jeweiligen ?src= bzw. ?ref= belegt.
+-->
+<form class="es-form" id="melden" method="post"
+      action="https://makvwfznbwpjdzmuegoq.supabase.co/functions/v1/ehrenamt-interesse">
+  <p class="es-h2" style="margin-top:0;">Melden Sie sich</p>
+  <p class="es-klein">
+    Vier Felder. Kein Konto, keine Verpflichtung — wir rufen an und erklären in
+    Ruhe, wie es läuft.
+  </p>
+
+  <label for="es-name">Ihr Name</label>
+  <input type="text" id="es-name" name="full_name" required maxlength="120">
+
+  <label for="es-mail">E-Mail</label>
+  <input type="email" id="es-mail" name="email" required maxlength="200">
+
+  <label for="es-tel">Telefon (optional, aber der schnellste Weg)</label>
+  <input type="tel" id="es-tel" name="phone" maxlength="40">
+
+  <label for="es-bezirk">Bezirk</label>
+  <input type="text" id="es-bezirk" name="bezirk" maxlength="80" placeholder="z. B. Lichtenberg">
+
+  <label for="es-hg">Haben Sie einen Pflege- oder Medizinbezug?</label>
+  <select id="es-hg" name="hintergrund">
+    <option value="unklar">Bitte wählen</option>
+    <option value="kein">Nein, keinen</option>
+    <option value="pflege">Ja, Pflege</option>
+    <option value="medizin">Ja, Medizin</option>
+  </select>
+
+  <label for="es-verf">Wann könnten Sie ungefähr?</label>
+  <input type="text" id="es-verf" name="verfuegbarkeit" maxlength="300"
+         placeholder="z. B. Nachts unter der Woche, ein- bis zweimal im Monat">
+
+  <label for="es-msg">Möchten Sie uns etwas sagen? (optional)</label>
+  <textarea id="es-msg" name="nachricht" rows="3" maxlength="2000"></textarea>
+
+  <input type="hidden" name="interesse" value="sitzwache">
+  <input type="hidden" name="quelle" value="/ehrenamt-sitzwache">
+  <input type="hidden" name="ref_code" value="">
+
+  <label class="es-klein" style="display:flex; gap:9px; align-items:flex-start; margin-top:18px;">
+    <input type="checkbox" required style="width:auto; margin-top:3px;">
+    <span>Ich bin einverstanden, dass meine Angaben zur Kontaktaufnahme
+      gespeichert werden. Sie werden nicht weitergegeben.
+      <a href="/datenschutz/">Datenschutz</a></span>
+  </label>
+
+  <button type="submit" class="es-cta" style="border:none; margin-top:20px; cursor:pointer;">
+    Absenden
+  </button>
+</form>

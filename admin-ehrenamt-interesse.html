@@ -95,6 +95,11 @@
 
   <div class="filter" id="filter"></div>
   <div id="liste"><p class="lead">Wird geladen …</p></div>
+
+  <details style="margin-top:26px; border-top:1px solid #EEE9DD; padding-top:14px;">
+    <summary style="cursor:pointer; font-weight:600;">Woher die Meldungen kommen</summary>
+    <div id="quellen" style="margin-top:12px;"></div>
+  </details>
 </div>
 </main>
 
@@ -120,6 +125,12 @@ const INTERESSE_TEXT = {
 };
 
 let alleZeilen = [];
+const HINTERGRUND_TEXT = {
+  pflege:  'Pflegebezug',
+  medizin: 'Medizinbezug',
+  kein:    'kein Pflege-/Medizinbezug',
+  unklar:  'noch offen'
+};
 let filterStatus = 'neu';
 
 if (!LPR.requireRole('admin', 'login.html?next=admin-ehrenamt-interesse.html')) throw new Error('kein Zugriff');
@@ -142,6 +153,7 @@ async function laden() {
   alleZeilen = data || [];
   zeichneFilter();
   zeichneListe();
+  ladeQuellen();
 }
 
 function zeichneFilter() {
@@ -204,7 +216,12 @@ function zeichneListe() {
         ${z.phone ? `📞 <a href="tel:${tel}">${LPR.escape(z.phone)}</a><br>` : ''}
         ✉️ <a href="mailto:${LPR.escape(z.email)}">${LPR.escape(z.email)}</a><br>
         🤝 ${INTERESSE_TEXT[z.interesse] || LPR.escape(z.interesse)}
+        ${z.bezirk ? `<br>📍 ${LPR.escape(z.bezirk)}` : ''}
+        ${z.hintergrund && z.hintergrund !== 'unklar'
+            ? `<br>🎓 ${HINTERGRUND_TEXT[z.hintergrund] || LPR.escape(z.hintergrund)}` : ''}
+        ${z.verfuegbarkeit ? `<br>🕑 ${LPR.escape(z.verfuegbarkeit)}` : ''}
         ${z.quelle ? `<br>🔗 kam über <code>${LPR.escape(z.quelle)}</code>` : ''}
+        ${z.ref_code ? `<br>👥 empfohlen über <code>${LPR.escape(z.ref_code)}</code>` : ''}
         ${z.mail_ok === false ? '<br><span class="warnung">⚠ Eingangsbestätigung wurde NICHT zugestellt</span>' : ''}
       </div>
 
@@ -217,6 +234,10 @@ function zeichneListe() {
         </select>
         <textarea id="nz-${z.id}" placeholder="Notiz zum Verlauf — keine Gesundheitsdaten">${LPR.escape(z.notizen || '')}</textarea>
         <button class="btn btn-primary" onclick="speichern('${z.id}')">Speichern</button>
+        ${z.status !== 'uebernommen'
+          ? `<button type="button" class="btn" onclick="uebernehmen('${z.id}')"
+                     title="Markiert als übernommen. Das Auth-Konto lädst du danach wie gewohnt ein.">In Profil überführen</button>`
+          : ''}
         <span class="loeschbereich" id="lb-${z.id}">
           <button type="button" class="btn-loeschen" onclick="loeschenFragen('${z.id}')">Löschen</button>
         </span>
@@ -224,6 +245,42 @@ function zeichneListe() {
       <div class="zeilen-fehler" id="fe-${z.id}" hidden></div>
     </div>`;
   }).join('');
+}
+
+/**
+ * Als übernommen markieren.
+ *
+ * Legt bewusst KEIN Konto an — das geht nur mit dem Service-Role-Key aus einer
+ * Edge Function. Der Knopf hält fest, dass die Person übernommen ist, und wer
+ * das wann entschieden hat; eingeladen wird danach wie bisher.
+ */
+async function uebernehmen(id) {
+  const notiz = prompt('Kurze Notiz zur Übernahme (optional):', '');
+  if (notiz === null) return;
+  const res = await LPR.interessentUebernehmen(id, notiz);
+  const fe = document.getElementById('fe-' + id);
+  if (!res.ok) { fe.textContent = res.error || 'Fehler.'; fe.hidden = false; return; }
+  await laden();
+}
+
+/** Welcher Kanal bringt Menschen, die am Ende wirklich Dienst tun? */
+async function ladeQuellen() {
+  const el = document.getElementById('quellen');
+  if (!el) return;
+  const res = await LPR.getEhrenamtQuellen();
+  if (!res.ok || !(res.quellen || []).length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
+    + '<thead><tr><th style="text-align:left;padding:6px 8px;">Quelle</th>'
+    + '<th style="text-align:right;padding:6px 8px;">Meldungen</th>'
+    + '<th style="text-align:right;padding:6px 8px;">übernommen</th></tr></thead><tbody>'
+    + res.quellen.map(q =>
+        '<tr><td style="padding:6px 8px;"><code>' + LPR.escape(q.quelle) + '</code></td>'
+        + '<td style="text-align:right;padding:6px 8px;">' + q.gesamt + '</td>'
+        + '<td style="text-align:right;padding:6px 8px;"><strong>' + q.uebernommen
+        + '</strong></td></tr>').join('')
+    + '</tbody></table>'
+    + '<p style="font-size:13px;color:#5B6660;margin-top:8px;">Die rechte Spalte entscheidet. '
+    + 'Acht Meldungen ohne Übernahme sind weniger wert als zwei mit zwei.</p>';
 }
 
 /**

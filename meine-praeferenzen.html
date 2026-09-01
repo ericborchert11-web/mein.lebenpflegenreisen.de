@@ -153,6 +153,27 @@
     <strong>Wie das hier funktioniert:</strong> Harte Präferenzen (Qualifikationen) legt der Vorstand mit dir gemeinsam fest. Weiche Präferenzen (Schichten, Kliniken, Anfahrt) bestimmst du selbst — du kannst sie jederzeit ändern. Die Klinik sieht deine Präferenzen nie; sie sucht sich auch keine Person mehr aus, sondern bucht einen Dienst. Wer ihn übernimmt, entscheidet der Verein nach einer festen Regel — und deine Angaben hier fließen ein.
   </div>
 
+  <!--
+    Einladungslink. Steht hier und nicht auf einer eigenen Seite: wer seine
+    Praeferenzen pflegt, denkt ohnehin gerade ueber seine Dienste nach — und
+    die wirksamste Werbung ist jemand, der schon dabei ist.
+  -->
+  <div class="qual-section" id="ref-section" hidden>
+    <div class="qual-head">
+      <h2>Jemanden mitbringen</h2>
+      <div class="hint">
+        Wir suchen Sitzwachen. Wenn du jemanden kennst, der das könnte, schick
+        ihm diesen Link — dann sehen wir, dass die Empfehlung von dir kam.
+      </div>
+    </div>
+    <div style="display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+      <input type="text" id="ref-link" readonly
+             style="flex:1; min-width:260px; padding:9px 11px; border:1px solid #CFCBC0;
+                    border-radius:8px; font-size:14px; background:#FAFAF5;">
+      <button type="button" class="btn" id="ref-kopieren">Kopieren</button>
+    </div>
+  </div>
+
   <!-- HART (readonly) -->
   <div class="qual-section readonly">
     <div class="qual-head">
@@ -385,6 +406,34 @@ async function loadAll() {
   }
 
   renderAll();
+  ladeEinladungslink();
+}
+
+/**
+ * Eigener Einladungslink.
+ *
+ * Der Code entsteht in der Datenbank beim ersten Abruf, nicht hier — ein im
+ * Browser gewuerfelter Code koennte bei zwei gleichzeitigen Aufrufen zweimal
+ * derselbe sein. Scheitert der Abruf, bleibt der Abschnitt verborgen: ein
+ * leeres Feld mit Kopierknopf waere schlechter als gar keiner.
+ */
+async function ladeEinladungslink() {
+  const res = await LPR.meinEinladungslink();
+  if (!res.ok || !res.link) return;
+  document.getElementById('ref-link').value = res.link;
+  document.getElementById('ref-section').hidden = false;
+  document.getElementById('ref-kopieren').addEventListener('click', async () => {
+    const feld = document.getElementById('ref-link');
+    try {
+      await navigator.clipboard.writeText(feld.value);
+      LPR.showToast('Link kopiert.');
+    } catch {
+      // Ohne Zwischenablage-Recht (aelterer Browser, kein HTTPS-Kontext):
+      // markieren, damit sich der Link von Hand kopieren laesst.
+      feld.select();
+      LPR.showToast('Bitte mit Strg/Cmd+C kopieren.', 'warn');
+    }
+  });
 }
 
 // ───────────────────────────────────────────────────────

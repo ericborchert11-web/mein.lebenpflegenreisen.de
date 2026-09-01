@@ -2451,6 +2451,70 @@
     }
   }
 
+  /**
+   * Interessent als uebernommen markieren.
+   *
+   * WAS DAS NICHT TUT: ein Auth-Konto anlegen. Das geht nur mit dem
+   * Service-Role-Key, also aus einer Edge Function — aus dem Browser heraus
+   * nicht, und ein halbes Konto ohne Anmeldung waere schlimmer als keins.
+   * Der Einladungsweg bleibt der bestehende; das Compliance-Gate greift danach
+   * unveraendert.
+   */
+  async function interessentUebernehmen(id, notiz) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur für den Vorstand.' };
+    }
+    try {
+      const { data, error } = await (await sb())
+        .rpc('interessent_uebernehmen', { p_id: id, p_notiz: (notiz || null) });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, interessent: _rpcRow(data) };
+    } catch(e) {
+      console.error('[LPR] interessentUebernehmen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Welcher Kanal bringt Menschen, die am Ende wirklich Dienst tun?
+   *
+   * Die zweite Zahl entscheidet, nicht die erste: ein Kanal mit acht Meldungen
+   * und null Uebernahmen ist schlechter als einer mit zwei und zwei.
+   */
+  async function getEhrenamtQuellen() {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur für den Vorstand.', quellen: [] };
+    }
+    try {
+      const { data, error } = await (await sb()).rpc('ehrenamt_quellen');
+      if (error) return { ok: false, error: error.message, quellen: [] };
+      return { ok: true, quellen: data || [] };
+    } catch(e) {
+      console.error('[LPR] getEhrenamtQuellen:', e);
+      return { ok: false, error: 'Netzwerkfehler.', quellen: [] };
+    }
+  }
+
+  /** Eigener Einladungslink. Der Code entsteht beim ersten Abruf. */
+  async function meinEinladungslink() {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const { data, error } = await (await sb()).rpc('mein_ref_code');
+      if (error) return { ok: false, error: error.message };
+      const code = Array.isArray(data) ? data[0] : data;
+      return {
+        ok: true, code: code,
+        link: 'https://lebenpflegenreisen.de/ehrenamt-sitzwache?ref=' + encodeURIComponent(code)
+      };
+    } catch(e) {
+      console.error('[LPR] meinEinladungslink:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   /** Stilllegen oder wieder aufnehmen. listClinics zeigt nur aktive. */
   async function setClinicActive(id, active) {
     try {
@@ -4612,6 +4676,7 @@
     setClinicNotifySettings, getBookingNotifications,
     setBookingNoShow, clearBookingNoShow,
     getKpiAmpeln, getKpiPersonen, setDienstsperre, getAppSettings, setAppSetting,
+    interessentUebernehmen, getEhrenamtQuellen, meinEinladungslink,
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
     register, loginWithPassword, requireRole,

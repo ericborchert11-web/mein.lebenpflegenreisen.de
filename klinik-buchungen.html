@@ -184,6 +184,16 @@
 }
 .kbl-btn-cancel:hover { background: #FCEEDD; }
 .kbl-btn-cancel:disabled { opacity: .5; cursor: not-allowed; }
+.kbl-btn-noshow {
+  padding: 9px 16px; border-radius: 9px; border: 1px solid #C06060;
+  background: #fff; color: #9B2C2C; font-weight: 700; font-size: 14px; cursor: pointer;
+}
+.kbl-btn-noshow:hover { background: #FBEAEA; }
+.kbl-btn-noshow:disabled { opacity: .5; cursor: not-allowed; }
+.kbl-noshow-notice {
+  margin-top: 12px; padding: 11px 14px; border-radius: 9px;
+  background: #FBEAEA; border-left: 4px solid #C06060;
+}
 
 /* Anreise-Zeile: Symbol UND Wort UND Farbe, nie Farbe allein. */
 .kbl-anreise {
@@ -308,6 +318,23 @@ const MY_ID = (LPR.getSession() || {}).id;
 const SHIFT_START_HOUR = { morning: 6, afternoon: 14, night: 22 };
 
 // Weniger als 24 h bis Schichtbeginn? (lokale Zeit genügt für die Warnung)
+/**
+ * Darf die Klinik hier "nicht erschienen" melden?
+ *
+ * Spiegelt nur, was set_booking_no_show ohnehin durchsetzt (ab Dienstbeginn,
+ * bis 72 Stunden danach). Ein Knopf, der sicher eine Fehlermeldung erzeugt,
+ * ist schlechter als kein Knopf — die Regel selbst steht in der Datenbank.
+ */
+const NO_SHOW_FENSTER_H = 72;
+function noShowMoeglich(b) {
+  const h = SHIFT_START_HOUR[b.shift];
+  if (!b.date || h == null) return false;
+  const [y, m, d] = b.date.split('-').map(Number);
+  const beginn = new Date(y, m - 1, d, h, 0, 0).getTime();
+  const jetzt = Date.now();
+  return jetzt >= beginn && jetzt <= beginn + NO_SHOW_FENSTER_H * 3600 * 1000;
+}
+
 function isLateCancel(dateIso, shift) {
   const h = SHIFT_START_HOUR[shift];
   if (!dateIso || h == null) return false;
@@ -443,13 +470,47 @@ function renderList() {
             <div class="kbl-cancel-reason">${escape(b.cancellation_reason)}</div>
             ${b.cancelled_at ? `<div class="kbl-cancel-meta">Abgesagt am ${escape(fmtDate(b.cancelled_at.slice(0,10)))}</div>` : ''}
           </div>` : ''}
+        ${b.status === 'no_show' ? `
+          <div class="kbl-noshow-notice">
+            <div class="kbl-cancel-title">Als „nicht erschienen" gemeldet</div>
+            ${b.no_show_note ? `<div class="kbl-cancel-reason">${escape(b.no_show_note)}</div>` : ''}
+            ${b.no_show_marked_at ? `<div class="kbl-cancel-meta">Gemeldet am ${escape(fmtDate(b.no_show_marked_at.slice(0,10)))}</div>` : ''}
+            <div class="kbl-cancel-meta">Der Verein klärt das und meldet sich. Zum Zurücknehmen bitte anrufen.</div>
+          </div>` : ''}
         ${(b.status === 'planned' || b.status === 'confirmed') ? `
           <div class="kbl-card-actions">
             <button type="button" class="kbl-btn-cancel" data-id="${escape(b.id)}" data-date="${escape(b.date)}" data-shift="${escape(b.shift)}">Buchung stornieren</button>
+            ${noShowMoeglich(b) ? `
+              <button type="button" class="kbl-btn-noshow" data-id="${escape(b.id)}">Niemand erschienen</button>` : ''}
           </div>` : ''}
       </div>`;
   }
   listEl.innerHTML = html;
+
+  // "Niemand erschienen" — bewusst mit Rueckfrage: die Meldung haengt an
+  // einem Menschen, dessen Zuverlaessigkeit daran gemessen wird.
+  listEl.querySelectorAll('.kbl-btn-noshow').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Melden, dass die Sitzwache nicht erschienen ist?\n\n'
+        + 'Der Verein klärt den Vorfall und meldet sich bei Ihnen. '
+        + 'Zurücknehmen können Sie die Meldung nicht selbst.')) return;
+      // Freitext ohne Patientenbezug — der Hinweis steht im Dialog, weil das
+      // Feld in der Klinikoberflaeche offen steht.
+      const notiz = prompt('Kurze Notiz (optional). Bitte keine Patientendaten:', '');
+      if (notiz === null) return;
+      btn.disabled = true;
+      btn.textContent = 'Wird gemeldet…';
+      const res = await LPR.setBookingNoShow(btn.dataset.id, notiz);
+      if (!res.ok) {
+        LPR.showToast(res.error || 'Meldung fehlgeschlagen.', 'warn');
+        btn.disabled = false;
+        btn.textContent = 'Niemand erschienen';
+        return;
+      }
+      LPR.showToast('Danke — wir klären das und melden uns.');
+      load();
+    });
+  });
 
   // Storno-Buttons
   listEl.querySelectorAll('.kbl-btn-cancel').forEach(btn => {

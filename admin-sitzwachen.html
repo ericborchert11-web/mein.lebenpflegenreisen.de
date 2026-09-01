@@ -377,6 +377,11 @@ function renderBookings() {
           'title="Abschluss aufheben, Zeiten bleiben als Beleg stehen">Einsatz reaktivieren</button>' +
           '<button class="as-btn warn" data-act="einsatz-storno" data-id="' + b.id + '" ' +
           'title="Nachweis aufheben — Korrektur nur per Neueintrag">Einsatz stornieren</button>';
+      } else if (b.status === 'no_show') {
+        actions +=
+          '<button class="as-btn" data-act="noshow-zurueck" data-id="' + b.id + '" ' +
+          'title="Nur der Vorstand kann das — die Klinik meldet, sie entscheidet nicht">' +
+          'No-Show zurücknehmen</button>';
       } else if (einsatzOffen) {
         actions +=
           '<button class="as-btn warn" data-act="einsatz-storno" data-id="' + b.id + '" ' +
@@ -565,8 +570,27 @@ async function onBookingAction(btn) {
     if (!(hours > 0)) { toast('Bitte eine gültige Stundenzahl angeben.', 'warn'); return; }
     status = 'completed';
   } else if (act === 'noshow') {
-    if (!confirm('Diesen Dienst als „nicht erschienen" (No-Show) markieren? Das fließt in die Controlling-Kennzahlen ein.')) return;
-    status = 'no_show';
+    if (!confirm('Diesen Dienst als „nicht erschienen" (No-Show) markieren? Das fließt in die Zuverlässigkeits-Ampel ein.')) return;
+    const notiz = prompt('Kurze Notiz (optional). Bitte keine Patientendaten:', '');
+    if (notiz === null) return;
+    // Ueber die RPC und NICHT ueber adminSetBookingStatus: nur so wird
+    // festgehalten, wer den No-Show wann gesetzt hat. Ohne das ist die Ampel
+    // in der Auswertung eine Zahl ohne Herkunft.
+    btn.disabled = true;
+    const nr = await LPR.setBookingNoShow(id, notiz);
+    if (!nr.ok) { toast(nr.error || 'Fehler.', 'warn'); btn.disabled = false; return; }
+    toast('Als No-Show vermerkt.');
+    await loadBookings();
+    return;
+  } else if (act === 'noshow-zurueck') {
+    if (!confirm('No-Show zurücknehmen?\n\nDer Dienst gilt dann wieder als abgeschlossen '
+                 + 'und zählt nicht mehr gegen die Zuverlässigkeit.')) return;
+    btn.disabled = true;
+    const zr = await LPR.clearBookingNoShow(id, 'completed');
+    if (!zr.ok) { toast(zr.error || 'Fehler.', 'warn'); btn.disabled = false; return; }
+    toast('No-Show zurückgenommen.');
+    await loadBookings();
+    return;
   } else if (act === 'cancel') {
     if (!confirm('Diese Buchung wirklich stornieren?')) return;
     status = 'cancelled';

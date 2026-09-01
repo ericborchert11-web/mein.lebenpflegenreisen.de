@@ -173,6 +173,12 @@ body.contrast {
 .jk-p-sw { position:absolute; top:9px; bottom:9px; width:3px;
   border-radius:1px; background: var(--jk-grau); }
 .jk-p-sw.konflikt { box-shadow:0 0 0 2px var(--jk-rot); }
+/* Abgesagt: blass und durchgestrichen. No-Show: rot — der Fall, ueber den
+   jemand sprechen muss. */
+.jk-p-sw.abgesagt { background: repeating-linear-gradient(
+    135deg, var(--jk-grau) 0 2px, transparent 2px 4px); opacity:.7; }
+.jk-p-sw.noshow   { background: var(--jk-rot); }
+.jk-trenner { margin-left:10px; border-left:2px solid #DDD9CF; padding-left:12px; }
 .jk-p-konflikte { margin:0 0 10px; font-size:13px; color: var(--jk-rot); font-weight:600; }
 .jk-p-rest { margin-top:12px; font-size:14px; }
 .jk-p-rest summary { cursor:pointer; color: var(--green-deep); font-weight:600; }
@@ -236,6 +242,8 @@ let REISEN = [];                       // Reisen, die JAHR beruehren
 let ANMELDUNGEN = {};                  // trip_id -> bestaetigte Anmeldungen
 let ABDECKUNG = {};                    // trip_id -> { total, uncovered }
 let MITGLIEDER = [];                   // aus listVolunteersAdmin
+// Vorgabe aus: der Kalender soll zeigen, was ansteht, nicht was ausgefallen ist.
+let STORNOS_ZEIGEN = false;
 let SITZWACHEN = null;                 // null = noch nicht geladen
 let SITZWACHEN_FEHLER = null;
 let SITZWACHEN_LAEUFT = null;          // laufender Ladevorgang, gegen Doppelanfragen
@@ -331,8 +339,11 @@ async function ladeSitzwachen() {
     const res = await LPR.adminListBookings(iso(angefragtesJahr,1,1), iso(angefragtesJahr,12,31));
     if (angefragtesJahr !== JAHR) return;
     if (!res.ok) { SITZWACHEN_FEHLER = res.error || 'unbekannter Fehler'; SITZWACHEN = []; return; }
-    // Abgesagte Buchungen sind keine Verplanung.
-    SITZWACHEN = (res.bookings || []).filter(b => !b.cancelled_at && b.status !== 'cancelled');
+    // ALLES behalten. Abgesagte Dienste und No-Shows sind keine Verplanung —
+    // aber sie sind eine Information, und der Kalender war bisher der einzige
+    // Ort, an dem man sie ueberhaupt nicht sah. Aussortiert wird erst beim
+    // Zeichnen, abhaengig vom Filter.
+    SITZWACHEN = res.bookings || [];
   })();
   try { await SITZWACHEN_LAEUFT; } finally { SITZWACHEN_LAEUFT = null; }
 }
@@ -355,7 +366,20 @@ function zeichneKopf() {
       '<button type="button" data-status="' + s + '" aria-pressed="' + (STATUS_AN.has(s) ? 'true' : 'false') + '">'
       + STATUS_LABEL[s] + '</button>').join('');
 
-  document.getElementById('jk-filter').querySelectorAll('button').forEach(b => {
+  // Eigener Schalter, kein sechster Statusknopf: die Reise-Status daneben
+  // filtern Reisen, dieser hier Sitzwachen. Ein Knopf in derselben Reihe, der
+  // etwas anderes meint, waere eine Falle.
+  document.getElementById('jk-filter').insertAdjacentHTML('beforeend',
+    '<button type="button" id="jk-stornos" class="jk-trenner"'
+    + ' aria-pressed="' + (STORNOS_ZEIGEN ? 'true' : 'false') + '">'
+    + 'Stornos &amp; No-Shows</button>');
+
+  document.getElementById('jk-stornos').addEventListener('click', () => {
+    STORNOS_ZEIGEN = !STORNOS_ZEIGEN;
+    zeichne();
+  });
+
+  document.getElementById('jk-filter').querySelectorAll('button[data-status]').forEach(b => {
     b.addEventListener('click', () => {
       const s = b.dataset.status;
       if (STATUS_AN.has(s)) STATUS_AN.delete(s); else STATUS_AN.add(s);
@@ -552,7 +576,7 @@ function laeufe(tage) {
 function personenZeilen() {
   const nachId = {};
   function zeile(id, name) {
-    if (!nachId[id]) nachId[id] = { id: id, name: name || 'Mitglied', reisen: [], sw: [], tage: new Set() };
+    if (!nachId[id]) nachId[id] = { id: id, name: name || 'Mitglied', reisen: [], sw: [], swAbgesagt: [], swNoShow: [], tage: new Set() };
     else if (name && nachId[id].name === 'Mitglied') nachId[id].name = name;
     return nachId[id];
   }
@@ -572,7 +596,12 @@ function personenZeilen() {
 
   (SITZWACHEN || []).forEach(b => {
     if (!b.date || b.date < iso(JAHR,1,1) || b.date > iso(JAHR,12,31)) return;
-    zeile(b.volunteer_id, b.volunteer_name).sw.push(b.date);
+    const z = zeile(b.volunteer_id, b.volunteer_name);
+    // Getrennte Toepfe: nur der erste zaehlt als Verplanung und kann mit einer
+    // Reise kollidieren. Ein abgesagter Dienst ist keine Doppelbelegung.
+    if (b.status === 'cancelled')     z.swAbgesagt.push(b.date);
+    else if (b.status === 'no_show')  z.swNoShow.push(b.date);
+    else                              z.sw.push(b.date);
   });
 
   const liste = Object.keys(nachId).map(k => nachId[k]);
@@ -586,8 +615,9 @@ function personenZeilen() {
 
 function personenAnsichtHtml() {
   const zeilen = personenZeilen();
-  const mit  = zeilen.filter(z => z.anzahl || z.sw.length);
-  const ohne = zeilen.filter(z => !z.anzahl && !z.sw.length);
+  const zusatz = (z) => STORNOS_ZEIGEN ? (z.swAbgesagt.length + z.swNoShow.length) : 0;
+  const mit  = zeilen.filter(z =>  z.anzahl || z.sw.length || zusatz(z));
+  const ohne = zeilen.filter(z => !z.anzahl && !z.sw.length && !zusatz(z));
   const laenge = tageImJahr(JAHR);
 
   // Die Warnung steht ueber der Liste. Unten haette man sie erst nach dem
@@ -637,6 +667,18 @@ function personenAnsichtHtml() {
         + ' style="left:' + links.toFixed(2) + '%;width:' + breite.toFixed(2) + '%"'
         + ' aria-label="' + marke + '" title="' + marke + '"></button>';
     });
+
+    if (STORNOS_ZEIGEN) {
+      const zusatz = [].concat(
+        z.swAbgesagt.map(t => ({ tag: t, klasse: 'abgesagt', wort: 'Abgesagt' })),
+        z.swNoShow.map(t => ({ tag: t, klasse: 'noshow',   wort: 'Nicht erschienen' }))
+      );
+      zusatz.forEach(x => {
+        out += '<div class="jk-p-sw ' + x.klasse + '" aria-hidden="true"'
+          + ' style="left:' + ((tagImJahr(x.tag) - 1) / laenge * 100).toFixed(2) + '%"'
+          + ' title="' + escapeHtml(x.wort + ' — Sitzwache ' + LPR.formatTripDay(x.tag)) + '"></div>';
+      });
+    }
 
     z.sw.forEach(tag => {
       const konflikt = z.tage.has(tag);

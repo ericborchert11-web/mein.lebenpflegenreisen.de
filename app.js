@@ -3223,7 +3223,7 @@
     try {
       let q = (await sb())
         .from('bookings')
-        .select('id, volunteer_id, date, shift, status, station, fallnummer, patient_room, patient_flags, patient_notes, patient_count, created_at, cancelled_at, cancelled_by_user_id, cancellation_reason, station_phone, unterwegs_ts, eta_ts, profiles!bookings_volunteer_id_fkey(full_name)')
+        .select('id, volunteer_id, date, shift, status, station, fallnummer, patient_room, patient_flags, patient_notes, patient_count, created_at, cancelled_at, cancelled_by_user_id, cancellation_reason, station_phone, unterwegs_ts, eta_ts, no_show_marked_at, no_show_note, profiles!bookings_volunteer_id_fkey(full_name)')
         .eq('clinic_id', s.id)
         .order('date', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
@@ -3250,7 +3250,9 @@
         cancellation_reason: b.cancellation_reason,
         station_phone: b.station_phone,
         unterwegs_ts: b.unterwegs_ts,
-        eta_ts: b.eta_ts
+        eta_ts: b.eta_ts,
+        no_show_marked_at: b.no_show_marked_at,
+        no_show_note: b.no_show_note
       }));
       return { ok: true, bookings };
     } catch(e) {
@@ -3322,6 +3324,50 @@
       return { ok: true, booking: data };
     } catch(e) {
       console.error('[LPR] cancelMyClinicBooking:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Die Klinik meldet, dass niemand erschienen ist.
+   *
+   * ALS RPC UND NICHT ALS UPDATE: Die Klinik darf das nur ab Dienstbeginn und
+   * nur innerhalb der Frist, und nur bei einem Dienst, der noch nicht
+   * abgeschlossen ist. Die Regel steht in set_booking_no_show — an einer
+   * Stelle, die sich vom Browser aus nicht umgehen laesst.
+   *
+   * Der Vorstand kommt durch dieselbe Funktion, aber ohne Fenster.
+   */
+  async function setBookingNoShow(bookingId, note) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    try {
+      const { data, error } = await (await sb())
+        .rpc('set_booking_no_show', { p_booking_id: bookingId, p_note: (note || null) });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, booking: _rpcRow(data) };
+    } catch(e) {
+      console.error('[LPR] setBookingNoShow:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /** No-Show zuruecknehmen. Nur Vorstand — die Klinik meldet, sie entscheidet nicht. */
+  async function clearBookingNoShow(bookingId, neuerStatus) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur der Vorstand kann das zurücknehmen.' };
+    }
+    try {
+      const { data, error } = await (await sb())
+        .rpc('clear_booking_no_show', {
+          p_booking_id: bookingId,
+          p_neuer_status: neuerStatus || 'completed'
+        });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, booking: _rpcRow(data) };
+    } catch(e) {
+      console.error('[LPR] clearBookingNoShow:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
     }
   }
@@ -4469,6 +4515,7 @@
     listClinics, getMyPreferences, updateMySoftPreferences, setClinicPreference,
     listAllClinics, clinicIdVorschlag, saveClinic, setClinicActive, clinicUsage, deleteClinic,
     setClinicNotifySettings, getBookingNotifications,
+    setBookingNoShow, clearBookingNoShow,
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
     register, loginWithPassword, requireRole,

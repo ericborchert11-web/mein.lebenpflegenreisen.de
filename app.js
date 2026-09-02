@@ -2395,6 +2395,31 @@
   }
 
   /**
+   * Wer hat sich fuer welchen Tag und welche Schicht gemeldet?
+   *
+   * Die Tabelle availabilities liegt hinter "jede:r sieht nur sich selbst" —
+   * an derselben Regel haengt die Klinik-Sicht, deshalb hier eine eigene
+   * Funktion statt einer zusaetzlichen Policy.
+   */
+  async function getBoardMeldungen(von, bis) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur fuer den Vorstand.', meldungen: [] };
+    }
+    try {
+      const { data, error } = await (await sb()).rpc('board_meldungen', {
+        p_from: von || null,
+        p_to:   bis || null
+      });
+      if (error) return { ok: false, error: error.message, meldungen: [] };
+      return { ok: true, meldungen: data || [] };
+    } catch(e) {
+      console.error('[LPR] getBoardMeldungen:', e);
+      return { ok: false, error: 'Netzwerkfehler.', meldungen: [] };
+    }
+  }
+
+  /**
    * Dienstsperre setzen oder aufheben.
    *
    * NICHT profiles.status: das steuert die Anmeldung. Wer gesperrt ist, soll
@@ -4675,7 +4700,7 @@
     listAllClinics, clinicIdVorschlag, saveClinic, setClinicActive, clinicUsage, deleteClinic,
     setClinicNotifySettings, getBookingNotifications,
     setBookingNoShow, clearBookingNoShow,
-    getKpiAmpeln, getKpiPersonen, setDienstsperre, getAppSettings, setAppSetting,
+    getKpiAmpeln, getKpiPersonen, getBoardMeldungen, setDienstsperre, getAppSettings, setAppSetting,
     interessentUebernehmen, getEhrenamtQuellen, meinEinladungslink,
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Meldungen · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.md-wrap { max-width: 1180px; margin: 28px auto 60px; padding: 0 20px; }
+
+.md-kopf {
+  background:#fff; border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px 20px; margin-bottom: 16px;
+  display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+}
+.md-monat { display:flex; align-items:center; gap:10px; }
+.md-monat strong { font-size:20px; color: var(--green-deep); min-width:12ch; text-align:center; }
+.md-monat button, .md-heute-btn {
+  border:1px solid var(--border); background:#fff; color:var(--green-deep);
+  border-radius:8px; padding:5px 12px; font-size:15px; cursor:pointer; line-height:1.2;
+}
+.md-monat button:hover, .md-heute-btn:hover { background: var(--sand); }
+.md-summe { margin-left:auto; font-size:14px; color: var(--muted); }
+
+/* ── Heute-Karte ──────────────────────────────────────────────
+   Die Frage, mit der diese Seite geoeffnet wird, ist fast immer
+   "wer ist heute da". Sie im Raster suchen zu muessen waere ein
+   unnoetiger Zwischenschritt. */
+.md-heute {
+  background:#fff; border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px 20px; margin-bottom: 16px; border-left: 6px solid var(--green-deep);
+}
+.md-heute h2 { font-size:16px; margin:0 0 10px; color: var(--green-deep); }
+.md-heute-zeile { display:flex; gap:10px; padding:6px 0; font-size:14px; align-items:baseline; flex-wrap:wrap; }
+.md-heute-zeile + .md-heute-zeile { border-top:1px solid var(--border); }
+.md-heute-schicht { flex:0 0 96px; font-weight:600; color: var(--muted); }
+.md-heute-namen { flex:1 1 auto; min-width:200px; }
+.md-heute-leer { color: var(--muted); }
+
+.md-karte { background:#fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; }
+.md-head { display:grid; grid-template-columns: repeat(7, 1fr); gap:6px; margin-bottom:6px; }
+.md-head span { text-align:center; font-size:12px; font-weight:600; color: var(--muted); }
+.md-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:6px; }
+
+.md-day {
+  display:flex; flex-direction:column; gap:4px;
+  border:1px solid var(--border); border-radius: var(--radius-sm);
+  padding:8px; min-height:104px; background:#fff;
+}
+.md-day.other-month { background:#FAFAF7; opacity:.55; }
+.md-day.weekend { background:#FBFAF6; }
+.md-day.past { opacity:.6; }
+.md-day.today { border-color: var(--green-deep); border-width:2px; }
+.md-date { font-size:13px; font-weight:700; color: var(--green-deep); display:flex; align-items:center; gap:5px; }
+.md-wd { display:none; color: var(--muted); font-weight:600; }
+.md-today-badge { background: var(--lime); color: var(--green-deep); font-size:10px;
+  font-weight:700; border-radius:8px; padding:1px 6px; }
+
+.md-zeile { font-size:11.5px; line-height:1.35; }
+.md-schicht { font-weight:700; color: var(--muted); }
+.md-name { display:block; }
+/* Gebucht, frei und blockiert unterscheiden sich nicht nur in der Farbe:
+   das Zeichen davor traegt die Bedeutung auch dann, wenn jemand die
+   Farben nicht unterscheiden kann. */
+.md-name.gebucht { color:#1F5C2A; }
+.md-name.frei { color: var(--text); }
+.md-name.blockiert { color:#8A2B12; }
+.md-klinik { color: var(--muted); }
+
+.md-legende { margin-top:14px; font-size:12.5px; color: var(--muted); display:flex; gap:16px; flex-wrap:wrap; }
+.md-meldung { background:#FCEDEA; border:1px solid #E8BCB0; color:#8A2B12;
+  border-radius: var(--radius); padding:16px 20px; font-size:15px; }
+.md-laedt { text-align:center; padding:40px; color: var(--muted); }
+
+@media (max-width: 640px) {
+  /* Sieben Spalten passen auf kein Telefon. Statt zu schrumpfen wird aus
+     dem Raster eine Zeile pro Tag — und Tage ohne Meldung fallen raus. */
+  .md-head { display:none; }
+  .md-grid { grid-template-columns: 1fr; gap:8px; }
+  .md-day { flex-direction:row; flex-wrap:wrap; align-items:flex-start; gap:10px; min-height:0; }
+  .md-day.md-leer, .md-day.other-month { display:none; }
+  .md-day.past { opacity:1; }
+  .md-date { flex:0 0 78px; font-size:15px; }
+  .md-wd { display:inline; }
+  .md-zeilen { flex:1 1 auto; min-width:0; }
+  .md-zeile { font-size:13px; }
+  .md-summe { margin-left:0; }
+}
+</style>
+</head>
+<body>
+
+<main class="md-wrap" id="main">
+  <a href="admin-sitzwachen.html" style="display:inline-flex;gap:6px;margin-bottom:12px;font-size:14px;font-weight:600;color:var(--green-deep);text-decoration:none;">← Zur Sitzwachen-Verwaltung</a>
+
+  <h1 style="font-size:var(--fs-h2);margin:0 0 6px;color:var(--green-deep);">Meldungen</h1>
+  <p style="margin:0 0 16px;color:var(--muted);font-size:14px;max-width:70ch;">
+    Wer hat sich für welchen Tag und welche Schicht eingetragen — und welche Dienste schon
+    vergeben sind. Diese Seite zeigt nur an; eingetragen und gelöscht wird ausschließlich im
+    eigenen Kalender der Person.
+  </p>
+
+  <div id="md-meldung"></div>
+
+  <div class="md-kopf" id="md-kopf" hidden>
+    <div class="md-monat">
+      <button type="button" id="md-zurueck" aria-label="Vorheriger Monat">‹</button>
+      <strong id="md-monat-label">—</strong>
+      <button type="button" id="md-vor" aria-label="Nächster Monat">›</button>
+    </div>
+    <button type="button" class="md-heute-btn" id="md-zu-heute">Heute</button>
+    <div class="md-summe" id="md-summe"></div>
+  </div>
+
+  <div class="md-heute" id="md-heute" hidden>
+    <h2 id="md-heute-titel">Heute</h2>
+    <div id="md-heute-inhalt"></div>
+  </div>
+
+  <div class="md-karte" id="md-karte" hidden>
+    <div class="md-head">
+      <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+    </div>
+    <div class="md-grid" id="md-grid"></div>
+    <div class="md-legende">
+      <span>✓ vergeben</span>
+      <span>· gemeldet, noch frei</span>
+      <span>⚠ gemeldet, aber für Kliniken unsichtbar (Nachweise fehlen oder Dienstsperre)</span>
+      <span>◦ vergeben, Meldung nicht mehr vorhanden</span>
+    </div>
+  </div>
+
+  <div class="md-laedt" id="md-laedt">Wird geladen…</div>
+</main>
+
+<script src="app.js?v20260902a"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+LPR_Layout.init({ page: 'meldungen' });
+if (!LPR.requireRole('admin', 'login.html?next=admin-meldungen.html')) throw new Error('kein Zugriff');
+
+const SCHICHT_LABEL = { morning: 'Früh', afternoon: 'Spät', night: 'Nacht' };
+const SCHICHT_ZEIT  = { morning: '06–14 Uhr', afternoon: '14–22 Uhr', night: '22–06 Uhr' };
+const SCHICHT_FOLGE = ['morning', 'afternoon', 'night'];
+const WOCHENTAG_KURZ = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+const MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+// Storniert heisst: die Meldung steht wieder frei. Alles andere gilt als vergeben.
+const STATUS_ZUSATZ = { no_show: ' (nicht erschienen)', completed: '', confirmed: '', planned: ' (unbestätigt)' };
+
+let aktMonat = new Date(); aktMonat.setDate(1); aktMonat.setHours(0,0,0,0);
+// Meldungen des geladenen Zeitraums, geschluesselt auf "JJJJ-MM-TT|schicht".
+let nachSlot = {};
+
+function esc(x) {
+  return String(x == null ? '' : x)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function iso(d) {
+  // Nicht toISOString: das rechnet in UTC und macht aus dem 1. den 31.
+  return d.toLocaleDateString('sv-SE');
+}
+function zellenDesMonats(monat) {
+  const jahr = monat.getFullYear(), m = monat.getMonth();
+  const ersterWochentag = (new Date(jahr, m, 1).getDay() + 6) % 7; // Mo = 0
+  const tageImMonat = new Date(jahr, m + 1, 0).getDate();
+  const tageVormonat = new Date(jahr, m, 0).getDate();
+  const zellen = [];
+  for (let i = ersterWochentag - 1; i >= 0; i--) {
+    zellen.push({ date: new Date(jahr, m - 1, tageVormonat - i), fremd: true });
+  }
+  for (let i = 1; i <= tageImMonat; i++) {
+    zellen.push({ date: new Date(jahr, m, i), fremd: false });
+  }
+  while (zellen.length % 7 !== 0 || zellen.length < 35) {
+    const letzte = zellen[zellen.length - 1].date;
+    // Ueber setDate weiterzaehlen, sonst steht der Tag der Zeitumstellung doppelt im Raster.
+    zellen.push({ date: new Date(letzte.getFullYear(), letzte.getMonth(), letzte.getDate() + 1), fremd: true });
+    if (zellen.length >= 42) break;
+  }
+  return zellen;
+}
+
+async function laden() {
+  const zellen = zellenDesMonats(aktMonat);
+  const von = iso(zellen[0].date);
+  const bis = iso(zellen[zellen.length - 1].date);
+
+  document.getElementById('md-laedt').hidden = false;
+  document.getElementById('md-meldung').innerHTML = '';
+
+  const res = await LPR.getBoardMeldungen(von, bis);
+  document.getElementById('md-laedt').hidden = true;
+
+  if (!res.ok) {
+    document.getElementById('md-meldung').innerHTML =
+      '<div class="md-meldung">' + esc(res.error || 'Die Meldungen konnten nicht geladen werden.') + '</div>';
+    return;
+  }
+
+  nachSlot = {};
+  (res.meldungen || []).forEach(m => {
+    const key = m.datum + '|' + m.schicht;
+    (nachSlot[key] = nachSlot[key] || []).push(m);
+  });
+  // Vergebene Dienste zuerst, dann alphabetisch: die Frage "ist das schon
+  // besetzt" steht vor der Frage "wer koennte noch".
+  Object.keys(nachSlot).forEach(k => nachSlot[k].sort((a, b) =>
+    (b.gebucht ? 1 : 0) - (a.gebucht ? 1 : 0) ||
+    String(a.full_name || '').localeCompare(String(b.full_name || ''), 'de')
+  ));
+
+  document.getElementById('md-kopf').hidden = false;
+  document.getElementById('md-karte').hidden = false;
+  zeichneKopf();
+  zeichneHeute();
+  zeichneRaster(zellen);
+}
+
+function zeichneKopf() {
+  document.getElementById('md-monat-label').textContent =
+    MONATE[aktMonat.getMonth()] + ' ' + aktMonat.getFullYear();
+
+  // Gezaehlt wird nur der angezeigte Monat, nicht die Randtage aus dem
+  // Nachbarmonat — sonst stimmt die Summe nicht mit dem Monatsnamen ueberein.
+  const praefix = aktMonat.getFullYear() + '-' + String(aktMonat.getMonth() + 1).padStart(2, '0');
+  let meldungen = 0, gebucht = 0, ohneMeldung = 0;
+  const personen = new Set();
+  Object.keys(nachSlot).forEach(k => {
+    if (k.indexOf(praefix) !== 0) return;
+    nachSlot[k].forEach(m => {
+      if (m.hat_meldung) meldungen++;
+      if (m.gebucht) gebucht++;
+      if (m.gebucht && !m.hat_meldung) ohneMeldung++;
+      personen.add(m.volunteer_id);
+    });
+  });
+  const p = personen.size;
+  // Meldungen und vergebene Dienste sind zwei Zahlen, keine eine: seit dem
+  // Buchen die Meldung loescht, waere jede Zusammenfassung eine Halbwahrheit.
+  document.getElementById('md-summe').textContent = (meldungen + gebucht) === 0
+    ? 'Nichts eingetragen in diesem Monat.'
+    : p + (p === 1 ? ' Person · ' : ' Personen · ') + meldungen +
+      (meldungen === 1 ? ' Meldung · ' : ' Meldungen · ') + gebucht +
+      (gebucht === 1 ? ' Dienst vergeben' : ' Dienste vergeben') +
+      (ohneMeldung ? ' (' + ohneMeldung + ' davon ohne Meldung im Kalender)' : '') + '.';
+}
+
+function zeichneHeute() {
+  const heute = new Date(); heute.setHours(0,0,0,0);
+  const box = document.getElementById('md-heute');
+  // Die Heute-Karte gehoert zum heutigen Tag, nicht zum angezeigten Monat.
+  // Beim Blaettern in den Oktober waere sie dort eine falsche Auskunft.
+  const imBlick = heute.getFullYear() === aktMonat.getFullYear() && heute.getMonth() === aktMonat.getMonth();
+  box.hidden = !imBlick;
+  if (!imBlick) return;
+
+  const key = iso(heute);
+  document.getElementById('md-heute-titel').textContent =
+    'Heute · ' + WOCHENTAG_KURZ[(heute.getDay() + 6) % 7] + ', ' + heute.getDate() + '. ' + MONATE[heute.getMonth()];
+
+  document.getElementById('md-heute-inhalt').innerHTML = SCHICHT_FOLGE.map(sch => {
+    const liste = nachSlot[key + '|' + sch] || [];
+    const namen = liste.length
+      ? liste.map(m => {
+          const klinik = m.gebucht && m.klinik ? ' <span class="md-klinik">→ ' + esc(m.klinik) + '</span>' : '';
+          return '<span class="md-name ' + klasse(m) + '" title="' + esc(hinweis(m)) + '">'
+            + zeichen(m) + esc(m.full_name || '—') + klinik + '</span>';
+        }).join(' · ')
+      : '<span class="md-heute-leer">niemand gemeldet</span>';
+    const gebucht = liste.filter(m => m.gebucht).length;
+    const zahl = liste.length
+      ? liste.length + (liste.length === 1 ? ' Person' : ' Personen') + (gebucht ? ', ' + gebucht + ' im Dienst' : '')
+      : '';
+    return '<div class="md-heute-zeile">'
+      + '<span class="md-heute-schicht">' + SCHICHT_LABEL[sch] + ' <span style="font-weight:400">' + SCHICHT_ZEIT[sch] + '</span></span>'
+      + '<span class="md-heute-namen">' + namen + '</span>'
+      + '<span class="md-heute-leer">' + zahl + '</span>'
+      + '</div>';
+  }).join('');
+}
+
+function istBlockiert(m) { return !m.nachweise_ok || m.dienstsperre; }
+function klasse(m) { return m.gebucht ? 'gebucht' : (istBlockiert(m) ? 'blockiert' : 'frei'); }
+// Vier Zustaende, vier Zeichen. Die Farbe allein traegt die Bedeutung nicht.
+function zeichen(m) {
+  if (m.gebucht) return m.hat_meldung ? '✓ ' : '◦ ';
+  return istBlockiert(m) ? '⚠ ' : '· ';
+}
+function hinweis(m) {
+  if (m.gebucht) {
+    return 'Vergeben' + (m.klinik ? ' an ' + m.klinik : '') + (STATUS_ZUSATZ[m.buchungsstatus] || '')
+      + (m.hat_meldung ? '' : ' — die Meldung steht nicht mehr im Kalender der Person.');
+  }
+  if (m.dienstsperre) return 'Dienstsperre — bekommt keine neuen Dienste zugeteilt.';
+  if (!m.nachweise_ok) return 'Pflichtnachweise fehlen oder sind abgelaufen — für Kliniken nicht sichtbar.';
+  return 'Gemeldet und buchbar.';
+}
+
+function zeichneRaster(zellen) {
+  const heute = new Date(); heute.setHours(0,0,0,0);
+  document.getElementById('md-grid').innerHTML = zellen.map(z => {
+    const d = z.date;
+    const key = iso(d);
+    const klassen = ['md-day'];
+    if (z.fremd) klassen.push('other-month');
+    if (d.getTime() === heute.getTime()) klassen.push('today');
+    if (d.getTime() < heute.getTime()) klassen.push('past');
+    if (d.getDay() === 0 || d.getDay() === 6) klassen.push('weekend');
+
+    let zeilen = '';
+    SCHICHT_FOLGE.forEach(sch => {
+      const liste = nachSlot[key + '|' + sch] || [];
+      if (!liste.length) return;
+      const namen = liste.map(m => {
+        const klinik = m.gebucht && m.klinik ? ' <span class="md-klinik">→ ' + esc(m.klinik) + '</span>' : '';
+        return '<span class="md-name ' + klasse(m) + '" title="' + esc(hinweis(m)) + '">'
+          + zeichen(m) + esc(m.full_name || '—') + klinik + '</span>';
+      }).join('');
+      zeilen += '<div class="md-zeile"><span class="md-schicht">' + SCHICHT_LABEL[sch] + '</span>' + namen + '</div>';
+    });
+
+    // In der Tagesliste auf dem Telefon sind leere Tage nur Leerzeilen; im
+    // Raster muessen sie stehen bleiben, sonst verrutschen die Wochentage.
+    if (!zeilen) klassen.push('md-leer');
+    const wd = WOCHENTAG_KURZ[(d.getDay() + 6) % 7];
+    const badge = d.getTime() === heute.getTime() ? '<span class="md-today-badge">Heute</span>' : '';
+
+    return '<div class="' + klassen.join(' ') + '">'
+      + '<div class="md-date"><span class="md-wd">' + wd + '</span>' + d.getDate() + '.' + badge + '</div>'
+      + '<div class="md-zeilen">' + zeilen + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+document.getElementById('md-zurueck').addEventListener('click', () => {
+  aktMonat = new Date(aktMonat.getFullYear(), aktMonat.getMonth() - 1, 1);
+  laden();
+});
+document.getElementById('md-vor').addEventListener('click', () => {
+  aktMonat = new Date(aktMonat.getFullYear(), aktMonat.getMonth() + 1, 1);
+  laden();
+});
+document.getElementById('md-zu-heute').addEventListener('click', () => {
+  const h = new Date();
+  aktMonat = new Date(h.getFullYear(), h.getMonth(), 1);
+  laden();
+});
+
+laden();
+</script>
+</body>
+</html>

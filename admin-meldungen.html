@@ -103,8 +103,9 @@
 
   <h1 style="font-size:var(--fs-h2);margin:0 0 6px;color:var(--green-deep);">Meldungen</h1>
   <p style="margin:0 0 16px;color:var(--muted);font-size:14px;max-width:70ch;">
-    Wer hat sich für welchen Tag und welche Schicht eingetragen. Diese Seite zeigt nur an —
-    eingetragen und gelöscht wird ausschließlich im eigenen Kalender der Person.
+    Wer hat sich für welchen Tag und welche Schicht eingetragen — und welche Dienste schon
+    vergeben sind. Diese Seite zeigt nur an; eingetragen und gelöscht wird ausschließlich im
+    eigenen Kalender der Person.
   </p>
 
   <div id="md-meldung"></div>
@@ -130,9 +131,10 @@
     </div>
     <div class="md-grid" id="md-grid"></div>
     <div class="md-legende">
-      <span>✓ gebucht</span>
+      <span>✓ vergeben</span>
       <span>· gemeldet, noch frei</span>
       <span>⚠ gemeldet, aber für Kliniken unsichtbar (Nachweise fehlen oder Dienstsperre)</span>
+      <span>◦ vergeben, Meldung nicht mehr vorhanden</span>
     </div>
   </div>
 
@@ -231,21 +233,26 @@ function zeichneKopf() {
   // Gezaehlt wird nur der angezeigte Monat, nicht die Randtage aus dem
   // Nachbarmonat — sonst stimmt die Summe nicht mit dem Monatsnamen ueberein.
   const praefix = aktMonat.getFullYear() + '-' + String(aktMonat.getMonth() + 1).padStart(2, '0');
-  let schichten = 0, gebucht = 0;
+  let meldungen = 0, gebucht = 0, ohneMeldung = 0;
   const personen = new Set();
   Object.keys(nachSlot).forEach(k => {
     if (k.indexOf(praefix) !== 0) return;
     nachSlot[k].forEach(m => {
-      schichten++;
+      if (m.hat_meldung) meldungen++;
       if (m.gebucht) gebucht++;
+      if (m.gebucht && !m.hat_meldung) ohneMeldung++;
       personen.add(m.volunteer_id);
     });
   });
   const p = personen.size;
-  document.getElementById('md-summe').textContent = schichten === 0
-    ? 'Keine Meldungen in diesem Monat.'
-    : p + (p === 1 ? ' Person hat ' : ' Personen haben ') + schichten +
-      (schichten === 1 ? ' Schicht angeboten, ' : ' Schichten angeboten, ') + gebucht + ' davon gebucht.';
+  // Meldungen und vergebene Dienste sind zwei Zahlen, keine eine: seit dem
+  // Buchen die Meldung loescht, waere jede Zusammenfassung eine Halbwahrheit.
+  document.getElementById('md-summe').textContent = (meldungen + gebucht) === 0
+    ? 'Nichts eingetragen in diesem Monat.'
+    : p + (p === 1 ? ' Person · ' : ' Personen · ') + meldungen +
+      (meldungen === 1 ? ' Meldung · ' : ' Meldungen · ') + gebucht +
+      (gebucht === 1 ? ' Dienst vergeben' : ' Dienste vergeben') +
+      (ohneMeldung ? ' (' + ohneMeldung + ' davon ohne Meldung im Kalender)' : '') + '.';
 }
 
 function zeichneHeute() {
@@ -265,15 +272,14 @@ function zeichneHeute() {
     const liste = nachSlot[key + '|' + sch] || [];
     const namen = liste.length
       ? liste.map(m => {
-          const zeichen = m.gebucht ? '✓ ' : (istBlockiert(m) ? '⚠ ' : '');
           const klinik = m.gebucht && m.klinik ? ' <span class="md-klinik">→ ' + esc(m.klinik) + '</span>' : '';
           return '<span class="md-name ' + klasse(m) + '" title="' + esc(hinweis(m)) + '">'
-            + zeichen + esc(m.full_name || '—') + klinik + '</span>';
+            + zeichen(m) + esc(m.full_name || '—') + klinik + '</span>';
         }).join(' · ')
       : '<span class="md-heute-leer">niemand gemeldet</span>';
     const gebucht = liste.filter(m => m.gebucht).length;
     const zahl = liste.length
-      ? liste.length + (liste.length === 1 ? ' Meldung' : ' Meldungen') + (gebucht ? ', ' + gebucht + ' gebucht' : '')
+      ? liste.length + (liste.length === 1 ? ' Person' : ' Personen') + (gebucht ? ', ' + gebucht + ' im Dienst' : '')
       : '';
     return '<div class="md-heute-zeile">'
       + '<span class="md-heute-schicht">' + SCHICHT_LABEL[sch] + ' <span style="font-weight:400">' + SCHICHT_ZEIT[sch] + '</span></span>'
@@ -285,9 +291,15 @@ function zeichneHeute() {
 
 function istBlockiert(m) { return !m.nachweise_ok || m.dienstsperre; }
 function klasse(m) { return m.gebucht ? 'gebucht' : (istBlockiert(m) ? 'blockiert' : 'frei'); }
+// Vier Zustaende, vier Zeichen. Die Farbe allein traegt die Bedeutung nicht.
+function zeichen(m) {
+  if (m.gebucht) return m.hat_meldung ? '✓ ' : '◦ ';
+  return istBlockiert(m) ? '⚠ ' : '· ';
+}
 function hinweis(m) {
   if (m.gebucht) {
-    return 'Vergeben' + (m.klinik ? ' an ' + m.klinik : '') + (STATUS_ZUSATZ[m.buchungsstatus] || '');
+    return 'Vergeben' + (m.klinik ? ' an ' + m.klinik : '') + (STATUS_ZUSATZ[m.buchungsstatus] || '')
+      + (m.hat_meldung ? '' : ' — die Meldung steht nicht mehr im Kalender der Person.');
   }
   if (m.dienstsperre) return 'Dienstsperre — bekommt keine neuen Dienste zugeteilt.';
   if (!m.nachweise_ok) return 'Pflichtnachweise fehlen oder sind abgelaufen — für Kliniken nicht sichtbar.';
@@ -310,10 +322,9 @@ function zeichneRaster(zellen) {
       const liste = nachSlot[key + '|' + sch] || [];
       if (!liste.length) return;
       const namen = liste.map(m => {
-        const zeichen = m.gebucht ? '✓ ' : (istBlockiert(m) ? '⚠ ' : '· ');
         const klinik = m.gebucht && m.klinik ? ' <span class="md-klinik">→ ' + esc(m.klinik) + '</span>' : '';
         return '<span class="md-name ' + klasse(m) + '" title="' + esc(hinweis(m)) + '">'
-          + zeichen + esc(m.full_name || '—') + klinik + '</span>';
+          + zeichen(m) + esc(m.full_name || '—') + klinik + '</span>';
       }).join('');
       zeilen += '<div class="md-zeile"><span class="md-schicht">' + SCHICHT_LABEL[sch] + '</span>' + namen + '</div>';
     });

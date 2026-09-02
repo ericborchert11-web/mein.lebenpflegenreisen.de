@@ -130,8 +130,9 @@
             punkt('admin-ehrenamt-interesse.html', 'ehrenamt-interesse', 'Interessenten'),
             zahl) +
           gruppe('Einsätze',
-            ['sitzwachen-admin', 'kunden', 'kliniken-admin', 'reisen-admin', 'jahreskalender'],
+            ['sitzwachen-admin', 'meldungen', 'kunden', 'kliniken-admin', 'reisen-admin', 'jahreskalender'],
             punkt('admin-sitzwachen.html', 'sitzwachen-admin', 'Sitzwachen') +
+            punkt('admin-meldungen.html', 'meldungen', 'Meldungen') +
             punkt('admin-kunden.html', 'kunden', 'Kunden') +
             punkt('admin-kliniken.html', 'kliniken-admin', 'Kliniken') +
             punkt('admin-reisen.html', 'reisen-admin', 'Reisen') +

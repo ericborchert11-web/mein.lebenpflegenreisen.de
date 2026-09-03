@@ -177,6 +177,21 @@
       <div class="field-error" id="li-error" hidden></div>
       <button type="submit" class="btn btn-primary btn-block">Anmelden</button>
     </form>
+
+    <div class="info-small" style="margin-top:14px;">
+      <strong>Sie sind eine Klinik?</strong> Klinik-Konten melden sich ohne Passwort an.
+      <div class="field" style="margin-top:8px;">
+        <label for="ml-email">E-Mail</label>
+        <input type="email" id="ml-email" autocomplete="email">
+      </div>
+      <button type="button" class="btn btn-dark btn-block" id="ml-submit"
+              onclick="doMagicLink()">Link zum Anmelden schicken</button>
+      <div class="field-error" id="ml-error" hidden></div>
+      <div class="info-small" id="ml-ok" hidden>
+        Wenn es zu dieser Adresse ein Konto gibt, ist der Anmeldelink unterwegs.
+        Er gilt eine Stunde.
+      </div>
+    </div>
   </div>
 
 </div>
@@ -262,6 +277,21 @@ async function doLogin() {
   window.location.href = target;
 }
 
+async function doMagicLink() {
+  const email = document.getElementById('ml-email').value.trim();
+  const errEl = document.getElementById('ml-error');
+  const okEl  = document.getElementById('ml-ok');
+  const btn   = document.getElementById('ml-submit');
+  errEl.hidden = true; okEl.hidden = true;
+  btn.disabled = true; btn.textContent = 'Wird geschickt …';
+
+  const res = await LPR.requestMagicLink(email);
+
+  btn.disabled = false; btn.textContent = 'Link zum Anmelden schicken';
+  if (!res.ok) { errEl.textContent = res.error; errEl.hidden = false; return; }
+  okEl.hidden = false;
+}
+
 async function doRegister() {
   if (!selectedRole) { showErr('Bitte wählen Sie oben aus, ob Sie sich ehrenamtlich engagieren oder als Klinik buchen möchten.'); return; }
   const name = document.getElementById('rg-name').value.trim();
@@ -332,6 +362,35 @@ function showErr(msg) {
       setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
     }
   }
+})();
+
+// Rueckkehr aus dem Anmeldelink. Der Client loest den Hash selbst ein, wir
+// pruefen danach nur noch den Kontostatus — mit derselben Funktion wie der
+// Passwortweg, damit beide Wege nicht auseinanderlaufen.
+(async () => {
+  if (!location.hash.includes('access_token') && !location.hash.includes('error')) return;
+  const sb = await LPR.authClient();
+  sb.auth.onAuthStateChange(async (ereignis, session) => {
+    if (ereignis !== 'SIGNED_IN' || !session) return;
+    const res = await LPR.pruefeUndSetzeSession(session.user.id);
+    const errEl = document.getElementById('li-error');
+    if (!res.ok) {
+      errEl.textContent = res.error;
+      errEl.hidden = false;
+      history.replaceState(null, '', location.pathname);
+      return;
+    }
+    if (res.user.role !== 'klinik' && res.user.role !== 'admin') {
+      // Entscheidung: Der Anmeldelink gilt nur fuer Klinik-Konten. Ehrenamtliche
+      // melden sich weiterhin mit Passwort an.
+      await LPR.logout();
+      errEl.textContent = 'Für Ehrenamtliche gilt die Anmeldung mit Passwort.';
+      errEl.hidden = false;
+      history.replaceState(null, '', location.pathname);
+      return;
+    }
+    window.location.href = LPR.roleTarget(res.user.role);
+  });
 })();
 </script>
 

@@ -319,6 +319,34 @@
   }
 
   /**
+   * Schickt einen Anmeldelink. shouldCreateUser bewusst false: Hier soll sich
+   * niemand ein Konto erschleichen, das geht nur ueber die Registrierung.
+   * Die Antwort verraet absichtlich nicht, ob es die Adresse gibt.
+   */
+  async function requestMagicLink(email) {
+    email = (email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { ok: false, error: 'Bitte gültige E-Mail eingeben.' };
+    }
+    try {
+      const { error } = await (await sb()).auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: window.location.origin + '/login.html'
+        }
+      });
+      if (error && (error.message || '').toLowerCase().includes('rate')) {
+        return { ok: false, error: 'Zu viele Anfragen in kurzer Zeit. Bitte in ein paar Minuten erneut versuchen.' };
+      }
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] requestMagicLink:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
    * Zugangskontrolle nach erfolgreicher Authentifizierung — egal ob per Passwort
    * oder per Anmeldelink. Liest das Profil, weist gesperrte Zustaende ab und
    * setzt die Session. Bewusst EINE Stelle: zwei Kopien einer Zugangspruefung
@@ -4760,7 +4788,8 @@
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
     register, loginWithPassword, pruefeUndSetzeSession, requireRole,
-    requestPasswordReset, setNewPassword,
+    requestPasswordReset, setNewPassword, requestMagicLink,
+    authClient: sb,
     listUsersByStatus, approveUser, rejectUser, deleteRegistration,
     listKunden, saveKunde, setKundeAktiv, createTermin, finishTermin,
     listTermine, cancelTermin,

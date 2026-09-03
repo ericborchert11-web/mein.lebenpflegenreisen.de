@@ -2249,8 +2249,11 @@
       // Schritt verschwand der Buchstabe ganz — aus "Charité" wurde "charit".
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
       .replace(/[^a-z0-9]+/g,'-')
-      .replace(/^-+|-+$/g,'')
-      .slice(0, 40);
+      // Erst kuerzen, dann Rand-Bindestriche abschneiden: Faellt die 40-Zeichen-
+      // Grenze auf einen Trenner, blieb sonst eine ID, die auf "-" endet — die
+      // Pruefregex liess das durch, und die Kennung ist danach nicht mehr aenderbar.
+      .slice(0, 40)
+      .replace(/^-+|-+$/g,'');
   }
 
   /** Anlegen oder aendern. Ohne vorhandene id wird angelegt. */

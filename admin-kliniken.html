@@ -529,6 +529,9 @@ async function confirmApprove() {
   }
   closeApproveModal();
   LPR.showToast('✓ Klinik freigegeben.');
+  // Bei "neue ID anlegen" entsteht durch die Freigabe ein clinics-Eintrag.
+  // Erst nachladen, dann rendern: loadAllTabs() ruft am Ende renderTab().
+  await ladeStamm();
   await loadAllTabs();
   setTab(_currentTab);
 }

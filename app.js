@@ -395,6 +395,14 @@
     // an setSession() uebergeben.
     const { data: { session: sbSession } } = await (await sb()).auth.getSession();
     const session = setSession(profile, sbSession);
+    // setSession() liefert null (und hat die Session bereits geloescht), wenn
+    // sbSession fehlt. Ohne diese Pruefung meldete pruefeUndSetzeSession hier
+    // faelschlich Erfolg, obwohl der Nutzer gerade wieder ausgeloggt wurde —
+    // ein stiller kaputter Login, den der Aufrufer nicht bemerkt.
+    if (!session) {
+      await (await sb()).auth.signOut();
+      return { ok: false, error: 'Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.' };
+    }
     return { ok: true, user: { email: profile.email, name: profile.full_name, role: ROLE_BE_TO_FE[profile.role] }, session };
   }
 

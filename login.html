@@ -126,7 +126,7 @@
         <label for="rg-email">E-Mail <span class="req">*</span></label>
         <input type="email" id="rg-email" autocomplete="email" required>
       </div>
-      <div class="field">
+      <div class="field" id="rg-password-wrap">
         <label for="rg-password">Passwort <span class="req">*</span></label>
         <input type="password" id="rg-password" autocomplete="new-password" minlength="8" required oninput="checkPwStrength(this)">
         <div class="field-hint">Mindestens 8 Zeichen.</div>
@@ -218,12 +218,28 @@ function pickRole(btn) {
   sub.disabled = false;
   sub.textContent = selectedRole === 'klinik' ? 'Klinik-Konto erstellen' : 'Ehrenamt-Konto erstellen';
 
+  const pwWrap = document.getElementById('rg-password-wrap');
+  const pwInput = document.getElementById('rg-password');
+  const istKlinik = selectedRole === 'klinik';
+  pwWrap.hidden = istKlinik;
+  // required MUSS mit weg: ein verstecktes Pflichtfeld blockiert das Absenden,
+  // ohne dass jemand sieht, woran es liegt.
+  if (istKlinik) pwInput.removeAttribute('required');
+  else           pwInput.setAttribute('required', 'required');
+
   // Der Ablauf wird erst mit der Rollenwahl sichtbar — vorher waere er ein
   // Absatz Kleingedrucktes ueber einem Formular, das noch niemand ausfuellt.
-  // Das Kennenlerngespraech gilt nur fuer das Ehrenamt.
-  const ablauf = document.getElementById('rg-ablauf');
-  ablauf.hidden = false;
-  document.getElementById('rg-ablauf-ea').hidden = selectedRole === 'klinik';
+  // Kliniken bekommen keine Bestaetigungsmail mehr, sondern sofort einen
+  // Anmeldelink; das Kennenlerngespraech gilt weiterhin nur fuer das Ehrenamt.
+  document.getElementById('rg-ablauf').hidden = false;
+  document.getElementById('rg-ablauf').innerHTML = istKlinik
+    ? '<strong>So geht es weiter:</strong> Sie bekommen sofort eine E-Mail mit einem '
+      + 'Anmeldelink. Sobald der Vorstand Ihre Klinik freigegeben hat, kommen Sie '
+      + 'damit ohne Passwort in Ihren Bereich. Das dauert in der Regel 1–2 Werktage.'
+    : '<strong>So geht es weiter:</strong> Sie bekommen zuerst eine Bestätigungs-E-Mail '
+      + 'mit einem Link — bitte darauf klicken. Danach gibt der Vorstand Ihr Konto frei, '
+      + 'das dauert 1–2 Werktage. Vor dem ersten Einsatz lernen wir uns in einem kurzen '
+      + 'Gespräch persönlich kennen.';
   if (selectedRole === 'klinik') {
     document.getElementById('rg-name-label').innerHTML = 'Ihr Name (Ansprechperson) <span class="req">*</span>';
     document.getElementById('rg-name-hint').textContent = 'Name der Ansprechperson auf Klinik-Seite.';
@@ -250,7 +266,9 @@ async function doRegister() {
   if (!selectedRole) { showErr('Bitte wählen Sie oben aus, ob Sie sich ehrenamtlich engagieren oder als Klinik buchen möchten.'); return; }
   const name = document.getElementById('rg-name').value.trim();
   const email = document.getElementById('rg-email').value.trim();
-  const password = document.getElementById('rg-password').value;
+  const password = selectedRole === 'klinik'
+    ? null
+    : document.getElementById('rg-password').value;
   const dsgvo = document.getElementById('rg-dsgvo').checked;
   if (!dsgvo) { showErr('Bitte Datenschutzerklärung bestätigen.'); return; }
 

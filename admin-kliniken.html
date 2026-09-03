@@ -472,7 +472,9 @@ function openApproveModal(clinicAccountId, clinicName) {
   _activeApproveName = clinicName;
   document.getElementById('approve-clinic-name').textContent = clinicName;
   document.getElementById('approve-error').textContent = '';
-  document.getElementById('approve-new-id').value = '';
+  // Vorschlag aus dem Kliniknamen, damit niemand IDs frei erfindet und der
+  // Katalog einheitlich bleibt. Bleibt aenderbar.
+  document.getElementById('approve-new-id').value = LPR.clinicIdVorschlag(clinicName);
   document.getElementById('approve-existing-id').value = '';
   document.getElementById('approve-mode-new').checked = true;
   syncApproveModeUI();

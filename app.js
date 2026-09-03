@@ -318,6 +318,58 @@
     }
   }
 
+  /**
+   * Zugangskontrolle nach erfolgreicher Authentifizierung — egal ob per Passwort
+   * oder per Anmeldelink. Liest das Profil, weist gesperrte Zustaende ab und
+   * setzt die Session. Bewusst EINE Stelle: zwei Kopien einer Zugangspruefung
+   * laufen frueher oder spaeter auseinander.
+   */
+  async function pruefeUndSetzeSession(authUserId) {
+    const { data: profile, error: profileError } = await (await sb())
+      .from('profiles')
+      .select('id, email, full_name, role, status, personalnummer, vereinsnummer')
+      .eq('id', authUserId)
+      .single();
+
+    if (profileError || !profile) {
+      await (await sb()).auth.signOut();
+      return { ok: false, error: 'Profil konnte nicht geladen werden. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
+    }
+
+    if (profile.role !== 'board') {
+      if (profile.status === 'pending') {
+        await (await sb()).auth.signOut();
+        return { ok: false, error: 'Ihr Konto wurde noch nicht vom Vorstand freigeschaltet. Die Freischaltung erfolgt in der Regel innerhalb von 1–2 Werktagen.' };
+      }
+      if (profile.status === 'rejected') {
+        // Kliniken dürfen mit rejected-Status einloggen, damit sie ihre
+        // Daten korrigieren und erneut zur Prüfung einreichen können.
+        // (kliniken.html zeigt einen Reject-Banner + "Daten anpassen"-Knopf.)
+        // Ehrenamtliche bleiben geblockt — für sie gibt es keinen Resubmit-Pfad.
+        // profile.role kommt aus der DB als englisch ('clinic'), nicht aus dem
+        // Frontend-Mapping ('klinik').
+        if (profile.role !== 'clinic') {
+          await (await sb()).auth.signOut();
+          return { ok: false, error: 'Ihre Registrierung wurde nicht angenommen. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
+        }
+      }
+      if (profile.status === 'suspended') {
+        await (await sb()).auth.signOut();
+        return { ok: false, error: 'Ihr Konto ist derzeit deaktiviert. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
+      }
+    }
+
+    // Abweichung vom Plan: setSession() erwartet (profile, supabaseSession) und
+    // loescht die Session sofort wieder, wenn supabaseSession fehlt (Bestand,
+    // siehe oben) — der Plan rief setSession(user) mit einem selbst gebauten,
+    // einzelnen Objekt auf, das haette hier sofort wieder ausgeloggt. Deshalb
+    // wird die aktuelle Supabase-Session nachgeladen und wie im Passwortweg
+    // an setSession() uebergeben.
+    const { data: { session: sbSession } } = await (await sb()).auth.getSession();
+    const session = setSession(profile, sbSession);
+    return { ok: true, user: { email: profile.email, name: profile.full_name, role: ROLE_BE_TO_FE[profile.role] }, session };
+  }
+
   async function loginWithPassword({ email, password }) {
     email = (email || '').trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Bitte gültige E-Mail eingeben.' };
@@ -331,42 +383,7 @@
         return { ok: false, error: 'E-Mail oder Passwort falsch.' };
       }
 
-      const { data: profile, error: profileError } = await (await sb())
-        .from('profiles')
-        .select('id, email, full_name, role, status, personalnummer, vereinsnummer')
-        .eq('id', authData.user.id)
-        .single();
-
-      if (profileError || !profile) {
-        await (await sb()).auth.signOut();
-        return { ok: false, error: 'Profil konnte nicht geladen werden. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
-      }
-
-      if (profile.role !== 'board') {
-        if (profile.status === 'pending') {
-          await (await sb()).auth.signOut();
-          return { ok: false, error: 'Ihr Konto wurde noch nicht vom Vorstand freigeschaltet. Die Freischaltung erfolgt in der Regel innerhalb von 1–2 Werktagen.' };
-        }
-        if (profile.status === 'rejected') {
-          // Kliniken dürfen mit rejected-Status einloggen, damit sie ihre
-          // Daten korrigieren und erneut zur Prüfung einreichen können.
-          // (kliniken.html zeigt einen Reject-Banner + "Daten anpassen"-Knopf.)
-          // Ehrenamtliche bleiben geblockt — für sie gibt es keinen Resubmit-Pfad.
-          // profile.role kommt aus der DB als englisch ('clinic'), nicht aus dem
-          // Frontend-Mapping ('klinik').
-          if (profile.role !== 'clinic') {
-            await (await sb()).auth.signOut();
-            return { ok: false, error: 'Ihre Registrierung wurde nicht angenommen. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
-          }
-        }
-        if (profile.status === 'suspended') {
-          await (await sb()).auth.signOut();
-          return { ok: false, error: 'Ihr Konto ist derzeit deaktiviert. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
-        }
-      }
-
-      const session = setSession(profile, authData.session);
-      return { ok: true, user: { email: profile.email, name: profile.full_name, role: ROLE_BE_TO_FE[profile.role] }, session };
+      return await pruefeUndSetzeSession(authData.user.id);
     } catch(e) {
       console.error('[LPR] login failed:', e);
       return { ok: false, error: 'Netzwerkfehler. Bitte erneut versuchen.' };
@@ -4742,7 +4759,7 @@
     interessentUebernehmen, getEhrenamtQuellen, meinEinladungslink,
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
-    register, loginWithPassword, requireRole,
+    register, loginWithPassword, pruefeUndSetzeSession, requireRole,
     requestPasswordReset, setNewPassword,
     listUsersByStatus, approveUser, rejectUser, deleteRegistration,
     listKunden, saveKunde, setKundeAktiv, createTermin, finishTermin,

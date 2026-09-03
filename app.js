@@ -173,18 +173,45 @@
   async function register({ email, password, name, role, extra }) {
     email = (email || '').trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Bitte gültige E-Mail eingeben.' };
-    if (!password || password.length < 8) return { ok: false, error: 'Passwort muss mindestens 8 Zeichen lang sein.' };
+    // Kliniken kommen ohne Passwort (Anmeldelink statt Passwort-signUp,
+    // siehe Klinik-Zweig unten) — login.html schickt fuer sie password: null.
+    if (role !== 'klinik' && (!password || password.length < 8)) return { ok: false, error: 'Passwort muss mindestens 8 Zeichen lang sein.' };
     if (!name || name.trim().length < 2) return { ok: false, error: 'Bitte Namen eingeben.' };
     if (!['ehrenamt','klinik','admin'].includes(role)) return { ok: false, error: 'Ungültige Rolle.' };
 
-    // Klinik: Standard-Auth-Flow wie Ehrenamt. Klinik-Stammdaten (Adresse,
-    // Ansprechpartner, Telefon) werden NACH dem ersten Login auf
-    // kliniken.html im Onboarding-Form abgefragt. Grund: Beim ersten signUp
-    // ist die E-Mail-Bestätigung noch ausstehend, der User ist nicht
-    // authentifiziert → RLS-Insert in clinic_details würde fehlschlagen.
-    // Zweistufiger Flow ist robuster.
-
     const beRole = ROLE_FE_TO_BE[role];
+
+    // Kliniken registrieren sich ohne Passwort. signInWithOtp legt das Konto an
+    // und schickt in derselben Bewegung den Anmeldelink. Die Klinikdaten reisen
+    // als User-Metadaten mit — der Trigger auf auth.users macht daraus die
+    // clinic_details-Zeile. Bis Etappe 1 auf PROD ist, passiert damit nichts.
+    if (role === 'klinik') {
+      const e = extra || {};
+      const { error: otpErr } = await (await sb()).auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: window.location.origin + '/login.html',
+          data: {
+            full_name:   name.trim(),
+            role:        beRole,
+            clinic_name: (e.clinic_name || '').trim(),
+            ward:        (e.ward || '').trim(),
+            phone:       (e.phone || '').trim(),
+            address:     (e.address || '').trim(),
+            postal_code: (e.postal_code || '').trim(),
+            city:        (e.city || '').trim()
+          }
+        }
+      });
+      if (otpErr) {
+        if ((otpErr.message || '').toLowerCase().includes('rate')) {
+          return { ok: false, error: 'Zu viele Anfragen in kurzer Zeit. Bitte in ein paar Minuten erneut versuchen.' };
+        }
+        return { ok: false, error: otpErr.message || 'Registrierung fehlgeschlagen.' };
+      }
+      return { ok: true, pending: true };
+    }
 
     try {
       const { data, error } = await (await sb()).auth.signUp({

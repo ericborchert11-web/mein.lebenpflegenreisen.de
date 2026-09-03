@@ -4814,7 +4814,6 @@
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
     register, loginWithPassword, pruefeUndSetzeSession, requireRole,
     requestPasswordReset, setNewPassword, requestMagicLink,
-    authClient: sb,
     listUsersByStatus, approveUser, rejectUser, deleteRegistration,
     listKunden, saveKunde, setKundeAktiv, createTermin, finishTermin,
     listTermine, cancelTermin,

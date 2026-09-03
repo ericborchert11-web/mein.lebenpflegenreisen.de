@@ -383,7 +383,7 @@ function showErr(msg) {
     return;
   }
 
-  const sb = await LPR.authClient();
+  const sb = await LPR.supabase();
   let behandelt = false;
   sb.auth.onAuthStateChange(async (ereignis, session) => {
     // SIGNED_IN und INITIAL_SESSION gleich behandeln: War die Anmeldung beim

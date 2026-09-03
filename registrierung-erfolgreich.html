@@ -164,7 +164,7 @@
 
     <div class="conf-steps">
       <h3>So geht es weiter</h3>
-      <ol>
+      <ol id="conf-steps-list">
         <li>Der Vorstand prüft Ihre Registrierung innerhalb von <strong>1–2 Werktagen</strong>.</li>
         <li>Sie erhalten eine <strong>E-Mail-Benachrichtigung</strong> sobald Ihr Konto freigeschaltet ist.</li>
         <li>Nach der Freischaltung können Sie sich ganz normal mit Ihrer E-Mail und Ihrem Passwort anmelden.</li>
@@ -216,6 +216,23 @@ LPR_Layout.init({ page: 'registrierung' });
   if (role) {
     const labels = { ehrenamt: '🤝 Ehrenamtliche:r', klinik: '🏥 Klinik' };
     document.getElementById('meta-role').textContent = labels[role] || role;
+  }
+
+  // Klinik-Konten haben kein Passwort mehr (Anmeldelink statt Passwort-Login,
+  // siehe login.html) und bekommen bisher keine automatische Freigabe-Mail —
+  // der vorgegebene Ablauf-Text waere fuer sie schlicht falsch. Derselbe Text
+  // gilt uebrigens auch fuer eine Klinik, die sich ein zweites Mal registriert:
+  // signInWithOtp() schickt so oder so einen Anmeldelink, egal ob das Konto
+  // laengst freigeschaltet ist oder nicht — eine Bestand-Erkennung bauen wir
+  // bewusst nicht, sie waere ein Auskunftsorakel darueber, welche Adressen
+  // im Portal existieren.
+  if (role === 'klinik') {
+    document.getElementById('conf-steps-list').innerHTML =
+      '<li>Wir haben Ihnen eine E-Mail mit einem <strong>Anmeldelink</strong> geschickt.</li>'
+      + '<li>Der Vorstand prüft Ihre Anmeldung, das dauert in der Regel <strong>1–2 Werktage</strong>.</li>'
+      + '<li>Danach melden Sie sich jederzeit über einen Anmeldelink an — ein Passwort brauchen Sie nicht. '
+        + 'Den Link fordern Sie auf der Anmeldeseite mit Ihrer E-Mail-Adresse an.</li>'
+      + '<li>Wir melden uns bei Ihnen, sobald die Freigabe erfolgt ist.</li>';
   }
 
   // Kennenlern-Hinweis + Popup nur für Ehrenamtliche

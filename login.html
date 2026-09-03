@@ -380,11 +380,13 @@ function showErr(msg) {
       history.replaceState(null, '', location.pathname);
       return;
     }
-    if (res.user.role !== 'klinik' && res.user.role !== 'admin') {
-      // Entscheidung: Der Anmeldelink gilt nur fuer Klinik-Konten. Ehrenamtliche
-      // melden sich weiterhin mit Passwort an.
+    if (res.user.role !== 'klinik') {
+      // Der Anmeldelink gilt nur fuer Klinik-Konten. Ehrenamtliche und Admins
+      // melden sich mit Passwort an: Das Admin-Konto sieht den gesamten
+      // Vorstandsbereich, und ein Zugang, der allein am Postfach haengt, waere
+      // dort schwaecher als das Passwort.
       await LPR.logout();
-      errEl.textContent = 'Für Ehrenamtliche gilt die Anmeldung mit Passwort.';
+      errEl.textContent = 'Dieser Anmeldelink gilt nur für Klinik-Konten. Bitte melden Sie sich mit Ihrem Passwort an.';
       errEl.hidden = false;
       history.replaceState(null, '', location.pathname);
       return;

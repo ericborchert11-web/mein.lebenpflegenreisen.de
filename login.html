@@ -107,8 +107,18 @@
           <input type="tel" id="rg-phone" autocomplete="tel">
         </div>
         <div class="field">
-          <label for="rg-address">Adresse</label>
-          <input type="text" id="rg-address" placeholder="Straße, PLZ, Ort">
+          <label for="rg-street">Straße und Hausnummer</label>
+          <input type="text" id="rg-street" placeholder="z.B. Charitéplatz 1">
+        </div>
+        <div class="field" style="display:flex; gap:10px;">
+          <div style="flex:0 0 110px;">
+            <label for="rg-plz">PLZ</label>
+            <input type="text" id="rg-plz" inputmode="numeric" maxlength="5" placeholder="10117">
+          </div>
+          <div style="flex:1 1 auto;">
+            <label for="rg-city">Ort</label>
+            <input type="text" id="rg-city" placeholder="Berlin">
+          </div>
         </div>
       </div>
 
@@ -249,18 +259,15 @@ async function doRegister() {
     extra.clinic_name = document.getElementById('rg-clinic').value.trim();
     extra.ward        = document.getElementById('rg-ward').value.trim();
     extra.phone       = document.getElementById('rg-phone').value.trim();
-    extra.address     = document.getElementById('rg-address').value.trim();
-    if (!extra.clinic_name || extra.clinic_name.length < 3) { showErr('Bitte Klinikname eingeben.'); return; }
-    if (!extra.phone || extra.phone.length < 5) { showErr('Bitte Telefonnummer eingeben.'); return; }
-
-    const clinics = LPR.load(LPR.KEYS.clinics, {});
-    clinics[email.toLowerCase()] = {
-      email: email.toLowerCase(),
-      name: extra.clinic_name, ward: extra.ward,
-      contact: name, phone: extra.phone, address: extra.address,
-      registeredAt: new Date().toISOString()
-    };
-    LPR.save(LPR.KEYS.clinics, clinics);
+    extra.address     = document.getElementById('rg-street').value.trim();
+    extra.postal_code = document.getElementById('rg-plz').value.trim();
+    extra.city        = document.getElementById('rg-city').value.trim();
+    // Dieselben Regeln wie submitMyClinic(), damit beide Wege dieselben Daten zulassen.
+    if (extra.clinic_name.length < 2) { showErr('Bitte Klinikname eingeben.'); return; }
+    if (extra.phone.length < 4)       { showErr('Bitte Telefonnummer eingeben.'); return; }
+    if (extra.postal_code && !/^\d{5}$/.test(extra.postal_code)) {
+      showErr('PLZ muss aus 5 Ziffern bestehen oder leer bleiben.'); return;
+    }
   }
 
   const res = await LPR.register({ email, password, name, role: selectedRole, extra });

@@ -466,7 +466,12 @@ async function renderPending() {
     LPR.listUsersByStatus('pending'),
     LPR.listUsersByStatus('rejected')
   ]);
-  const all = [...(pending || []), ...(rejected || [])];
+  const all = [...(pending || []), ...(rejected || [])]
+    // Klinik-Konten gehoeren hierher nicht: Ihre Freigabe passiert in
+    // admin-kliniken.html und verknuepft zugleich den Katalogeintrag.
+    // approveUser() wuerde nur profiles.status setzen — das Konto koennte
+    // sich einloggen, waere aber in "Kliniken verwalten" unsichtbar.
+    .filter(u => u.role !== 'klinik');
 
   const section = document.getElementById('pending-section');
   const list = document.getElementById('pending-list');
@@ -480,11 +485,9 @@ async function renderPending() {
 
   list.innerHTML = all.map(u => {
     const isRejected = u.status === 'rejected';
-    const roleLabel = u.role === 'klinik' ? '🏥 Klinik' : '🤝 Ehrenamt';
+    const roleLabel = '🤝 Ehrenamt';
     const dateStr = u.registeredAt ? new Date(u.registeredAt).toLocaleDateString('de-DE') : '—';
-    const extraInfo = u.role === 'klinik' && u.extra
-      ? (u.extra.clinic_name || '') + (u.extra.ward ? ' · ' + u.extra.ward : '')
-      : (u.extra && u.extra.phone ? u.extra.phone : (u.phone || ''));
+    const extraInfo = u.phone || '';
 
     return `<div class="pending-card" style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
       <div style="flex: 1 1 280px; min-width: 0;">

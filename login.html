@@ -368,53 +368,67 @@ function showErr(msg) {
 // pruefen danach nur noch den Kontostatus — mit derselben Funktion wie der
 // Passwortweg, damit beide Wege nicht auseinanderlaufen.
 (async () => {
-  if (!location.hash.includes('access_token') && !location.hash.includes('error')) return;
-
-  // Ein abgelaufener oder schon benutzter Link kommt als #error=... zurueck.
-  // Der Supabase-Client verarbeitet das still und feuert dafuer KEIN Ereignis —
-  // ohne diesen Zweig wartet die Seite auf etwas, das nie kommt.
+  // Eine Quelle der Wahrheit fuer den Hash: einmal mit URLSearchParams parsen
+  // und ueberall darauf zugreifen, statt Eintritts-Gate und Fehler-Auswertung
+  // mit zwei verschiedenen Lesarten (roher Teilstring hier, URLSearchParams
+  // weiter unten) auseinanderlaufen zu lassen.
   const hashDaten = new URLSearchParams(location.hash.slice(1));
-  const linkFehler = hashDaten.get('error_description') || hashDaten.get('error');
-  if (linkFehler) {
-    const errEl = document.getElementById('li-error');
-    errEl.textContent = 'Dieser Anmeldelink ist abgelaufen oder wurde bereits benutzt. Fordern Sie unten einfach einen neuen an.';
-    errEl.hidden = false;
-    history.replaceState(null, '', location.pathname);
-    return;
-  }
+  if (!hashDaten.has('access_token') && !hashDaten.has('error')) return;
 
-  const sb = await LPR.supabase();
-  let behandelt = false;
-  sb.auth.onAuthStateChange(async (ereignis, session) => {
-    // SIGNED_IN und INITIAL_SESSION gleich behandeln: War die Anmeldung beim
-    // Aufsetzen dieses Listeners schon durch, kommt NUR INITIAL_SESSION —
-    // SIGNED_IN faellt dann weg. Ungefaehrlich, weil der Handler nur bei
-    // Token/Fehler im Hash ueberhaupt registriert wird; ein normal
-    // eingeloggter Besucher der Loginseite loest ihn gar nicht erst aus.
-    if ((ereignis !== 'SIGNED_IN' && ereignis !== 'INITIAL_SESSION') || !session) return;
-    if (behandelt) return;
-    behandelt = true;
-    const res = await LPR.pruefeUndSetzeSession(session.user.id);
+  try {
+    // Ein abgelaufener oder schon benutzter Link kommt als #error=... zurueck.
+    // Der Supabase-Client verarbeitet das still und feuert dafuer KEIN Ereignis —
+    // ohne diesen Zweig wartet die Seite auf etwas, das nie kommt.
+    const linkFehler = hashDaten.get('error_description') || hashDaten.get('error');
+    if (linkFehler) {
+      const errEl = document.getElementById('li-error');
+      errEl.textContent = 'Dieser Anmeldelink ist abgelaufen oder wurde bereits benutzt. Fordern Sie unten einfach einen neuen an.';
+      errEl.hidden = false;
+      history.replaceState(null, '', location.pathname);
+      return;
+    }
+
+    const sb = await LPR.supabase();
+    let behandelt = false;
+    sb.auth.onAuthStateChange(async (ereignis, session) => {
+      // SIGNED_IN und INITIAL_SESSION gleich behandeln: War die Anmeldung beim
+      // Aufsetzen dieses Listeners schon durch, kommt NUR INITIAL_SESSION —
+      // SIGNED_IN faellt dann weg. Ungefaehrlich, weil der Handler nur bei
+      // Token/Fehler im Hash ueberhaupt registriert wird; ein normal
+      // eingeloggter Besucher der Loginseite loest ihn gar nicht erst aus.
+      if ((ereignis !== 'SIGNED_IN' && ereignis !== 'INITIAL_SESSION') || !session) return;
+      if (behandelt) return;
+      behandelt = true;
+      const res = await LPR.pruefeUndSetzeSession(session.user.id);
+      const errEl = document.getElementById('li-error');
+      if (!res.ok) {
+        errEl.textContent = res.error;
+        errEl.hidden = false;
+        history.replaceState(null, '', location.pathname);
+        return;
+      }
+      if (res.user.role !== 'klinik') {
+        // Der Anmeldelink gilt nur fuer Klinik-Konten. Ehrenamtliche und Admins
+        // melden sich mit Passwort an: Das Admin-Konto sieht den gesamten
+        // Vorstandsbereich, und ein Zugang, der allein am Postfach haengt, waere
+        // dort schwaecher als das Passwort.
+        await LPR.logout();
+        errEl.textContent = 'Dieser Anmeldelink gilt nur für Klinik-Konten. Bitte melden Sie sich mit Ihrem Passwort an.';
+        errEl.hidden = false;
+        history.replaceState(null, '', location.pathname);
+        return;
+      }
+      window.location.href = LPR.roleTarget(res.user.role);
+    });
+  } catch(e) {
+    // Z.B. das Supabase-Skript laedt nicht vom CDN (Werbeblocker, Klinik-Proxy,
+    // CDN-Ausfall) — LPR.supabase() wirft, und ohne dieses catch bliebe die
+    // Seite so stumm wie die Faelle, die wir oben gerade erst behoben haben.
+    console.error('[LPR] Anmeldelink-Ruecksprung:', e);
     const errEl = document.getElementById('li-error');
-    if (!res.ok) {
-      errEl.textContent = res.error;
-      errEl.hidden = false;
-      history.replaceState(null, '', location.pathname);
-      return;
-    }
-    if (res.user.role !== 'klinik') {
-      // Der Anmeldelink gilt nur fuer Klinik-Konten. Ehrenamtliche und Admins
-      // melden sich mit Passwort an: Das Admin-Konto sieht den gesamten
-      // Vorstandsbereich, und ein Zugang, der allein am Postfach haengt, waere
-      // dort schwaecher als das Passwort.
-      await LPR.logout();
-      errEl.textContent = 'Dieser Anmeldelink gilt nur für Klinik-Konten. Bitte melden Sie sich mit Ihrem Passwort an.';
-      errEl.hidden = false;
-      history.replaceState(null, '', location.pathname);
-      return;
-    }
-    window.location.href = LPR.roleTarget(res.user.role);
-  });
+    errEl.textContent = 'Die Anmeldung konnte nicht geladen werden. Bitte laden Sie die Seite neu.';
+    errEl.hidden = false;
+  }
 })();
 </script>
 

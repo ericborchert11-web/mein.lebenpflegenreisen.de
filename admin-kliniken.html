@@ -343,7 +343,6 @@ async function init() {
     return;
   }
   await loadAllTabs();
-  await ladeStamm();
 }
 
 async function loadAllTabs() {
@@ -360,18 +359,9 @@ async function loadAllTabs() {
   document.getElementById('cnt-approved').textContent = _cache.approved.length;
   document.getElementById('cnt-rejected').textContent = _cache.rejected.length;
 
-  // Stammdaten fuer approve-Dropdown. Bewusst listAllClinics: Eine stillgelegte
-  // Klinik war hier unsichtbar, und "neue ID" scheiterte an der belegten ID —
-  // die Freigabe hatte damit keinen Weg mehr.
-  const all = await LPR.listAllClinics();
-  _allClinics = all.ok ? (all.clinics || []) : [];
-  const sel = document.getElementById('approve-existing-id');
-  sel.innerHTML = '<option value="">— bitte wählen —</option>' +
-    _allClinics.map(c => {
-      const ort = [c.plz, c.city].filter(Boolean).join(' ');
-      const ruht = c.active ? '' : ' · stillgelegt';
-      return `<option value="${escape(c.id)}">${escape(c.name)}${ort ? ' · ' + escape(ort) : ''}${ruht}</option>`;
-    }).join('');
+  // Erst die Kliniken laden (Stammdaten + Approve-Dropdown), dann rendern —
+  // sonst zeigt der Stammdaten-Tab beim ersten Aufruf einen veralteten Stand.
+  await ladeKliniken();
 
   renderTab();
 }
@@ -530,8 +520,7 @@ async function confirmApprove() {
   closeApproveModal();
   LPR.showToast('✓ Klinik freigegeben.');
   // Bei "neue ID anlegen" entsteht durch die Freigabe ein clinics-Eintrag.
-  // Erst nachladen, dann rendern: loadAllTabs() ruft am Ende renderTab().
-  await ladeStamm();
+  // loadAllTabs() laedt die Kliniken (ladeKliniken()) mit und rendert danach.
   await loadAllTabs();
   setTab(_currentTab);
 }
@@ -596,9 +585,16 @@ document.querySelectorAll('.ak-modal-bg').forEach(bg => {
 let _stamm = [];
 let _bearbeitet = null;   // id der Klinik, deren Formular offen ist; '' = neu
 
-async function ladeStamm() {
+// Eine Abfrage, ein Zustand: _stamm (Stammdaten-Tab) und _allClinics
+// (Approve-Dropdown) liefen frueher getrennt auseinander — nach einer
+// Stilllegung zeigte das Dropdown die Klinik weiterhin ohne "· stillgelegt",
+// und ihre Auswahl loeste in approveClinic() eine ungewollte Reaktivierung
+// aus. Deshalb beide aus demselben Abruf bedienen.
+async function ladeKliniken() {
   const res = await LPR.listAllClinics();
   _stamm = res.ok ? res.clinics : [];
+  _allClinics = _stamm;
+
   const z = document.getElementById('cnt-stamm');
   // Der Zaehler zaehlte nur aktive, die Liste zeigt alle. Bei einer einzigen
   // stillgelegten Klinik stand da "0" — das las sich wie "Katalog leer".
@@ -606,6 +602,15 @@ async function ladeStamm() {
     const aktiv = _stamm.filter(k => k.active).length;
     z.textContent = aktiv === _stamm.length ? String(_stamm.length) : aktiv + '/' + _stamm.length;
   }
+
+  const sel = document.getElementById('approve-existing-id');
+  sel.innerHTML = '<option value="">— bitte wählen —</option>' +
+    _allClinics.map(c => {
+      const ort = [c.plz, c.city].filter(Boolean).join(' ');
+      const ruht = c.active ? '' : ' · stillgelegt';
+      return `<option value="${escape(c.id)}">${escape(c.name)}${ort ? ' · ' + escape(ort) : ''}${ruht}</option>`;
+    }).join('');
+
   if (!res.ok) showToast('Fehler: ' + res.error);
 }
 
@@ -712,7 +717,7 @@ async function stammSpeichern(istNeu) {
   if (!res.ok) { fehler.textContent = res.error; fehler.style.display = 'block'; return; }
   showToast(istNeu ? 'Klinik angelegt.' : 'Klinik geändert.');
   _bearbeitet = null;
-  await ladeStamm();
+  await ladeKliniken();
   renderStamm();
 }
 
@@ -733,7 +738,7 @@ async function stammStilllegen(id, aktiv) {
   const res = await LPR.setClinicActive(id, aktiv);
   if (!res.ok) { showToast('Fehler: ' + res.error); return; }
   showToast(aktiv ? 'Wieder aufgenommen.' : 'Stillgelegt.');
-  await ladeStamm(); renderStamm();
+  await ladeKliniken(); renderStamm();
 }
 
 /**
@@ -767,7 +772,7 @@ async function stammLoeschen(id) {
   const res = await LPR.deleteClinic(id);
   if (!res.ok) { showToast('Fehler: ' + res.error); renderStamm(); return; }
   showToast(res.geloescht ? 'Klinik gelöscht.' : 'Stillgelegt: ' + res.grund);
-  await ladeStamm(); renderStamm();
+  await ladeKliniken(); renderStamm();
 }
 
 // Globals für onclick

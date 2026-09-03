@@ -181,39 +181,46 @@
 
     const beRole = ROLE_FE_TO_BE[role];
 
-    // Kliniken registrieren sich ohne Passwort. signInWithOtp legt das Konto an
-    // und schickt in derselben Bewegung den Anmeldelink. Die Klinikdaten reisen
-    // als User-Metadaten mit — der Trigger auf auth.users macht daraus die
-    // clinic_details-Zeile. Bis Etappe 1 auf PROD ist, passiert damit nichts.
-    if (role === 'klinik') {
-      const e = extra || {};
-      const { error: otpErr } = await (await sb()).auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: window.location.origin + '/login.html',
-          data: {
-            full_name:   name.trim(),
-            role:        beRole,
-            clinic_name: (e.clinic_name || '').trim(),
-            ward:        (e.ward || '').trim(),
-            phone:       (e.phone || '').trim(),
-            address:     (e.address || '').trim(),
-            postal_code: (e.postal_code || '').trim(),
-            city:        (e.city || '').trim()
-          }
-        }
-      });
-      if (otpErr) {
-        if ((otpErr.message || '').toLowerCase().includes('rate')) {
-          return { ok: false, error: 'Zu viele Anfragen in kurzer Zeit. Bitte in ein paar Minuten erneut versuchen.' };
-        }
-        return { ok: false, error: otpErr.message || 'Registrierung fehlgeschlagen.' };
-      }
-      return { ok: true, pending: true };
-    }
-
     try {
+      // Kliniken registrieren sich ohne Passwort. signInWithOtp legt das Konto an
+      // und schickt in derselben Bewegung den Anmeldelink. Die Klinikdaten reisen
+      // als User-Metadaten mit — der Trigger auf auth.users macht daraus die
+      // clinic_details-Zeile. Bis Etappe 1 auf PROD ist, passiert damit nichts.
+      // Im selben try/catch wie der Ehrenamts-Zweig, damit ein Netzwerkfehler
+      // hier genauso "Netzwerkfehler. Bitte erneut versuchen." ergibt statt
+      // stillem Stillstand.
+      if (role === 'klinik') {
+        const e = extra || {};
+        const { error: otpErr } = await (await sb()).auth.signInWithOtp({
+          email,
+          options: {
+            shouldCreateUser: true,
+            emailRedirectTo: window.location.origin + '/login.html',
+            data: {
+              full_name:   name.trim(),
+              role:        beRole,
+              clinic_name: (e.clinic_name || '').trim(),
+              ward:        (e.ward || '').trim(),
+              phone:       (e.phone || '').trim(),
+              address:     (e.address || '').trim(),
+              postal_code: (e.postal_code || '').trim(),
+              city:        (e.city || '').trim()
+            }
+          }
+        });
+        if (otpErr) {
+          if ((otpErr.message || '').toLowerCase().includes('rate')) {
+            return { ok: false, error: 'Zu viele Anfragen in kurzer Zeit. Bitte in ein paar Minuten erneut versuchen.' };
+          }
+          // otpErr.message kommt roh und englisch von Supabase — nicht an eine
+          // sonst durchgehend deutsche Seite durchreichen. Fuer die Fehlersuche
+          // steht die Originalmeldung im Log.
+          console.error('[LPR] register (Klinik) otpErr:', otpErr);
+          return { ok: false, error: 'Registrierung fehlgeschlagen. Bitte erneut versuchen.' };
+        }
+        return { ok: true, pending: true };
+      }
+
       const { data, error } = await (await sb()).auth.signUp({
         email,
         password,
@@ -353,57 +360,67 @@
    * laufen frueher oder spaeter auseinander.
    */
   async function pruefeUndSetzeSession(authUserId) {
-    const { data: profile, error: profileError } = await (await sb())
-      .from('profiles')
-      .select('id, email, full_name, role, status, personalnummer, vereinsnummer')
-      .eq('id', authUserId)
-      .single();
+    // Eigenes try/catch: Im Passwortweg liegt der Aufruf im try/catch von
+    // loginWithPassword(), im Anmeldelink-Weg aber nicht — dort landete ein
+    // Netzwerkfehler mitten in der Zugangskontrolle bisher nur in der Konsole,
+    // die Nutzerin sah nichts. "Bewusst EINE Stelle" gilt auch fuer die
+    // Fehlerbehandlung, nicht nur fuer die Regeln selbst.
+    try {
+      const { data: profile, error: profileError } = await (await sb())
+        .from('profiles')
+        .select('id, email, full_name, role, status, personalnummer, vereinsnummer')
+        .eq('id', authUserId)
+        .single();
 
-    if (profileError || !profile) {
-      await (await sb()).auth.signOut();
-      return { ok: false, error: 'Profil konnte nicht geladen werden. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
-    }
-
-    if (profile.role !== 'board') {
-      if (profile.status === 'pending') {
+      if (profileError || !profile) {
         await (await sb()).auth.signOut();
-        return { ok: false, error: 'Ihr Konto wurde noch nicht vom Vorstand freigeschaltet. Die Freischaltung erfolgt in der Regel innerhalb von 1–2 Werktagen.' };
+        return { ok: false, error: 'Profil konnte nicht geladen werden. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
       }
-      if (profile.status === 'rejected') {
-        // Kliniken dürfen mit rejected-Status einloggen, damit sie ihre
-        // Daten korrigieren und erneut zur Prüfung einreichen können.
-        // (kliniken.html zeigt einen Reject-Banner + "Daten anpassen"-Knopf.)
-        // Ehrenamtliche bleiben geblockt — für sie gibt es keinen Resubmit-Pfad.
-        // profile.role kommt aus der DB als englisch ('clinic'), nicht aus dem
-        // Frontend-Mapping ('klinik').
-        if (profile.role !== 'clinic') {
+
+      if (profile.role !== 'board') {
+        if (profile.status === 'pending') {
           await (await sb()).auth.signOut();
-          return { ok: false, error: 'Ihre Registrierung wurde nicht angenommen. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
+          return { ok: false, error: 'Ihr Konto wurde noch nicht vom Vorstand freigeschaltet. Die Freischaltung erfolgt in der Regel innerhalb von 1–2 Werktagen.' };
+        }
+        if (profile.status === 'rejected') {
+          // Kliniken dürfen mit rejected-Status einloggen, damit sie ihre
+          // Daten korrigieren und erneut zur Prüfung einreichen können.
+          // (kliniken.html zeigt einen Reject-Banner + "Daten anpassen"-Knopf.)
+          // Ehrenamtliche bleiben geblockt — für sie gibt es keinen Resubmit-Pfad.
+          // profile.role kommt aus der DB als englisch ('clinic'), nicht aus dem
+          // Frontend-Mapping ('klinik').
+          if (profile.role !== 'clinic') {
+            await (await sb()).auth.signOut();
+            return { ok: false, error: 'Ihre Registrierung wurde nicht angenommen. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
+          }
+        }
+        if (profile.status === 'suspended') {
+          await (await sb()).auth.signOut();
+          return { ok: false, error: 'Ihr Konto ist derzeit deaktiviert. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
         }
       }
-      if (profile.status === 'suspended') {
-        await (await sb()).auth.signOut();
-        return { ok: false, error: 'Ihr Konto ist derzeit deaktiviert. Bitte wenden Sie sich an vorstand@lebenpflegenreisen.de.' };
-      }
-    }
 
-    // Abweichung vom Plan: setSession() erwartet (profile, supabaseSession) und
-    // loescht die Session sofort wieder, wenn supabaseSession fehlt (Bestand,
-    // siehe oben) — der Plan rief setSession(user) mit einem selbst gebauten,
-    // einzelnen Objekt auf, das haette hier sofort wieder ausgeloggt. Deshalb
-    // wird die aktuelle Supabase-Session nachgeladen und wie im Passwortweg
-    // an setSession() uebergeben.
-    const { data: { session: sbSession } } = await (await sb()).auth.getSession();
-    const session = setSession(profile, sbSession);
-    // setSession() liefert null (und hat die Session bereits geloescht), wenn
-    // sbSession fehlt. Ohne diese Pruefung meldete pruefeUndSetzeSession hier
-    // faelschlich Erfolg, obwohl der Nutzer gerade wieder ausgeloggt wurde —
-    // ein stiller kaputter Login, den der Aufrufer nicht bemerkt.
-    if (!session) {
-      await (await sb()).auth.signOut();
-      return { ok: false, error: 'Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.' };
+      // Abweichung vom Plan: setSession() erwartet (profile, supabaseSession) und
+      // loescht die Session sofort wieder, wenn supabaseSession fehlt (Bestand,
+      // siehe oben) — der Plan rief setSession(user) mit einem selbst gebauten,
+      // einzelnen Objekt auf, das haette hier sofort wieder ausgeloggt. Deshalb
+      // wird die aktuelle Supabase-Session nachgeladen und wie im Passwortweg
+      // an setSession() uebergeben.
+      const { data: { session: sbSession } } = await (await sb()).auth.getSession();
+      const session = setSession(profile, sbSession);
+      // setSession() liefert null (und hat die Session bereits geloescht), wenn
+      // sbSession fehlt. Ohne diese Pruefung meldete pruefeUndSetzeSession hier
+      // faelschlich Erfolg, obwohl der Nutzer gerade wieder ausgeloggt wurde —
+      // ein stiller kaputter Login, den der Aufrufer nicht bemerkt.
+      if (!session) {
+        await (await sb()).auth.signOut();
+        return { ok: false, error: 'Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.' };
+      }
+      return { ok: true, user: { email: profile.email, name: profile.full_name, role: ROLE_BE_TO_FE[profile.role] }, session };
+    } catch(e) {
+      console.error('[LPR] pruefeUndSetzeSession failed:', e);
+      return { ok: false, error: 'Netzwerkfehler. Bitte erneut versuchen.' };
     }
-    return { ok: true, user: { email: profile.email, name: profile.full_name, role: ROLE_BE_TO_FE[profile.role] }, session };
   }
 
   async function loginWithPassword({ email, password }) {

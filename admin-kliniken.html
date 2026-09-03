@@ -360,12 +360,18 @@ async function loadAllTabs() {
   document.getElementById('cnt-approved').textContent = _cache.approved.length;
   document.getElementById('cnt-rejected').textContent = _cache.rejected.length;
 
-  // Stammdaten für approve-Dropdown
-  const all = await LPR.listClinics();
+  // Stammdaten fuer approve-Dropdown. Bewusst listAllClinics: Eine stillgelegte
+  // Klinik war hier unsichtbar, und "neue ID" scheiterte an der belegten ID —
+  // die Freigabe hatte damit keinen Weg mehr.
+  const all = await LPR.listAllClinics();
   _allClinics = all.ok ? (all.clinics || []) : [];
   const sel = document.getElementById('approve-existing-id');
   sel.innerHTML = '<option value="">— bitte wählen —</option>' +
-    _allClinics.map(c => `<option value="${escape(c.id)}">${escape(c.name)} ${c.plz ? '· '+escape(c.plz) : ''} ${c.city ? escape(c.city) : ''}</option>`).join('');
+    _allClinics.map(c => {
+      const ort = [c.plz, c.city].filter(Boolean).join(' ');
+      const ruht = c.active ? '' : ' · stillgelegt';
+      return `<option value="${escape(c.id)}">${escape(c.name)}${ort ? ' · ' + escape(ort) : ''}${ruht}</option>`;
+    }).join('');
 
   renderTab();
 }

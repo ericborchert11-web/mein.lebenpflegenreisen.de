@@ -3145,14 +3145,22 @@
         }
         linkedId = createNewId;
       } else {
-        // Existenz prüfen
+        // Existenz pruefen
         const { data: existing, error: chkErr } = await client
           .from('clinics')
-          .select('id')
+          .select('id, active')
           .eq('id', linkedId)
           .maybeSingle();
         if (chkErr) return { ok: false, error: chkErr.message };
         if (!existing) return { ok: false, error: 'Diese Klinik gibt es nicht in den Stammdaten.' };
+
+        // Eine stillgelegte Klinik waere nach der Freigabe in keiner Auswahl
+        // sichtbar — listClinics() filtert auf active. Also mit aufnehmen.
+        if (!existing.active) {
+          const { error: aktErr } = await client
+            .from('clinics').update({ active: true }).eq('id', linkedId);
+          if (aktErr) return { ok: false, error: aktErr.message };
+        }
       }
 
       // clinic_details auf approved setzen

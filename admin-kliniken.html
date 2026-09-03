@@ -597,7 +597,12 @@ async function ladeStamm() {
   const res = await LPR.listAllClinics();
   _stamm = res.ok ? res.clinics : [];
   const z = document.getElementById('cnt-stamm');
-  if (z) z.textContent = _stamm.filter(k => k.active).length;
+  // Der Zaehler zaehlte nur aktive, die Liste zeigt alle. Bei einer einzigen
+  // stillgelegten Klinik stand da "0" — das las sich wie "Katalog leer".
+  if (z) {
+    const aktiv = _stamm.filter(k => k.active).length;
+    z.textContent = aktiv === _stamm.length ? String(_stamm.length) : aktiv + '/' + _stamm.length;
+  }
   if (!res.ok) showToast('Fehler: ' + res.error);
 }
 

@@ -328,6 +328,10 @@ let _cache = { pending: null, approved: null, rejected: null };
 let _allClinics = []; // für approve-modal Dropdown
 let _activeApproveId = null;
 let _activeApproveName = '';
+// 'application' (clinic_applications, die Freigabe legt erst das Konto an)
+// oder 'account' (clinic_details, es gibt schon ein Konto — "Doch freigeben"
+// im Abgelehnt-Tab). Bestimmt in confirmApprove(), welche LPR-Funktion läuft.
+let _activeApproveKind = null;
 let _activeRejectId = null;
 let _activeRejectName = '';
 
@@ -346,12 +350,23 @@ async function init() {
 }
 
 async function loadAllTabs() {
+  // "Offen" zeigt seit Etappe 5 ANMELDUNGEN (clinic_applications) — dort gibt
+  // es noch kein Auth-Konto, das entsteht erst bei der Freigabe. "Freigegeben"
+  // und "Abgelehnt" bleiben bei listClinicsByStatus() (clinic_details): dort
+  // stehen bereits bestehende KONTEN, keine Anmeldungen.
+  //
+  // Bewusst NICHT abgebildet: abgelehnte ANMELDUNGEN. Der Tab "Abgelehnt"
+  // zeigt ausschliesslich abgelehnte KONTEN. Beides im selben Tab zu mischen
+  // wäre verwirrend — das eine ist ein Mensch mit Zugang, das andere nur ein
+  // eingereichtes Formular ohne Konto. Eine abgelehnte Anmeldung verschwindet
+  // also aus "Offen" und taucht sonst nirgends in der Oberfläche wieder auf;
+  // sie steht weiterhin in clinic_applications (status='rejected') in der DB.
   const [p, a, r] = await Promise.all([
-    LPR.listClinicsByStatus('pending'),
+    LPR.listClinicApplications('pending'),
     LPR.listClinicsByStatus('approved'),
     LPR.listClinicsByStatus('rejected')
   ]);
-  _cache.pending  = p.ok ? p.clinics : [];
+  _cache.pending  = p.ok ? p.applications : [];
   _cache.approved = a.ok ? a.clinics : [];
   _cache.rejected = r.ok ? r.clinics : [];
 
@@ -391,27 +406,36 @@ function renderTab() {
     area.innerHTML = `<div class="ak-empty">${escape(labels[_currentTab])}</div>`;
     return;
   }
-  area.innerHTML = list.map(c => renderCard(c)).join('');
+  // Nur der "Offen"-Tab liefert seit Etappe 5 Anmeldungen (clinic_applications)
+  // statt Konten — renderCard() braucht das, um "Konto-Name" wegzulassen und
+  // die Station mit anzuzeigen.
+  area.innerHTML = list.map(c => renderCard(c, _currentTab === 'pending')).join('');
 }
 
-function renderCard(c) {
+function renderCard(c, isApplication) {
   const addr = [c.address, [c.postal_code, c.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || '—';
   const created = c.created_at ? new Date(c.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
 
   let actions = '';
   if (c.status === 'pending') {
+    // Kommt aus clinic_applications: c.id ist die Anmeldungs-ID, es gibt noch
+    // kein Konto. Freigeben/Ablehnen rufen darum die *ClinicApplication()-
+    // Funktionen, nicht approveClinic()/rejectClinic().
     actions = `
       <div class="ak-actions">
-        <button class="ak-btn ak-btn-approve" onclick="openApproveModal('${escape(c.id)}', ${JSON.stringify(c.clinic_name).replace(/"/g, '&quot;')})">Freigeben</button>
+        <button class="ak-btn ak-btn-approve" onclick="openApproveModal('${escape(c.id)}', ${JSON.stringify(c.clinic_name).replace(/"/g, '&quot;')}, 'application')">Freigeben</button>
         <button class="ak-btn ak-btn-reject"  onclick="openRejectModal('${escape(c.id)}', ${JSON.stringify(c.clinic_name).replace(/"/g, '&quot;')})">Ablehnen</button>
       </div>`;
   } else if (c.status === 'rejected') {
+    // Kommt aus clinic_details: es gibt hier bereits ein (zuvor abgelehntes)
+    // Konto — "Doch freigeben" verknüpft es wieder, legt aber kein zweites
+    // Konto an. Darum kind='account', nicht 'application'.
     actions = `
       <div style="margin-top: 10px; padding: 10px 14px; background: #FDECE7; border-radius: 8px; font-size: 12.5px; color: #6B1F0F;">
         <strong>Begründung:</strong> ${escape(c.rejection_reason || '—')}
       </div>
       <div class="ak-actions">
-        <button class="ak-btn ak-btn-approve" onclick="openApproveModal('${escape(c.id)}', ${JSON.stringify(c.clinic_name).replace(/"/g, '&quot;')})">Doch freigeben</button>
+        <button class="ak-btn ak-btn-approve" onclick="openApproveModal('${escape(c.id)}', ${JSON.stringify(c.clinic_name).replace(/"/g, '&quot;')}, 'account')">Doch freigeben</button>
       </div>`;
   } else if (c.status === 'approved') {
     // Abteilung und Zustellwuensche stehen direkt auf der Karte und nicht in
@@ -442,6 +466,15 @@ function renderCard(c) {
       </div>`;
   }
 
+  // Eine Anmeldung (clinic_applications) hat kein Konto — die Zeile "Konto-
+  // Name" faellt darum bewusst weg statt "—" zu zeigen. Dafuer zeigt ihre
+  // Karte zusaetzlich die Station, die ein bestehendes Konto schon im
+  // "approved"-Bereich oben als Eingabefeld hat.
+  const kontoZeile   = isApplication ? '' :
+    `<div><dt>Konto-Name</dt><dd>${escape(c.registered_name || '—')}</dd></div>`;
+  const stationZeile = isApplication ?
+    `<div><dt>Station</dt><dd>${escape(c.department || '—')}</dd></div>` : '';
+
   return `
     <div class="ak-card">
       <h3>${escape(c.clinic_name)}</h3>
@@ -450,16 +483,20 @@ function renderCard(c) {
         <div><dt>Adresse</dt><dd>${escape(addr)}</dd></div>
         <div><dt>Ansprechpartner</dt><dd>${escape(c.contact_person || '—')}</dd></div>
         <div><dt>Telefon</dt><dd>${escape(c.phone || '—')}</dd></div>
-        <div><dt>Konto-Name</dt><dd>${escape(c.registered_name || '—')}</dd></div>
+        ${stationZeile}
+        ${kontoZeile}
       </dl>
       ${actions}
     </div>`;
 }
 
 // Approve-Modal
-function openApproveModal(clinicAccountId, clinicName) {
-  _activeApproveId = clinicAccountId;
+// id: Anmeldungs-ID (clinic_applications) oder Konto-ID (clinic_details),
+// je nach kind. kind entscheidet in confirmApprove(), welche LPR-Funktion läuft.
+function openApproveModal(id, clinicName, kind) {
+  _activeApproveId = id;
   _activeApproveName = clinicName;
+  _activeApproveKind = kind;
   document.getElementById('approve-clinic-name').textContent = clinicName;
   document.getElementById('approve-error').textContent = '';
   // Vorschlag aus dem Kliniknamen, damit niemand IDs frei erfindet und der
@@ -473,6 +510,7 @@ function openApproveModal(clinicAccountId, clinicName) {
 function closeApproveModal() {
   document.getElementById('approve-modal').classList.remove('show');
   _activeApproveId = null;
+  _activeApproveKind = null;
 }
 function syncApproveModeUI() {
   const mode = document.querySelector('input[name="approve-mode"]:checked').value;
@@ -488,7 +526,11 @@ async function confirmApprove() {
   errEl.textContent = '';
   const btn = document.getElementById('approve-confirm-btn');
   btn.disabled = true;
-  btn.textContent = 'Speichere …';
+  // Bei einer Anmeldung legt die Freigabe ueber die Edge Function erst das
+  // Auth-Konto an — das dauert spuerbar laenger als der reine PostgREST-
+  // Aufruf bei "Doch freigeben" (dort gibt es das Konto schon). Der Knopf
+  // sagt, was gerade passiert, und bleibt bis dahin gesperrt.
+  btn.textContent = _activeApproveKind === 'application' ? 'Konto wird angelegt …' : 'Speichere …';
 
   const mode = document.querySelector('input[name="approve-mode"]:checked').value;
   const opts = {};
@@ -510,7 +552,15 @@ async function confirmApprove() {
     opts.createNewClinicId = newId;
   }
 
-  const res = await LPR.approveClinic(_activeApproveId, opts);
+  // Anmeldung (clinic_applications) → approveClinicApplication() ruft die
+  // Function klinik-freigeben, die dabei erst das Konto anlegt. Bereits
+  // bestehendes, zuvor abgelehntes Konto (clinic_details, "Doch freigeben")
+  // → approveClinic() wie bisher direkt per PostgREST. Die Fehlermeldungen
+  // beider Funktionen (bei approveClinicApplication kommen sie aus der
+  // Function und sind fuer Menschen geschrieben) werden unveraendert gezeigt.
+  const res = _activeApproveKind === 'application'
+    ? await LPR.approveClinicApplication(_activeApproveId, opts)
+    : await LPR.approveClinic(_activeApproveId, opts);
   btn.disabled = false; btn.textContent = 'Freigeben';
 
   if (!res.ok) {
@@ -519,8 +569,10 @@ async function confirmApprove() {
   }
   closeApproveModal();
   LPR.showToast('✓ Klinik freigegeben.');
-  // Bei "neue ID anlegen" entsteht durch die Freigabe ein clinics-Eintrag.
-  // loadAllTabs() laedt die Kliniken (ladeKliniken()) mit und rendert danach.
+  // Beide Listen neu laden: Die Anmeldung verschwindet aus "Offen", das neue
+  // Konto erscheint unter "Freigegeben". Der Katalog kann ebenfalls einen
+  // neuen Eintrag bekommen haben (neue Stammdaten-ID) — loadAllTabs() laedt
+  // ihn ueber ladeKliniken() immer mit, unabhaengig davon, welcher Weg lief.
   await loadAllTabs();
   setTab(_currentTab);
 }
@@ -551,7 +603,10 @@ async function confirmReject() {
   btn.disabled = true;
   btn.textContent = 'Speichere …';
 
-  const res = await LPR.rejectClinic(_activeRejectId, reason);
+  // "Ablehnen" gibt es nur im "Offen"-Tab, und der zeigt seit Etappe 5
+  // ausschliesslich Anmeldungen (clinic_applications) — darum immer
+  // rejectClinicApplication(), nie rejectClinic().
+  const res = await LPR.rejectClinicApplication(_activeRejectId, reason);
   btn.disabled = false; btn.textContent = 'Ablehnen';
 
   if (!res.ok) {

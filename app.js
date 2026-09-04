@@ -3467,15 +3467,41 @@
 
       const { data: bestehend, error: loadErr } = await client
         .from('clinic_applications')
-        .select('id, status, created_profile_id')
+        .select('id, status, email, created_profile_id')
         .eq('id', id)
         .maybeSingle();
       if (loadErr) return { ok: false, error: loadErr.message };
       if (!bestehend) return { ok: false, error: 'Anmeldung nicht gefunden.' };
-      if (bestehend.created_profile_id) {
+
+      // Zwei Pruefungen, nicht eine — beide noetig, keine ueberfluessig:
+      //   1. created_profile_id: der Normalfall. klinik-freigeben setzt die
+      //      Spalte SOFORT nach createUser(), noch vor allem anderen.
+      //   2. Adresssuche in profiles: faengt den Fall ab, in dem genau DIESE
+      //      Sicherung fehlschlaegt — das Konto (auth.users + profiles +
+      //      clinic_details, Status 'pending') existiert bereits, aber
+      //      created_profile_id blieb null. Ohne diese zweite Pruefung liesse
+      //      sich die Anmeldung ablehnen, waehrend das Konto unsichtbar
+      //      zurueckbleibt: "Offen" liest seit dieser Etappe nur noch
+      //      clinic_applications, nicht mehr clinic_details — wortwoertlich
+      //      der Fehler, den diese Etappe beseitigen soll, nur an neuer
+      //      Stelle. eq() statt ilike(): in ilike ist "_" ein Platzhalter,
+      //      und Unterstriche sind in Klinik-Adressen alltaeglich — eine
+      //      ilike-Suche wuerde sonst fremde Konten treffen. Beide Seiten
+      //      speichern die Adresse kleingeschrieben, eq() reicht vollstaendig.
+      let vorhandenesKonto = !!bestehend.created_profile_id;
+      if (!vorhandenesKonto && bestehend.email) {
+        const { data: profilTreffer, error: profilErr } = await client
+          .from('profiles')
+          .select('id')
+          .eq('email', bestehend.email)
+          .maybeSingle();
+        if (profilErr) return { ok: false, error: profilErr.message };
+        vorhandenesKonto = !!profilTreffer;
+      }
+      if (vorhandenesKonto) {
         return {
           ok: false,
-          error: 'Zu dieser Anmeldung wurde bereits ein Konto angelegt. Bitte erst die Freigabe abschließen oder das Konto von Hand entfernen.'
+          error: 'Zu dieser Anmeldung existiert bereits ein Konto. Bitte erst die Freigabe abschließen oder das Konto entfernen, bevor Sie ablehnen.'
         };
       }
 

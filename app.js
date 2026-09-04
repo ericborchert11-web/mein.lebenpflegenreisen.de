@@ -173,54 +173,27 @@
   async function register({ email, password, name, role, extra }) {
     email = (email || '').trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Bitte gültige E-Mail eingeben.' };
-    // Kliniken kommen ohne Passwort (Anmeldelink statt Passwort-signUp,
-    // siehe Klinik-Zweig unten) — login.html schickt fuer sie password: null.
-    if (role !== 'klinik' && (!password || password.length < 8)) return { ok: false, error: 'Passwort muss mindestens 8 Zeichen lang sein.' };
+
+    // Kliniken melden sich seit Etappe 5 ueber submitClinicApplication() an —
+    // die Anmeldung landet in clinic_applications, ein Auth-Konto entsteht
+    // erst bei der Vorstandsfreigabe. Vorher rief dieser Zweig hier
+    // signInWithOtp mit shouldCreateUser: true auf und legte das Konto schon
+    // bei der Anmeldung an, bevor irgendjemand geprueft hatte, ob die Klinik
+    // echt ist — genau das ersetzt diese Etappe. register() lehnt den Fall
+    // jetzt bewusst ab, statt still auf einen anderen Weg auszuweichen: ruft
+    // noch jemand register() mit role: 'klinik' auf, ist das ein veralteter
+    // Aufrufer, und das soll auffallen.
+    if (role === 'klinik') {
+      return { ok: false, error: 'Kliniken melden sich über das Klinik-Anmeldeformular an, nicht über register(). Bitte LPR.submitClinicApplication() verwenden.' };
+    }
+
+    if (!password || password.length < 8) return { ok: false, error: 'Passwort muss mindestens 8 Zeichen lang sein.' };
     if (!name || name.trim().length < 2) return { ok: false, error: 'Bitte Namen eingeben.' };
-    if (!['ehrenamt','klinik','admin'].includes(role)) return { ok: false, error: 'Ungültige Rolle.' };
+    if (!['ehrenamt','admin'].includes(role)) return { ok: false, error: 'Ungültige Rolle.' };
 
     const beRole = ROLE_FE_TO_BE[role];
 
     try {
-      // Kliniken registrieren sich ohne Passwort. signInWithOtp legt das Konto an
-      // und schickt in derselben Bewegung den Anmeldelink. Die Klinikdaten reisen
-      // als User-Metadaten mit — der Trigger auf auth.users macht daraus die
-      // clinic_details-Zeile. Bis Etappe 1 auf PROD ist, passiert damit nichts.
-      // Im selben try/catch wie der Ehrenamts-Zweig, damit ein Netzwerkfehler
-      // hier genauso "Netzwerkfehler. Bitte erneut versuchen." ergibt statt
-      // stillem Stillstand.
-      if (role === 'klinik') {
-        const e = extra || {};
-        const { error: otpErr } = await (await sb()).auth.signInWithOtp({
-          email,
-          options: {
-            shouldCreateUser: true,
-            emailRedirectTo: window.location.origin + '/login.html',
-            data: {
-              full_name:   name.trim(),
-              role:        beRole,
-              clinic_name: (e.clinic_name || '').trim(),
-              ward:        (e.ward || '').trim(),
-              phone:       (e.phone || '').trim(),
-              address:     (e.address || '').trim(),
-              postal_code: (e.postal_code || '').trim(),
-              city:        (e.city || '').trim()
-            }
-          }
-        });
-        if (otpErr) {
-          if ((otpErr.message || '').toLowerCase().includes('rate')) {
-            return { ok: false, error: 'Zu viele Anfragen in kurzer Zeit. Bitte in ein paar Minuten erneut versuchen.' };
-          }
-          // otpErr.message kommt roh und englisch von Supabase — nicht an eine
-          // sonst durchgehend deutsche Seite durchreichen. Fuer die Fehlersuche
-          // steht die Originalmeldung im Log.
-          console.error('[LPR] register (Klinik) otpErr:', otpErr);
-          return { ok: false, error: 'Registrierung fehlgeschlagen. Bitte erneut versuchen.' };
-        }
-        return { ok: true, pending: true };
-      }
-
       const { data, error } = await (await sb()).auth.signUp({
         email,
         password,
@@ -3326,6 +3299,206 @@
     }
   }
 
+  // ───────────────────────────────────────────────────────
+  // Klinik-Anmeldung (Etappe 5)
+  // Onboarding neu: Klinik meldet sich per oeffentlichem Formular an → landet
+  // in clinic_applications, OHNE Auth-Konto → Vorstand prueft → Freigabe legt
+  // erst jetzt das Konto an (Function klinik-freigeben) und verknuepft es mit
+  // clinic_details/clinics, genau wie approveClinic() es fuer bestehende
+  // Konten schon tut. Der alte Weg (register() mit role: 'klinik') legte das
+  // Konto schon bei der Anmeldung an — siehe Kommentar dort.
+  // ───────────────────────────────────────────────────────
+
+  /**
+   * Klinik-Anmeldung einreichen. Oeffentlich, ohne Session — die Function
+   * klinik-anmeldung laeuft mit dem Service-Role-Key und legt nur eine Zeile
+   * in clinic_applications an, KEIN Auth-Konto. Darum per fetch mit dem
+   * publishable Key im apikey-Kopf statt ueber den (Session-)Client, Muster
+   * wie in kalkulation.html (sendInvoices).
+   *
+   * daten: { clinicName, contactPerson, email, phone, address, postalCode,
+   *          city, department }
+   * Die Validierung hier ist nur fuer schnelles Feedback im Formular —
+   * massgeblich prueft die Function serverseitig noch einmal.
+   */
+  async function submitClinicApplication(daten) {
+    const d = daten || {};
+    const clinicName    = (d.clinicName || '').trim();
+    const contactPerson = (d.contactPerson || '').trim();
+    const email          = (d.email || '').trim().toLowerCase();
+    const phone          = (d.phone || '').trim();
+    const postalCode     = (d.postalCode || '').trim();
+
+    if (clinicName.length < 2)    return { ok: false, error: 'Bitte den Klinik-Namen angeben.' };
+    if (contactPerson.length < 2) return { ok: false, error: 'Bitte einen Ansprechpartner angeben.' };
+    if (phone.length < 4)         return { ok: false, error: 'Bitte eine Telefonnummer angeben.' };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Bitte gültige E-Mail eingeben.' };
+    if (postalCode !== '' && !/^\d{5}$/.test(postalCode)) {
+      return { ok: false, error: 'PLZ muss aus 5 Ziffern bestehen oder leer sein.' };
+    }
+
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/klinik-anmeldung`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey':       SUPABASE_KEY
+        },
+        body: JSON.stringify({
+          clinicName, contactPerson, email, phone,
+          address:    (d.address || '').trim(),
+          postalCode,
+          city:       (d.city || '').trim(),
+          department: (d.department || '').trim()
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok || data.ok === false) {
+        return { ok: false, error: data.fehler || 'Anmeldung fehlgeschlagen. Bitte erneut versuchen.' };
+      }
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] submitClinicApplication:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * VORSTAND: Liste der Klinik-ANMELDUNGEN nach Status (pending/approved/rejected).
+   * Anders als listClinicsByStatus() (bestehende Konten in clinic_details)
+   * liest dies clinic_applications — dort landen Anmeldungen, bevor ueberhaupt
+   * ein Konto existiert. Rollenpruefung woertlich wie dort.
+   */
+  async function listClinicApplications(status) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'admin' && s.role !== 'board') {
+      return { ok: false, error: 'Nur der Vorstand kann diese Liste sehen.' };
+    }
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      return { ok: false, error: 'Ungültiger Status-Filter.' };
+    }
+
+    try {
+      const client = await sb();
+      const { data, error } = await client
+        .from('clinic_applications')
+        .select(`
+          id, clinic_name, contact_person, email, phone, address, postal_code, city,
+          department, status, rejection_reason, decided_at, decided_by,
+          created_profile_id, created_at
+        `)
+        .eq('status', status)
+        .order('created_at', { ascending: status === 'pending' });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, applications: data || [] };
+    } catch(e) {
+      console.error('[LPR] listClinicApplications:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * VORSTAND: Klinik-Anmeldung freigeben. Ruft die Function klinik-freigeben
+   * per functions.invoke auf (Muster: resendClaimMail) — dort entsteht jetzt
+   * erst das Auth-Konto. Zwei Wege, dieselbe Wahl wie bei approveClinic():
+   *   - Existierender clinics-Eintrag: opts.linkedClinicId
+   *   - Neuer Stammdaten-Eintrag: opts.createNewClinicId (text-Slug)
+   * Die Slug-Regex hier ist nur eine Vorab-Pruefung fuer schnelles Feedback im
+   * Dialog — massgeblich prueft die Function serverseitig noch einmal.
+   */
+  async function approveClinicApplication(id, opts) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'admin' && s.role !== 'board') {
+      return { ok: false, error: 'Nur der Vorstand kann freigeben.' };
+    }
+    if (!id) return { ok: false, error: 'Keine Anmeldung übergeben.' };
+
+    const linkedClinicId    = (opts?.linkedClinicId || '').trim();
+    const createNewClinicId = (opts?.createNewClinicId || '').trim();
+
+    if (!linkedClinicId && !createNewClinicId) {
+      return { ok: false, error: 'Entweder bestehende Klinik wählen oder neue ID angeben.' };
+    }
+    if (createNewClinicId && !/^[a-z0-9-]{3,40}$/.test(createNewClinicId)) {
+      return { ok: false, error: 'Neue Klinik-ID nur Kleinbuchstaben, Ziffern und Bindestriche, 3–40 Zeichen.' };
+    }
+
+    try {
+      const body = { id };
+      if (linkedClinicId) body.linkedClinicId = linkedClinicId;
+      else body.createNewClinicId = createNewClinicId;
+
+      const { data, error } = await (await sb())
+        .functions.invoke('klinik-freigeben', { body });
+      if (error) return { ok: false, error: error.message };
+      if (data && data.ok === false) return { ok: false, error: data.fehler || 'Freigabe fehlgeschlagen.' };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] approveClinicApplication:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * VORSTAND: Klinik-Anmeldung ablehnen. Anders als approveClinicApplication()
+   * direkt per PostgREST, ohne Edge Function — hier entsteht nichts, das eine
+   * Service-Role braucht.
+   *
+   * BEFUND aus dem Bau von Task 3: Bricht eine Freigabe mitten im Ablauf ab,
+   * steht created_profile_id schon, die Anmeldung aber noch auf 'pending'. Ein
+   * Ablehnen wuerde dann ein bereits angelegtes, nie freigegebenes Konto
+   * zurueckzulassen — eine Karteileiche. Darum: ist created_profile_id
+   * gesetzt, wird die Ablehnung verweigert, und ein Mensch muss entscheiden.
+   */
+  async function rejectClinicApplication(id, grund) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (s.role !== 'admin' && s.role !== 'board') {
+      return { ok: false, error: 'Nur der Vorstand kann ablehnen.' };
+    }
+    if (!id) return { ok: false, error: 'Keine Anmeldung übergeben.' };
+    const r = (grund || '').trim();
+    if (r.length < 5) return { ok: false, error: 'Bitte eine kurze Begründung angeben (min. 5 Zeichen).' };
+
+    try {
+      const client = await sb();
+
+      const { data: bestehend, error: loadErr } = await client
+        .from('clinic_applications')
+        .select('id, status, created_profile_id')
+        .eq('id', id)
+        .maybeSingle();
+      if (loadErr) return { ok: false, error: loadErr.message };
+      if (!bestehend) return { ok: false, error: 'Anmeldung nicht gefunden.' };
+      if (bestehend.created_profile_id) {
+        return {
+          ok: false,
+          error: 'Zu dieser Anmeldung wurde bereits ein Konto angelegt. Bitte erst die Freigabe abschließen oder das Konto von Hand entfernen.'
+        };
+      }
+
+      const { data, error } = await client
+        .from('clinic_applications')
+        .update({
+          status:           'rejected',
+          rejection_reason: r,
+          decided_at:       new Date().toISOString(),
+          decided_by:       s.id
+        })
+        .eq('id', id)
+        .select('id, status, rejection_reason')
+        .single();
+      if (error) return { ok: false, error: error.message };
+
+      return { ok: true, application: data };
+    } catch(e) {
+      console.error('[LPR] rejectClinicApplication:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   // ============================================================
   // Klinik-Buchungen (Etappe 2)
   // ============================================================
@@ -4848,6 +5021,9 @@
     // Klinik-Self-Service (Etappe 1)
     getMyClinic, submitMyClinic,
     listClinicsByStatus, approveClinic, rejectClinic,
+    // Klinik-Anmeldung (Etappe 5)
+    submitClinicApplication, listClinicApplications,
+    approveClinicApplication, rejectClinicApplication,
     // Klinik-Buchungen (Etappe 2)
     listAvailableShifts, bookShift, listBookableSlots, bookShiftFair,
     getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking,

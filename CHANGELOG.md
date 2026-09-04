@@ -14,7 +14,19 @@ Anmeldelink bei (`auth.admin.generateLink`, Fallback auf `login.html`, falls
 der Link nicht entsteht — eine Freigabe ganz ohne Nachricht ist der
 schlechtere Ausgang). Zwei Sperren gegen Doppelmails: der Statuswechsel muss
 tatsächlich auf `approved` erfolgen, und `freigabe_mail_gesendet_at` darf noch
-leer sein; der Vermerk wird erst nach erfolgreichem Versand gesetzt.
+leer sein — Letzteres zusätzlich zur billigen Nutzlast-Prüfung mit einem
+frischen Read aus der Datenbank, damit eine wiederholte Webhook-Zustellung
+nach erfolgreichem Versand keine zweite Mail auslöst. Der Vermerk wird erst
+nach erfolgreichem Versand gesetzt; schlägt das Setzen selbst fehl, bleibt die
+Funktion trotzdem bei Status 200 (sonst würde genau das eine Wiederholung und
+damit die Doppelmail provozieren) und loggt es zum Nachtragen von Hand.
+
+`clinic_name` kommt aus dem öffentlichen Registrierungsformular und läuft
+ungeprüft bis in `clinic_details` durch — im HTML-Teil der Mail wird er
+deshalb wie der Kliniken-Name in der Anrede über `esc()` escaped (wörtlich aus
+`notify-registrierung` übernommen); der Text-Teil bleibt bewusst unescaped.
+Import und Client-Aufbau folgen dem Muster der Geschwister-Functions
+(`jsr:@supabase/supabase-js@2`, `{ auth: { persistSession: false } }`).
 
 Bisher nur die Funktion geschrieben (`functions/klinik-freigabe-mail/index.ts`,
 nicht im Repo — `functions/` ist gitignored). Deploy, Webhook-Einrichtung und

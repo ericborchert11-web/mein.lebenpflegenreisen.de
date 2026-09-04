@@ -29,9 +29,10 @@ Import und Client-Aufbau folgen dem Muster der Geschwister-Functions
 (`jsr:@supabase/supabase-js@2`, `{ auth: { persistSession: false } }`).
 
 Bisher nur die Funktion geschrieben (`functions/klinik-freigabe-mail/index.ts`,
-nicht im Repo — `functions/` ist gitignored). Deploy, Webhook-Einrichtung und
-der Bestandsfall Susann Polster (freigegeben, aber ohne `clinic_details`-Zeile)
-stehen noch aus.
+nicht im Repo — `functions/` ist gitignored). Deploy und Webhook-Einrichtung
+stehen noch aus. Kliniken, die vor dieser Änderung freigegeben wurden, bekommen
+rückwirkend keine Mail: Der Webhook hängt am Statuswechsel, und der liegt bei
+ihnen in der Vergangenheit.
 
 ## 01.09.2026 — Feedback Sana Klinikum Lichtenberg
 

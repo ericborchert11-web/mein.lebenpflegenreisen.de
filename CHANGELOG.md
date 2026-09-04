@@ -1,5 +1,26 @@
 # Änderungen
 
+## 04.09.2026 — Freigabe-Mail für Kliniken
+
+Am 03.09.2026 gab der Vorstand ein Klinik-Konto frei, ohne dass die Klinik
+davon erfuhr — weder `approveUser()` noch `approveClinic()` verschicken
+etwas, und `notify-registrierung` meldet nur dem Verein, dass jemand ein
+Konto beantragt hat. Beide Seiten hätten wochenlang aufeinander warten
+können.
+
+Neue Edge Function `klinik-freigabe-mail`, ausgelöst per Datenbank-Webhook auf
+`clinic_details` (UPDATE). Sie meldet der Klinik die Freigabe und legt einen
+Anmeldelink bei (`auth.admin.generateLink`, Fallback auf `login.html`, falls
+der Link nicht entsteht — eine Freigabe ganz ohne Nachricht ist der
+schlechtere Ausgang). Zwei Sperren gegen Doppelmails: der Statuswechsel muss
+tatsächlich auf `approved` erfolgen, und `freigabe_mail_gesendet_at` darf noch
+leer sein; der Vermerk wird erst nach erfolgreichem Versand gesetzt.
+
+Bisher nur die Funktion geschrieben (`functions/klinik-freigabe-mail/index.ts`,
+nicht im Repo — `functions/` ist gitignored). Deploy, Webhook-Einrichtung und
+der Bestandsfall Susann Polster (freigegeben, aber ohne `clinic_details`-Zeile)
+stehen noch aus.
+
 ## 01.09.2026 — Feedback Sana Klinikum Lichtenberg
 
 Erste Rückmeldung aus der Zusammenarbeit mit dem Sana Klinikum Lichtenberg,

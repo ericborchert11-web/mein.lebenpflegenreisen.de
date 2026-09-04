@@ -102,6 +102,10 @@
   font-weight: 700;
   font-size: 14.5px;
   cursor: pointer;
+  /* Damit die Klasse auch fuer <a> taugt: als Knopf gedacht, aber der
+     Verweis auf die Buchungsseite ist ein Link und kein Formularknopf. */
+  display: inline-block;
+  text-decoration: none;
 }
 .k-btn-primary:hover { background: var(--green-deep); }
 .k-btn-primary:disabled { opacity: .6; cursor: wait; }
@@ -260,7 +264,9 @@
     </div>
     <div class="k-card" style="border-left: 4px solid var(--lime);">
       <h2>Sitzwachen buchen</h2>
-      <p>Die Buchungs-Funktion wird gerade fertiggestellt. Bis sie online ist, melden Sie Bedarf bitte telefonisch unter <a href="tel:+491743409116">0174 3409116</a>, per <a href="https://wa.me/491743409116" target="_blank" rel="noopener">WhatsApp</a>, per Mail an <a href="mailto:info@lebenpflegenreisen.de">info@lebenpflegenreisen.de</a> oder über das Formular auf <a href="https://lebenpflegenreisen.de" target="_blank" rel="noopener">lebenpflegenreisen.de</a>.</p>
+      <p>Tragen Sie Ihren Bedarf direkt hier im Portal ein — Schicht, Datum und Station. Unter <strong>Meine Buchungen</strong> sehen Sie jederzeit, was schon vergeben ist und wer kommt.</p>
+      <p style="margin-top:14px;"><a class="k-btn-primary" href="klinik-buchen.html">Sitzwache buchen</a></p>
+      <p style="margin-top:14px; font-size:14px; color:var(--muted);">Kurzfristig oder lieber persönlich? Rufen Sie an unter <a href="tel:+491743409116">0174 3409116</a>, schreiben Sie per <a href="https://wa.me/491743409116" target="_blank" rel="noopener">WhatsApp</a> oder an <a href="mailto:info@lebenpflegenreisen.de">info@lebenpflegenreisen.de</a>.</p>
     </div>
   </div>
 

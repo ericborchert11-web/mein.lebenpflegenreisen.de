@@ -287,10 +287,34 @@ async function doMagicLink() {
 
   const res = await LPR.requestMagicLink(email);
 
-  btn.disabled = false; btn.textContent = 'Link zum Anmelden schicken';
-  if (!res.ok) { errEl.textContent = res.error; errEl.hidden = false; return; }
+  if (!res.ok) {
+    btn.disabled = false; btn.textContent = ML_KNOPF_NORMAL;
+    errEl.textContent = res.error; errEl.hidden = false;
+    return;
+  }
+
+  // Der Knopf bleibt auf "geschickt" stehen und gesperrt. Zwei Gruende:
+  // Er bestaetigt sichtbar, dass etwas passiert ist -- ein Hinweistext
+  // darunter wird leicht uebersehen. Und er verhindert, dass jemand aus
+  // Ungeduld mehrfach drueckt und in die Ratenbegrenzung von Supabase
+  // laeuft, die dann fuer Minuten gar nichts mehr verschickt.
+  btn.textContent = 'Link geschickt ✓';
   okEl.hidden = false;
 }
+
+const ML_KNOPF_NORMAL = 'Link zum Anmelden schicken';
+
+// Wer die Adresse korrigiert, will offensichtlich einen neuen Link. Dann
+// den Knopf wieder freigeben, sonst sitzt man mit einem Tippfehler fest.
+document.getElementById('ml-email').addEventListener('input', () => {
+  const btn = document.getElementById('ml-submit');
+  if (btn.textContent !== ML_KNOPF_NORMAL) {
+    btn.disabled = false;
+    btn.textContent = ML_KNOPF_NORMAL;
+    document.getElementById('ml-ok').hidden = true;
+    document.getElementById('ml-error').hidden = true;
+  }
+});
 
 async function doRegister() {
   if (!selectedRole) { showErr('Bitte wählen Sie oben aus, ob Sie sich ehrenamtlich engagieren oder als Klinik buchen möchten.'); return; }

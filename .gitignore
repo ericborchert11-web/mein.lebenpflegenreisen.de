@@ -7,3 +7,6 @@ sql/
 # Edge-Function-Quellen — gleicher Grund: Versandwege, Header-Namen und
 # Secret-Namen gehoeren nicht ins Netz
 functions/
+
+# Arbeitsdateien der Supabase-CLI (npx supabase functions deploy)
+supabase/

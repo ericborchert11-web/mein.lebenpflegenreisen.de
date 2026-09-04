@@ -3,6 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script>
+/*
+ * SICHERUNG FUER DEN ANMELDELINK — moeglichst frueh, vor allem anderen.
+ *
+ * Supabase leitet nach dem Klick auf einen Anmelde- oder Passwortlink nur auf
+ * Ziele um, die unter Authentication → URL Configuration in den Redirect URLs
+ * eingetragen sind. Fehlt der Eintrag, faellt es STILL auf die Site URL
+ * zurueck — also hierher. Der Token steht dann zwar im Fragment, aber diese
+ * Startseite kann nichts damit anfangen: Die Klinik sieht eine Begruessung
+ * statt ihres Bereichs und weiss nicht, was schiefging. Genau das ist am
+ * 04.09.2026 dreimal passiert.
+ *
+ * Also alles, was nach einer Auth-Rueckkehr aussieht, an die zustaendige Seite
+ * weiterreichen. Das Fragment wandert unveraendert mit, der Supabase-Client
+ * dort loest es ein (detectSessionInUrl).
+ *
+ * Das ERSETZT den richtigen Eintrag nicht — es sorgt nur dafuer, dass sein
+ * Fehlen keine tote Seite mehr ergibt.
+ */
+(function () {
+  var h = window.location.hash;
+  if (!h || h.length < 2) return;
+  var p = new URLSearchParams(h.slice(1));
+  if (!p.has('access_token') && !p.has('error')) return;
+  // Passwort-Ruecksetzung hat eine eigene Seite; alles andere ist Anmeldung.
+  var ziel = p.get('type') === 'recovery' ? '/passwort-neu.html' : '/login.html';
+  // replace statt href: die Startseite soll nicht im Verlauf stehenbleiben,
+  // sonst landet man mit dem Zurueck-Knopf wieder auf einem verbrauchten Token.
+  window.location.replace(ziel + h);
+})();
+</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">

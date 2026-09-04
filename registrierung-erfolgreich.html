@@ -218,21 +218,17 @@ LPR_Layout.init({ page: 'registrierung' });
     document.getElementById('meta-role').textContent = labels[role] || role;
   }
 
-  // Klinik-Konten haben kein Passwort mehr (Anmeldelink statt Passwort-Login,
-  // siehe login.html) und bekommen bisher keine automatische Freigabe-Mail —
-  // der vorgegebene Ablauf-Text waere fuer sie schlicht falsch. Derselbe Text
-  // gilt uebrigens auch fuer eine Klinik, die sich ein zweites Mal registriert:
-  // signInWithOtp() schickt so oder so einen Anmeldelink, egal ob das Konto
-  // laengst freigeschaltet ist oder nicht — eine Bestand-Erkennung bauen wir
-  // bewusst nicht, sie waere ein Auskunftsorakel darueber, welche Adressen
-  // im Portal existieren.
+  // Kliniken bekommen seit Etappe 5 KEIN Konto mehr bei der Anmeldung — die
+  // Anmeldung landet nur in clinic_applications, ein Auth-Konto und damit ein
+  // Anmeldelink entstehen erst, wenn der Vorstand freigibt (Function
+  // klinik-freigeben). Der vorgegebene Ablauf-Text oben stimmt fuer sie nicht
+  // (er verspricht eine sofortige Freigabe-Mail mit Konto), darum eigener Text.
   if (role === 'klinik') {
     document.getElementById('conf-steps-list').innerHTML =
-      '<li>Wir haben Ihnen eine E-Mail mit einem <strong>Anmeldelink</strong> geschickt.</li>'
+      '<li>Ihre Anmeldung ist bei uns eingegangen, eine <strong>Bestätigung per E-Mail</strong> ist unterwegs.</li>'
       + '<li>Der Vorstand prüft Ihre Anmeldung, das dauert in der Regel <strong>1–2 Werktage</strong>.</li>'
-      + '<li>Danach melden Sie sich jederzeit über einen Anmeldelink an — ein Passwort brauchen Sie nicht. '
-        + 'Den Link fordern Sie auf der Anmeldeseite mit Ihrer E-Mail-Adresse an.</li>'
-      + '<li>Wir melden uns bei Ihnen, sobald die Freigabe erfolgt ist.</li>';
+      + '<li>Danach bekommen Sie eine E-Mail mit einem <strong>Anmeldelink</strong> — ein Passwort brauchen Sie nicht.</li>'
+      + '<li>Wir melden uns bei Ihnen, sobald es so weit ist.</li>';
   }
 
   // Kennenlern-Hinweis + Popup nur für Ehrenamtliche

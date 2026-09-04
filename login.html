@@ -244,13 +244,15 @@ function pickRole(btn) {
 
   // Der Ablauf wird erst mit der Rollenwahl sichtbar — vorher waere er ein
   // Absatz Kleingedrucktes ueber einem Formular, das noch niemand ausfuellt.
-  // Kliniken bekommen keine Bestaetigungsmail mehr, sondern sofort einen
-  // Anmeldelink; das Kennenlerngespraech gilt weiterhin nur fuer das Ehrenamt.
+  // Kliniken bekommen seit Etappe 5 KEIN Konto mehr bei der Anmeldung und
+  // darum auch keinen Anmeldelink an dieser Stelle — der entsteht erst mit
+  // der Freigabe. Das Kennenlerngespraech gilt weiterhin nur fuer das Ehrenamt.
   document.getElementById('rg-ablauf').hidden = false;
   document.getElementById('rg-ablauf').innerHTML = istKlinik
-    ? '<strong>So geht es weiter:</strong> Sie bekommen sofort eine E-Mail mit einem '
-      + 'Anmeldelink. Sobald der Vorstand Ihre Klinik freigegeben hat, kommen Sie '
-      + 'damit ohne Passwort in Ihren Bereich. Das dauert in der Regel 1–2 Werktage.'
+    ? '<strong>So geht es weiter:</strong> Sie erhalten eine Eingangsbestätigung per '
+      + 'E-Mail. Anschließend prüft der Vorstand Ihre Anmeldung, das dauert in der '
+      + 'Regel 1–2 Werktage. Danach bekommen Sie eine E-Mail mit einem Anmeldelink '
+      + 'und damit Zugang zu Ihrem Bereich — ein Passwort brauchen Sie nicht.'
     : '<strong>So geht es weiter:</strong> Sie bekommen zuerst eine Bestätigungs-E-Mail '
       + 'mit einem Link — bitte darauf klicken. Danach gibt der Vorstand Ihr Konto frei, '
       + 'das dauert 1–2 Werktage. Vor dem ersten Einsatz lernen wir uns in einem kurzen '
@@ -320,29 +322,34 @@ async function doRegister() {
   if (!selectedRole) { showErr('Bitte wählen Sie oben aus, ob Sie sich ehrenamtlich engagieren oder als Klinik buchen möchten.'); return; }
   const name = document.getElementById('rg-name').value.trim();
   const email = document.getElementById('rg-email').value.trim();
-  const password = selectedRole === 'klinik'
-    ? null
-    : document.getElementById('rg-password').value;
   const dsgvo = document.getElementById('rg-dsgvo').checked;
   if (!dsgvo) { showErr('Bitte Datenschutzerklärung bestätigen.'); return; }
 
-  const extra = {};
+  // Kliniken legen seit Etappe 5 kein Konto mehr an. Die Anmeldung geht an
+  // die Edge Function klinik-anmeldung und landet in clinic_applications —
+  // das Konto entsteht erst, wenn der Vorstand freigibt. Die Validierung der
+  // Felder uebernimmt submitClinicApplication() selbst (dieselben Regeln wie
+  // submitMyClinic()), darum hier keine Doppelpruefung.
   if (selectedRole === 'klinik') {
-    extra.clinic_name = document.getElementById('rg-clinic').value.trim();
-    extra.ward        = document.getElementById('rg-ward').value.trim();
-    extra.phone       = document.getElementById('rg-phone').value.trim();
-    extra.address     = document.getElementById('rg-street').value.trim();
-    extra.postal_code = document.getElementById('rg-plz').value.trim();
-    extra.city        = document.getElementById('rg-city').value.trim();
-    // Dieselben Regeln wie submitMyClinic(), damit beide Wege dieselben Daten zulassen.
-    if (extra.clinic_name.length < 2) { showErr('Bitte Klinikname eingeben.'); return; }
-    if (extra.phone.length < 4)       { showErr('Bitte Telefonnummer eingeben.'); return; }
-    if (extra.postal_code && !/^\d{5}$/.test(extra.postal_code)) {
-      showErr('PLZ muss aus 5 Ziffern bestehen oder leer bleiben.'); return;
-    }
+    const res = await LPR.submitClinicApplication({
+      clinicName:    document.getElementById('rg-clinic').value.trim(),
+      contactPerson: name,
+      email,
+      phone:         document.getElementById('rg-phone').value.trim(),
+      address:       document.getElementById('rg-street').value.trim(),
+      postalCode:    document.getElementById('rg-plz').value.trim(),
+      city:          document.getElementById('rg-city').value.trim(),
+      department:    document.getElementById('rg-ward').value.trim()
+    });
+    if (!res.ok) { showErr(res.error); return; }
+
+    const params = new URLSearchParams({ email: email, name: name, role: selectedRole });
+    window.location.href = 'registrierung-erfolgreich.html?' + params.toString();
+    return;
   }
 
-  const res = await LPR.register({ email, password, name, role: selectedRole, extra });
+  const password = document.getElementById('rg-password').value;
+  const res = await LPR.register({ email, password, name, role: selectedRole, extra: {} });
   if (!res.ok) { showErr(res.error); return; }
 
   // Pending: Registrierung wurde eingereicht, aber Freigabe durch Vorstand nötig

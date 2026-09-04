@@ -231,7 +231,11 @@ function pickRole(btn) {
   document.getElementById('rg-klinik-fields').hidden = selectedRole !== 'klinik';
   const sub = document.getElementById('rg-submit');
   sub.disabled = false;
-  sub.textContent = selectedRole === 'klinik' ? 'Klinik-Konto erstellen' : 'Ehrenamt-Konto erstellen';
+  // Fuer Kliniken bewusst nicht "Konto erstellen": Seit Etappe 5 entsteht beim
+  // Absenden kein Konto, sondern eine Anmeldung. Das Konto legt der Vorstand
+  // mit der Freigabe an. Ein Knopf, der etwas anderes verspricht als er tut,
+  // ist genau der Fehler, den diese Etappe beseitigt.
+  sub.textContent = selectedRole === 'klinik' ? 'Anmeldung absenden' : 'Ehrenamt-Konto erstellen';
 
   const pwWrap = document.getElementById('rg-password-wrap');
   const pwInput = document.getElementById('rg-password');

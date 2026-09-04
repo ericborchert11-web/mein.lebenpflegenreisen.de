@@ -2,37 +2,37 @@
 
 ## 04.09.2026 — Freigabe-Mail für Kliniken
 
-Am 03.09.2026 gab der Vorstand ein Klinik-Konto frei, ohne dass die Klinik
-davon erfuhr — weder `approveUser()` noch `approveClinic()` verschicken
-etwas, und `notify-registrierung` meldet nur dem Verein, dass jemand ein
-Konto beantragt hat. Beide Seiten hätten wochenlang aufeinander warten
-können.
+Am 03.09.2026 gab der Vorstand ein Klinik-Konto frei, ohne dass die Klinik davon
+erfuhr — weder `approveUser()` noch `approveClinic()` verschicken etwas, und
+`notify-registrierung` meldet nur dem Verein, dass jemand ein Konto beantragt
+hat. Beide Seiten hätten wochenlang aufeinander warten können.
 
-Neue Edge Function `klinik-freigabe-mail`, ausgelöst per Datenbank-Webhook auf
-`clinic_details` (UPDATE). Sie meldet der Klinik die Freigabe und legt einen
-Anmeldelink bei (`auth.admin.generateLink`, Fallback auf `login.html`, falls
-der Link nicht entsteht — eine Freigabe ganz ohne Nachricht ist der
-schlechtere Ausgang). Zwei Sperren gegen Doppelmails: der Statuswechsel muss
-tatsächlich auf `approved` erfolgen, und `freigabe_mail_gesendet_at` darf noch
-leer sein — Letzteres zusätzlich zur billigen Nutzlast-Prüfung mit einem
-frischen Read aus der Datenbank, damit eine wiederholte Webhook-Zustellung
-nach erfolgreichem Versand keine zweite Mail auslöst. Der Vermerk wird erst
-nach erfolgreichem Versand gesetzt; schlägt das Setzen selbst fehl, bleibt die
-Funktion trotzdem bei Status 200 (sonst würde genau das eine Wiederholung und
-damit die Doppelmail provozieren) und loggt es zum Nachtragen von Hand.
+Zunächst war dafür eine eigenständige Edge Function mit eigenem Webhook geplant
+und schon deployt. Beim Einrichten des Webhooks fiel auf, dass es
+`notification_outbox` längst gibt: eine ausgebaute Warteschlange mit eindeutigem
+Index gegen Doppelversand, Wiederholungszähler, Status je Nachricht und einer
+einzigen versendenden Function `notify`. In derselben Migration steht die
+Begründung, Empfängerlogik gehöre in SQL und nicht in TypeScript, damit nicht
+zwei Fassungen auseinanderlaufen. Eine zweite Zustellkette daneben wäre genau
+das gewesen — die eigenständige Function wurde deshalb wieder abgeräumt.
 
-`clinic_name` kommt aus dem öffentlichen Registrierungsformular und läuft
-ungeprüft bis in `clinic_details` durch — im HTML-Teil der Mail wird er
-deshalb wie der Kliniken-Name in der Anrede über `esc()` escaped (wörtlich aus
-`notify-registrierung` übernommen); der Text-Teil bleibt bewusst unescaped.
-Import und Client-Aufbau folgen dem Muster der Geschwister-Functions
-(`jsr:@supabase/supabase-js@2`, `{ auth: { persistSession: false } }`).
+Umgesetzt ist die Meldung jetzt über die Outbox: Ein Trigger auf
+`clinic_details` reiht beim echten Statuswechsel auf `approved` eine Zeile ein,
+`notify` verschickt sie mit der neuen Vorlage `klinik.freigabe.clinic`. Der
+Anmeldelink entsteht erst beim Versand — er gilt nur eine Stunde, und zwischen
+Einreihen und Versand können Wiederholungen liegen — und immer für den
+gemeinten Empfänger, nie für die Adresse aus `NOTIFY_REDIRECT_TO`. Doppelmails
+verhindert der eindeutige Index; die Meldung ist damit einmalig je
+Empfängeradresse.
 
-Bisher nur die Funktion geschrieben (`functions/klinik-freigabe-mail/index.ts`,
-nicht im Repo — `functions/` ist gitignored). Deploy und Webhook-Einrichtung
-stehen noch aus. Kliniken, die vor dieser Änderung freigegeben wurden, bekommen
-rückwirkend keine Mail: Der Webhook hängt am Statuswechsel, und der liegt bei
-ihnen in der Vergangenheit.
+Dabei fiel auf, dass `_rahmen-schlicht.html` die Kopfzeile „Sitzwachen ·
+Wochenbericht" fest verdrahtet hatte. Bisher unsichtbar, weil nur die Wochenmail
+diesen Rahmen nutzte; die Freigabe-Mail hätte damit behauptet, ein Wochenbericht
+zu sein. Die Zeile ist jetzt der Platzhalter `{{rahmen_titel}}`.
+
+Ende zu Ende geprüft: Freigabe um 09:28:54, Outbox-Zeile im selben Moment,
+`sent` eine Sekunde später beim ersten Versuch, Mail zugestellt, Anmeldelink
+führte in die Klinikansicht des richtigen Kontos.
 
 ## 01.09.2026 — Feedback Sana Klinikum Lichtenberg
 

@@ -2981,6 +2981,49 @@
   }
 
   /**
+   * Stuft eine Person auf T1 oder T2 ein.
+   *
+   * T1 = mindestens einjaehrige Ausbildung in der Pflege. Fuer uns aendert das
+   * NICHTS an Preis oder Auszahlung. Sana rechnet T1-Dienste ueber die DSA
+   * gegen das Pflegebudget ab, T2-Dienste nicht.
+   *
+   * Die Rollenpruefung hier ist Bequemlichkeit, nicht Sicherheit: Der Riegel
+   * ist der Trigger a_profiles_spaltenschutz in der Datenbank. Wer diese Zeile
+   * entfernt, macht nichts auf — wer sich auf sie verlaesst, hat den Trigger
+   * nicht verstanden.
+   */
+  async function setUserTarif(userId, tarif) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur der Vorstand kann den Tarif ändern.' };
+    }
+    if (!userId) return { ok: false, error: 'Keine User-ID.' };
+    if (tarif !== 'T1' && tarif !== 'T2') {
+      return { ok: false, error: 'Tarif muss T1 oder T2 sein.' };
+    }
+    try {
+      const { data, error } = await (await sb())
+        .from('profiles')
+        .update({ tarif })
+        .eq('id', userId)
+        .select('id, tarif')
+        .single();
+      if (error) return { ok: false, error: error.message };
+      // Zurueckgelesen statt angenommen: Der Spaltenschutz setzt einen nicht
+      // erlaubten Wert still auf den alten zurueck und meldet trotzdem eine
+      // betroffene Zeile. Ohne diese Pruefung wuerde die Oberflaeche Erfolg
+      // zeigen, wo nichts passiert ist.
+      if (data.tarif !== tarif) {
+        return { ok: false, error: 'Der Tarif wurde nicht übernommen. Bitte den Vorstand informieren.' };
+      }
+      return { ok: true, tarif: data.tarif };
+    } catch (e) {
+      console.error('[LPR] setUserTarif:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
    * VORSTAND-FUNKTION: Lädt das vollständige Präferenz-Bündel eines anderen Users.
    * Gleiches Format wie getMyPreferences().
    */
@@ -5121,7 +5164,7 @@
     getKpiAmpeln, getKpiPersonen, getBoardMeldungen, setDienstsperre, getAppSettings, setAppSetting,
     interessentUebernehmen, getEhrenamtQuellen, meinEinladungslink,
     // Präferenzen — Vorstand
-    setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
+    setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference, setUserTarif,
     register, loginWithPassword, pruefeUndSetzeSession, requireRole,
     requestPasswordReset, setNewPassword, requestMagicLink, hatPasswort, setzePasswort,
     listUsersByStatus, approveUser, rejectUser, deleteRegistration,

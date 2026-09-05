@@ -255,6 +255,15 @@
       <h2>✓ Konto freigegeben</h2>
       <p>Ihre Klinik wurde vom Vorstand bestätigt. Sie können Sitzwachen über uns buchen.</p>
     </div>
+    <div class="k-status-banner pending" id="pw-hinweis" hidden>
+      <h2>Passwort festlegen?</h2>
+      <p>
+        Sie melden sich derzeit nur mit einem Anmeldelink an. Mit einem Passwort kommen
+        Sie auch dann ins Portal, wenn eine E-Mail einmal nicht ankommt —
+        <a href="profil.html">im Profil einrichten</a>. Der Anmeldelink funktioniert
+        weiterhin.
+      </p>
+    </div>
     <div class="k-card">
       <h2>Ihre Klinik</h2>
       <div class="k-summary" id="approved-summary"></div>
@@ -366,6 +375,16 @@ function renderState() {
     renderSummary('approved-summary', _details);
     showState('state-approved');
     _previousState = 'state-approved';
+    // Kein gespeichertes "schon gesehen": Der Hinweis verschwindet von selbst,
+    // sobald ein Passwort existiert. Ein zweiter Zustand dafuer waere eine
+    // zweite Wahrheit fuer nichts.
+    //
+    // Bewusst ohne await: Der Hinweis darf das Rendern der Seite nicht
+    // aufhalten. Faellt die Abfrage aus, bleibt er verborgen — ein fehlender
+    // Hinweis ist harmlos, eine haengende Seite nicht.
+    LPR.hatPasswort().then((r) => {
+      if (r.ok && !r.hat) document.getElementById('pw-hinweis').hidden = false;
+    });
   }
 }
 

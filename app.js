@@ -299,6 +299,65 @@
   }
 
   /**
+   * Hat dieses Konto ein Passwort, das jemand kennt?
+   *
+   * Die naheliegende Antwort — in auth.users nachsehen — funktioniert NICHT:
+   * GoTrue fuellt encrypted_password auch bei Konten, die ueber
+   * auth.admin.createUser() ohne Passwort entstanden sind. Am 05.09.2026 an
+   * einem frisch angelegten Klinik-Konto gemessen, das sich nie angemeldet
+   * hatte. Die Spalte ist fuer diese Frage blind.
+   *
+   * Deshalb fuehren wir das Kennzeichen selbst, im Benutzer-Metadatum. Es
+   * steuert ausschliesslich die ANZEIGE. Es darf nie ueber einen Zugang
+   * entscheiden — das Konto kann es selbst schreiben.
+   */
+  async function hatPasswort() {
+    try {
+      const { data, error } = await (await sb()).auth.getUser();
+      if (error || !data || !data.user) {
+        return { ok: false, error: 'Konto konnte nicht gelesen werden.' };
+      }
+      const meta = data.user.user_metadata || {};
+      return { ok: true, hat: Boolean(meta.passwort_gesetzt_am) };
+    } catch (e) {
+      console.error('[LPR] hatPasswort:', e);
+      return { ok: false, error: 'Netzwerkfehler. Bitte erneut versuchen.' };
+    }
+  }
+
+  /**
+   * Setzt ein ERSTES Passwort — ohne Abfrage eines alten, weil es keins gibt.
+   * Fuer den Wechsel eines vorhandenen Passworts bleibt der Weg in profil.html
+   * unveraendert, samt Pruefung des alten.
+   *
+   * Das bisherige Metadatum wird mitgegeben: updateUser({ data }) schreibt die
+   * uebergebenen Schluessel, und handle_new_user liest aus demselben Objekt
+   * full_name und role. Ein Verlust waere erst bei einem erneuten INSERT
+   * spuerbar — und dann nicht mehr erklaerbar.
+   */
+  async function setzePasswort(neu) {
+    if (!neu || neu.length < 8) {
+      return { ok: false, error: 'Passwort muss mindestens 8 Zeichen lang sein.' };
+    }
+    try {
+      const client = await sb();
+      const { data: vorher } = await client.auth.getUser();
+      const bisher = (vorher && vorher.user && vorher.user.user_metadata) || {};
+      const { error } = await client.auth.updateUser({
+        password: neu,
+        data: Object.assign({}, bisher, { passwort_gesetzt_am: new Date().toISOString() }),
+      });
+      if (error) {
+        return { ok: false, error: error.message || 'Passwort konnte nicht gesetzt werden.' };
+      }
+      return { ok: true };
+    } catch (e) {
+      console.error('[LPR] setzePasswort:', e);
+      return { ok: false, error: 'Netzwerkfehler. Bitte erneut versuchen.' };
+    }
+  }
+
+  /**
    * Schickt einen Anmeldelink. shouldCreateUser bewusst false: Hier soll sich
    * niemand ein Konto erschleichen, das geht nur ueber die Registrierung.
    * Die Antwort verraet absichtlich nicht, ob es die Adresse gibt.
@@ -5012,7 +5071,7 @@
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference,
     register, loginWithPassword, pruefeUndSetzeSession, requireRole,
-    requestPasswordReset, setNewPassword, requestMagicLink,
+    requestPasswordReset, setNewPassword, requestMagicLink, hatPasswort, setzePasswort,
     listUsersByStatus, approveUser, rejectUser, deleteRegistration,
     listKunden, saveKunde, setKundeAktiv, createTermin, finishTermin,
     listTermine, cancelTermin,

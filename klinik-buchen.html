@@ -185,6 +185,47 @@
 }
 .kb-empty p { margin: 0 0 6px; font-size: 15px; }
 
+/* ---- Fehlbedarf melden ----
+   Der Knopf steht bewusst dort, wo die Enttaeuschung entsteht: im leeren
+   Kalender und unter der Liste. Ein Menuepunkt waere nie geklickt worden. */
+.kb-fb { margin-top: 20px; text-align: left; }
+.kb-fb-zeile { margin-top: 16px; text-align: center; font-size: 14px; color: var(--muted); }
+.kb-fb-link {
+  background: none; border: none; padding: 0; font: inherit;
+  color: var(--green-deep); font-weight: 600; text-decoration: underline; cursor: pointer;
+}
+.kb-fb-form {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  margin-top: 12px; padding: 16px 18px;
+  background: #FBFAF6; border: 1px solid var(--border); border-radius: var(--radius);
+  text-align: left;
+}
+.kb-fb-form label {
+  display: block; margin-bottom: 4px;
+  font-size: 12px; font-weight: 700; letter-spacing: .03em;
+  text-transform: uppercase; color: var(--muted);
+}
+.kb-fb-form input, .kb-fb-form select {
+  width: 100%; box-sizing: border-box; padding: 9px 10px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 14px; background: #fff;
+}
+.kb-fb-form .kb-fb-weit { grid-column: 1 / -1; }
+.kb-fb-btn {
+  padding: 11px 20px; border: none; border-radius: var(--radius-sm);
+  background: var(--green-deep); color: #fff;
+  font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.kb-fb-btn:hover { background: #234D38; }
+.kb-fb-btn:disabled { background: #999; cursor: not-allowed; }
+.kb-fb-danke {
+  margin-top: 14px; padding: 16px 18px; text-align: left;
+  background: #F0F6EE; border: 1px solid #C8D98A; border-radius: var(--radius);
+  font-size: 14px; line-height: 1.5; color: var(--text);
+}
+.kb-fb-danke strong { color: var(--green-deep); }
+
 .kb-loading { padding: 60px 0; text-align: center; color: var(--muted); }
 
 /* ---- Modal ---- */
@@ -441,9 +482,34 @@
   </div>
 </div>
 
+<!--
+  Rueckfrage vor dem Melden.
+  Eingebauter Kasten statt confirm(): Browser-Dialoge blockieren die Seite und
+  sehen auf jedem System anders aus. Er ist ausserdem die einzige Bremse gegen
+  den versehentlichen Doppelklick — eine Sperre in der Datenbank waere falsch,
+  weil zwei Patient:innen in derselben Schicht wirklich zwei Luecken sind.
+-->
+<div class="kb-modal-bg" id="kb-fb-bg">
+  <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-fb-title">
+    <h2 id="kb-fb-title">War wirklich keine Sitzwache verfügbar?</h2>
+    <div class="kb-modal-summary" id="kb-fb-summary"></div>
+    <p style="font-size:14px;line-height:1.5;margin:12px 0 0">
+      Ihre Meldung zeigt uns, wo wir mehr Sitzwachen brauchen.
+    </p>
+    <p style="font-size:14px;line-height:1.5;color:var(--muted);margin:8px 0 0">
+      Wenn Sie heute noch jemanden benötigen, rufen Sie uns bitte an:
+      <a href="tel:+491743409116">0174 3409116</a>
+    </p>
+    <div class="kb-modal-actions">
+      <button type="button" class="kb-btn-cancel" id="kb-fb-abbrechen">Abbrechen</button>
+      <button type="button" class="kb-btn-confirm" id="kb-fb-ja">Ja, Bedarf melden</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
-<script src="app.js"></script>
+<script src="app.js?v20260905c"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'klinik-buchen' });
@@ -548,7 +614,9 @@ function renderList() {
       <div class="kb-empty">
         <p>Keine Verfügbarkeiten gefunden.</p>
         <p style="font-size:13px;">Falls Sie tagesaktuell jemanden brauchen und niemand verfügbar ist, melden Sie sich gern direkt unter <a href="tel:+491743409116">0174 3409116</a>, per <a href="https://wa.me/491743409116" target="_blank" rel="noopener">WhatsApp</a> oder unter <a href="mailto:info@lebenpflegenreisen.de">info@lebenpflegenreisen.de</a>.</p>
+        ${fehlbedarfBlock(true)}
       </div>`;
+    bindFehlbedarf();
     return;
   }
   const groups = groupByDate(filtered);
@@ -575,7 +643,23 @@ function renderList() {
     }
     html += `</div>`;
   }
+  // Auch bei voller Liste: Eine Klinik kann eine Luecke haben, obwohl an einem
+  // anderen Tag etwas frei ist. Ohne diese Zeile waere die Meldung nur aus dem
+  // leeren Kalender heraus erreichbar — und damit genau dann nicht, wenn ein
+  // einzelner Tag unbesetzt bleibt.
+  html += `<div class="kb-fb-zeile">Ihre Schicht ist nicht dabei?
+    <button type="button" class="kb-fb-link" id="kb-fb-toggle">Bedarf melden</button>
+    <div id="kb-fb-slot"></div>
+  </div>`;
+
   listEl.innerHTML = html;
+
+  document.getElementById('kb-fb-toggle').addEventListener('click', () => {
+    const slot = document.getElementById('kb-fb-slot');
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    slot.innerHTML = fehlbedarfBlock(false);
+    bindFehlbedarf();
+  });
 
   // Buchen-Buttons
   listEl.querySelectorAll('.kb-book-btn').forEach(btn => {
@@ -588,6 +672,129 @@ function renderList() {
     });
   });
 }
+
+// ── Fehlbedarf melden ────────────────────────────────────────────────────
+//
+// Findet die Klinik hier niemanden, entstand bisher keine Zeile — der Bedarf
+// war weg, sobald der Tab zu war. Deshalb steht der Knopf hier und nicht in
+// einem Menue: Wer im Kalender niemanden findet, ist genervt und schliesst
+// gleich die Seite.
+//
+// Die Auswahl ist absichtlich kuerzer als die Pruefregel der Tabelle:
+// 'qualification_missing' wird nicht angeboten, weil die Klinik die
+// Qualifikation beim Buchen gar nicht sieht und daraus also keine Luecke
+// melden kann.
+const FB_GRUENDE = [
+  ['no_volunteer', 'Niemand verfügbar'],
+  ['short_notice', 'Zu kurzfristig gefragt'],
+  ['other',        'Anderer Grund']
+];
+
+/**
+ * Baut das Meldeformular.
+ * Es existiert immer nur einmal auf der Seite — entweder im leeren Zustand
+ * oder aufgeklappt unter der Liste —, deshalb feste IDs statt Praefixe.
+ */
+function fehlbedarfBlock(imLeerenZustand) {
+  // Vorbelegung aus dem Filter: Wer von-Datum gesetzt hat, meint meistens
+  // genau diesen Tag.
+  const vorbelegt = document.getElementById('kb-from').value || '';
+  const schichten = ['morning', 'afternoon', 'night'].map(k =>
+    `<option value="${escape(k)}">${escape((SHIFT_LABELS[k] || {}).label || k)}</option>`).join('');
+  const gruende = FB_GRUENDE.map(([k, t]) =>
+    `<option value="${escape(k)}">${escape(t)}</option>`).join('');
+
+  return `
+    <div class="kb-fb">
+      ${imLeerenZustand ? '<p style="font-size:14px;margin:0 0 2px;"><strong>Sie brauchen trotzdem eine Sitzwache?</strong> Sagen Sie uns, wofür — das zeigt uns, wo wir mehr Sitzwachen brauchen.</p>' : ''}
+      <div class="kb-fb-form" id="kb-fb-form">
+        <div>
+          <label for="kb-fb-datum">Datum</label>
+          <input type="date" id="kb-fb-datum" value="${escape(vorbelegt)}">
+        </div>
+        <div>
+          <label for="kb-fb-shift">Schicht</label>
+          <select id="kb-fb-shift">${schichten}</select>
+        </div>
+        <div>
+          <label for="kb-fb-grund">Grund</label>
+          <select id="kb-fb-grund">${gruende}</select>
+        </div>
+        <div>
+          <label for="kb-fb-station">Station (optional)</label>
+          <input type="text" id="kb-fb-station" maxlength="60" placeholder="z.B. Station 4B">
+        </div>
+        <div class="kb-fb-weit">
+          <button type="button" class="kb-fb-btn" id="kb-fb-submit">Bedarf melden</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindFehlbedarf() {
+  const btn = document.getElementById('kb-fb-submit');
+  if (btn) btn.addEventListener('click', fehlbedarfPruefen);
+}
+
+// Was der Nutzer eingetragen hat, zwischen Rueckfrage und Schreiben.
+let _fbEntwurf = null;
+
+function fehlbedarfPruefen() {
+  const datum   = document.getElementById('kb-fb-datum').value;
+  const schicht = document.getElementById('kb-fb-shift').value;
+  const grund   = document.getElementById('kb-fb-grund').value;
+  const station = document.getElementById('kb-fb-station').value;
+
+  if (!datum) { LPR.showToast('Bitte ein Datum angeben.', 'warn'); return; }
+
+  _fbEntwurf = { datum, schicht, grund, station };
+
+  const sh = SHIFT_LABELS[schicht] || { label: schicht, time: '' };
+  const grundText = (FB_GRUENDE.find(g => g[0] === grund) || [, grund])[1];
+  document.getElementById('kb-fb-summary').innerHTML =
+    `<strong>${escape(fmtDateShort(datum))}</strong> · ${escape(sh.label)}` +
+    (sh.time ? ` (${escape(sh.time)})` : '') +
+    (station ? `<br>Station: ${escape(station)}` : '') +
+    `<br>Grund: ${escape(grundText)}`;
+  document.getElementById('kb-fb-bg').classList.add('show');
+}
+
+function fehlbedarfAbbrechen() {
+  document.getElementById('kb-fb-bg').classList.remove('show');
+  _fbEntwurf = null;
+}
+
+async function fehlbedarfSenden() {
+  if (!_fbEntwurf) { fehlbedarfAbbrechen(); return; }
+  const ja = document.getElementById('kb-fb-ja');
+  ja.disabled = true;
+  const res = await LPR.meldeFehlbedarf(_fbEntwurf);
+  ja.disabled = false;
+  document.getElementById('kb-fb-bg').classList.remove('show');
+  _fbEntwurf = null;
+
+  if (!res.ok) { LPR.showToast(res.error || 'Die Meldung konnte nicht gespeichert werden.', 'warn'); return; }
+
+  // Der Dank sagt, wozu die Meldung gut war. Ohne diesen Satz wirkt der Knopf
+  // wie ein Beschwerdeformular ins Leere — und wird kein zweites Mal benutzt.
+  const form = document.getElementById('kb-fb-form');
+  if (form) {
+    form.outerHTML = `
+      <div class="kb-fb-danke">
+        <strong>Danke — Ihre Meldung ist angekommen.</strong><br>
+        Das hilft uns zu sehen, wo wir mehr Sitzwachen brauchen. Für heute ändert
+        die Meldung nichts: Wenn Sie noch jemanden benötigen, rufen Sie uns bitte
+        an unter <a href="tel:+491743409116">0174 3409116</a>.
+      </div>`;
+  }
+  LPR.showToast('Bedarf gemeldet. Danke!');
+}
+
+document.getElementById('kb-fb-abbrechen').addEventListener('click', fehlbedarfAbbrechen);
+document.getElementById('kb-fb-ja').addEventListener('click', fehlbedarfSenden);
+document.getElementById('kb-fb-bg').addEventListener('click', e => {
+  if (e.target.id === 'kb-fb-bg') fehlbedarfAbbrechen();
+});
 
 function renderFlagChips() {
   const container = document.getElementById('kb-flags');

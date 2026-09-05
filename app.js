@@ -2512,6 +2512,54 @@
   }
 
   /**
+   * VORSTAND: Controlling-Zugang eines Klinikkontos setzen oder entziehen.
+   *
+   * WARUM EINE EIGENE FUNKTION UND NICHT IN setClinicNotifySettings():
+   * Dort stehen Zustellwuensche — wer welche Mail bekommt. Hier steht ein
+   * Zugriffsrecht: das Konto sieht die Summen des GANZEN Hauses. Beides in
+   * einem Aufruf hiesse, dass jedes Speichern der Zustellung das Recht
+   * mitschreibt; ein versehentlich gesetztes Haekchen fuehre bei der naechsten
+   * Adressaenderung stillschweigend mit. Getrennte Knoepfe zwingen zu einer
+   * eigenen Entscheidung — und nur diese Funktion braucht die Rueckprobe.
+   *
+   * RUECKPROBE: Auf clinic_details liegen Trigger, die unerlaubte Werte still
+   * auf den alten Stand zuruecksetzen. PostgREST meldet dann kein Problem —
+   * das Update lief ja durch, es hat nur nichts bewirkt. Wir lesen den Wert
+   * deshalb zurueck, statt der ausbleibenden Fehlermeldung zu glauben.
+   */
+  async function setClinicControlling(accountId, wert) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur der Vorstand kann das ändern.' };
+    }
+    if (!accountId) return { ok: false, error: 'Kein Konto angegeben.' };
+    const soll = !!wert;
+    try {
+      const client = await sb();
+      const { error } = await client
+        .from('clinic_details')
+        .update({ controlling: soll })
+        .eq('id', accountId);
+      if (error) return { ok: false, error: error.message };
+
+      const { data, error: leseFehler } = await client
+        .from('clinic_details')
+        .select('controlling')
+        .eq('id', accountId)
+        .maybeSingle();
+      if (leseFehler) return { ok: false, error: leseFehler.message };
+      if (!data) return { ok: false, error: 'Das Konto wurde nicht gefunden.' };
+      if (!!data.controlling !== soll) {
+        return { ok: false, error: 'Die Datenbank hat die Änderung nicht übernommen. Bitte an die Entwicklung melden.' };
+      }
+      return { ok: true, controlling: !!data.controlling };
+    } catch(e) {
+      console.error('[LPR] setClinicControlling:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
    * Zustellstand der Benachrichtigungen zu einer Buchung.
    *
    * Liest die Sicht, nicht die Outbox: dort stehen Mailadressen aus vielen
@@ -3336,7 +3384,7 @@
         .select(`
           id, clinic_name, address, postal_code, city, contact_person, phone,
           status, linked_clinic_id, rejection_reason,
-          department, notify_email, notify_all_departments,
+          department, notify_email, notify_all_departments, controlling,
           created_at, approved_at, approved_by,
           profiles:profiles!clinic_details_id_fkey(email, full_name)
         `)
@@ -5201,7 +5249,7 @@
     // Präferenzen — Self-Service
     listClinics, getMyPreferences, updateMySoftPreferences, setClinicPreference,
     listAllClinics, clinicIdVorschlag, saveClinic, setClinicActive, clinicUsage, deleteClinic,
-    setClinicNotifySettings, getBookingNotifications,
+    setClinicNotifySettings, setClinicControlling, getBookingNotifications,
     setBookingNoShow, clearBookingNoShow,
     getKpiAmpeln, getKpiPersonen, getBoardMeldungen, setDienstsperre, getAppSettings, setAppSetting,
     interessentUebernehmen, getEhrenamtQuellen, meinEinladungslink,

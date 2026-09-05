@@ -463,6 +463,18 @@ function renderCard(c, isApplication) {
           <button class="ak-btn ak-btn-approve" style="margin-top:9px;"
                   onclick="zustellungSpeichern('${escape(c.id)}')">Zustellung speichern</button>
         </div>
+        <div style="border-top:1px solid #EFEDE6; padding-top:10px;">
+          <label style="display:flex; gap:7px; align-items:flex-start; font-size:13.5px;">
+            <input type="checkbox" id="ctl-${escape(c.id)}" ${c.controlling ? 'checked' : ''} style="margin-top:3px;">
+            <span><strong>Controlling-Zugang</strong> — sieht die Auswertung des ganzen Hauses</span>
+          </label>
+          <p style="font-size:12.5px; line-height:1.55; margin:7px 0 0; padding:9px 12px; background:#FBF3DC; border-left:3px solid #C9A227; border-radius:6px; color:#7A5B14;">
+            Dieses Konto sollte nicht selbst buchen. Buchungen hängen am Konto —
+            wer damit bucht, sieht Auswertung und eigene Buchungsdaten zugleich.
+          </p>
+          <button class="ak-btn ak-btn-approve" style="margin-top:9px;"
+                  onclick="controllingSpeichern('${escape(c.id)}')">Controlling-Zugang speichern</button>
+        </div>
       </div>`;
   }
 
@@ -785,6 +797,35 @@ async function zustellungSpeichern(accountId) {
   });
   if (!res.ok) { showToast('Fehler: ' + res.error); return; }
   showToast('Zustellung gespeichert.');
+  await loadAllTabs();
+  renderTab();
+}
+
+/**
+ * Controlling-Zugang eines Klinikkontos setzen oder entziehen.
+ *
+ * Bewusst ein eigener Knopf neben der Zustellung: das eine regelt, wer Post
+ * bekommt, das andere, wer die Zahlen des ganzen Hauses sieht. Ein Recht
+ * soll nicht als Beifang eines Adress-Speicherns umkippen.
+ *
+ * setClinicControlling() liest den Wert nach dem Schreiben zurueck — auf
+ * clinic_details liegen Trigger, die unerlaubte Werte still zuruecksetzen,
+ * ohne eine Fehlermeldung zu erzeugen.
+ */
+async function controllingSpeichern(accountId) {
+  const feld = document.getElementById('ctl-' + accountId);
+  const res = await LPR.setClinicControlling(accountId, feld.checked);
+  if (!res.ok) {
+    LPR.showToast('Fehler: ' + res.error, 'warn');
+    // Zurueck auf den zuletzt bekannten Stand: ein Haekchen, das gesetzt
+    // aussieht, aber nicht gespeichert wurde, ist schlimmer als keins.
+    await loadAllTabs();
+    renderTab();
+    return;
+  }
+  LPR.showToast(res.controlling
+    ? 'Controlling-Zugang erteilt. Dieses Konto sollte ab jetzt nicht mehr buchen.'
+    : 'Controlling-Zugang entzogen.');
   await loadAllTabs();
   renderTab();
 }

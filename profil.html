@@ -74,7 +74,7 @@
     </form>
   </div>
 
-  <div class="profile-card">
+  <div class="profile-card" id="iban-card">
     <h2>Bankverbindung</h2>
     <p class="sub">Deine IBAN wird für die Auszahlung von Aufwandsentschädigungen verwendet. Sie wird nur intern für Abrechnungen genutzt.</p>
     <form id="iban-form" novalidate>
@@ -89,9 +89,30 @@
     </form>
   </div>
 
-  <div class="profile-card">
+  <div class="profile-card" id="pw-set-card" hidden>
+    <h2>Passwort festlegen</h2>
+    <p class="sub">
+      Bisher führt nur der Anmeldelink in dieses Konto. Ein Passwort ist der zweite
+      Weg — für den Fall, dass eine E-Mail einmal nicht ankommt. Der Anmeldelink
+      funktioniert weiterhin.
+    </p>
+    <form onsubmit="event.preventDefault(); setzeErstesPasswort();">
+      <div class="field">
+        <label for="pws-new">Passwort <span class="req">*</span></label>
+        <input type="password" id="pws-new" autocomplete="new-password" minlength="8" required>
+      </div>
+      <div class="field">
+        <label for="pws-confirm">Passwort bestätigen <span class="req">*</span></label>
+        <input type="password" id="pws-confirm" autocomplete="new-password" minlength="8" required>
+      </div>
+      <div class="field-error" id="pws-error" hidden></div>
+      <button type="submit" class="btn btn-dark" id="pws-save-btn">Passwort festlegen</button>
+    </form>
+  </div>
+
+  <div class="profile-card" id="pw-change-card">
     <h2>Passwort ändern</h2>
-    <p class="sub">Aus Sicherheitsgründen brauchen wir zuerst dein aktuelles Passwort.</p>
+    <p class="sub">Zum Ändern ist zuerst das aktuelle Passwort nötig.</p>
     <form onsubmit="event.preventDefault(); changePw();">
       <div class="field">
         <label for="pw-old">Aktuelles Passwort <span class="req">*</span></label>
@@ -146,6 +167,21 @@ async function loadProfile() {
     return;
   }
   document.getElementById('profile-content').hidden = false;
+
+  // session.role ist die Frontend-Schreibweise ('klinik'), nicht die der
+  // Datenbank ('clinic'). Verwechslung ist hier die haeufigste Fehlerquelle.
+  if (session.role === 'klinik') {
+    document.getElementById('iban-card').hidden = true;
+  }
+
+  // Welche der beiden Passwortkarten? Faellt die Abfrage aus, zeigen wir die
+  // AENDERN-Variante: Wer ein Passwort hat, kann es dann aendern; wer keins hat,
+  // bekommt eine Fehlermeldung. Andersherum waere es eine stille Falle — die
+  // Festlegen-Karte wuerde ein vorhandenes Passwort ohne Rueckfrage ersetzen.
+  const pw = await LPR.hatPasswort();
+  const hatEins = pw.ok ? pw.hat : true;
+  document.getElementById('pw-set-card').hidden    = hatEins;
+  document.getElementById('pw-change-card').hidden = !hatEins;
 
   try {
     const { data, error } = await window.LPRSupabase
@@ -235,6 +271,40 @@ async function changePw() {
   } catch(e) {
     err.textContent = 'Fehler beim Ändern: ' + (e.message || 'unbekannt');
     err.hidden = false;
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+/*
+ * Erstes Passwort setzen — ohne Abfrage eines alten, weil es keins gibt.
+ * Getrennt von changePw(), damit der bestehende Aenderungsweg unberuehrt bleibt.
+ */
+async function setzeErstesPasswort() {
+  const neu     = document.getElementById('pws-new').value;
+  const confirm = document.getElementById('pws-confirm').value;
+  const err     = document.getElementById('pws-error');
+  const btn     = document.getElementById('pws-save-btn');
+  err.hidden = true;
+
+  if (neu !== confirm) {
+    err.textContent = 'Die Passwörter stimmen nicht überein.';
+    err.hidden = false; return;
+  }
+  if (neu.length < 8) {
+    err.textContent = 'Das Passwort muss mindestens 8 Zeichen haben.';
+    err.hidden = false; return;
+  }
+
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = '…';
+  try {
+    const res = await LPR.setzePasswort(neu);
+    if (!res.ok) { err.textContent = res.error; err.hidden = false; return; }
+    document.getElementById('pws-new').value     = '';
+    document.getElementById('pws-confirm').value = '';
+    document.getElementById('pw-set-card').hidden    = true;
+    document.getElementById('pw-change-card').hidden = false;
+    LPR.showToast('✓ Passwort festgelegt');
   } finally {
     btn.disabled = false; btn.textContent = orig;
   }

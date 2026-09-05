@@ -610,6 +610,32 @@ function fmtDateShort(iso) {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 }
+/*
+ * Zeitspanne fuer den Kopf einer zusammengefassten Karte.
+ * fmtDate() kann das nicht — es kennt nur einen einzelnen Tag —, deshalb hier
+ * aus denselben Bausteinen zusammengesetzt: kurzer Wochentag, 2-stelliger Tag,
+ * Monat ausgeschrieben, Jahr. So liest sich der Kopf einer Spanne genau wie
+ * der Kopf eines einzelnen Tages daneben.
+ * Monat und Jahr stehen nur einmal, wenn beide Enden im selben Monat liegen
+ * ("Do., 10. – So., 13. September 2026"); ueber einen Monats- oder
+ * Jahreswechsel hinweg werden beide genannt.
+ */
+function fmtSpanne(vonIso, bisIso) {
+  if (vonIso === bisIso) return fmtDate(vonIso);
+  const a = new Date(vonIso + 'T00:00:00');
+  const b = new Date(bisIso + 'T00:00:00');
+  // weekday:'short' liefert "Do" ohne Punkt, fmtDate zeigt "Do.," — Punkt also
+  // selbst setzen, sonst passt die Spanne nicht zu den anderen Koepfen.
+  const wt  = d => d.toLocaleDateString('de-DE', { weekday: 'short' }) + '., '
+                 + d.toLocaleDateString('de-DE', { day: '2-digit' }) + '.';
+  const mon = d => d.toLocaleDateString('de-DE', { month: 'long' });
+  const gleicherMonat = a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+  const gleichesJahr  = a.getFullYear() === b.getFullYear();
+  const links = gleicherMonat ? wt(a)
+              : gleichesJahr  ? `${wt(a)} ${mon(a)}`
+                              : `${wt(a)} ${mon(a)} ${a.getFullYear()}`;
+  return `${links} – ${wt(b)} ${mon(b)} ${b.getFullYear()}`;
+}
 
 function groupByDate(shifts) {
   const map = new Map();
@@ -653,6 +679,13 @@ const KB_MAX_LEERE_TAGE = 31;
 function isoTag(d) {
   const m = d.getMonth() + 1, t = d.getDate();
   return `${d.getFullYear()}-${m < 10 ? '0' : ''}${m}-${t < 10 ? '0' : ''}${t}`;
+}
+// Naechster Tag als ISO-String. Ueber Date statt String-Arithmetik, damit
+// Monats- und Jahreswechsel von selbst stimmen.
+function tagPlus(iso, n) {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return isoTag(d);
 }
 
 /**
@@ -712,21 +745,46 @@ function renderList() {
     eintraege = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }
 
-  let html = '';
+  // Aufeinanderfolgende leere Tage zu EINEM Block zusammenfassen. Zwanzig
+  // Karten, die alle dasselbe rufen, werden nach zwei Tagen ueberblaettert —
+  // dann waere der Melde-Knopf wieder unsichtbar, nur diesmal aus
+  // Uebersaettigung statt aus Verstecktheit. Die Kalender-Nachbarschaft wird
+  // ausdruecklich geprueft (tagPlus), damit aus zwei Luecken mit einem
+  // belegten Tag dazwischen nie eine durchgehende Spanne wird.
+  const bloecke = [];
   for (const [date, items] of eintraege) {
+    const letzter = bloecke[bloecke.length - 1];
+    if (items.length === 0 && letzter && letzter.items.length === 0
+        && tagPlus(letzter.bis, 1) === date) {
+      letzter.bis = date;
+      letzter.tage++;
+      continue;
+    }
+    bloecke.push({ von: date, bis: date, tage: 1, items });
+  }
+
+  let html = '';
+  for (const blk of bloecke) {
+    const date = blk.von, items = blk.items;
     if (items.length === 0) {
-      // Der Melden-Knopf traegt sein Datum mit: der Nutzer soll es nicht
-      // abtippen muessen, denn genau danach hat er gerade gesucht.
+      // Der Melden-Knopf traegt das Datum mit: der Nutzer soll es nicht
+      // abtippen muessen, denn genau danach hat er gerade gesucht. Bei einer
+      // Spanne ist das der ERSTE Tag — nicht willkuerlich, sondern weil die
+      // Spanne im Kopf darueber steht und das Datumsfeld aenderbar bleibt;
+      // irgendein Tag aus der Mitte waere schwerer zu korrigieren.
+      const text = blk.tage === 1
+        ? 'Keine Sitzwache verfügbar'
+        : `An diesen ${blk.tage} Tagen ist keine Sitzwache verfügbar`;
       html += `
         <div class="kb-day-group kb-day-leer">
           <div class="kb-day-header">
-            <span>${escape(fmtDate(date))}</span>
+            <span>${escape(fmtSpanne(blk.von, blk.bis))}</span>
           </div>
           <div class="kb-shift-row kb-row-leer">
-            <div class="kb-leer-text">Keine Sitzwache verfügbar</div>
-            <button type="button" class="kb-melden-btn" data-datum="${escape(date)}">Bedarf melden</button>
+            <div class="kb-leer-text">${escape(text)}</div>
+            <button type="button" class="kb-melden-btn" data-datum="${escape(blk.von)}">Bedarf melden</button>
           </div>
-          <div class="kb-fb-slot" data-slot="${escape(date)}"></div>
+          <div class="kb-fb-slot" data-slot="${escape(blk.von)}"></div>
         </div>`;
       continue;
     }

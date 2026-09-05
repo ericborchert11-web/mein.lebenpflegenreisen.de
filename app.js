@@ -3996,6 +3996,126 @@
     }
   }
 
+  // ───────────────────────────────────────────────────────
+  // Ungedeckter Bedarf ("Fehlbedarf")
+  //
+  // Findet eine Klinik im Kalender niemanden, entstand bisher ueberhaupt keine
+  // Zeile: Der Bedarf war weg, sobald der Tab zu war. Die Kapazitaets-Ampel
+  // zaehlte deshalb im Zaehler UND im Nenner nur Buchungen, die es gibt — und
+  // wurde umso gruener, je mehr Sitzwachen fehlten. Diese Meldung ist der
+  // Nenner, den es bisher nicht gab.
+  //
+  // Bewusst KEINE Sperre gegen Doppelmeldungen: Zwei Patient:innen in derselben
+  // Schicht sind zwei Luecken. Ein Index darauf wuerde echte zweite Faelle
+  // verschlucken und die Ampel wieder zu gruen faerben; gegen den versehentlichen
+  // Doppelklick hilft die Rueckfrage im Frontend.
+  // ───────────────────────────────────────────────────────
+
+  const FEHLBEDARF_SCHICHTEN = ['morning', 'afternoon', 'night'];
+
+  // 'qualification_missing' fehlt hier mit Absicht: Bei der Buchung spielt die
+  // Qualifikation keine Rolle, die Klinik sieht sie gar nicht — sie kann daraus
+  // also keine Luecke melden. In der Pruefregel der Tabelle bleibt der Wert
+  // erhalten, falls der Vorstand ihn einmal selbst setzt.
+  const FEHLBEDARF_GRUENDE = ['no_volunteer', 'short_notice', 'other'];
+
+  /**
+   * Die Klinik meldet, dass sie fuer eine Schicht niemanden gefunden hat.
+   *
+   * Schreibt direkt in unstaffed_requests, ohne RPC davor: Die Policy
+   * unstaffed_clinic_insert (is_approved_clinic() AND reported_by = auth.uid())
+   * existiert genau dafuer. Eine Funktion mit security definer wuerde sie
+   * uebergehen und damit wertlos machen.
+   */
+  async function meldeFehlbedarf({ datum, schicht, station, grund, notiz } = {}) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    // Rollenpruefung nur der Bequemlichkeit halber — sie erspart der Nutzerin
+    // eine kryptische Datenbankmeldung. Der Riegel ist die Policy, nicht diese
+    // Zeile. 'klinik' ist die Frontend-Schreibweise von 'clinic'.
+    if (s.role !== 'klinik') return { ok: false, error: 'Nur für Klinik-Konten.' };
+
+    if (!datum) return { ok: false, error: 'Bitte ein Datum angeben.' };
+    if (!FEHLBEDARF_SCHICHTEN.includes(schicht)) return { ok: false, error: 'Bitte eine Schicht wählen.' };
+    if (!FEHLBEDARF_GRUENDE.includes(grund))     return { ok: false, error: 'Bitte einen Grund wählen.' };
+
+    const d = new Date(datum + 'T00:00:00');
+    if (isNaN(d.getTime())) return { ok: false, error: 'Das Datum ist nicht lesbar.' };
+    // Vergangenheit ist ausdruecklich erlaubt: Wer erst am Abend dazu kommt,
+    // soll die Luecke von heute Morgen noch melden koennen. Nur weit in der
+    // Zukunft ergibt es keinen Sinn — dort steht noch gar nicht fest, ob sich
+    // jemand meldet.
+    const grenze = new Date();
+    grenze.setHours(0, 0, 0, 0);
+    grenze.setDate(grenze.getDate() + 60);
+    if (d > grenze) {
+      return { ok: false, error: 'Bitte nur Bedarf melden, der höchstens 60 Tage in der Zukunft liegt.' };
+    }
+
+    // clinic_name ist ein Pflichtfeld. Scheitert der Stammsatz, wird hier
+    // KEIN Ersatzwert eingesetzt, sondern abgebrochen: Eine Zeile ohne Klinik
+    // waere in der Auswertung niemandem zuzuordnen und wuerde die Zahl nur
+    // scheinbar verbessern.
+    const mine = await getMyClinic();
+    if (!mine.ok) return { ok: false, error: mine.error || 'Ihre Klinik-Daten konnten nicht geladen werden.' };
+    const details = mine.details;
+    if (!details || !details.clinic_name) {
+      return { ok: false, error: 'Ihre Klinik-Daten sind noch nicht vollständig hinterlegt. Bitte melden Sie sich bei uns.' };
+    }
+
+    try {
+      const { error } = await (await sb())
+        .from('unstaffed_requests')
+        .insert({
+          reported_by:    s.id,
+          source:         'clinic',
+          // Hier steht ein Wert, den niemand gewaehlt hat: Die Unterscheidung
+          // A/B stammt aus einem Briefing und existiert im Betrieb nicht. Die
+          // Spalte ist aber Pflicht und ihre Pruefregel laesst nur 'A' oder 'B'
+          // zu. Wer spaeter nach care_level auswertet, wertet deshalb nichts
+          // aus — die Klinik wird danach absichtlich nicht gefragt.
+          care_level:     'A',
+          // Darf null sein: Eine Klinik ist erst dann mit einem Katalogeintrag
+          // verknuepft, wenn der Vorstand sie zugeordnet hat.
+          clinic_id:      details.linked_clinic_id || null,
+          clinic_name:    details.clinic_name,
+          requested_date: datum,
+          shift:          schicht,
+          station:        (station || '').trim() || null,
+          reason:         grund,
+          notes:          (notiz  || '').trim() || null
+        });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] meldeFehlbedarf:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Gemeldeter Fehlbedarf je Klinik, Monat und Grund — fuer den Vorstand.
+   *
+   * Die Zugangspruefung steckt in der Datenbankfunktion selbst (security
+   * definer mit is_board()-Tor). Die Rollenabfrage hier spart nur den Netzweg.
+   */
+  async function getBoardFehlbedarf(tage) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur für den Vorstand.', zeilen: [] };
+    }
+    const n = Number(tage);
+    try {
+      const { data, error } = await (await sb())
+        .rpc('board_fehlbedarf', { p_tage: n > 0 ? n : 90 });
+      if (error) return { ok: false, error: error.message, zeilen: [] };
+      return { ok: true, zeilen: data || [] };
+    } catch(e) {
+      console.error('[LPR] getBoardFehlbedarf:', e);
+      return { ok: false, error: 'Netzwerkfehler.', zeilen: [] };
+    }
+  }
+
   // Klinik storniert eine eigene Buchung (nur planned, nicht completed).
   // Begründung ist Pflicht und wird — wie bei der Volunteer-Variante — samt
   // Metadaten protokolliert. Die kostenpflichtige Kurzfrist-Markierung
@@ -5300,6 +5420,8 @@
     listAvailableShifts, bookShift, listBookableSlots, bookShiftFair,
     getMyClinicBookings, cancelClinicBooking, cancelMyClinicBooking,
     confirmMyBooking,
+    // Ungedeckter Bedarf — die Klinik meldet, der Vorstand wertet aus
+    meldeFehlbedarf, getBoardFehlbedarf,
     setUnterwegs,
     anreiseStatus,
     pushMoeglich,

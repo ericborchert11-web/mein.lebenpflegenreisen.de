@@ -110,11 +110,12 @@
           abmelden;
 
       } else if (session.role === 'klinik') {
-        // Drei Punkte — hier gibt es nichts zu gruppieren.
+        // Vier Punkte — hier gibt es nichts zu gruppieren.
         navItems =
           punkt('kliniken.html', 'kliniken', 'Klinik-Portal') +
           punkt('klinik-buchen.html', 'klinik-buchen', 'Sitzwache buchen') +
           punkt('klinik-buchungen.html', 'klinik-buchungen', 'Meine Buchungen') +
+          punkt('profil.html', 'profil', 'Profil') +
           abmelden;
 
       } else if (session.role === 'admin') {

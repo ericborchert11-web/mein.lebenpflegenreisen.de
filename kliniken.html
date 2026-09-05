@@ -383,7 +383,10 @@ function renderState() {
     // aufhalten. Faellt die Abfrage aus, bleibt er verborgen — ein fehlender
     // Hinweis ist harmlos, eine haengende Seite nicht.
     LPR.hatPasswort().then((r) => {
-      if (r.ok && !r.hat) document.getElementById('pw-hinweis').hidden = false;
+      // Zuweisung statt if: renderState() laeuft auch nach dem Speichern
+      // geaenderter Daten erneut. Mit einem blossen Einblenden bliebe der
+      // Hinweis stehen, wenn inzwischen ein Passwort gesetzt wurde.
+      document.getElementById('pw-hinweis').hidden = !(r.ok && !r.hat);
     });
   }
 }

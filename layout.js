@@ -110,11 +110,22 @@
           abmelden;
 
       } else if (session.role === 'klinik') {
-        // Vier Punkte — hier gibt es nichts zu gruppieren.
+        // Vier Punkte, bei einem Controlling-Konto fuenf — hier gibt es
+        // nichts zu gruppieren.
+        //
+        // "Auswertung" steht von Anfang an im Menue, aber verborgen: ob das
+        // Konto den Controlling-Zugang traegt, steht in clinic_details und
+        // ist hier noch nicht bekannt. zeigeAuswertungPunkt() blendet ihn
+        // nach der Abfrage ein. Das Menue auf diese Abfrage warten zu lassen
+        // waere der schlechtere Tausch — alle Klinik-Konten haetten die
+        // Verzoegerung, die wenigsten den Nutzen.
+        const auswertung =
+          `<li id="nav-auswertung" hidden><a href="klinik-auswertung.html" class="${c('klinik-auswertung')}">Auswertung</a></li>`;
         navItems =
           punkt('kliniken.html', 'kliniken', 'Klinik-Portal') +
           punkt('klinik-buchen.html', 'klinik-buchen', 'Sitzwache buchen') +
           punkt('klinik-buchungen.html', 'klinik-buchungen', 'Meine Buchungen') +
+          auswertung +
           punkt('profil.html', 'profil', 'Profil') +
           abmelden;
 
@@ -267,6 +278,7 @@
       if (opts.footer !== false) renderFooter();
       if (opts.chatbot !== false) loadChatbot();
       zeigeOffeneInteressenten();
+      zeigeAuswertungPunkt();
     },
     escapeHtml
   };
@@ -295,6 +307,31 @@
       if (error || !data) return;
       el.textContent = data;
       el.hidden = false;
+    } catch (_) { /* still */ }
+  }
+
+  /**
+   * Menuepunkt "Auswertung" fuer Klinik-Konten mit Controlling-Zugang.
+   *
+   * Die Navigation wird synchron gebaut, das Kennzeichen steht in der
+   * Datenbank. Statt das Menue auf die Abfrage warten zu lassen, steht der
+   * Punkt bereits verborgen im Markup und wird hier nachtraeglich
+   * eingeblendet — ein Menuepunkt, der einen Wimpernschlag spaeter erscheint,
+   * ist besser als ein Menue, das einen Wimpernschlag spaeter erscheint.
+   *
+   * Scheitert still, genau wie die Interessenten-Zahl: ohne Antwort bleibt
+   * der Punkt verborgen. Er ist ohnehin nur eine Abkuerzung — der eigentliche
+   * Riegel steht in sitzwachen_auswertung(), und die Seite selbst weist ein
+   * Konto ohne Zugang mit einem Satz ab.
+   */
+  async function zeigeAuswertungPunkt() {
+    const el = document.getElementById('nav-auswertung');
+    if (!el || !window.LPR || !LPR.getMyClinic) return;
+    const s = LPR.getSession ? LPR.getSession() : null;
+    if (!s || s.role !== 'klinik') return;
+    try {
+      const res = await LPR.getMyClinic();
+      if (res.ok && res.details && res.details.controlling) el.hidden = false;
     } catch (_) { /* still */ }
   }
 

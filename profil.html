@@ -110,7 +110,7 @@
     </form>
   </div>
 
-  <div class="profile-card" id="pw-change-card">
+  <div class="profile-card" id="pw-change-card" hidden>
     <h2>Passwort ändern</h2>
     <p class="sub">Zum Ändern ist zuerst das aktuelle Passwort nötig.</p>
     <form onsubmit="event.preventDefault(); changePw();">
@@ -174,14 +174,30 @@ async function loadProfile() {
     document.getElementById('iban-card').hidden = true;
   }
 
-  // Welche der beiden Passwortkarten? Faellt die Abfrage aus, zeigen wir die
-  // AENDERN-Variante: Wer ein Passwort hat, kann es dann aendern; wer keins hat,
-  // bekommt eine Fehlermeldung. Andersherum waere es eine stille Falle — die
-  // Festlegen-Karte wuerde ein vorhandenes Passwort ohne Rueckfrage ersetzen.
-  const pw = await LPR.hatPasswort();
-  const hatEins = pw.ok ? pw.hat : true;
-  document.getElementById('pw-set-card').hidden    = hatEins;
-  document.getElementById('pw-change-card').hidden = !hatEins;
+  /*
+   * Welche der beiden Passwortkarten?
+   *
+   * BEIDE starten im HTML verborgen. Zeigte man vorab eine, saehe ein Konto
+   * ohne Passwort erst "Passwort aendern" mit einem Feld fuer das alte
+   * Passwort, das es nie hatte — und dann springt die Karte um. Genau in dem
+   * Moment denkt jemand, er sei an der falschen Stelle. Lieber kurz nichts
+   * als kurz das Falsche.
+   *
+   * Faellt die Abfrage aus, zeigen wir die AENDERN-Variante: Wer ein Passwort
+   * hat, kann es dann aendern; wer keins hat, bekommt eine Fehlermeldung.
+   * Andersherum waere es eine stille Falle — die Festlegen-Karte wuerde ein
+   * vorhandenes Passwort ohne Rueckfrage ersetzen.
+   *
+   * Nicht awaiten: Die Abfrage ist ein eigener Roundtrip zu auth/v1/user und
+   * hat mit Name, E-Mail und Telefon darunter nichts zu tun. Nacheinander
+   * blieben die Felder einen Roundtrip laenger leer, ohne dass irgendwer
+   * etwas davon haette.
+   */
+  const kartenEntschieden = LPR.hatPasswort().then((pw) => {
+    const hatEins = pw.ok ? pw.hat : true;
+    document.getElementById('pw-set-card').hidden    = hatEins;
+    document.getElementById('pw-change-card').hidden = !hatEins;
+  });
 
   try {
     const { data, error } = await window.LPRSupabase
@@ -199,6 +215,11 @@ async function loadProfile() {
     document.getElementById('pf-phone').value = '';
     console.warn('Profil-Load Fehler:', e);
   }
+
+  // Erst hier abwarten: So laufen beide Abfragen nebeneinander, ein Fehler in
+  // der Kartenentscheidung landet aber trotzdem im Protokoll statt in einer
+  // unbehandelten Promise.
+  try { await kartenEntschieden; } catch (e) { console.warn('Passwortkarte:', e); }
 }
 
 async function saveProfile() {

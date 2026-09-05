@@ -92,6 +92,15 @@
 }
 .kb-day-header .kb-count { font-family: 'Instrument Sans', sans-serif; font-weight: 600; font-size: 13px; color: var(--muted); }
 
+/* ---- Tag ohne Verfuegbarkeit ----
+   Der Tag bekommt dieselbe Karte wie jeder andere, damit die Luecke in der
+   Chronologie sichtbar wird statt zu fehlen. Nur leiser: gedaempfter Kopf,
+   keine Zaehlzeile rechts. Ein "0 Sitzwachen verfuegbar" im Kopf wuerde nur
+   wiederholen, was die Zeile darunter schon sagt, und den leeren Tag optisch
+   genauso laut machen wie die Tage mit echten Diensten. */
+.kb-day-leer .kb-day-header { color: var(--muted); }
+.kb-row-leer .kb-leer-text { color: var(--muted); font-size: 14.5px; }
+
 .kb-shift-row {
   display: grid;
   grid-template-columns: minmax(180px, 260px) 1fr auto;
@@ -101,6 +110,10 @@
   border-bottom: 1px solid var(--border);
 }
 .kb-shift-row:last-child { border-bottom: none; }
+/* Der leere Tag hat keine Schicht-Pille, also auch keine erste Spalte dafuer.
+   Steht bewusst NACH .kb-shift-row (gleiche Spezifitaet, spaeter gewinnt) und
+   VOR den Media-Queries, damit die einspaltige Handy-Ansicht weiter greift. */
+.kb-row-leer { grid-template-columns: 1fr auto; }
 .kb-shift-row .kb-frei {
   font-weight: 600;
   color: var(--green-deep);
@@ -109,6 +122,7 @@
 @media (max-width: 640px) {
   .kb-shift-row { grid-template-columns: 1fr; gap: 10px; }
   .kb-shift-row .kb-book-btn { width: 100%; min-height: 48px; }
+  .kb-shift-row .kb-melden-btn { width: 100%; min-height: 48px; }
 }
 .kb-shift-row .kb-shift-pill {
   display: inline-flex;
@@ -165,6 +179,23 @@
 }
 .kb-shift-row .kb-book-btn:hover { background: #234D38; }
 
+/* Melden ist die Rueckfallebene, nicht der Hauptweg. Deshalb umrandet statt
+   gefuellt: "Buchen →" bleibt der einzige gefuellte Knopf in der Liste und
+   zieht den Blick, auch wenn beide Knopfarten untereinander stehen. */
+.kb-shift-row .kb-melden-btn {
+  background: transparent;
+  color: var(--green-deep);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 15px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kb-shift-row .kb-melden-btn:hover { border-color: var(--green-deep); background: #F6F4EE; }
+
 @media (max-width: 720px) {
   .kb-shift-row {
     grid-template-columns: 1fr;
@@ -172,6 +203,7 @@
     padding: 14px 20px;
   }
   .kb-shift-row .kb-book-btn { justify-self: stretch; padding: 11px 16px; }
+  .kb-shift-row .kb-melden-btn { justify-self: stretch; padding: 10px 16px; }
 }
 
 .kb-empty {
@@ -606,6 +638,51 @@ function applyFilters(shifts) {
   });
 }
 
+/*
+ * Obergrenze fuer die erfundenen (leeren) Tage.
+ * Begruendung: Wer einen Zeitraum von mehr als einem Monat aufmacht, sucht
+ * einen Ueberblick und nicht die eine Luecke am naechsten Donnerstag. Ab da
+ * waeren die leeren Zeilen mehr Rauschen als Hinweis, und die Liste wuerde
+ * bei einem versehentlich weit gesetzten Bis-Datum ins Uferlose wachsen.
+ * 31 = der laengste Kalendermonat, damit "der ganze Oktober" noch passt.
+ */
+const KB_MAX_LEERE_TAGE = 31;
+
+// Lokales Datum als ISO-Tag. new Date().toISOString() waere UTC — in Berlin
+// zeigte das nachts zwischen 0 und 2 Uhr noch den Vortag.
+function isoTag(d) {
+  const m = d.getMonth() + 1, t = d.getDate();
+  return `${d.getFullYear()}-${m < 10 ? '0' : ''}${m}-${t < 10 ? '0' : ''}${t}`;
+}
+
+/**
+ * Alle Tage des gefilterten Zeitraums als ISO-Strings — oder null, wenn keine
+ * leeren Tage gezeigt werden sollen (null heisst: Liste bleibt wie bisher).
+ *
+ * Ohne Bis-Datum ist der Zeitraum offen; dann gaebe es keine sinnvolle
+ * Obergrenze und die Seite wuerde hunderte leere Zeilen erfinden.
+ */
+function leereTageZeitraum() {
+  const to = document.getElementById('kb-to').value;
+  if (!to) return null;
+  const heute = isoTag(new Date());
+  const von = document.getElementById('kb-from').value || heute;
+  // Nie vor heute: Fuer einen vergangenen Tag eine Luecke zu melden, die
+  // niemand mehr fuellen kann, ist nur Laerm.
+  const start = von < heute ? heute : von;
+  if (to < start) return null;
+
+  const tage = [];
+  const d = new Date(start + 'T00:00:00');
+  const ende = new Date(to + 'T00:00:00');
+  while (d <= ende) {
+    if (tage.length >= KB_MAX_LEERE_TAGE) return null;
+    tage.push(isoTag(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return tage;
+}
+
 function renderList() {
   const filtered = applyFilters(allShifts);
   const listEl = document.getElementById('kb-list');
@@ -620,8 +697,39 @@ function renderList() {
     return;
   }
   const groups = groupByDate(filtered);
+
+  // Leere Tage einmischen: Wer am 12. eine Nachtwache braucht und fuer den 12.
+  // steht nichts in der Liste, sah bisher gar nichts — keine Zeile, keinen
+  // Anker. Die Luecke wird erst sichtbar, wenn der Tag trotzdem dasteht.
+  // Vereinigung statt Ersetzen: Tage mit Diensten bleiben in jedem Fall
+  // erhalten, auch wenn sie ausserhalb von [heute … bis] liegen (z.B. die
+  // Nachtschicht von gestern, die erst um 6 Uhr endet).
+  let eintraege = groups;
+  const zeitraum = leereTageZeitraum();
+  if (zeitraum) {
+    const map = new Map(groups);
+    for (const d of zeitraum) if (!map.has(d)) map.set(d, []);
+    eintraege = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }
+
   let html = '';
-  for (const [date, items] of groups) {
+  for (const [date, items] of eintraege) {
+    if (items.length === 0) {
+      // Der Melden-Knopf traegt sein Datum mit: der Nutzer soll es nicht
+      // abtippen muessen, denn genau danach hat er gerade gesucht.
+      html += `
+        <div class="kb-day-group kb-day-leer">
+          <div class="kb-day-header">
+            <span>${escape(fmtDate(date))}</span>
+          </div>
+          <div class="kb-shift-row kb-row-leer">
+            <div class="kb-leer-text">Keine Sitzwache verfügbar</div>
+            <button type="button" class="kb-melden-btn" data-datum="${escape(date)}">Bedarf melden</button>
+          </div>
+          <div class="kb-fb-slot" data-slot="${escape(date)}"></div>
+        </div>`;
+      continue;
+    }
     const summe = items.reduce((n, it) => n + (it.anzahl || 0), 0);
     html += `
       <div class="kb-day-group">
@@ -649,16 +757,41 @@ function renderList() {
   // einzelner Tag unbesetzt bleibt.
   html += `<div class="kb-fb-zeile">Ihre Schicht ist nicht dabei?
     <button type="button" class="kb-fb-link" id="kb-fb-toggle">Bedarf melden</button>
-    <div id="kb-fb-slot"></div>
+    <div class="kb-fb-slot" id="kb-fb-slot"></div>
   </div>`;
 
   listEl.innerHTML = html;
 
+  // Die Feld-IDs im Formular sind fest, es darf also immer nur EIN Formular im
+  // DOM stehen. Alle Aufklapp-Wege raeumen deshalb zuerst alle Slots leer.
+  const alleSlotsLeeren = () => {
+    listEl.querySelectorAll('.kb-fb-slot').forEach(s => { s.innerHTML = ''; });
+  };
+
   document.getElementById('kb-fb-toggle').addEventListener('click', () => {
     const slot = document.getElementById('kb-fb-slot');
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    alleSlotsLeeren();
     slot.innerHTML = fehlbedarfBlock(false);
     bindFehlbedarf();
+  });
+
+  // Melden direkt am leeren Tag — mit dessen Datum, nicht mit dem aus dem
+  // Filter.
+  listEl.querySelectorAll('.kb-melden-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const datum = btn.dataset.datum;
+      const ziel = listEl.querySelector(`.kb-fb-slot[data-slot="${datum}"]`);
+      if (!ziel) return;
+      const warOffen = !!ziel.innerHTML;
+      alleSlotsLeeren();
+      if (warOffen) return;   // zweiter Klick klappt wieder zu
+      // Ist nach einer Schicht gefiltert, hat der Nutzer genau danach gesucht.
+      const sf = document.getElementById('kb-shift-filter').value;
+      ziel.innerHTML = fehlbedarfBlock(false, datum, sf);
+      bindFehlbedarf();
+      ziel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   });
 
   // Buchen-Buttons
@@ -692,15 +825,19 @@ const FB_GRUENDE = [
 
 /**
  * Baut das Meldeformular.
- * Es existiert immer nur einmal auf der Seite — entweder im leeren Zustand
- * oder aufgeklappt unter der Liste —, deshalb feste IDs statt Praefixe.
+ * Es existiert immer nur einmal auf der Seite — im leeren Zustand, aufgeklappt
+ * unter der Liste oder an einem leeren Tag —, deshalb feste IDs statt Praefixe.
+ *
+ * datum/schicht sind optional: Der Aufruf von einem leeren Tag kennt sein
+ * Datum genau und gibt es mit. Die beiden alten Aufrufstellen uebergeben nur
+ * true/false und bekommen unveraendert die Vorbelegung aus dem Filter.
  */
-function fehlbedarfBlock(imLeerenZustand) {
-  // Vorbelegung aus dem Filter: Wer von-Datum gesetzt hat, meint meistens
-  // genau diesen Tag.
-  const vorbelegt = document.getElementById('kb-from').value || '';
+function fehlbedarfBlock(imLeerenZustand, datum, schicht) {
+  // Vorbelegung: der mitgegebene Tag, sonst aus dem Filter — wer ein
+  // von-Datum gesetzt hat, meint meistens genau diesen Tag.
+  const vorbelegt = datum || document.getElementById('kb-from').value || '';
   const schichten = ['morning', 'afternoon', 'night'].map(k =>
-    `<option value="${escape(k)}">${escape((SHIFT_LABELS[k] || {}).label || k)}</option>`).join('');
+    `<option value="${escape(k)}"${k === schicht ? ' selected' : ''}>${escape((SHIFT_LABELS[k] || {}).label || k)}</option>`).join('');
   const gruende = FB_GRUENDE.map(([k, t]) =>
     `<option value="${escape(k)}">${escape(t)}</option>`).join('');
 

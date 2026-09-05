@@ -3187,13 +3187,52 @@
       const client = await sb();
       const { data, error } = await client
         .from('clinic_details')
-        .select('id, clinic_name, address, postal_code, city, contact_person, phone, status, linked_clinic_id, rejection_reason, created_at, approved_at')
+        // controlling faehrt hier mit, statt in einer eigenen Abfrage: Menue
+        // und Auswertungsseite brauchen das Kennzeichen, und der Satz wird
+        // ohnehin geladen. Eine zweite Abfrage waere ein zweiter Weg zur
+        // selben Wahrheit — und einer mehr, der auseinanderlaufen kann.
+        .select('id, clinic_name, address, postal_code, city, contact_person, phone, status, linked_clinic_id, rejection_reason, controlling, created_at, approved_at')
         .eq('id', s.id)
         .maybeSingle();
       if (error) return { ok: false, error: error.message };
       return { ok: true, details: data || null };
     } catch(e) {
       console.error('[LPR] getMyClinic:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Auswertung fuer das Controlling eines Krankenhauses: je Station die Zahl
+   * der geleisteten Dienste, aufgeteilt nach Tarif, und die Kosten.
+   *
+   * Die Zugangspruefung steckt in der Datenbankfunktion, nicht hier: Sie ist
+   * security definer, RLS greift dort also nicht, und ein Riegel im Browser
+   * waere ohnehin keiner.
+   */
+  async function getSitzwachenAuswertung(von, bis) {
+    if (!von || !bis) return { ok: false, error: 'Bitte einen Zeitraum wählen.' };
+    try {
+      const { data, error } = await (await sb())
+        .rpc('sitzwachen_auswertung', { p_von: von, p_bis: bis });
+      if (error) {
+        // Die Meldung der Datenbank ist englisch bzw. technisch. Der einzige
+        // Fall, den eine Nutzerin sinnvoll deuten kann, ist der fehlende
+        // Zugang — alles andere ist ein Fehler, kein Bedienhinweis.
+        if ((error.message || '').includes('Kein Controlling-Zugang')) {
+          return { ok: false, error: 'Dieses Konto hat keinen Controlling-Zugang.' };
+        }
+        console.error('[LPR] getSitzwachenAuswertung:', error);
+        return { ok: false, error: 'Die Auswertung konnte nicht geladen werden.' };
+      }
+      const zeilen = data || [];
+      return {
+        ok: true,
+        zeilen,
+        preisCent: zeilen.length ? Number(zeilen[0].preis_cent) : null,
+      };
+    } catch (e) {
+      console.error('[LPR] getSitzwachenAuswertung:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
     }
   }
@@ -5203,6 +5242,8 @@
     einsatzPufferLesen, einsatzPufferSchreiben, einsatzPufferLeeren,
     // Klinik-Self-Service (Etappe 1)
     getMyClinic, submitMyClinic,
+    // Controlling-Auswertung fuer das Krankenhaus (nur Summen, keine Buchungen)
+    getSitzwachenAuswertung,
     listClinicsByStatus, approveClinic, rejectClinic,
     // Klinik-Anmeldung (Etappe 5)
     submitClinicApplication, listClinicApplications,

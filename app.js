@@ -341,6 +341,12 @@
    * Fuer den Wechsel eines vorhandenen Passworts bleibt der Weg in profil.html
    * unveraendert, samt Pruefung des alten.
    *
+   * Im Fehlerfall kommt neben dem deutschen Satz ein `grund` zurueck:
+   * 'schwach' | 'sitzung' | 'sonstiges' | 'netz'. Aufrufer, die einen eigenen
+   * Text zeigen wollen, koennen damit unterscheiden, statt die englische
+   * Rohmeldung nach Stichworten zu durchsuchen — passwort-neu.html tut genau
+   * das, siehe dort.
+   *
    * Das bisherige Metadatum wird mitgegeben: updateUser({ data }) schreibt die
    * uebergebenen Schluessel, und handle_new_user liest aus demselben Objekt
    * full_name und role. Ein Verlust waere erst bei einem erneuten INSERT
@@ -348,7 +354,7 @@
    */
   async function setzePasswort(neu) {
     if (!neu || neu.length < 8) {
-      return { ok: false, error: 'Passwort muss mindestens 8 Zeichen lang sein.' };
+      return { ok: false, grund: 'schwach', error: 'Passwort muss mindestens 8 Zeichen lang sein.' };
     }
     try {
       const client = await sb();
@@ -367,17 +373,17 @@
         console.error('[LPR] setzePasswort:', error);
         const roh = error.message || '';
         if (error.code === 'weak_password' || /password should be|at least|too weak|weak password/i.test(roh)) {
-          return { ok: false, error: 'Das Passwort ist zu kurz oder zu leicht zu erraten. Bitte wählen Sie ein längeres Passwort mit mindestens 8 Zeichen.' };
+          return { ok: false, grund: 'schwach', error: 'Das Passwort ist zu kurz oder zu leicht zu erraten. Bitte wählen Sie ein längeres Passwort mit mindestens 8 Zeichen.' };
         }
         if (/session|jwt|token|not authenticated|logged in|auth/i.test(roh) || error.code === 'session_not_found') {
-          return { ok: false, error: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich neu an und versuchen Sie es noch einmal.' };
+          return { ok: false, grund: 'sitzung', error: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich neu an und versuchen Sie es noch einmal.' };
         }
-        return { ok: false, error: 'Das Passwort konnte nicht gesetzt werden. Bitte versuchen Sie es erneut.' };
+        return { ok: false, grund: 'sonstiges', error: 'Das Passwort konnte nicht gesetzt werden. Bitte versuchen Sie es erneut.' };
       }
       return { ok: true };
     } catch (e) {
       console.error('[LPR] setzePasswort:', e);
-      return { ok: false, error: 'Netzwerkfehler. Bitte erneut versuchen.' };
+      return { ok: false, grund: 'netz', error: 'Netzwerkfehler. Bitte erneut versuchen.' };
     }
   }
 

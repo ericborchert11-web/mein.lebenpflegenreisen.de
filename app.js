@@ -3038,7 +3038,7 @@
       const client = await sb();
       const [profileRes, prefsRes] = await Promise.all([
         client.from('profiles')
-          .select('qualifications, activity_types, preferred_shifts, home_plz, max_km')
+          .select('qualifications, activity_types, preferred_shifts, home_plz, max_km, tarif')
           .eq('id', userId)
           .single(),
         client.from('clinic_preferences')
@@ -3059,6 +3059,9 @@
           preferredShifts:  profileRes.data.preferred_shifts || [],
           homePlz:          profileRes.data.home_plz || '',
           maxKm:            profileRes.data.max_km != null ? String(profileRes.data.max_km) : '',
+          // Ohne Einstufung gilt T2. Das ist auch der Default der Spalte —
+          // T1 steht nur da, wo jemand den Nachweis gesehen hat.
+          tarif:            profileRes.data.tarif === 'T1' ? 'T1' : 'T2',
           clinicPrefs
         }
       };

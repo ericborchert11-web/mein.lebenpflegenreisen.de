@@ -147,6 +147,26 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
 }
 .pref-input-row input:focus, .pref-input-row select:focus { outline: none; border-color: var(--green); }
 
+/* ── Tarif-Einstufung ──
+   Bewusst ein eigener Block und kein weiteres Ankreuzfeld bei den
+   Qualifikationen: Ein Haekchen zwischen "Demenz-Schulung" und
+   "Erste-Hilfe-Kurs" saehe aus wie eine Schulung — es veraendert aber eine
+   Zahl in der Budgetabrechnung eines Krankenhauses. */
+.mw-tarif { max-width: 420px; }
+.mw-tarif label {
+  font-size: 12.5px; font-weight: 600; color: var(--green-deep);
+  margin-bottom: 6px; display: block;
+}
+.mw-tarif select {
+  width: 100%; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); padding: 9px 12px;
+  font-family: inherit; font-size: 13.5px; background: #fff;
+}
+.mw-tarif select:focus { outline: none; border-color: var(--green); }
+.mw-hint {
+  font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 10px;
+}
+
 .clinics-list { display: flex; flex-direction: column; gap: 6px; }
 .clinic-row {
   display: flex; align-items: center; justify-content: space-between;
@@ -320,6 +340,26 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
         Welche Arten von Einsätzen möchte die Person grundsätzlich machen?
       </div>
       <div class="pref-grid" id="pref-types"></div>
+    </div>
+
+    <!-- HART: Tarif-Einstufung für die Sana-Abrechnung -->
+    <div class="pd-section">
+      <div class="pd-section-head">
+        <h4>Tarif-Einstufung</h4>
+        <span class="type-label hard">Hart · Admin</span>
+      </div>
+      <div class="mw-tarif">
+        <label for="mw-tarif-sel">Tarif für die Sana-Abrechnung</label>
+        <select id="mw-tarif-sel">
+          <option value="T2">T2 — keine einjährige Pflegeausbildung</option>
+          <option value="T1">T1 — mindestens einjährige Pflegeausbildung</option>
+        </select>
+        <p class="mw-hint">
+          Nur setzen, wenn der Nachweis vorliegt. Sana rechnet T1-Dienste über die DSA
+          gegen das Pflegebudget ab. Bei uns ändert die Einstufung nichts an Preis
+          oder Auszahlung.
+        </p>
+      </div>
     </div>
 
     <!-- WEICH: Schichten -->
@@ -690,6 +730,7 @@ async function openProfile(userId, email, name) {
   document.getElementById('pref-compliance').innerHTML = '<div style="color:var(--muted); font-size:12px;">Lade …</div>';
   document.getElementById('pref-plz').value   = '';
   document.getElementById('pref-maxkm').value = '';
+  document.getElementById('mw-tarif-sel').value = 'T2';
 
   document.getElementById('profile-dialog').showModal();
 
@@ -710,7 +751,7 @@ async function openProfile(userId, email, name) {
     if (prefsRes && prefsRes.error) {
       showToast('Präferenzen konnten nicht geladen werden: ' + prefsRes.error);
     }
-    _currentPrefs = { qualifications: [], activityTypes: [], preferredShifts: [], clinicPrefs: {}, homePlz: '', maxKm: '' };
+    _currentPrefs = { qualifications: [], activityTypes: [], preferredShifts: [], clinicPrefs: {}, homePlz: '', maxKm: '', tarif: 'T2' };
   } else {
     _currentPrefs = prefsRes.preferences;
   }
@@ -766,6 +807,11 @@ function renderProfileSections() {
       </div>`;
     }).join('');
   }
+
+  // Tarif — alles ausser einem ausdruecklichen T1 ist T2. Ein fehlender oder
+  // leerer Wert darf hier keine leere Auswahl zeigen, sonst saehe eine nicht
+  // eingestufte Person aus wie eine, deren Einstufung verlorengegangen ist.
+  document.getElementById('mw-tarif-sel').value = p.tarif === 'T1' ? 'T1' : 'T2';
 
   // Anfahrt
   document.getElementById('pref-plz').value   = p.homePlz || '';
@@ -938,6 +984,7 @@ async function saveProfile() {
   const missing = [];
   if (typeof LPR.setUserHardPreferences !== 'function') missing.push('setUserHardPreferences');
   if (typeof LPR.setUserSoftPreferences !== 'function') missing.push('setUserSoftPreferences');
+  if (typeof LPR.setUserTarif !== 'function') missing.push('setUserTarif');
   if (missing.length > 0) {
     showToast('Fehler: API unvollständig (' + missing.join(', ') + '). Bitte Strg+Shift+R drücken.');
     return;
@@ -948,18 +995,21 @@ async function saveProfile() {
   const preferredShifts = [...document.querySelectorAll('[data-shift]:checked')].map(cb => cb.dataset.shift);
   const homePlz         = document.getElementById('pref-plz').value.trim();
   const maxKm           = document.getElementById('pref-maxkm').value;
+  const tarif           = document.getElementById('mw-tarif-sel').value;
 
   const saveBtn = document.querySelector('.pd-save');
   const oldText = saveBtn.textContent;
   saveBtn.disabled = true;
   saveBtn.textContent = 'Speichern …';
 
-  let hardRes, softRes;
+  let hardRes, softRes, tarifRes;
   try {
-    // Hart und weich parallel speichern
-    [hardRes, softRes] = await Promise.all([
+    // Hart, weich und Tarif parallel speichern — die Karte schreibt alle
+    // Felder in einem Rutsch, nur die Klinik-Praeferenzen laufen sofort.
+    [hardRes, softRes, tarifRes] = await Promise.all([
       LPR.setUserHardPreferences(_currentUser.id, { qualifications, activityTypes }),
-      LPR.setUserSoftPreferences(_currentUser.id, { preferredShifts, homePlz, maxKm })
+      LPR.setUserSoftPreferences(_currentUser.id, { preferredShifts, homePlz, maxKm }),
+      LPR.setUserTarif(_currentUser.id, tarif)
     ]);
   } catch (e) {
     saveBtn.disabled = false;
@@ -979,6 +1029,14 @@ async function saveProfile() {
   }
   if (!softRes || !softRes.ok) {
     showToast('Schichten/Anfahrt: ' + ((softRes && softRes.error) || 'Fehler'));
+    return;
+  }
+  // Der Spaltenschutz in der Datenbank setzt einen nicht erlaubten Wert still
+  // zurueck; setUserTarif erkennt das beim Zuruecklesen und meldet es. Diese
+  // Meldung muss sichtbar werden — sonst zeigt die Seite "gespeichert", waehrend
+  // in der Sana-Statistik weiter der alte Tarif steht.
+  if (!tarifRes || !tarifRes.ok) {
+    showToast('Tarif: ' + ((tarifRes && tarifRes.error) || 'Fehler'));
     return;
   }
 

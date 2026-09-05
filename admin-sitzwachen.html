@@ -39,11 +39,15 @@
 .as-ampel.gruen { border-left-color:#2E7D32; }
 .as-ampel.gelb  { border-left-color:#B8860B; }
 .as-ampel.rot   { border-left-color:#9B2C2C; }
+/* Grau, nicht gruen: "noch unklar" ist kein guter Zustand, sondern ein
+   fehlender Messwert. */
+.as-ampel.unbekannt { border-left-color:#9A968C; }
 .as-ampel h3 { margin:0; font-size:14px; color:#7A8270; font-weight:600; }
 .as-ampel .wert { font-size:24px; font-weight:800; margin:3px 0 6px; }
 .as-ampel.gruen .wert { color:#2E7D32; }
 .as-ampel.gelb  .wert { color:#B8860B; }
 .as-ampel.rot   .wert { color:#9B2C2C; }
+.as-ampel.unbekannt .wert { color:#7A8270; }
 .as-ampel .zahl { font-size:14px; color:#3A423A; }
 .as-ampel .warum { font-size:12.5px; color:#7A8270; margin-top:8px; cursor:help; border-bottom:1px dotted #B8B2A4; display:inline-block; }
 .as-details { margin-top:18px; border-top:1px solid #EEE9DD; padding-top:12px; }
@@ -197,6 +201,15 @@ h1 { margin:0 0 4px; }
       <div id="ampel-karten" class="as-ampel-reihe">
         <div class="as-empty">Wird geladen…</div>
       </div>
+      <div class="as-details">
+        <h3 style="margin:0 0 10px;font-size:15px;">Gemeldeter Fehlbedarf · 90 Tage</h3>
+        <p class="as-hint">
+          Es ist eine Selbstmeldung. Wer im Kalender niemanden findet, meldet es oft nicht.
+          Die Zahl ist eine Untergrenze, kein Messwert.
+        </p>
+        <div id="fehlbedarf-liste"><div class="as-empty">Wird geladen…</div></div>
+      </div>
+
       <details class="as-details">
         <summary>Zuverlässigkeit je Person</summary>
         <div id="ampel-personen"></div>
@@ -216,7 +229,7 @@ h1 { margin:0 0 4px; }
 </div>
 </main>
 
-<script src="app.js?v20260721b"></script>
+<script src="app.js?v20260905c"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -263,7 +276,9 @@ function switchTab(name) {
 }
 
 // ===================== Ampeln =====================
-const AMPEL_WORT = { gruen: 'Grün', gelb: 'Gelb', rot: 'Rot' };
+// 'unbekannt' kommt aus v_kpi_capacity, sobald es keinen Nenner gibt — also
+// solange keine Klinik einen ungedeckten Bedarf gemeldet hat.
+const AMPEL_WORT = { gruen: 'Grün', gelb: 'Gelb', rot: 'Rot', unbekannt: 'Noch unklar' };
 
 async function loadAmpeln() {
   const el = document.getElementById('ampel-karten');
@@ -283,6 +298,36 @@ async function loadAmpeln() {
       '<div class="warum" title="' + esc(warum) + '">Warum?</div>' +
     '</div>';
 
+  // Die Besetzungsquote ist neu gerechnet: geleistete Dienste geteilt durch
+  // geleistete PLUS gemeldete Lücken. Die alte Formel hatte im Zähler und im
+  // Nenner nur Buchungen, die es gibt — ein Bedarf, den niemand übernommen hat,
+  // kam gar nicht vor. Sie stand deshalb praktisch immer bei 100 %, und je mehr
+  // Sitzwachen fehlten, desto grüner sah sie aus.
+  //
+  // Hat noch niemand eine Lücke gemeldet, fehlt der Nenner. Dann steht hier ein
+  // Satz und keine Zahl: Eine Prozentzahl ohne Grundlage ist schlimmer als keine.
+  const kOhneNenner = k.ampel === 'unbekannt' || k.besetzungsquote === null || k.besetzungsquote === undefined;
+  const kSatz = 'Es liegen noch keine Meldungen über unbesetzten Bedarf vor.';
+
+  const kZahl = esc(k.aktive_personen ?? 0) + ' aktive Ehrenamtliche<br>Bedarf '
+    + esc(k.bedarf_monat ?? 0) + '/Monat'
+    + (kOhneNenner
+        ? '<br>' + esc(kSatz)
+        : '<br>Besetzung ' + esc(k.besetzungsquote) + ' % — ' + esc(k.versorgt_30t ?? 0)
+          + ' geleistet, ' + esc(k.luecken_30t ?? 0) + ' gemeldete Lücken (30 Tage)');
+
+  const kWarum = 'Besetzung = geleistete Dienste geteilt durch geleistete plus gemeldete Lücken '
+    + '(30 Tage). Grün ab dem 1,3-fachen des benötigten Pools und ab 95 % Besetzung. '
+    + 'Bei GELB mit der Akquise anfangen, nicht erst bei Rot — bis jemand einsatzbereit '
+    + 'ist, vergehen 4 bis 6 Wochen. '
+    + (kOhneNenner
+        ? kSatz + ' Aktuell: ' + (k.aktive_personen ?? 0) + ' aktiv, '
+          + (k.benoetigt_bei_2 ?? 0) + ' benötigt.'
+        : 'Aktuell: ' + (k.aktive_personen ?? 0) + ' aktiv, ' + (k.benoetigt_bei_2 ?? 0)
+          + ' benötigt, ' + (k.versorgt_30t ?? 0) + ' geleistet gegen '
+          + (k.luecken_30t ?? 0) + ' gemeldete Lücken, davon '
+          + (k.kurzfristig_30t ?? 0) + ' kurzfristig.');
+
   el.innerHTML =
     karte('Zuverlässigkeit · 90 Tage', z.ampel, z.quote_prozent,
       esc(z.no_shows_90t ?? 0) + ' No-Shows bei ' + esc(z.dienste_90t ?? 0) + ' Diensten ('
@@ -290,16 +335,48 @@ async function loadAmpeln() {
       'Grün unter 3 % und kein No-Show in 30 Tagen · Gelb 3–8 % oder 1 in 30 Tagen · '
         + 'Rot über 8 % oder 2 in 30 Tagen. Aktuell: ' + (z.quote_prozent ?? 0) + ' %, '
         + (z.no_shows_30t ?? 0) + ' in den letzten 30 Tagen.') +
-    karte('Kapazität · Akquise-Signal', k.ampel, null,
-      esc(k.aktive_personen ?? 0) + ' aktive Ehrenamtliche<br>Bedarf ' + esc(k.bedarf_monat ?? 0)
-        + '/Monat · Besetzung ' + esc(k.besetzungsquote ?? 0) + ' %',
-      'Grün ab dem 1,3-fachen des benötigten Pools und ab 95 % Besetzung. '
-        + 'Bei GELB mit der Akquise anfangen, nicht erst bei Rot — bis jemand einsatzbereit '
-        + 'ist, vergehen 4 bis 6 Wochen. Aktuell: ' + (k.aktive_personen ?? 0) + ' aktiv, '
-        + (k.benoetigt_bei_2 ?? 0) + ' benötigt.');
+    karte('Kapazität · Akquise-Signal', k.ampel, null, kZahl, kWarum);
 
   ladePersonen();
   ladeSchwellen();
+  ladeFehlbedarf();
+}
+
+// ── Gemeldeter Fehlbedarf ────────────────────────────────────────────────
+// Der Gegenpol zur Kapazitaets-Ampel: Hier steht, welcher Bedarf gemeldet und
+// nicht gedeckt wurde. Bewusst eine schlichte Liste — eine Grafik wuerde einer
+// Selbstmeldung eine Genauigkeit geben, die sie nicht hat.
+const FB_GRUND_WORT = {
+  no_volunteer:          'Niemand verfügbar',
+  short_notice:          'Zu kurzfristig gefragt',
+  qualification_missing: 'Qualifikation fehlte',
+  other:                 'Anderer Grund'
+};
+
+function fbMonat(iso) {
+  if (!iso) return '—';
+  const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
+  if (isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+}
+
+async function ladeFehlbedarf() {
+  const el = document.getElementById('fehlbedarf-liste');
+  const res = await LPR.getBoardFehlbedarf(90);
+  if (!res.ok) { el.innerHTML = '<div class="as-empty">' + esc(res.error || 'Fehler.') + '</div>'; return; }
+  const zeilen = res.zeilen || [];
+  if (!zeilen.length) {
+    // Kein Grund zur Entwarnung: Es kann auch heissen, dass niemand meldet.
+    el.innerHTML = '<div class="as-empty">Es wurde bisher kein Fehlbedarf gemeldet.</div>';
+    return;
+  }
+  el.innerHTML = '<table class="as-table"><thead><tr><th>Klinik</th><th>Monat</th><th>Grund</th>'
+    + '<th>Lücken</th></tr></thead><tbody>'
+    + zeilen.map(r =>
+        '<tr><td>' + esc(r.klinik || '—') + '</td><td>' + esc(fbMonat(r.monat)) + '</td><td>'
+        + esc(FB_GRUND_WORT[r.grund] || r.grund || '—') + '</td><td>' + esc(r.luecken ?? 0)
+        + '</td></tr>').join('')
+    + '</tbody></table>';
 }
 
 async function ladePersonen() {

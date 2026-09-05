@@ -49,12 +49,12 @@
 <div class="profile-wrap">
 
   <div style="margin-bottom: 20px;">
-    <a href="mein-bereich.html" style="color: var(--green); font-weight: 700; text-decoration: none; font-size: 14px;">← Zurück zum Bereich</a>
+    <a href="mein-bereich.html" id="zurueck-link" style="color: var(--green); font-weight: 700; text-decoration: none; font-size: 14px;">← Zurück zum Bereich</a>
   </div>
 
   <div class="profile-card">
     <h2>Persönliche Daten</h2>
-    <p class="sub">Deine Angaben für Bestätigungen und Abrechnungen.</p>
+    <p class="sub">Angaben für Bestätigungen und Abrechnungen.</p>
     <form onsubmit="event.preventDefault(); saveProfile();">
       <div class="field">
         <label for="pf-name">Name</label>
@@ -63,7 +63,7 @@
       <div class="field">
         <label for="pf-email">E-Mail</label>
         <input type="email" id="pf-email" disabled style="background: #F0EEE8; color: var(--muted);">
-        <div class="field-hint">Die E-Mail ist dein Login. Um sie zu ändern, schreib bitte an <a href="mailto:vorstand@lebenpflegenreisen.de" style="color:var(--green-deep); font-weight:600;">vorstand@lebenpflegenreisen.de</a>.</div>
+        <div class="field-hint">Die E-Mail ist der Zugang zum Konto. Zum Ändern bitte eine Nachricht an <a href="mailto:vorstand@lebenpflegenreisen.de" style="color:var(--green-deep); font-weight:600;">vorstand@lebenpflegenreisen.de</a>.</div>
       </div>
       <div class="field">
         <label for="pf-phone">Telefon</label>
@@ -135,12 +135,12 @@
   <div class="profile-card contact-card">
     <h2 style="font-size: 18px; margin-bottom: 8px;">Konto löschen</h2>
     <p style="margin-bottom: 6px;">
-      Du hast das Recht, die Löschung deiner personenbezogenen Daten zu verlangen
+      Es besteht das Recht, die Löschung personenbezogener Daten zu verlangen
       (Art. 17 DSGVO). Aus rechtlichen Gründen — etwa wegen laufender Abrechnungen
       oder gesetzlicher Aufbewahrungsfristen — prüfen wir jede Löschanfrage einzeln.
     </p>
     <p style="margin-bottom: 6px;">
-      <strong>So geht's:</strong> Schreib uns eine kurze E-Mail an
+      <strong>So geht's:</strong> Eine kurze E-Mail genügt, an
       <a href="mailto:vorstand@lebenpflegenreisen.de?subject=Konto-L%C3%B6schung">vorstand@lebenpflegenreisen.de</a>.
       Wir bestätigen den Eingang und kümmern uns innerhalb von 14 Tagen um die
       Löschung bzw. die rechtssichere Sperrung Ihres Kontos.
@@ -152,7 +152,7 @@
 </main>
 
 <script src="supabase-client.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v20260905a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'profil' });
@@ -172,6 +172,12 @@ async function loadProfile() {
   // Datenbank ('clinic'). Verwechslung ist hier die haeufigste Fehlerquelle.
   if (session.role === 'klinik') {
     document.getElementById('iban-card').hidden = true;
+    // mein-bereich.html laesst nur Ehrenamt und Vorstand hinein und begruesst
+    // eine Klinik mit "Bitte anmelden" — das liest sich wie ein Rauswurf.
+    // Solange profil.html fuer Kliniken unerreichbar war, fiel es nicht auf.
+    const zurueck = document.getElementById('zurueck-link');
+    zurueck.href = 'kliniken.html';
+    zurueck.textContent = '← Zurück zum Klinik-Portal';
   }
 
   /*
@@ -194,9 +200,32 @@ async function loadProfile() {
    * etwas davon haette.
    */
   const kartenEntschieden = LPR.hatPasswort().then((pw) => {
-    const hatEins = pw.ok ? pw.hat : true;
-    document.getElementById('pw-set-card').hidden    = hatEins;
-    document.getElementById('pw-change-card').hidden = !hatEins;
+    /*
+     * Die Rolle steht bewusst VOR dem Kennzeichen.
+     *
+     * Das Kennzeichen wird erst geschrieben, seit es diese Funktion gibt —
+     * kein einziges Bestandskonto traegt es. Entschiede allein das
+     * Kennzeichen, saehen am Tag des Deploys ALLE Ehrenamtlichen und der
+     * Vorstand "Passwort festlegen" statt "aendern": ein Satz, der fuer sie
+     * nicht stimmt, und schlimmer, der Wegfall der Abfrage des alten
+     * Passworts. Wer an einem unbeaufsichtigten angemeldeten Browser sitzt,
+     * koennte das Konto mit zwei Feldern uebernehmen.
+     *
+     * Die Festlegen-Karte gilt deshalb nur dort, wo sie gemeint ist: bei
+     * Klinik-Konten, die ueber den Anmeldelink hereinkommen und nie ein
+     * Passwort bekommen haben. Fuer alle anderen bleibt alles, wie es war.
+     *
+     * Restluecke, bewusst in Kauf genommen: Die wenigen Klinik-Konten aus der
+     * Zeit vor Etappe 5 haben sich seinerzeit selbst ein Passwort vergeben
+     * und tragen trotzdem kein Kennzeichen. Sie koennen ein neues setzen,
+     * ohne das alte zu nennen — aus einer bereits angemeldeten Sitzung, also
+     * dieselbe Vertrauensgrenze wie beim Anmeldelink. Nach dem ersten Setzen
+     * heilt sich der Fall von selbst.
+     */
+    const istKlinik = session.role === 'klinik';
+    const darfFestlegen = istKlinik && pw.ok && !pw.hat;
+    document.getElementById('pw-set-card').hidden    = !darfFestlegen;
+    document.getElementById('pw-change-card').hidden = darfFestlegen;
   });
 
   try {

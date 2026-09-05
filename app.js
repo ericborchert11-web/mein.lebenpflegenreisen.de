@@ -342,7 +342,7 @@
    * unveraendert, samt Pruefung des alten.
    *
    * Im Fehlerfall kommt neben dem deutschen Satz ein `grund` zurueck:
-   * 'schwach' | 'sitzung' | 'sonstiges' | 'netz'. Aufrufer, die einen eigenen
+   * 'schwach' | 'gleich' | 'sitzung' | 'sonstiges' | 'netz'. Aufrufer, die einen eigenen
    * Text zeigen wollen, koennen damit unterscheiden, statt die englische
    * Rohmeldung nach Stichworten zu durchsuchen — passwort-neu.html tut genau
    * das, siehe dort.
@@ -358,8 +358,19 @@
     }
     try {
       const client = await sb();
-      const { data: vorher } = await client.auth.getUser();
-      const bisher = (vorher && vorher.user && vorher.user.user_metadata) || {};
+      /*
+       * Der Fehler von getUser() wird ausdruecklich geprueft. Ohne das waere
+       * `bisher` im Fehlerfall ein leeres Objekt, und updateUser({ data })
+       * schriebe danach NUR passwort_gesetzt_am — full_name und role waeren
+       * aus dem Metadatum verschwunden. Sichtbar wuerde das erst Monate
+       * spaeter beim naechsten INSERT und waere dann nicht mehr erklaerbar.
+       */
+      const { data: vorher, error: vorherFehler } = await client.auth.getUser();
+      if (vorherFehler || !vorher || !vorher.user) {
+        console.error('[LPR] setzePasswort, getUser:', vorherFehler);
+        return { ok: false, grund: 'sitzung', error: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich neu an und versuchen Sie es noch einmal.' };
+      }
+      const bisher = vorher.user.user_metadata || {};
       const { error } = await client.auth.updateUser({
         password: neu,
         data: Object.assign({}, bisher, { passwort_gesetzt_am: new Date().toISOString() }),
@@ -372,6 +383,17 @@
          */
         console.error('[LPR] setzePasswort:', error);
         const roh = error.message || '';
+        /*
+         * ZUERST der Gleichheitsfall. GoTrue antwortet auf ein Passwort, das
+         * dem bisherigen entspricht, mit "New password should be different
+         * from the old password." — darin steckt "password should be", und
+         * die Schwach-Erkennung darunter wuerde sonst zuschlagen. Der Nutzer
+         * bekaeme "waehlen Sie ein laengeres Passwort", verlaengerte es, und
+         * das Problem bliebe.
+         */
+        if (error.code === 'same_password' || /different from the old/i.test(roh)) {
+          return { ok: false, grund: 'gleich', error: 'Das neue Passwort muss sich vom bisherigen unterscheiden.' };
+        }
         if (error.code === 'weak_password' || /password should be|at least|too weak|weak password/i.test(roh)) {
           return { ok: false, grund: 'schwach', error: 'Das Passwort ist zu kurz oder zu leicht zu erraten. Bitte wählen Sie ein längeres Passwort mit mindestens 8 Zeichen.' };
         }

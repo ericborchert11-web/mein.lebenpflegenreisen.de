@@ -66,7 +66,7 @@
 </div>
 </main>
 
-<script src="app.js"></script>
+<script src="app.js?v20260905a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: '' });
@@ -121,13 +121,18 @@ async function doSet() {
      * alt. Der Nutzer soll den Weg erfahren, der ihn weiterbringt — einen
      * neuen Link anfordern —, nicht die technische Ursache.
      *
-     * AUSSER bei grund === 'schwach'. Heute kann der Fall kaum auftreten (das
+     * AUSSER bei grund === 'schwach' und 'netz'. Ein Netzwerkfehler hat mit
+     * dem Link nichts zu tun — wer beim Speichern kurz offline ist, wuerde
+     * sonst einen neuen Link anfordern, wieder scheitern, wieder anfordern.
+     * Der bisherige Weg ueber setNewPassword() zeigte hier korrekt
+     * "Netzwerkfehler. Bitte erneut versuchen."
+     * Heute kann der Fall kaum auftreten (das
      * Feld traegt minlength=8 und required), aber sobald jemand im Dashboard
      * die Passwort-Regeln verschaerft, lehnt der Server ab und der Nutzer
      * saehe hier "Link abgelaufen" — und wuerde endlos neue Links anfordern,
      * obwohl der Link nie das Problem war. Dann muss die Wahrheit stehen.
      */
-    err.textContent = res.grund === 'schwach'
+    err.textContent = (res.grund === 'schwach' || res.grund === 'netz')
       ? res.error
       : 'Der Link ist abgelaufen oder wurde schon benutzt. Bitte fordern Sie einen neuen an.';
     err.hidden = false;

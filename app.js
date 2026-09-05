@@ -279,6 +279,17 @@
   }
 
   /**
+   * UEBERHOLT — abgeloest durch setzePasswort(). Kein Aufrufer mehr im Portal
+   * (Stand 05.09.2026); passwort-neu.html ist die letzte Seite gewesen.
+   *
+   * Grund der Abloesung: Diese Funktion setzt zwar das Passwort, schreibt aber
+   * das Kennzeichen passwort_gesetzt_am NICHT mit. Wer nur ueber sie zu einem
+   * Passwort kaeme, bekaeme im Portal dauerhaft "Passwort festlegen" statt
+   * "Passwort ändern" angeboten.
+   *
+   * Bleibt trotzdem stehen: sie ist ueber window.LPR exportiert und damit
+   * oeffentliche Flaeche. Fuer Neues bitte setzePasswort() verwenden.
+   *
    * Neues Passwort setzen. Laeuft nur, wenn der Link aus der Mail eine gueltige
    * Recovery-Sitzung hergestellt hat — sonst gibt updateUser einen Fehler.
    */
@@ -348,7 +359,20 @@
         data: Object.assign({}, bisher, { passwort_gesetzt_am: new Date().toISOString() }),
       });
       if (error) {
-        return { ok: false, error: error.message || 'Passwort konnte nicht gesetzt werden.' };
+        /*
+         * GoTrue antwortet englisch. Das darf niemand zu sehen bekommen — aber
+         * es gehoert ins Protokoll, sonst steht bei einer Fehlersuche nur der
+         * deutsche Ersatzsatz da und die eigentliche Ursache ist verloren.
+         */
+        console.error('[LPR] setzePasswort:', error);
+        const roh = error.message || '';
+        if (error.code === 'weak_password' || /password should be|at least|too weak|weak password/i.test(roh)) {
+          return { ok: false, error: 'Das Passwort ist zu kurz oder zu leicht zu erraten. Bitte wählen Sie ein längeres Passwort mit mindestens 8 Zeichen.' };
+        }
+        if (/session|jwt|token|not authenticated|logged in|auth/i.test(roh) || error.code === 'session_not_found') {
+          return { ok: false, error: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich neu an und versuchen Sie es noch einmal.' };
+        }
+        return { ok: false, error: 'Das Passwort konnte nicht gesetzt werden. Bitte versuchen Sie es erneut.' };
       }
       return { ok: true };
     } catch (e) {

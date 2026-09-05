@@ -108,10 +108,23 @@ async function doSet() {
   btn.disabled = true;
   btn.textContent = 'Wird gespeichert …';
 
-  const res = await LPR.setNewPassword(pw);
+  const res = await LPR.setzePasswort(pw);
 
   if (!res.ok) {
-    err.textContent = res.error;
+    /*
+     * Die Meldung der Funktion wird hier bewusst UEBERSCHRIEBEN.
+     *
+     * setzePasswort() dient auch dem eingeloggten Konto und formuliert deshalb
+     * allgemein ("Sitzung abgelaufen", "konnte nicht gesetzt werden"). Auf
+     * DIESER Seite ist man aber ausschliesslich ueber einen Recovery-Link, und
+     * scheitert das Setzen, ist praktisch immer genau der verbraucht oder zu
+     * alt. Der Nutzer soll den Weg erfahren, der ihn weiterbringt — einen
+     * neuen Link anfordern —, nicht die technische Ursache.
+     *
+     * Ein zu kurzes Passwort kommt hier nicht an: das Feld traegt minlength=8
+     * und required, der Browser laesst das Formular gar nicht erst abschicken.
+     */
+    err.textContent = 'Der Link ist abgelaufen oder wurde schon benutzt. Bitte fordern Sie einen neuen an.';
     err.hidden = false;
     btn.disabled = false;
     btn.textContent = 'Passwort speichern';

@@ -311,7 +311,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js"></script>
+<script src="app.js?v20260905b"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'admin-kliniken' });
@@ -678,7 +678,7 @@ async function ladeKliniken() {
       return `<option value="${escape(c.id)}">${escape(c.name)}${ort ? ' · ' + escape(ort) : ''}${ruht}</option>`;
     }).join('');
 
-  if (!res.ok) showToast('Fehler: ' + res.error);
+  if (!res.ok) LPR.showToast('Fehler: ' + res.error);
 }
 
 function renderStamm() {
@@ -782,7 +782,7 @@ async function stammSpeichern(istNeu) {
     notification_cc: document.getElementById('k-cc').value
   }, istNeu);
   if (!res.ok) { fehler.textContent = res.error; fehler.style.display = 'block'; return; }
-  showToast(istNeu ? 'Klinik angelegt.' : 'Klinik geändert.');
+  LPR.showToast(istNeu ? 'Klinik angelegt.' : 'Klinik geändert.');
   _bearbeitet = null;
   await ladeKliniken();
   renderStamm();
@@ -795,8 +795,8 @@ async function zustellungSpeichern(accountId) {
     notify_email:           document.getElementById('nm-' + accountId).checked,
     notify_all_departments: document.getElementById('na-' + accountId).checked
   });
-  if (!res.ok) { showToast('Fehler: ' + res.error); return; }
-  showToast('Zustellung gespeichert.');
+  if (!res.ok) { LPR.showToast('Fehler: ' + res.error); return; }
+  LPR.showToast('Zustellung gespeichert.');
   await loadAllTabs();
   renderTab();
 }
@@ -832,8 +832,8 @@ async function controllingSpeichern(accountId) {
 
 async function stammStilllegen(id, aktiv) {
   const res = await LPR.setClinicActive(id, aktiv);
-  if (!res.ok) { showToast('Fehler: ' + res.error); return; }
-  showToast(aktiv ? 'Wieder aufgenommen.' : 'Stillgelegt.');
+  if (!res.ok) { LPR.showToast('Fehler: ' + res.error); return; }
+  LPR.showToast(aktiv ? 'Wieder aufgenommen.' : 'Stillgelegt.');
   await ladeKliniken(); renderStamm();
 }
 
@@ -866,8 +866,8 @@ async function stammLoeschenFragen(id) {
 
 async function stammLoeschen(id) {
   const res = await LPR.deleteClinic(id);
-  if (!res.ok) { showToast('Fehler: ' + res.error); renderStamm(); return; }
-  showToast(res.geloescht ? 'Klinik gelöscht.' : 'Stillgelegt: ' + res.grund);
+  if (!res.ok) { LPR.showToast('Fehler: ' + res.error); renderStamm(); return; }
+  LPR.showToast(res.geloescht ? 'Klinik gelöscht.' : 'Stillgelegt: ' + res.grund);
   await ladeKliniken(); renderStamm();
 }
 

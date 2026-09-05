@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Auswertung · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.kau-wrap { max-width: 980px; margin: 32px auto 60px; padding: 0 24px; }
+
+.kau-header {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.kau-header h1 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 24px;
+  color: var(--green-deep);
+  margin: 0 0 6px;
+  letter-spacing: -.02em;
+}
+.kau-header p { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; }
+
+.kau-card {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+
+/* Zeitraum-Leiste: Monat als Regelweg, Von/Bis fuer alles andere. */
+.kau-filter { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+.kau-feld { display: flex; flex-direction: column; gap: 4px; }
+.kau-feld label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.kau-feld input {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text);
+}
+.kau-trenner {
+  align-self: stretch;
+  border-left: 1px dashed var(--border);
+  margin: 0 2px;
+}
+.kau-btn {
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--green-deep);
+  background: var(--green-deep);
+  color: #fff;
+  cursor: pointer;
+}
+.kau-btn:hover { opacity: .9; }
+.kau-btn-zweit { background: #fff; color: var(--green-deep); }
+.kau-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Der benutzte Preis steht ueber der Tabelle, nicht im Kleingedruckten:
+   ein falscher Preis soll auffallen, statt still in die Summe zu wandern. */
+.kau-preis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  background: #EDF6D3;
+  border: 1px solid #C8D98A;
+  border-radius: var(--radius-sm);
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #3D5A14;
+}
+.kau-preis small { font-weight: 500; font-size: 12.5px; color: #4E6524; }
+/* `display: flex` schlaegt das [hidden] des Browsers, weil eine eigene Regel
+   immer vor der des Browsers kommt. Ohne diese Zeile stuende die leere
+   Preiszeile im leeren Fall sichtbar da — derselbe Fall wie .nav-badge. */
+.kau-preis[hidden] { display: none; }
+
+.kau-tabelle-huelle { overflow-x: auto; }
+table.kau-tabelle { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.kau-tabelle th, table.kau-tabelle td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+table.kau-tabelle th:first-child, table.kau-tabelle td:first-child {
+  text-align: left;
+  white-space: normal;
+}
+table.kau-tabelle thead th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+  border-bottom: 1.5px solid var(--border);
+}
+table.kau-tabelle tfoot td {
+  font-weight: 800;
+  color: var(--green-deep);
+  border-top: 2px solid var(--green-deep);
+  border-bottom: none;
+}
+/* T1 traegt die Budgetrelevanz — sie darf nicht neben T2 verschwimmen. */
+table.kau-tabelle td.kau-t1 { font-weight: 700; color: var(--green-deep); }
+
+.kau-zaehlweise {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* Leer ist hier der Regelfall, nicht der Stoerfall: im Portal steht noch
+   keine einzige Klinik-Buchung. Der Kasten muss darum ruhig aussehen. */
+.kau-leer {
+  padding: 46px 26px;
+  text-align: center;
+  color: var(--muted);
+}
+.kau-leer p { margin: 0 0 6px; font-size: 15px; color: var(--text); }
+.kau-leer p.kau-leer-zusatz { font-size: 13px; color: var(--muted); }
+
+.kau-hinweis {
+  background: #fff;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  border-left: 4px solid #C9A227;
+  box-shadow: var(--shadow);
+  padding: 24px 28px;
+}
+.kau-hinweis h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 18px;
+  color: var(--green-deep);
+  margin: 0 0 8px;
+}
+.kau-hinweis p { font-size: 14px; line-height: 1.6; margin: 0 0 10px; color: var(--text); }
+.kau-hinweis a { color: var(--green-deep); font-weight: 600; }
+
+.kau-laden { padding: 50px 0; text-align: center; color: var(--muted); }
+
+@media (max-width: 640px) {
+  .kau-wrap { padding: 0 14px; }
+  .kau-filter { gap: 12px; }
+  .kau-trenner { display: none; }
+  .kau-feld { flex: 1 1 130px; }
+  .kau-feld input { width: 100%; }
+  .kau-btn { width: 100%; min-height: 44px; }
+}
+</style>
+</head>
+<body>
+
+<main>
+<div class="kau-wrap">
+
+  <a href="kliniken.html" style="display:inline-flex;align-items:center;gap:6px;margin:0 0 14px;font-size:14px;font-weight:600;color:#1A3A2A;text-decoration:none;">← Zurück zur Übersicht</a>
+
+  <div class="kau-header">
+    <h1>Auswertung</h1>
+    <p>Geleistete Sitzwachen Ihres Hauses je Station, aufgeteilt nach Tarif, mit den entstandenen Kosten.</p>
+  </div>
+
+  <div id="kau-laden" class="kau-laden">Lade…</div>
+
+  <!-- Wächter: kein Controlling-Zugang, kein Klinik-Konto, keine Freigabe. -->
+  <div id="kau-hinweis" class="kau-hinweis" hidden>
+    <h2 id="kau-hinweis-titel"></h2>
+    <p id="kau-hinweis-text"></p>
+    <p><a href="kliniken.html">← Zurück zum Klinik-Portal</a></p>
+  </div>
+
+  <div id="kau-inhalt" hidden>
+
+    <div class="kau-card">
+      <div class="kau-filter">
+        <div class="kau-feld">
+          <label for="kau-monat">Monat</label>
+          <input type="month" id="kau-monat">
+        </div>
+        <div class="kau-trenner" aria-hidden="true"></div>
+        <div class="kau-feld">
+          <label for="kau-von">Von</label>
+          <input type="date" id="kau-von">
+        </div>
+        <div class="kau-feld">
+          <label for="kau-bis">Bis</label>
+          <input type="date" id="kau-bis">
+        </div>
+        <button type="button" class="kau-btn" id="kau-btn-laden">Auswertung anzeigen</button>
+        <button type="button" class="kau-btn kau-btn-zweit" id="kau-btn-csv" disabled>Als CSV herunterladen</button>
+      </div>
+    </div>
+
+    <div class="kau-preis" id="kau-preis" hidden></div>
+
+    <div class="kau-card" id="kau-ergebnis"></div>
+
+    <p class="kau-zaehlweise">
+      Gezählt wird nach dem Datum der Schicht. Nicht enthalten sind stornierte
+      Dienste, Dienste mit der Meldung „nicht erschienen" und Schichten, die
+      noch bevorstehen. Die Auswertung fasst alle Konten Ihres Hauses zusammen.
+    </p>
+
+  </div>
+
+</div>
+</main>
+
+<script src="app.js?v20260905b"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: 'klinik-auswertung' });
+
+function escape(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+
+let _zeilen = [];      // die zuletzt geladenen Zeilen — Grundlage des CSV
+let _preisCent = null; // der Preis, den die Datenbankfunktion benutzt hat
+let _zeitraum = { von: '', bis: '' };
+
+// ── Zeitraum ──────────────────────────────────────────────────────────────
+// Vorbelegt ist der abgelaufene Vormonat. Der laufende Monat waere die
+// naheliegende Wahl, aber halb — und eine halbe Zahl wandert genauso in eine
+// Budgetverhandlung wie eine ganze.
+function iso(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+       + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function monatSetzen(wert) {
+  const [y, m] = String(wert || '').split('-').map(Number);
+  if (!y || !m) return;
+  document.getElementById('kau-von').value = iso(new Date(y, m - 1, 1));
+  // Tag 0 des Folgemonats ist der letzte Tag dieses Monats — spart eine
+  // eigene Tabelle mit Monatslaengen und stimmt auch im Schaltjahr.
+  document.getElementById('kau-bis').value = iso(new Date(y, m, 0));
+}
+
+function vormonatVorbelegen() {
+  const heute = new Date();
+  const v = new Date(heute.getFullYear(), heute.getMonth() - 1, 1);
+  const wert = v.getFullYear() + '-' + String(v.getMonth() + 1).padStart(2, '0');
+  document.getElementById('kau-monat').value = wert;
+  monatSetzen(wert);
+}
+
+// ── Darstellung ───────────────────────────────────────────────────────────
+
+function renderLeer() {
+  document.getElementById('kau-preis').hidden = true;
+  document.getElementById('kau-ergebnis').innerHTML = `
+    <div class="kau-leer">
+      <p>Für diesen Zeitraum liegen keine Dienste vor.</p>
+      <p class="kau-leer-zusatz">
+        Ohne Dienste weist die Auswertung für diesen Zeitraum auch keinen
+        Preis je Schicht aus.
+      </p>
+    </div>`;
+}
+
+function renderPreis() {
+  const el = document.getElementById('kau-preis');
+  if (_preisCent == null) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = 'Preis je Schicht: ' + escape(LPR.centsToEUR(_preisCent))
+    + ' <small>— mit diesem Wert sind alle Kosten unten gerechnet.</small>';
+}
+
+function renderTabelle() {
+  const summe = _zeilen.reduce((s, z) => ({
+    dienste: s.dienste + Number(z.dienste || 0),
+    t1:      s.t1      + Number(z.dienste_t1 || 0),
+    t2:      s.t2      + Number(z.dienste_t2 || 0),
+    kosten:  s.kosten  + Number(z.kosten_cent || 0)
+  }), { dienste: 0, t1: 0, t2: 0, kosten: 0 });
+
+  const zeilenHtml = _zeilen.map(z => `
+      <tr>
+        <td>${escape(z.station)}</td>
+        <td>${escape(String(z.dienste))}</td>
+        <td class="kau-t1">${escape(String(z.dienste_t1))}</td>
+        <td>${escape(String(z.dienste_t2))}</td>
+        <td>${escape(LPR.centsToEUR(z.kosten_cent))}</td>
+      </tr>`).join('');
+
+  document.getElementById('kau-ergebnis').innerHTML = `
+    <div class="kau-tabelle-huelle">
+      <table class="kau-tabelle">
+        <caption class="sr-only">Geleistete Sitzwachen je Station im gewählten Zeitraum</caption>
+        <thead>
+          <tr>
+            <th scope="col">Station</th>
+            <th scope="col">Dienste</th>
+            <th scope="col">davon T1</th>
+            <th scope="col">davon T2</th>
+            <th scope="col">Kosten</th>
+          </tr>
+        </thead>
+        <tbody>${zeilenHtml}</tbody>
+        <tfoot>
+          <tr>
+            <td>Summe</td>
+            <td>${escape(String(summe.dienste))}</td>
+            <td>${escape(String(summe.t1))}</td>
+            <td>${escape(String(summe.t2))}</td>
+            <td>${escape(LPR.centsToEUR(summe.kosten))}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
+}
+
+// ── CSV ───────────────────────────────────────────────────────────────────
+/**
+ * Die Datei wird in Excel geoeffnet, nicht in einem Editor. Darum Semikolon
+ * als Trennzeichen und Komma als Dezimaltrennzeichen — beides erwartet Excel
+ * in der deutschen Einstellung.
+ *
+ * Der Betrag geht hier bewusst NICHT durch LPR.centsToEUR(): das liefert
+ * „1.234,56 €" mit Waehrungszeichen und Tausenderpunkt, und Excel importiert
+ * so etwas als Text. Eine Spalte, mit der sich nicht rechnen laesst, ist
+ * genau das, was man aus einer Auswertung nicht bekommen will.
+ */
+function csvBetrag(cent) {
+  return (Number(cent || 0) / 100).toFixed(2).replace('.', ',');
+}
+
+function csvFeld(s) {
+  const t = String(s ?? '');
+  return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
+
+function csvBauen() {
+  const summe = _zeilen.reduce((s, z) => ({
+    dienste: s.dienste + Number(z.dienste || 0),
+    t1:      s.t1      + Number(z.dienste_t1 || 0),
+    t2:      s.t2      + Number(z.dienste_t2 || 0),
+    kosten:  s.kosten  + Number(z.kosten_cent || 0)
+  }), { dienste: 0, t1: 0, t2: 0, kosten: 0 });
+
+  const zeilen = [];
+  zeilen.push(['Zeitraum', _zeitraum.von + ' bis ' + _zeitraum.bis].map(csvFeld).join(';'));
+  zeilen.push(['Preis je Schicht (EUR)', _preisCent == null ? '' : csvBetrag(_preisCent)].map(csvFeld).join(';'));
+  zeilen.push('');
+  zeilen.push(['Station', 'Dienste', 'davon T1', 'davon T2', 'Kosten (EUR)'].map(csvFeld).join(';'));
+  for (const z of _zeilen) {
+    zeilen.push([
+      z.station, z.dienste, z.dienste_t1, z.dienste_t2, csvBetrag(z.kosten_cent)
+    ].map(csvFeld).join(';'));
+  }
+  zeilen.push(['Summe', summe.dienste, summe.t1, summe.t2, csvBetrag(summe.kosten)].map(csvFeld).join(';'));
+  zeilen.push('');
+  zeilen.push(csvFeld('Gezählt nach Schichtdatum. Ohne stornierte Dienste, ohne "nicht erschienen", ohne Schichten in der Zukunft.'));
+  // Die Byte-Reihenfolge-Marke (\uFEFF) muss vorne stehen: ohne sie liest
+  // Excel die Datei als Windows-1252 und macht aus "für" ein "fÃ¼r".
+  return '\uFEFF' + zeilen.join('\r\n') + '\r\n';
+}
+
+function csvHerunterladen() {
+  if (!_zeilen.length) return;
+  const blob = new Blob([csvBauen()], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'sitzwachen-auswertung_' + _zeitraum.von + '_' + _zeitraum.bis + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// ── Laden ─────────────────────────────────────────────────────────────────
+
+function zeigeHinweis(titel, text) {
+  document.getElementById('kau-laden').hidden = true;
+  document.getElementById('kau-inhalt').hidden = true;
+  document.getElementById('kau-hinweis-titel').textContent = titel;
+  document.getElementById('kau-hinweis-text').textContent = text;
+  document.getElementById('kau-hinweis').hidden = false;
+}
+
+async function auswertungLaden() {
+  const von = document.getElementById('kau-von').value;
+  const bis = document.getElementById('kau-bis').value;
+  if (!von || !bis) { LPR.showToast('Bitte einen Zeitraum wählen.', 'warn'); return; }
+  if (bis < von) { LPR.showToast('Das Bis-Datum liegt vor dem Von-Datum.', 'warn'); return; }
+
+  const btn = document.getElementById('kau-btn-laden');
+  btn.disabled = true;
+  document.getElementById('kau-ergebnis').innerHTML = '<div class="kau-laden">Lade Auswertung…</div>';
+  document.getElementById('kau-btn-csv').disabled = true;
+
+  const res = await LPR.getSitzwachenAuswertung(von, bis);
+  btn.disabled = false;
+
+  if (!res.ok) {
+    // Der Wächter unten hat den Zugang schon geprüft. Kommt die Absage
+    // trotzdem, wurde das Kennzeichen zwischenzeitlich entzogen — dann gehört
+    // die Seite geschlossen und nicht eine Fehlermeldung in die Tabelle.
+    if (res.error === 'Dieses Konto hat keinen Controlling-Zugang.') {
+      zeigeHinweis('Kein Controlling-Zugang',
+        'Dieses Konto darf die Auswertung des Hauses nicht sehen. Wenn Sie sie brauchen, wenden Sie sich bitte an den Verein.');
+      return;
+    }
+    document.getElementById('kau-preis').hidden = true;
+    document.getElementById('kau-ergebnis').innerHTML =
+      '<div class="kau-leer"><p>' + escape(res.error || 'Die Auswertung konnte nicht geladen werden.')
+      + '</p><p class="kau-leer-zusatz">Bitte versuchen Sie es später noch einmal.</p></div>';
+    return;
+  }
+
+  _zeilen = res.zeilen;
+  _preisCent = res.preisCent;
+  _zeitraum = { von, bis };
+  document.getElementById('kau-btn-csv').disabled = _zeilen.length === 0;
+
+  if (_zeilen.length === 0) { renderLeer(); return; }
+  renderPreis();
+  renderTabelle();
+}
+
+async function start() {
+  const session = LPR.getSession();
+  if (!session) {
+    location.href = 'login.html?next=/klinik-auswertung.html';
+    return;
+  }
+  // session.role ist im Frontend 'klinik', in der Datenbank 'clinic' — hier
+  // koennen beide Schreibweisen ankommen.
+  if (session.role !== 'klinik' && session.role !== 'clinic') {
+    zeigeHinweis('Nur für Klinik-Konten',
+      'Diese Seite zeigt die Auswertung eines Krankenhauses und steht deshalb nur Klinik-Konten offen.');
+    return;
+  }
+
+  const res = await LPR.getMyClinic();
+  if (!res.ok) {
+    zeigeHinweis('Die Klinik-Daten konnten nicht geladen werden',
+      'Bitte laden Sie die Seite noch einmal. Bleibt es dabei, melden Sie sich bitte beim Verein.');
+    return;
+  }
+  const d = res.details;
+  if (!d || d.status !== 'approved') {
+    zeigeHinweis('Ihr Konto ist noch nicht freigegeben',
+      'Sobald der Verein Ihr Klinik-Konto freigegeben hat, steht die Auswertung hier zur Verfügung.');
+    return;
+  }
+  if (!d.controlling) {
+    // Der eigentliche Riegel steht in der Datenbank. Dieser hier ist nur
+    // Hoeflichkeit: wer die Adresse direkt aufruft, soll einen Satz lesen
+    // und keine leere Tabelle.
+    zeigeHinweis('Für dieses Konto ist die Auswertung nicht freigeschaltet',
+      'Die Auswertung fasst die Dienste des ganzen Hauses zusammen und ist deshalb einem eigenen Konto vorbehalten. Wenn Sie sie brauchen, wenden Sie sich bitte an den Verein.');
+    return;
+  }
+
+  document.getElementById('kau-laden').hidden = true;
+  document.getElementById('kau-inhalt').hidden = false;
+  vormonatVorbelegen();
+  auswertungLaden();
+}
+
+document.getElementById('kau-monat').addEventListener('change', (e) => monatSetzen(e.target.value));
+// Von/Bis von Hand geaendert? Dann passt die Monatsangabe nicht mehr und
+// wuerde nur behaupten, was gerade in der Tabelle steht.
+document.getElementById('kau-von').addEventListener('change', () => { document.getElementById('kau-monat').value = ''; });
+document.getElementById('kau-bis').addEventListener('change', () => { document.getElementById('kau-monat').value = ''; });
+document.getElementById('kau-btn-laden').addEventListener('click', auswertungLaden);
+document.getElementById('kau-btn-csv').addEventListener('click', csvHerunterladen);
+
+start();
+</script>
+</body>
+</html>

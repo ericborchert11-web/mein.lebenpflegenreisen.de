@@ -126,6 +126,28 @@ table.kau-tabelle tfoot td {
 /* T1 traegt die Budgetrelevanz — sie darf nicht neben T2 verschwimmen. */
 table.kau-tabelle td.kau-t1 { font-weight: 700; color: var(--green-deep); }
 
+/* Zwei Ebenen: Gesteuert wird ueber Abteilungen, die Stationen sind die
+   Feingliederung darunter. Wer nur die Abteilungen lesen will, soll das
+   koennen, ohne die Stationen zu ueberfliegen — deshalb traegt die
+   Abteilungszeile Gewicht und Flaeche, die Stationen stehen eingerueckt. */
+table.kau-tabelle tr.kau-abt td {
+  font-weight: 800;
+  color: var(--green-deep);
+  background: #F4F8E6;
+}
+/* Die kraeftigere Linie trennt eine Abteilung von den Stationen der vorigen.
+   Bei der ersten Abteilung uebernimmt das der Tabellenkopf. */
+table.kau-tabelle tbody tr.kau-abt:not(:first-child) td { border-top: 2px solid var(--border); }
+
+/* Nur die Bezeichnung wird eingerueckt und zurueckgenommen. Die Zahlenspalten
+   bleiben, wie sie sind: eine eingerueckte Zahl ist eine, die man beim
+   Nachrechnen sucht — und T1 muss auch in der Station betont bleiben. */
+table.kau-tabelle tr.kau-stat td:first-child {
+  padding-left: 34px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
 .kau-zaehlweise {
   margin: 14px 0 0;
   font-size: 12.5px;
@@ -181,7 +203,7 @@ table.kau-tabelle td.kau-t1 { font-weight: 700; color: var(--green-deep); }
 
   <div class="kau-header">
     <h1>Auswertung</h1>
-    <p>Geleistete Sitzwachen Ihres Hauses je Station, aufgeteilt nach Tarif, mit den entstandenen Kosten.</p>
+    <p>Geleistete Sitzwachen Ihres Hauses je Abteilung und Station, aufgeteilt nach Tarif, mit den entstandenen Kosten.</p>
   </div>
 
   <div id="kau-laden" class="kau-laden">Lade…</div>
@@ -223,6 +245,8 @@ table.kau-tabelle td.kau-t1 { font-weight: 700; color: var(--green-deep); }
       Gezählt wird nach dem Datum der Schicht. Nicht enthalten sind stornierte
       Dienste, Dienste mit der Meldung „nicht erschienen" und Schichten, die
       noch bevorstehen. Die Auswertung fasst alle Konten Ihres Hauses zusammen.
+      Die Abteilung stammt dabei vom buchenden Konto, die Station aus der
+      einzelnen Buchung.
     </p>
 
   </div>
@@ -230,14 +254,18 @@ table.kau-tabelle td.kau-t1 { font-weight: 700; color: var(--green-deep); }
 </div>
 </main>
 
-<script src="app.js?v20260905b"></script>
+<!-- Marke hochgezaehlt: Die Seite braucht `abteilungen`/`gesamt` aus der neuen
+     app.js. Mit der alten aus dem Cache bliebe die Tabelle leer. -->
+<script src="app.js?v20260907b"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'klinik-auswertung' });
 
 function escape(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 
-let _zeilen = [];      // die zuletzt geladenen Zeilen — Grundlage des CSV
+let _zeilen = [];      // die rohen Zeilen — nur noch fuer „liegt etwas vor?"
+let _abteilungen = []; // je Abteilung: Zwischensumme + ihre Stationen
+let _gesamt = null;    // Summe ueber die Abteilungen
 let _preisCent = null; // der Preis, den die Datenbankfunktion benutzt hat
 let _zeitraum = { von: '', bis: '' };
 
@@ -289,30 +317,43 @@ function renderPreis() {
     + ' <small>— mit diesem Wert sind alle Kosten unten gerechnet.</small>';
 }
 
+/**
+ * Zwei Ebenen: je Abteilung eine betonte Zeile mit ihrer Zwischensumme,
+ * darunter eingerueckt ihre Stationen.
+ *
+ * Gerechnet wird hier nichts mehr — Zwischensummen und Gesamtsumme kommen
+ * fertig aus LPR.getSitzwachenAuswertung(). Die Seite darf diese Zahlen nicht
+ * ein zweites Mal bilden: sonst gaebe es zwei Rechenwege fuer dieselbe Zahl,
+ * hier und im CSV, und die laufen irgendwann auseinander.
+ */
 function renderTabelle() {
-  const summe = _zeilen.reduce((s, z) => ({
-    dienste: s.dienste + Number(z.dienste || 0),
-    t1:      s.t1      + Number(z.dienste_t1 || 0),
-    t2:      s.t2      + Number(z.dienste_t2 || 0),
-    kosten:  s.kosten  + Number(z.kosten_cent || 0)
-  }), { dienste: 0, t1: 0, t2: 0, kosten: 0 });
-
-  const zeilenHtml = _zeilen.map(z => `
-      <tr>
-        <td>${escape(z.station)}</td>
-        <td>${escape(String(z.dienste))}</td>
-        <td class="kau-t1">${escape(String(z.dienste_t1))}</td>
-        <td>${escape(String(z.dienste_t2))}</td>
-        <td>${escape(LPR.centsToEUR(z.kosten_cent))}</td>
+  const zeilenHtml = _abteilungen.map(a => {
+    const stationen = a.stationen.map(s => `
+      <tr class="kau-stat">
+        <td>${escape(s.station)}</td>
+        <td>${escape(String(s.dienste))}</td>
+        <td class="kau-t1">${escape(String(s.diensteT1))}</td>
+        <td>${escape(String(s.diensteT2))}</td>
+        <td>${escape(LPR.centsToEUR(s.kostenCent))}</td>
       </tr>`).join('');
+
+    return `
+      <tr class="kau-abt">
+        <td>${escape(a.abteilung)}</td>
+        <td>${escape(String(a.dienste))}</td>
+        <td class="kau-t1">${escape(String(a.diensteT1))}</td>
+        <td>${escape(String(a.diensteT2))}</td>
+        <td>${escape(LPR.centsToEUR(a.kostenCent))}</td>
+      </tr>` + stationen;
+  }).join('');
 
   document.getElementById('kau-ergebnis').innerHTML = `
     <div class="kau-tabelle-huelle">
       <table class="kau-tabelle">
-        <caption class="sr-only">Geleistete Sitzwachen je Station im gewählten Zeitraum</caption>
+        <caption class="sr-only">Geleistete Sitzwachen im gewählten Zeitraum, je Abteilung und darunter je Station</caption>
         <thead>
           <tr>
-            <th scope="col">Station</th>
+            <th scope="col">Abteilung / Station</th>
             <th scope="col">Dienste</th>
             <th scope="col">davon T1</th>
             <th scope="col">davon T2</th>
@@ -323,10 +364,10 @@ function renderTabelle() {
         <tfoot>
           <tr>
             <td>Summe</td>
-            <td>${escape(String(summe.dienste))}</td>
-            <td>${escape(String(summe.t1))}</td>
-            <td>${escape(String(summe.t2))}</td>
-            <td>${escape(LPR.centsToEUR(summe.kosten))}</td>
+            <td>${escape(String(_gesamt.dienste))}</td>
+            <td>${escape(String(_gesamt.diensteT1))}</td>
+            <td>${escape(String(_gesamt.diensteT2))}</td>
+            <td>${escape(LPR.centsToEUR(_gesamt.kostenCent))}</td>
           </tr>
         </tfoot>
       </table>
@@ -353,27 +394,33 @@ function csvFeld(s) {
   return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
 }
 
+/**
+ * Anders als die Tabelle bleibt das CSV flach: eine Zeile je Abteilung UND
+ * Station, mit der Abteilung in JEDER Zeile wiederholt. Keine Einrueckung,
+ * keine Zwischensummenzeilen — damit laesst sich in Excel nach Abteilung
+ * filtern und selbst gruppieren. Eingerueckte Bezeichnungen und
+ * eingestreute Zwischensummen wuerden genau das kaputt machen.
+ */
 function csvBauen() {
-  const summe = _zeilen.reduce((s, z) => ({
-    dienste: s.dienste + Number(z.dienste || 0),
-    t1:      s.t1      + Number(z.dienste_t1 || 0),
-    t2:      s.t2      + Number(z.dienste_t2 || 0),
-    kosten:  s.kosten  + Number(z.kosten_cent || 0)
-  }), { dienste: 0, t1: 0, t2: 0, kosten: 0 });
-
   const zeilen = [];
   zeilen.push(['Zeitraum', _zeitraum.von + ' bis ' + _zeitraum.bis].map(csvFeld).join(';'));
   zeilen.push(['Preis je Schicht (EUR)', _preisCent == null ? '' : csvBetrag(_preisCent)].map(csvFeld).join(';'));
   zeilen.push('');
-  zeilen.push(['Station', 'Dienste', 'davon T1', 'davon T2', 'Kosten (EUR)'].map(csvFeld).join(';'));
-  for (const z of _zeilen) {
-    zeilen.push([
-      z.station, z.dienste, z.dienste_t1, z.dienste_t2, csvBetrag(z.kosten_cent)
-    ].map(csvFeld).join(';'));
+  zeilen.push(['Abteilung', 'Station', 'Dienste', 'davon T1', 'davon T2', 'Kosten (EUR)'].map(csvFeld).join(';'));
+  for (const a of _abteilungen) {
+    for (const s of a.stationen) {
+      zeilen.push([
+        a.abteilung, s.station, s.dienste, s.diensteT1, s.diensteT2, csvBetrag(s.kostenCent)
+      ].map(csvFeld).join(';'));
+    }
   }
-  zeilen.push(['Summe', summe.dienste, summe.t1, summe.t2, csvBetrag(summe.kosten)].map(csvFeld).join(';'));
+  // Die Summe steht in der Abteilungsspalte, die Stationsspalte bleibt leer:
+  // so ist die Zeile beim Filtern als das erkennbar, was sie ist.
+  zeilen.push(['Summe', '', _gesamt.dienste, _gesamt.diensteT1, _gesamt.diensteT2,
+    csvBetrag(_gesamt.kostenCent)].map(csvFeld).join(';'));
   zeilen.push('');
   zeilen.push(csvFeld('Gezählt nach Schichtdatum. Ohne stornierte Dienste, ohne "nicht erschienen", ohne Schichten in der Zukunft.'));
+  zeilen.push(csvFeld('Die Abteilung stammt vom buchenden Konto, die Station aus der einzelnen Buchung.'));
   // Die Byte-Reihenfolge-Marke (\uFEFF) muss vorne stehen: ohne sie liest
   // Excel die Datei als Windows-1252 und macht aus "für" ein "fÃ¼r".
   return '\uFEFF' + zeilen.join('\r\n') + '\r\n';
@@ -433,6 +480,8 @@ async function auswertungLaden() {
   }
 
   _zeilen = res.zeilen;
+  _abteilungen = res.abteilungen;
+  _gesamt = res.gesamt;
   _preisCent = res.preisCent;
   _zeitraum = { von, bis };
   document.getElementById('kau-btn-csv').disabled = _zeilen.length === 0;

@@ -258,7 +258,7 @@ h1 { margin:0 0 4px; }
 </div>
 </main>
 
-<script src="app.js?v20260907e"></script>
+<script src="app.js?v20260907f"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -301,6 +301,10 @@ async function init() {
   // Ohne diesen Zuhoerer faellt genau das Geraet still aus der Zustellung,
   // das die meiste Zeit auf dieser Seite steht.
   if (LPR.pushErneuerungBeobachten) LPR.pushErneuerungBeobachten(renderPushBlock);
+  // Rotiert das Abo, waehrend kein Fenster offen ist, geht die Meldung oben
+  // ins Leere. Der stille Abgleich traegt die Adresse beim naechsten Start
+  // nach — ohne await, die Buchungsliste soll darauf nicht warten.
+  if (LPR.pushAboAbgleichen) LPR.pushAboAbgleichen();
 
   await Promise.all([loadBookings(), loadRates(), loadAmpeln()]);
 }

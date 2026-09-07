@@ -138,7 +138,12 @@ self.addEventListener('notificationclick', event => {
 
 // Der Push-Dienst kann ein Abo erneuern. Ohne diesen Handler faellt das Geraet
 // still aus der Zustellung — und niemand merkt es, bis ein Dienst nicht
-// ankommt. Die Seite holt das beim naechsten Start nach (siehe pushAnmelden).
+// ankommt.
+//
+// Erreicht wird damit nur, wer gerade ein Fenster offen hat; dort haengt der
+// Zuhoerer aus LPR.pushErneuerungBeobachten (app.js). War kein Fenster offen,
+// traegt LPR.pushAboAbgleichen (app.js) die neue Adresse beim naechsten
+// Seitenstart nach. NICHT pushAnmelden — das haengt am Knopf.
 self.addEventListener('pushsubscriptionchange', event => {
   event.waitUntil(
     self.clients.matchAll({ includeUncontrolled: true }).then(fenster => {

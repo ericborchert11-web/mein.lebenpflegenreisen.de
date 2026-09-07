@@ -520,7 +520,7 @@ body.contrast .anleitung-hinweis, body.contrast .anleitung-hinweis a { color: #0
 </div>
 </main>
 
-<script src="app.js?v20260907e"></script>
+<script src="app.js?v20260907f"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'mein-bereich' });
@@ -638,6 +638,11 @@ async function renderPushBlock() {
 // Mechanik steckt in app.js, weil der Vorstand sie auf seiner Seite genauso
 // braucht; renderPushBlock steigt selbst aus, wenn es den Kasten nicht gibt.
 if (LPR.pushErneuerungBeobachten) LPR.pushErneuerungBeobachten(renderPushBlock);
+
+// Rotiert das Abo, waehrend kein Fenster offen ist, geht die Meldung oben ins
+// Leere. Der stille Abgleich traegt die Adresse beim naechsten Start nach —
+// ohne await, die Seite soll darauf nicht warten.
+if (LPR.pushAboAbgleichen) LPR.pushAboAbgleichen();
 
 function showKennenlernNote(session) {
   const note = document.getElementById('kennenlern-note');

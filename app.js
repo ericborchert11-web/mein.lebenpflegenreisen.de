@@ -4637,6 +4637,67 @@
     }
   }
 
+  /**
+   * Stiller Abgleich beim Seitenstart.
+   *
+   * Der Push-Dienst darf ein Abo jederzeit austauschen. Passiert das, waehrend
+   * KEIN Fenster offen ist — der Normalfall, denn Push kommt gerade dann, wenn
+   * die App zu ist —, geht die Meldung von sw.js ins Leere. Danach liegt im
+   * Browser eine neue Adresse, in push_abos steht die alte, und der Kasten
+   * behauptet weiter "eingeschaltet". Niemand erfaehrt es, bis sich jemand
+   * wundert, dass seit Wochen nichts mehr kam.
+   *
+   * Deshalb wird die Adresse bei jedem Seitenstart nachgetragen — und zwar
+   * STILL. Kein Toast, keine Rueckfrage, kein Knopf: Es gibt nichts zu
+   * entscheiden, und eine Fehlermeldung fuer einen Abgleich, den niemand
+   * angefordert hat, waere schlimmer als der Fehler selbst.
+   *
+   * Was der Abgleich ausdruecklich NICHT tut:
+   * — Er fragt nicht nach der Erlaubnis. Notification.requestPermission()
+   *   kehrt bei erteilter Erlaubnis zwar sofort zurueck, aber der Abgleich
+   *   hat mit der Erlaubnis nichts zu schaffen und fasst sie nicht an.
+   * — Er meldet nichts neu an. Liegt im Browser kein Abo, hat die Person es
+   *   abgeschaltet; eine stille Neuanmeldung liefe gegen ihren Willen.
+   *
+   * Die alte, tote Zeile bleibt zunaechst stehen — ihre Adresse kennt der
+   * Browser nicht mehr. send-push raeumt sie beim naechsten Versand weg,
+   * sobald der Push-Dienst mit 404/410 antwortet.
+   */
+  async function pushAboAbgleichen() {
+    try {
+      if (!getSession()) return { ok: true, uebersprungen: 'nicht angemeldet' };
+      // Erst die Faehigkeit pruefen: auf dem iPhone ausserhalb des
+      // Home-Bildschirms gibt es 'Notification' gar nicht, der Zugriff auf
+      // .permission wuerde werfen.
+      if (!pushMoeglich().moeglich) return { ok: true, uebersprungen: 'nicht möglich' };
+      if (Notification.permission !== 'granted') return { ok: true, uebersprungen: 'keine Erlaubnis' };
+
+      const reg = await navigator.serviceWorker.getRegistration();
+      const abo = reg ? await reg.pushManager.getSubscription() : null;
+      if (!abo) return { ok: true, uebersprungen: 'kein Abo' };
+
+      // Derselbe Weg wie in pushAnmelden: push_abo_speichern legt die Adresse
+      // an oder uebernimmt sie (on conflict (endpoint)) und setzt dabei
+      // last_seen_at. Ist nichts rotiert, ist der Aufruf ein Nullaufwand.
+      const j = abo.toJSON();
+      const client = await sb();
+      const { error } = await client.rpc('push_abo_speichern', {
+        p_endpoint: abo.endpoint,
+        p_p256dh:   j.keys && j.keys.p256dh,
+        p_auth:     j.keys && j.keys.auth,
+        p_geraet:   geraeteName()
+      });
+      if (error) {
+        console.error('[LPR] pushAboAbgleichen:', error.message);
+        return { ok: false, error: error.message };
+      }
+      return { ok: true, abgeglichen: true };
+    } catch(e) {
+      console.error('[LPR] pushAboAbgleichen:', e);
+      return { ok: false, error: 'Abgleich fehlgeschlagen.' };
+    }
+  }
+
   // Haengt der Zuhoerer fuer die Abo-Erneuerung schon? Und was ist danach neu
   // zu zeichnen? Beides steht je Dokument genau einmal — jede Seite laedt ihr
   // eigenes app.js, ein Zustand zwischen Seiten entsteht dadurch nicht.
@@ -5648,6 +5709,7 @@
     pushAbmelden,
     pushBlockRendern,
     pushErneuerungBeobachten,
+    pushAboAbgleichen,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
     resendClaimMail, getClaimBeleg, adminClaimsFuerBuchungen, adminAuslagenFuerAnmeldungen,

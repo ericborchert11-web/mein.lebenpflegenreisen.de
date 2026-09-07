@@ -91,6 +91,15 @@
 .as-e-storno { background:#F7E2DC; color:#8A2E14; border-color:#E3B7A8; }
 .as-empty { padding:28px; text-align:center; color:var(--muted); }
 .as-hint { background:#FBF3E4; border-left:4px solid #D9A400; padding:12px 14px; border-radius:6px; font-size:14px; margin-bottom:14px; }
+/* Der Kasten fuer Mitteilungen steht ueber der taeglichen Arbeit und darf
+   ihr deshalb nicht die Aufmerksamkeit nehmen: heller Rand, blauer Streifen
+   wie im "Mein Bereich", keine Signalfarbe — er meldet nichts, er bietet
+   etwas an. */
+.as-push { border:1px solid #E0DACE; border-left:4px solid #7E9CC4; border-radius:10px; padding:14px 16px; margin-bottom:16px; }
+.as-push h3 { margin:0 0 5px; font-size:15px; color:var(--green-deep); }
+.as-push-text { margin:0 0 10px; font-size:14px; line-height:1.5; color:var(--text); }
+.as-push-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.as-push-fuss { margin:10px 0 0; font-size:12.5px; color:var(--muted); line-height:1.5; }
 .rate-card { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; padding:14px; border:1px solid #E4DFD2; border-radius:10px; margin-bottom:12px; }
 .rate-card .cur { font-size:14px; color:var(--muted); min-width:220px; }
 .rate-card label { display:block; font-size:12px; color:#7A8270; margin-bottom:3px; }
@@ -170,6 +179,26 @@ h1 { margin:0 0 4px; }
 
     <!-- ===== Tab: Buchungen ===== -->
     <section class="as-panel active" id="panel-buchungen" role="tabpanel">
+      <!-- Mitteilungen aufs Geraet.
+           Warum ausgerechnet hier: "Buchungen" ist der Reiter, der beim
+           Aufruf offen steht — der Kasten wird also gesehen, ohne dass
+           jemand ihn suchen muss. In einem eigenen Reiter oder unter der
+           Buchungsliste faende ihn nur, wer schon weiss, dass es ihn gibt,
+           und genau daran ist der Schalter bisher gescheitert. Er steht
+           ueber den Filtern, weil er zur Liste gehoert und nicht zwischen
+           Filter und Ergebnis passt; sobald Mitteilungen laufen, schrumpft
+           er auf eine Zeile und einen leisen Abschalt-Knopf. Versteckt
+           bleibt er, bis feststeht, was das Geraet kann. -->
+      <div id="push-block-vorstand" class="as-push" hidden>
+        <h3>🔔 Mitteilungen aufs Gerät</h3>
+        <p class="as-push-text" data-push="text"></p>
+        <div class="as-push-actions">
+          <button type="button" class="as-btn" data-push="an">Mitteilungen einschalten</button>
+          <button type="button" class="as-btn warn" data-push="aus" hidden>Auf diesem Gerät abschalten</button>
+        </div>
+        <p class="as-push-fuss">Gilt nur für dieses Gerät. Auf dem Sperrbildschirm stehen nur Klinik, Tag und Schicht — keine Namen, weder von Patientinnen und Patienten noch von Ehrenamtlichen.</p>
+      </div>
+
       <div class="as-filters">
         <label>Status:
           <select id="f-booking-status">
@@ -229,7 +258,7 @@ h1 { margin:0 0 4px; }
 </div>
 </main>
 
-<script src="app.js?v20260905c"></script>
+<script src="app.js?v20260907d"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -267,7 +296,28 @@ async function init() {
   document.querySelectorAll('.as-tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
   document.getElementById('f-booking-apply').addEventListener('click', loadBookings);
 
+  renderPushBlock();
+
   await Promise.all([loadBookings(), loadRates(), loadAmpeln()]);
+}
+
+/**
+ * Schalter fuer Mitteilungen aufs Geraet — dieselbe Mechanik wie im
+ * "Mein Bereich", nur mit dem Wortlaut des Vorstands: hier geht es nicht um
+ * die eigene Buchung, sondern um jede Buchung und jede Absage im Verein.
+ *
+ * Bewusst ohne await im Seitenstart: der Kasten wartet auf den Service
+ * Worker, die Buchungsliste soll darauf nicht warten muessen.
+ */
+function renderPushBlock() {
+  const block = document.getElementById('push-block-vorstand');
+  if (!block || !LPR.pushBlockRendern) return;
+  LPR.pushBlockRendern(block, {
+    textAus: 'Du bekommst eine Mitteilung, sobald eine Klinik einen Dienst bucht oder absagt — '
+           + 'für alle Sitzwachen im Verein, auch dann, wenn du gerade keine E-Mails liest.',
+    textAn:  'Mitteilungen sind auf diesem Gerät eingeschaltet. '
+           + 'Du bekommst Bescheid bei jeder neuen Buchung und jeder Absage durch eine Klinik.'
+  });
 }
 
 function switchTab(name) {

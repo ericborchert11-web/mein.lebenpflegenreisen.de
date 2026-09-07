@@ -3251,12 +3251,86 @@
   }
 
   /**
-   * Auswertung fuer das Controlling eines Krankenhauses: je Station die Zahl
-   * der geleisteten Dienste, aufgeteilt nach Tarif, und die Kosten.
+   * Baut aus den flachen Zeilen der Datenbank die zwei Ebenen, die die
+   * Auswertung zeigt: je Abteilung deren Stationen und deren Zwischensumme.
+   *
+   * WARUM hier und nicht auf der Seite: Die Zahlen gehen in eine
+   * Budgetverhandlung. Sie duerfen genau einmal gerechnet werden — sonst gibt
+   * es zwei Rechenwege (Tabelle und CSV) und irgendwann zwei Ergebnisse.
+   *
+   * WARUM aufsummiert und nicht uebernommen: Die Datenbank liefert nur die
+   * Stationszeilen, eine je Abteilung-und-Station. Jede Zwischensumme entsteht
+   * deshalb hier aus genau den Stationen, die darunter stehen, und die
+   * Gesamtsumme aus genau den Abteilungen darueber. So kann keine Teilsumme an
+   * ihren eigenen Zeilen vorbeilaufen.
+   *
+   * WARUM eine Map: Sie haelt die Reihenfolge des ersten Auftretens fest, die
+   * Sortierung der Datenbank (Abteilung, darin Dienste absteigend) bleibt also
+   * erhalten — und eine Abteilung wird auch dann zu EINEM Block, falls ihre
+   * Zeilen wider Erwarten einmal nicht am Stueck kaemen.
+   *
+   * Benennung: camelCase wie ueberall im Frontend; die rohen Zeilen behalten
+   * daneben ihre Datenbank-Schreibweise, damit klar bleibt, was von wo kommt.
+   */
+  function gruppiereAuswertungNachAbteilung(zeilen) {
+    const nachAbteilung = new Map();
+
+    for (const z of (zeilen || [])) {
+      // Die Datenbank setzt 'ohne Angabe' bereits ein; der Fallback hier ist
+      // nur die Absicherung dagegen, dass eine leere Zelle als Abteilung
+      // "undefined" in einer Klinik-Auswertung landet.
+      const name = String(z.abteilung ?? '').trim() || 'ohne Angabe';
+      let abt = nachAbteilung.get(name);
+      if (!abt) {
+        abt = {
+          abteilung: name,
+          dienste: 0, diensteT1: 0, diensteT2: 0, kostenCent: 0,
+          stationen: [],
+        };
+        nachAbteilung.set(name, abt);
+      }
+
+      const st = {
+        station: String(z.station ?? '').trim() || 'ohne Angabe',
+        dienste: Number(z.dienste) || 0,
+        diensteT1: Number(z.dienste_t1) || 0,
+        diensteT2: Number(z.dienste_t2) || 0,
+        kostenCent: Number(z.kosten_cent) || 0,
+      };
+
+      abt.stationen.push(st);
+      abt.dienste += st.dienste;
+      abt.diensteT1 += st.diensteT1;
+      abt.diensteT2 += st.diensteT2;
+      abt.kostenCent += st.kostenCent;
+    }
+
+    const abteilungen = Array.from(nachAbteilung.values());
+    const gesamt = abteilungen.reduce((g, a) => ({
+      dienste: g.dienste + a.dienste,
+      diensteT1: g.diensteT1 + a.diensteT1,
+      diensteT2: g.diensteT2 + a.diensteT2,
+      kostenCent: g.kostenCent + a.kostenCent,
+    }), { dienste: 0, diensteT1: 0, diensteT2: 0, kostenCent: 0 });
+
+    return { abteilungen, gesamt };
+  }
+
+  /**
+   * Auswertung fuer das Controlling eines Krankenhauses: je Abteilung und
+   * Station die Zahl der geleisteten Dienste, aufgeteilt nach Tarif, und die
+   * Kosten.
    *
    * Die Zugangspruefung steckt in der Datenbankfunktion, nicht hier: Sie ist
    * security definer, RLS greift dort also nicht, und ein Riegel im Browser
    * waere ohnehin keiner.
+   *
+   * Die Datenbankfunktion gibt seit Migration AA eine Spalte mehr zurueck
+   * (`abteilung` an erster Stelle). Das faellt hier nicht ins Gewicht: die RPC
+   * liefert Objekte mit benannten Feldern, nicht Tupel — nichts in dieser
+   * Funktion haengt an Spaltenzahl oder -reihenfolge. Auch `preis_cent` wird
+   * weiter namentlich aus der ersten Zeile gelesen und steht laut
+   * Datenbankfunktion in jeder Zeile gleich.
    */
   async function getSitzwachenAuswertung(von, bis) {
     if (!von || !bis) return { ok: false, error: 'Bitte einen Zeitraum wählen.' };
@@ -3274,9 +3348,12 @@
         return { ok: false, error: 'Die Auswertung konnte nicht geladen werden.' };
       }
       const zeilen = data || [];
+      const { abteilungen, gesamt } = gruppiereAuswertungNachAbteilung(zeilen);
       return {
         ok: true,
-        zeilen,
+        zeilen,       // die rohen Zeilen, unveraendert wie bisher
+        abteilungen,  // je Abteilung: Zwischensumme + ihre Stationen
+        gesamt,       // Summe ueber die Abteilungen
         preisCent: zeilen.length ? Number(zeilen[0].preis_cent) : null,
       };
     } catch (e) {

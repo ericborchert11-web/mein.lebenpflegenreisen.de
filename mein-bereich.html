@@ -419,10 +419,10 @@ body.contrast .anleitung-hinweis, body.contrast .anleitung-hinweis a { color: #0
          als keiner. -->
     <div id="push-block" class="push-block" hidden>
       <h3>🔔 <span data-ls="Nachricht aufs Handy">Mitteilungen aufs Gerät</span></h3>
-      <p class="push-intro" id="push-text" data-ls="Wir sagen dir sofort Bescheid, wenn eine Klinik dich bucht."></p>
+      <p class="push-intro" id="push-text" data-push="text" data-ls="Wir sagen dir sofort Bescheid, wenn eine Klinik dich bucht."></p>
       <div class="push-actions">
-        <button type="button" class="push-btn" id="push-an">Mitteilungen einschalten</button>
-        <button type="button" class="push-btn push-btn-aus" id="push-aus" hidden>Auf diesem Gerät abschalten</button>
+        <button type="button" class="push-btn" id="push-an" data-push="an">Mitteilungen einschalten</button>
+        <button type="button" class="push-btn push-btn-aus" id="push-aus" data-push="aus" hidden>Auf diesem Gerät abschalten</button>
       </div>
       <!-- Warum der Verweis ausgerechnet hier steht: Auf dem iPhone bietet das
            Geraet Mitteilungen nur an, wenn das Portal vom Startbildschirm aus
@@ -520,7 +520,7 @@ body.contrast .anleitung-hinweis, body.contrast .anleitung-hinweis a { color: #0
 </div>
 </main>
 
-<script src="app.js?v20260907c"></script>
+<script src="app.js?v20260907d"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'mein-bereich' });
@@ -616,73 +616,21 @@ function fmtDateLong(iso) {
 /**
  * Schalter fuer Mitteilungen aufs Geraet.
  *
- * Der Block bleibt versteckt, bis feststeht, was das Geraet kann. Wo Push
- * nicht geht, steht der GRUND da statt eines toten Knopfes — auf dem iPhone
- * ist das kein Mangel des Browsers, sondern eine Bedingung, die man erklaeren
- * kann ("erst zum Home-Bildschirm hinzufuegen").
- *
- * Die Erlaubnisfrage stellt der Browser erst auf Klick. Ungefragt beim
- * Seitenaufruf ist sie eine schlechte Erfahrung — und in manchen Browsern
- * gleich eine dauerhafte Sperre.
+ * Die Mechanik (Zustand lesen, Knoepfe schalten, Grund statt totem Knopf)
+ * steckt in LPR.pushBlockRendern, weil es denselben Kasten auch in der
+ * Sitzwachen-Verwaltung des Vorstands gibt. Hier stehen nur noch der Kasten
+ * und der Wortlaut: fuer Ehrenamtliche geht es um die EIGENE Buchung.
  */
 async function renderPushBlock() {
   const block = document.getElementById('push-block');
-  if (!block || !LPR.pushStatus) return;
-  const text = document.getElementById('push-text');
-  const anKnopf = document.getElementById('push-an');
-  const ausKnopf = document.getElementById('push-aus');
-
-  const zeichnen = (st) => {
-    block.hidden = false;
-    if (!st.moeglich) {
-      text.textContent = st.grund;
-      anKnopf.hidden = true;
-      ausKnopf.hidden = true;
-      return;
-    }
-    if (st.erlaubnis === 'denied') {
-      text.textContent = 'Der Browser blockiert Mitteilungen für diese Seite. '
-        + 'Das lässt sich nur in den Einstellungen des Browsers wieder freigeben.';
-      anKnopf.hidden = true;
-      ausKnopf.hidden = true;
-      return;
-    }
-    if (st.aktiv) {
-      text.textContent = 'Mitteilungen sind auf diesem Gerät eingeschaltet. '
-        + 'Du bekommst Bescheid, sobald eine Klinik dich bucht oder einen Dienst absagt.';
-      anKnopf.hidden = true;
-      ausKnopf.hidden = false;
-    } else {
-      text.textContent = 'Wir sagen dir sofort Bescheid, wenn eine Klinik dich bucht — '
-        + 'auch dann, wenn du gerade keine E-Mails liest. Besonders wichtig bei Diensten, '
-        + 'die kurzfristig beginnen.';
-      anKnopf.hidden = false;
-      ausKnopf.hidden = true;
-    }
-  };
-
-  zeichnen(await LPR.pushStatus());
-
-  anKnopf.onclick = async () => {
-    anKnopf.disabled = true;
-    const vorher = anKnopf.textContent;
-    anKnopf.textContent = 'Einen Moment…';
-    const res = await LPR.pushAnmelden();
-    anKnopf.disabled = false;
-    anKnopf.textContent = vorher;
-    if (!res.ok) { LPR.showToast(res.error || 'Einschalten fehlgeschlagen.', 'warn'); }
-    else { LPR.showToast('Mitteilungen sind an — auf ' + res.geraet + '.'); }
-    zeichnen(await LPR.pushStatus());
-  };
-
-  ausKnopf.onclick = async () => {
-    ausKnopf.disabled = true;
-    const res = await LPR.pushAbmelden();
-    ausKnopf.disabled = false;
-    if (!res.ok) LPR.showToast(res.error || 'Abschalten fehlgeschlagen.', 'warn');
-    else LPR.showToast('Mitteilungen auf diesem Gerät abgeschaltet.');
-    zeichnen(await LPR.pushStatus());
-  };
+  if (!block || !LPR.pushBlockRendern) return;
+  await LPR.pushBlockRendern(block, {
+    textAus: 'Wir sagen dir sofort Bescheid, wenn eine Klinik dich bucht — '
+           + 'auch dann, wenn du gerade keine E-Mails liest. Besonders wichtig bei Diensten, '
+           + 'die kurzfristig beginnen.',
+    textAn:  'Mitteilungen sind auf diesem Gerät eingeschaltet. '
+           + 'Du bekommst Bescheid, sobald eine Klinik dich bucht oder einen Dienst absagt.'
+  });
 }
 
 // Der Push-Dienst kann ein Abo erneuern; der Worker meldet das hierher.

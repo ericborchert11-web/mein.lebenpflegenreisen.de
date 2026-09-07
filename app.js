@@ -4538,6 +4538,105 @@
     }
   }
 
+  /**
+   * Den Schalter fuer Mitteilungen in einen fertigen Kasten zeichnen.
+   *
+   * Steht hier und nicht in der Seite, weil es den Kasten inzwischen zweimal
+   * gibt: im "Mein Bereich" der Ehrenamtlichen und in der Sitzwachen-
+   * Verwaltung des Vorstands. Zwei Kopien laufen ueber die Monate
+   * auseinander — und dann verhaelt sich derselbe Schalter je nach Seite
+   * anders, ohne dass es jemandem auffaellt.
+   *
+   * Aufgeteilt ist es so: die Seite bringt Markup und Wortlaut mit, diese
+   * Funktion nur den Zustand. Deshalb kann der Kasten auf jeder Seite im
+   * dortigen Stil stehen, ohne dass die Mechanik dafuer angefasst wird.
+   *
+   * Erwartet im container:
+   *   [data-push="text"]  Absatz, in dem die Lage erklaert wird
+   *   [data-push="an"]    Knopf zum Einschalten
+   *   [data-push="aus"]   Knopf zum Abschalten (darf fehlen)
+   *
+   * optionen.textAus / optionen.textAn: der Wortlaut fuer "noch aus" und
+   * "laeuft". Er unterscheidet sich, weil es fuer Ehrenamtliche um die eigene
+   * Buchung geht und fuer den Vorstand um jede Buchung im Verein.
+   *
+   * Der Kasten bleibt versteckt, bis feststeht, was das Geraet kann. Wo Push
+   * nicht geht, steht der GRUND da statt eines toten Knopfes — auf dem iPhone
+   * ist das kein Mangel des Browsers, sondern eine Bedingung, die man
+   * erklaeren kann ("erst zum Home-Bildschirm hinzufuegen").
+   *
+   * Die Erlaubnisfrage stellt der Browser erst auf Klick. Ungefragt beim
+   * Seitenaufruf ist sie eine schlechte Erfahrung — und in manchen Browsern
+   * gleich eine dauerhafte Sperre.
+   */
+  async function pushBlockRendern(container, optionen) {
+    const opt = optionen || {};
+    if (!container) return { ok: false, error: 'Kein Kasten übergeben.' };
+    const text     = container.querySelector('[data-push="text"]');
+    const anKnopf  = container.querySelector('[data-push="an"]');
+    const ausKnopf = container.querySelector('[data-push="aus"]');
+    if (!text || !anKnopf) return { ok: false, error: 'Kasten unvollständig.' };
+
+    const zeichnen = (st) => {
+      container.hidden = false;
+      if (!st.moeglich) {
+        text.textContent = st.grund;
+        anKnopf.hidden = true;
+        if (ausKnopf) ausKnopf.hidden = true;
+        return;
+      }
+      if (st.erlaubnis === 'denied') {
+        text.textContent = 'Der Browser blockiert Mitteilungen für diese Seite. '
+          + 'Das lässt sich nur in den Einstellungen des Browsers wieder freigeben.';
+        anKnopf.hidden = true;
+        if (ausKnopf) ausKnopf.hidden = true;
+        return;
+      }
+      if (st.aktiv) {
+        text.textContent = opt.textAn || 'Mitteilungen sind auf diesem Gerät eingeschaltet.';
+        anKnopf.hidden = true;
+        if (ausKnopf) ausKnopf.hidden = false;
+      } else {
+        text.textContent = opt.textAus || 'Wir sagen dir sofort Bescheid — auch dann, wenn du gerade keine E-Mails liest.';
+        anKnopf.hidden = false;
+        if (ausKnopf) ausKnopf.hidden = true;
+      }
+    };
+
+    try {
+      zeichnen(await pushStatus());
+
+      // onclick statt addEventListener: der Kasten darf ohne Schaden mehrfach
+      // gezeichnet werden (der Service Worker stoesst das an, wenn ein Abo
+      // erneuert wurde), und dabei sollen sich keine Handler stapeln.
+      anKnopf.onclick = async () => {
+        anKnopf.disabled = true;
+        const vorher = anKnopf.textContent;
+        anKnopf.textContent = 'Einen Moment…';
+        const res = await pushAnmelden();
+        anKnopf.disabled = false;
+        anKnopf.textContent = vorher;
+        if (!res.ok) { showToast(res.error || 'Einschalten fehlgeschlagen.', 'warn'); }
+        else { showToast('Mitteilungen sind an — auf ' + res.geraet + '.'); }
+        zeichnen(await pushStatus());
+      };
+
+      if (ausKnopf) ausKnopf.onclick = async () => {
+        ausKnopf.disabled = true;
+        const res = await pushAbmelden();
+        ausKnopf.disabled = false;
+        if (!res.ok) showToast(res.error || 'Abschalten fehlgeschlagen.', 'warn');
+        else showToast('Mitteilungen auf diesem Gerät abgeschaltet.');
+        zeichnen(await pushStatus());
+      };
+
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] pushBlockRendern:', e);
+      return { ok: false, error: 'Schalter konnte nicht gezeichnet werden.' };
+    }
+  }
+
   // ───────────────────────────────────────────────────────
   // AP2 — Vorstand: Sitzwachen Abschluss-/Auszahlungsworkflow
   // Lesen direkt via board-RLS (bookings/claims: is_board()),
@@ -5505,6 +5604,7 @@
     pushStatus,
     pushAnmelden,
     pushAbmelden,
+    pushBlockRendern,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
     resendClaimMail, getClaimBeleg, adminClaimsFuerBuchungen, adminAuslagenFuerAnmeldungen,

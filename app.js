@@ -4637,6 +4637,48 @@
     }
   }
 
+  // Haengt der Zuhoerer fuer die Abo-Erneuerung schon? Und was ist danach neu
+  // zu zeichnen? Beides steht je Dokument genau einmal — jede Seite laedt ihr
+  // eigenes app.js, ein Zustand zwischen Seiten entsteht dadurch nicht.
+  let _erneuerungZuhoerer = false;
+  let _erneuerungDanach = null;
+
+  /**
+   * Auf die Erneuerung des Push-Abos hoeren.
+   *
+   * Der Push-Dienst darf ein Abo jederzeit austauschen. sw.js faengt das
+   * ('pushsubscriptionchange') und meldet { typ: 'push-abo-erneuern' } an alle
+   * offenen Fenster. Hoert dort niemand zu, faellt das Geraet still aus der
+   * Zustellung — der schlimmste Ausfall, weil er sich nicht meldet: gemerkt
+   * wird er erst, wenn sich jemand wundert, dass seit Wochen nichts mehr kam.
+   *
+   * Steht hier und nicht in der Seite, weil der Vorstand die meiste Zeit in
+   * der Sitzwachen-Verwaltung sitzt und nicht im "Mein Bereich". Genau dort
+   * traefe ihn die Rotation sonst ungehoert.
+   *
+   * nachErneuerung: optionale Rueckmeldung, mit der die Seite ihren Kasten
+   * neu zeichnet.
+   */
+  function pushErneuerungBeobachten(nachErneuerung) {
+    _erneuerungDanach = typeof nachErneuerung === 'function' ? nachErneuerung : null;
+    if (!('serviceWorker' in navigator)) return { ok: false, error: 'Kein Service Worker.' };
+    // Der Zuhoerer wird genau EINMAL je Seite angehaengt. Ein zweiter Aufruf
+    // — etwa weil die Seite ihren Kasten neu zeichnet — tauscht nur die
+    // Rueckmeldung aus, statt einen weiteren Zuhoerer daneben zu stapeln.
+    // Sonst liefe bei einer einzigen Erneuerung pushAnmelden mehrfach, und das
+    // Geraet meldete sich bei jeder Rotation doppelt an.
+    if (_erneuerungZuhoerer) return { ok: true, bereits: true };
+    _erneuerungZuhoerer = true;
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (!e.data || e.data.typ !== 'push-abo-erneuern') return;
+      // Neu gezeichnet wird in jedem Fall, auch wenn das Anmelden scheitert:
+      // dann soll im Kasten stehen, dass Mitteilungen aus sind, statt weiter
+      // "eingeschaltet" zu behaupten.
+      pushAnmelden().then(() => { if (_erneuerungDanach) _erneuerungDanach(); });
+    });
+    return { ok: true };
+  }
+
   // ───────────────────────────────────────────────────────
   // AP2 — Vorstand: Sitzwachen Abschluss-/Auszahlungsworkflow
   // Lesen direkt via board-RLS (bookings/claims: is_board()),
@@ -5605,6 +5647,7 @@
     pushAnmelden,
     pushAbmelden,
     pushBlockRendern,
+    pushErneuerungBeobachten,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
     resendClaimMail, getClaimBeleg, adminClaimsFuerBuchungen, adminAuslagenFuerAnmeldungen,

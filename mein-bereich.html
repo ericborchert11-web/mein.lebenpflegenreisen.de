@@ -520,7 +520,7 @@ body.contrast .anleitung-hinweis, body.contrast .anleitung-hinweis a { color: #0
 </div>
 </main>
 
-<script src="app.js?v20260907d"></script>
+<script src="app.js?v20260907e"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'mein-bereich' });
@@ -634,14 +634,10 @@ async function renderPushBlock() {
 }
 
 // Der Push-Dienst kann ein Abo erneuern; der Worker meldet das hierher.
-// Ohne diese Zeile faellt das Geraet still aus der Zustellung.
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('message', (e) => {
-    if (e.data && e.data.typ === 'push-abo-erneuern' && LPR.pushAnmelden) {
-      LPR.pushAnmelden().then(() => { if (document.getElementById('push-block')) renderPushBlock(); });
-    }
-  });
-}
+// Ohne diesen Zuhoerer faellt das Geraet still aus der Zustellung. Die
+// Mechanik steckt in app.js, weil der Vorstand sie auf seiner Seite genauso
+// braucht; renderPushBlock steigt selbst aus, wenn es den Kasten nicht gibt.
+if (LPR.pushErneuerungBeobachten) LPR.pushErneuerungBeobachten(renderPushBlock);
 
 function showKennenlernNote(session) {
   const note = document.getElementById('kennenlern-note');

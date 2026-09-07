@@ -258,7 +258,7 @@ h1 { margin:0 0 4px; }
 </div>
 </main>
 
-<script src="app.js?v20260907d"></script>
+<script src="app.js?v20260907e"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -297,6 +297,10 @@ async function init() {
   document.getElementById('f-booking-apply').addEventListener('click', loadBookings);
 
   renderPushBlock();
+  // Der Push-Dienst kann ein Abo erneuern; der Worker meldet das hierher.
+  // Ohne diesen Zuhoerer faellt genau das Geraet still aus der Zustellung,
+  // das die meiste Zeit auf dieser Seite steht.
+  if (LPR.pushErneuerungBeobachten) LPR.pushErneuerungBeobachten(renderPushBlock);
 
   await Promise.all([loadBookings(), loadRates(), loadAmpeln()]);
 }

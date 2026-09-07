@@ -281,6 +281,20 @@
 .push-fuss { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; line-height: 1.5; }
 body.contrast .push-block { border: 2px solid #000; }
 body.contrast .push-btn { border: 2px solid #000; background: #fff; color: #000; }
+
+/* Verweise auf die Anleitungen.
+   Sie stehen dort, wo die Frage entsteht — und duerfen deshalb nie lauter
+   sein als das, wofuer die Seite eigentlich da ist. Eine Zeile, gedaempft,
+   ausdruecklich kein Knopf: Wer die Anleitung nicht braucht, soll sie
+   ueberlesen koennen, ohne dass die Seite unruhiger wird. */
+.anleitung-hinweis { font-size: 14px; color: var(--muted); margin: 12px 0 0; line-height: 1.55; }
+.anleitung-hinweis a { color: var(--green-deep); font-weight: 700; text-decoration: underline; }
+/* Im Unterlagen-Kasten gilt dessen warme Palette, sonst steht die Zeile als
+   grauer Fremdkoerper im beigen Feld. */
+.compliance-block .anleitung-hinweis { color: #5C3D0F; margin: 12px 0 0; }
+.compliance-block .anleitung-hinweis a { color: #7A4A0C; }
+body.contrast .anleitung-hinweis, body.contrast .anleitung-hinweis a { color: #000; }
+
 .bb-card {
   background: #fff;
   border: 1px solid var(--border);
@@ -389,6 +403,15 @@ body.contrast .push-btn { border: 2px solid #000; background: #fff; color: #000;
       <h3>🏥 <span data-ls="Du wurdest für Sitzwachen gebucht">Du wurdest gebucht</span></h3>
       <p class="bb-intro" data-ls="Hier sind deine nächsten Sitzwachen. Schau bitte vor jedem Dienst noch mal nach, ob es Änderungen gibt.">Eine Klinik hat dich für die folgenden Sitzwachen verbindlich gebucht. Bitte erscheine pünktlich zur Schicht. Bei Fragen melde dich bei der Klinik oder bei <a href="mailto:info@lebenpflegenreisen.de">info@lebenpflegenreisen.de</a>.</p>
       <div id="bookings-list"></div>
+      <!-- Der Verweis steht bewusst NICHT in der einzelnen Buchungskarte:
+           Deren Fussleiste traegt schon "Einsatz oeffnen" und "Schicht
+           absagen", am Diensttag den ersten sogar in voller Breite. Ein
+           dritter Link daneben macht aus der Fussleiste eine Auswahl, und bei
+           mehreren Buchungen stuende derselbe Satz drei-, viermal
+           untereinander. Einmal unter der Liste erreicht er dieselbe Person
+           im selben Moment. Er haengt im Block: keine anstehenden Dienste,
+           keine Zeile. -->
+      <p class="anleitung-hinweis">Zum ersten Mal? <a href="dokumente/anleitung-dienstablauf.html">So läuft ein Dienst</a> — von der Ankunft bis zur Unterschrift der Pflegekraft.</p>
     </div>
 
     <!-- Mitteilungen aufs Gerät. Bleibt versteckt, bis geklärt ist, ob das
@@ -401,6 +424,14 @@ body.contrast .push-btn { border: 2px solid #000; background: #fff; color: #000;
         <button type="button" class="push-btn" id="push-an">Mitteilungen einschalten</button>
         <button type="button" class="push-btn push-btn-aus" id="push-aus" hidden>Auf diesem Gerät abschalten</button>
       </div>
+      <!-- Warum der Verweis ausgerechnet hier steht: Auf dem iPhone bietet das
+           Geraet Mitteilungen nur an, wenn das Portal vom Startbildschirm aus
+           geoeffnet wurde. Wer es aus Safari heraus versucht, bekommt die
+           Rueckfrage nie zu sehen — der Knopf tut scheinbar nichts, und der
+           Fehler wird bei einem selbst gesucht. Genau diese Person steht in
+           diesem Moment vor diesem Knopf. Der Menuepunkt hilft ihr nicht, weil
+           sie gar nicht weiss, dass es eine Anleitung dazu gibt. -->
+      <p class="anleitung-hinweis">Klappt nicht? → <a href="dokumente/anleitung-handy.html">Anleitung fürs Handy</a></p>
       <p class="push-fuss">Gilt nur für dieses Gerät. Auf dem Sperrbildschirm stehen nur Klinik, Tag und Schicht — keine Angaben zu Patientinnen und Patienten.</p>
     </div>
 
@@ -411,6 +442,11 @@ body.contrast .push-btn { border: 2px solid #000; background: #fff; color: #000;
       <p>Bevor du dich für Einsätze eintragen kannst, brauchen wir von dir einige gesetzlich vorgeschriebene Nachweise. <strong>Es fehlen noch:</strong></p>
       <ul id="compliance-missing-list"></ul>
       <a href="mein-compliance.html" class="cb-cta">Zu meinen Unterlagen →</a>
+      <!-- Die Seite dahinter zeigt, WAS fehlt. Woher man ein Fuehrungszeugnis
+           bekommt und dass die Nachweise per E-Mail an den Vorstand gehen,
+           steht dort nicht — das ist der Punkt, an dem hier jemand haengen
+           bleibt. -->
+      <p class="anleitung-hinweis">Unsicher, wie das geht? In der Anleitung <a href="dokumente/anleitung-ehrenamt.html">„Sitzwache werden“</a> steht Schritt für Schritt, welche Nachweise gebraucht werden und wie du sie einreichst.</p>
     </div>
 
     <h2 class="sec-title" style="font-size: 24px; margin-bottom: 20px;" data-ls="Was willst du tun?">Was möchtest du tun?<span class="ls-tag">Einfache Sprache</span></h2>
@@ -457,6 +493,12 @@ body.contrast .push-btn { border: 2px solid #000; background: #fff; color: #000;
         <h3 data-ls="Schulung">Schulungsportal</h3>
         <p data-ls="Hier lernst du, was du wissen musst.">Die Online-Schulung mit allen Modulen für Sitzwache und Begleitung. Zertifikat zum Ausdrucken.</p>
         <span class="arrow">Zur Schulung →</span>
+      </a>
+      <a href="anleitungen.html" class="tile">
+        <div class="tile-icon">📖</div>
+        <h3 data-ls="Anleitungen">Anleitungen</h3>
+        <p data-ls="Hier steht Schritt für Schritt, wie alles geht.">Drei Anleitungen zum Nachlesen: Sitzwache werden, ein Dienst von Anfang bis Ende, das Portal auf dem Handy. Am Bildschirm oder als PDF zum Ausdrucken.</p>
+        <span class="arrow">Zu den Anleitungen →</span>
       </a>
       <a href="#" onclick="doLogout(); return false;" class="tile tile-danger">
         <div class="tile-icon">🚪</div>

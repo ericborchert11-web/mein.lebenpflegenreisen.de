@@ -96,16 +96,24 @@
         // mein-bereich. Wer die Kachel einmal weggescrollt hatte, fand sie
         // nicht wieder — dabei ist die Schulung eine der drei Saeulen, mit
         // denen die Portal-Startseite wirbt.
+        //
+        // Die Anleitungen stehen aus demselben Grund hier: Wer eine Anleitung
+        // sucht, sucht sie meistens von einer anderen Seite aus — mitten im
+        // Dienst oder beim Einreichen der Unterlagen. Ein Menuepunkt ist der
+        // einzige Weg, der von ueberall aus gilt. Die Verweise an den Stellen,
+        // wo die Frage entsteht, ersetzt er nicht; er faengt nur die auf, die
+        // sich spaeter daran erinnern.
         navItems =
           punkt('mein-bereich.html', 'mein-bereich', 'Mein Bereich') +
           punkt('sitzwachen.html', 'sitzwachen', 'Sitzwachen') +
           punkt('schichtplaner.html', 'schichtplaner', 'Reisen') +
           punkt('abrechnung.html', 'abrechnung', 'Abrechnung') +
           gruppe('Mein Konto',
-            ['compliance', 'schulung', 'praeferenzen', 'profil'],
+            ['compliance', 'schulung', 'praeferenzen', 'anleitungen', 'profil'],
             punkt('mein-compliance.html', 'compliance', 'Unterlagen') +
             punkt('schulung.html', 'schulung', 'Schulung') +
             punkt('meine-praeferenzen.html', 'praeferenzen', 'Präferenzen') +
+            punkt('anleitungen.html', 'anleitungen', 'Anleitungen') +
             punkt('profil.html', 'profil', 'Profil')) +
           abmelden;
 

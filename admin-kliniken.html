@@ -445,9 +445,9 @@ function renderCard(c, isApplication) {
       <div class="ak-actions" style="flex-direction:column; align-items:stretch; gap:10px;">
         <span style="font-size: 12.5px; color: var(--muted);">Verknüpft mit Stammdaten-ID: <code style="background: #FAFAF5; padding: 2px 6px; border-radius: 4px;">${escape(c.linked_clinic_id || '—')}</code></span>
         <div style="border-top:1px solid #EFEDE6; padding-top:10px;">
-          <label style="display:block; font-size:13px; font-weight:600;">Station / Abteilung
+          <label style="display:block; font-size:13px; font-weight:600;">Abteilung
             <br><input type="text" id="dept-${escape(c.id)}" value="${escape(c.department || '')}"
-                       maxlength="80" placeholder="z.B. Station 4B" style="width:100%; margin-top:4px;">
+                       maxlength="80" placeholder="z.B. Geriatrie" style="width:100%; margin-top:4px;">
           </label>
           <label style="display:flex; gap:7px; align-items:center; margin-top:9px; font-size:13.5px;">
             <input type="checkbox" id="nm-${escape(c.id)}" ${c.notify_email === false ? '' : 'checked'}>
@@ -485,7 +485,7 @@ function renderCard(c, isApplication) {
   const kontoZeile   = isApplication ? '' :
     `<div><dt>Konto-Name</dt><dd>${escape(c.registered_name || '—')}</dd></div>`;
   const stationZeile = isApplication ?
-    `<div><dt>Station</dt><dd>${escape(c.department || '—')}</dd></div>` : '';
+    `<div><dt>Abteilung</dt><dd>${escape(c.department || '—')}</dd></div>` : '';
 
   return `
     <div class="ak-card">

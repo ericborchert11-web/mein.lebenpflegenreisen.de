@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Ein Dienst von Anfang bis Ende — Anleitung für Sitzwachen</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  /* KEIN box-shadow, kein blur, keine Verlaeufe mit transparenten Stopps:
+     Chrome setzt weiche Schatten als Soft-Mask, und Apples Vorschau malt
+     daraus harte graue Flaechen. Tiefe kommt hier ueber Flaeche und 1px-Kante. */
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Instrument Sans', -apple-system, Arial, sans-serif;
+         color: #1A1A18; font-size: 10.5pt; line-height: 1.5; }
+  .seite { width: 210mm; height: 297mm; overflow: hidden; padding: 0 0 16mm;
+           page-break-after: always; position: relative; background: #fff; }
+  .seite:last-child { page-break-after: auto; }
+
+  .logostreifen { background: #F5F5F0; padding: 8mm 18mm 7mm; border-bottom: 3px solid #C8F135; }
+  .logostreifen img { width: 58mm; height: auto; display: block; }
+  .kopf { background: #1A3A2A; color: #fff; padding: 10mm 18mm 9mm; }
+  .kopf h1 { font-family: 'Bricolage Grotesque', Georgia, serif; font-weight: 800;
+             font-size: 25pt; line-height: 1.1; margin: 0 0 3mm; letter-spacing: -.4pt; }
+  .kopf p { margin: 0; font-size: 11pt; color: #C8F135; font-weight: 600; }
+
+  .inhalt { padding: 8mm 18mm 0; }
+  h2 { font-family: 'Bricolage Grotesque', Georgia, serif; font-weight: 800; font-size: 14pt;
+       color: #1A3A2A; margin: 6mm 0 2.5mm; letter-spacing: -.2pt; }
+  .seite .inhalt > h2:first-child { margin-top: 0; }
+  .schritt:last-of-type { margin-bottom: 5mm; }
+  p { margin: 0 0 3mm; }
+  .lead { font-size: 11.5pt; color: #3A423A; }
+
+  .schritt { display: flex; gap: 4.5mm; margin: 0 0 4.5mm; align-items: flex-start; }
+  .nr { flex: 0 0 9mm; height: 9mm; border-radius: 50%; background: #C8F135; color: #12291d;
+        font-family: 'Bricolage Grotesque', Georgia, serif; font-weight: 800; font-size: 13pt;
+        display: flex; align-items: center; justify-content: center; }
+  .schritt h3 { font-family: 'Bricolage Grotesque', Georgia, serif; font-weight: 700;
+                font-size: 12pt; color: #1A3A2A; margin: 1mm 0 1.5mm; }
+  .schritt p { margin: 0 0 1.5mm; }
+  .schritt .klein { font-size: 9.5pt; color: #5B6660; }
+  .tag { display: inline-block; font-size: 7.5pt; font-weight: 700; letter-spacing: .5pt;
+         text-transform: uppercase; padding: .8mm 2mm; border-radius: 2mm; vertical-align: 2px;
+         margin-left: 2mm; }
+  .tag.neu  { background: #C8F135; color: #12291d; }
+  .tag.alle { background: #E4E9E4; color: #3A423A; }
+  .nr.grau  { background: #E4E9E4; color: #7A8270; }
+  .wegweiser { border: 1px solid #1A3A2A; background: #1A3A2A; color: #fff;
+               padding: 4.5mm 5mm; margin: 0 0 6mm; }
+  .wegweiser h3 { font-family: 'Bricolage Grotesque', Georgia, serif; font-weight: 700;
+                  font-size: 11.5pt; color: #C8F135; margin: 0 0 2mm; }
+  .wegweiser p { margin: 0 0 1.5mm; font-size: 10pt; }
+  .wegweiser p:last-child { margin-bottom: 0; }
+  .wegweiser strong { color: #C8F135; }
+
+  .kasten { border: 1px solid #D8D4C8; border-left: 4px solid #C8F135; background: #FAFAF7;
+            padding: 4mm 5mm; margin: 0 0 5mm; }
+  .kasten.wichtig { border-left-color: #1A3A2A; }
+  .kasten h3 { font-family: 'Bricolage Grotesque', Georgia, serif; font-weight: 700;
+               font-size: 11.5pt; color: #1A3A2A; margin: 0 0 2mm; }
+  .kasten p:last-child { margin-bottom: 0; }
+
+  table { width: 100%; border-collapse: collapse; margin: 0 0 4mm; font-size: 9.5pt; }
+  th { text-align: left; font-weight: 600; color: #5B6660; font-size: 9pt;
+       text-transform: uppercase; letter-spacing: .4pt; padding: 0 0 1.5mm;
+       border-bottom: 1px solid #D8D4C8; }
+  td { padding: 1.7mm 0; border-bottom: 1px solid #EDEAE0; vertical-align: top; }
+  td:first-child { width: 42mm; font-weight: 600; color: #1A3A2A; }
+
+  .fuss { position: absolute; bottom: 0; left: 0; right: 0; background: #1A3A2A; color: #fff;
+          padding: 4mm 18mm; font-size: 8.5pt; line-height: 1.4; }
+  .fuss strong { color: #C8F135; }
+  .fuss .rechts { float: right; color: #A9B5AC; }
+</style>
+<style>
+  /* Diese Anleitung ist fuer Menschen gesetzt, die nicht mit dem Smartphone
+     aufgewachsen sind: groessere Grundschrift, mehr Zeilenabstand, ein
+     Schritt je Absatz. */
+  body { font-size: 12pt; line-height: 1.6; }
+  .inhalt p { margin: 0 0 4mm; }
+  .schritt h3 { font-size: 13pt; }
+  h2 { font-size: 16pt; }
+  .kasten h3 { font-size: 12.5pt; }
+  table { font-size: 11pt; }
+
+  .phones { display: flex; gap: 8mm; margin: 0 0 6mm; align-items: flex-start; }
+  .phone { flex: 0 0 46mm; }
+  /* KEIN box-shadow — Chrome macht daraus eine Soft-Mask, und Apples Vorschau
+     malt sie als harten grauen Kasten. Tiefe kommt ueber die Kante. */
+  .phone .rahmen { border: 1.6mm solid #1A3A2A; border-radius: 5mm; background: #fff;
+                   padding: 2mm 1.5mm; }
+  .phone .schirm { background: #F5F5F0; border-radius: 2.5mm; padding: 2.5mm 2mm;
+                   height: 54mm; }
+  .phone .titelzeile { font-size: 7.5pt; color: #5B6660; border-bottom: .3mm solid #D8D4C8;
+                       padding-bottom: 1.5mm; margin-bottom: 2mm; }
+  .phone .zeile { font-size: 8.5pt; padding: 1.6mm 0; border-bottom: .3mm solid #E4E2DC;
+                  color: #3A423A; }
+  .phone .zeile:last-child { border-bottom: none; }
+  .phone .zeile.hell { color: #8A928A; }
+  .phone .markiert { background: #C8F135; color: #12291d; font-weight: 700;
+                     padding: 2mm; border-radius: 1.5mm; font-size: 8.5pt; }
+  .phone .leiste { background: #E4E9E4; border-radius: 1.5mm; padding: 1.5mm 2mm;
+                   font-size: 7.5pt; color: #3A423A; margin-top: 2mm; text-align: center; }
+  .phone .bu { font-size: 9pt; font-weight: 700; color: #1A3A2A; margin: 2.5mm 0 0;
+               text-align: center; min-height: 12mm; }
+  .phone .bu span { display: block; font-weight: 400; font-size: 8.5pt; color: #5B6660; }
+</style>
+
+<style>
+/* ─────────────────────────────────────────────────────────────────────
+   BILDSCHIRM-ANSICHT
+
+   Alles darueber ist fuer A4 gesetzt: feste Seitenhoehe, absolut
+   positionierte Fusszeile, Inhalt der ueberlaeuft wird abgeschnitten.
+   Auf einem Handy waere das unbrauchbar — man zoomt und verliert die Zeile.
+
+   Deshalb hier eine zweite Darstellung derselben Quelle. Nur @media screen,
+   der Druck bleibt damit unveraendert. Wer hier etwas aendert, aendert NICHT
+   das PDF, und umgekehrt.
+   ───────────────────────────────────────────────────────────────────── */
+@media screen {
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: #E4E9E4; padding: 0 0 3rem; }
+
+  .seite {
+    width: auto; max-width: 46rem; height: auto; min-height: 0;
+    overflow: visible; padding: 0 0 1.5rem; margin: 0 auto 1.5rem;
+    page-break-after: auto;
+  }
+  .seite + .seite { margin-top: 0; }
+
+  .logostreifen { padding: 1.2rem 1.4rem 1rem; }
+  .logostreifen img { width: 15rem; max-width: 62%; }
+  .kopf { padding: 1.4rem 1.4rem 1.2rem; }
+  .kopf h1 { font-size: 1.9rem; }
+  .kopf p { font-size: 1.05rem; }
+
+  .inhalt { padding: 1.4rem 1.4rem 0 !important; }
+  body { font-size: 1.06rem; line-height: 1.65; }
+  h2 { font-size: 1.4rem; margin: 1.8rem 0 .7rem; }
+  .lead { font-size: 1.12rem; }
+  p { margin: 0 0 .9rem; }
+
+  .schritt { gap: .9rem; margin-bottom: 1.4rem; }
+  .nr { flex: 0 0 2.2rem; height: 2.2rem; font-size: 1.1rem; }
+  .schritt h3 { font-size: 1.12rem; }
+  .schritt .klein { font-size: .95rem; }
+
+  .kasten { padding: 1rem 1.1rem; margin-bottom: 1.4rem; }
+  .kasten h3 { font-size: 1.1rem; }
+  .wegweiser { padding: 1rem 1.1rem; margin-bottom: 1.4rem; }
+  .wegweiser p { font-size: 1rem; }
+
+  /* Tabellen brechen auf schmalen Schirmen in Bloecke um — nebeneinander
+     waeren die Spalten unlesbar schmal. */
+  table, tbody, tr, td, th { display: block; width: auto; }
+  thead { display: none; }
+  tr { border-bottom: 1px solid #E4E2DC; padding: .7rem 0; }
+  td { border: none; padding: 0; }
+  td:first-child { width: auto; margin-bottom: .15rem; }
+
+  /* Attrappen untereinander statt nebeneinander, und ohne feste Hoehe. */
+  .phones { flex-wrap: wrap; gap: 1.2rem; }
+  .phone { flex: 1 1 12rem; }
+  .phone .schirm { height: auto; min-height: 11rem; padding: .8rem .7rem; }
+  .phone .rahmen { border-width: .35rem; border-radius: 1.2rem; padding: .5rem .4rem; }
+  .phone .titelzeile { font-size: .85rem; }
+  .phone .zeile, .phone .markiert, .phone .leiste { font-size: .95rem; }
+  .phone .zeile { padding: .45rem 0; }
+  .phone .markiert { padding: .55rem; }
+  .phone .bu { font-size: 1rem; min-height: 0; margin-top: .7rem; }
+  .phone .bu span { font-size: .95rem; }
+
+  /* Die Fusszeile ist im Druck absolut positioniert. Am Bildschirm muss sie
+     mitlaufen, sonst liegt sie ueber dem Text. */
+  .fuss { position: static; padding: 1rem 1.4rem; font-size: .9rem; }
+  .fuss .rechts { display: none; }
+  .seite:not(:last-child) .fuss { display: none; }
+}
+
+@media screen and (max-width: 34rem) {
+  .phones { display: block; }
+  .phone { margin-bottom: 1.6rem; }
+  .phone .rahmen { max-width: 18rem; }
+}
+</style>
+</head><body>
+
+
+
+
+
+<div class="seite">
+  <div class="logostreifen">
+    <img src="https://lebenpflegenreisen.de/wp-content/uploads/2026/04/LPR_Logo_Header_Icon.png" alt="Leben Pflegen Reisen e.V.">
+  </div>
+  <div class="kopf">
+    <h1>Ein Dienst von Anfang bis Ende</h1>
+    <p>Von der Verfügbarkeit bis zur Auszahlung</p>
+  </div>
+  <div class="inhalt">
+    <p class="lead">Vier Stationen: Du sagst, wann du kannst. Eine Klinik bucht. Du machst
+    den Dienst. Du bekommst deine Aufwandsentschädigung.</p>
+
+    <h2>1 · Wann du kannst</h2>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="rahmen"><div class="schirm">
+          <div class="titelzeile">Sitzwachen · September</div>
+          <div class="zeile">Mo 08 &nbsp;&nbsp; Di 09 &nbsp;&nbsp; Mi 10</div>
+          <div class="markiert" style="margin-top:2mm">Do 11 ausgewählt</div>
+          <div class="zeile hell" style="margin-top:2mm">Fr 12 &nbsp;&nbsp; Sa 13</div>
+        </div></div>
+        <p class="bu">1 · Tag antippen<span>im Kalender</span></p>
+      </div>
+
+      <div class="phone">
+        <div class="rahmen"><div class="schirm">
+          <div class="titelzeile">Donnerstag, 11. September</div>
+          <div class="zeile hell">Frühdienst 06–14</div>
+          <div class="zeile hell">Spätdienst 14–22</div>
+          <div class="markiert">Nachtdienst 22–06 ✓</div>
+          <div class="leiste">Wiederholen: jede Woche, 4 ×</div>
+        </div></div>
+        <p class="bu">2 · Schicht wählen<span>und bei Bedarf wiederholen</span></p>
+      </div>
+    </div>
+
+    <div class="kasten">
+      <h3>Eintragen ist keine Zusage</h3>
+      <p>Es heißt: An diesem Tag wäre ich grundsätzlich verfügbar. Trag lieber großzügig ein
+      — eine Verfügbarkeit, die niemand bucht, kostet dich nichts; eine, die du nicht
+      eingetragen hast, sieht keine Klinik.</p>
+    </div>
+  </div>
+  <div class="fuss">
+    <span class="rechts">Seite 1 von 5</span>
+    <strong>Leben Pflegen Reisen e.V.</strong> · Hilfe am Telefon: 0174 3409116<br>
+    ehrenamt@lebenpflegenreisen.de
+  </div>
+</div>
+
+<div class="seite">
+  <div class="inhalt" style="padding-top:14mm">
+    <h2>2 · Wenn eine Klinik bucht</h2>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="rahmen"><div class="schirm">
+          <div class="titelzeile">E-Mail · Leben Pflegen Reisen</div>
+          <div class="zeile">Neuer Dienst für dich</div>
+          <div class="zeile hell">Do 11.09. · Nachtdienst</div>
+          <div class="zeile hell">Station 4B · Zimmer 312</div>
+          <div class="markiert" style="margin-top:2mm">Dienst bestätigen</div>
+        </div></div>
+        <p class="bu">3 · Die E-Mail kommt<span>immer, ohne Einstellung</span></p>
+      </div>
+
+      <div class="phone">
+        <div class="rahmen"><div class="schirm">
+          <div class="titelzeile">Mein Bereich</div>
+          <div class="zeile">Do 11.09. · Nachtdienst</div>
+          <div class="zeile hell">Station 4B, Tel. 030 450…</div>
+          <div class="markiert" style="margin-top:2mm">Bestätigen</div>
+          <div class="zeile hell" style="margin-top:2mm">Absagen</div>
+        </div></div>
+        <p class="bu">4 · Oder im Portal<span>unter „Mein Bereich"</span></p>
+      </div>
+    </div>
+
+    <p>Solange du nicht bestätigt hast, gilt der Dienst als <strong>geplant</strong>, nicht
+    als zugesagt. Ein Klick genügt — dann weiß die Station, dass du kommst.</p>
+
+    <div class="kasten wichtig">
+      <h3>Du kannst doch nicht?</h3>
+      <p>Sag so früh ab, wie es geht — im Portal oder unter <strong>0174 3409116</strong>.
+      Am Bett wartet ein Mensch, und je früher wir es wissen, desto eher finden wir Ersatz.</p>
+    </div>
+  </div>
+  <div class="fuss">
+    <span class="rechts">Seite 2 von 5</span>
+    <strong>Leben Pflegen Reisen e.V.</strong> · Hilfe am Telefon: 0174 3409116<br>
+    ehrenamt@lebenpflegenreisen.de
+  </div>
+</div>
+
+<div class="seite">
+  <div class="inhalt" style="padding-top:14mm">
+    <h2>3 · Der Dienst</h2>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="rahmen"><div class="schirm">
+          <div class="titelzeile">Do 11.09. · Nachtdienst</div>
+          <div class="markiert">Ich bin unterwegs</div>
+          <div class="zeile hell" style="margin-top:2mm">in 10 Minuten</div>
+          <div class="zeile hell">in 20 Minuten</div>
+          <div class="zeile hell">in 30 Minuten</div>
+        </div></div>
+        <p class="bu">5 · Unterwegs melden<span>die Station sieht, wann du kommst</span></p>
+      </div>
+
+      <div class="phone">
+        <div class="rahmen"><div class="schirm">
+          <div class="titelzeile">Mein Bereich</div>
+          <div class="zeile">Do 11.09. · Nachtdienst</div>
+          <div class="markiert" style="margin-top:2mm">Einsatz öffnen</div>
+          <div class="zeile hell" style="margin-top:3mm">Nächste Einsätze</div>
+        </div></div>
+        <p class="bu">6 · Einsatz beginnen<span>gleich zu Schichtbeginn</span></p>
+      </div>
+
+      <div class="phone">
+        <div class="rahmen"><div class="schirm">
+          <div class="titelzeile">Einsatz läuft · 22:04 Uhr</div>
+          <div class="zeile">Trinkmenge &nbsp; 300 ml</div>
+          <div class="zeile hell">+ 100 ml &nbsp; + 200 ml</div>
+          <div class="markiert" style="margin-top:2mm">Besonderheit an Pflege übergeben</div>
+        </div></div>
+        <p class="bu">7 · Während der Schicht<span>Trinkmenge bleibt auf dem Handy</span></p>
+      </div>
+    </div>
+
+    <div class="kasten">
+      <h3>Was hier festgehalten wird — und was nicht</h3>
+      <p>Die <strong>Trinkmenge</strong> ist eine Gedächtnisstütze für dich. Sie bleibt auf
+      deinem Handy und wird nirgends gespeichert.</p>
+      <p>Was dir auffällt, gibst du der <strong>Pflegekraft</strong> weiter. Es gehört in
+      die Dokumentation der Station, nicht in unsere.</p>
+    </div>
+  </div>
+  <div class="fuss">
+    <span class="rechts">Seite 3 von 5</span>
+    <strong>Leben Pflegen Reisen e.V.</strong> · Hilfe am Telefon: 0174 3409116<br>
+    ehrenamt@lebenpflegenreisen.de
+  </div>
+</div>
+
+<div class="seite">
+  <div class="inhalt" style="padding-top:14mm">
+    <h2>Der Abschluss</h2>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="rahmen"><div class="schirm">
+          <div class="titelzeile">Einsatz beenden?</div>
+          <div class="zeile">22:04 – 06:12 Uhr</div>
+          <div class="zeile hell">8 Stunden 8 Minuten</div>
+          <div class="markiert" style="margin-top:2mm">Ja, beenden</div>
+        </div></div>
+        <p class="bu">8 · Einsatz beenden<span>und kurz festhalten, was war</span></p>
+      </div>
+
+      <div class="phone">
+        <div class="rahmen"><div class="schirm">
+          <div class="titelzeile">Bestätigung der Pflege</div>
+          <div class="zeile hell">Bitte geben Sie das Telefon jetzt der Pflegekraft.</div>
+          <div class="leiste" style="min-height:12mm">Unterschrift Pflegekraft</div>
+        </div></div>
+        <p class="bu">9 · Unterschrift<span>die Pflegekraft bestätigt die Zeiten</span></p>
+      </div>
+    </div>
+
+    <div class="kasten wichtig">
+      <h3>Sag es gleich bei der Ankunft an</h3>
+      <p>Zum Abschluss gibst du der Pflegekraft dein Telefon, und sie unterschreibt darauf
+      die Zeiten und die Übergaben.</p>
+      <p>Kündige das schon bei der Ankunft an — dann sucht um sechs Uhr morgens niemand
+      jemanden, der gerade nicht abkömmlich ist.</p>
+      <p>Ohne diese Unterschrift ist der Dienst nicht vollständig dokumentiert, und die
+      Abrechnung verzögert sich.</p>
+    </div>
+  </div>
+  <div class="fuss">
+    <span class="rechts">Seite 4 von 5</span>
+    <strong>Leben Pflegen Reisen e.V.</strong> · Hilfe am Telefon: 0174 3409116<br>
+    ehrenamt@lebenpflegenreisen.de
+  </div>
+</div>
+
+<div class="seite">
+  <div class="inhalt" style="padding-top:14mm">
+    <h2>4 · Bis zum Geld</h2>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="rahmen"><div class="schirm">
+          <div class="titelzeile">Abrechnung</div>
+          <div class="zeile">Abzurechnende Sitzwachen</div>
+          <div class="zeile hell">☑ Do 11.09. · Nachtdienst</div>
+          <div class="zeile hell">☐ Sa 13.09. · Frühdienst</div>
+          <div class="markiert" style="margin-top:2mm">Antrag einreichen</div>
+        </div></div>
+        <p class="bu">10 · Antrag stellen<span>IBAN vorher im Profil hinterlegen</span></p>
+      </div>
+
+      <div class="phone">
+        <div class="rahmen"><div class="schirm">
+          <div class="titelzeile">Meine Anträge</div>
+          <div class="zeile">Do 11.09. · eingereicht</div>
+          <div class="zeile">Sa 30.08. · genehmigt</div>
+          <div class="markiert" style="margin-top:2mm">Fr 22.08. · ausgezahlt</div>
+        </div></div>
+        <p class="bu">Der Stand<span>drei Stufen bis zum Geld</span></p>
+      </div>
+    </div>
+
+    <div class="kasten">
+      <h3>„Eingereicht" ist noch nicht „ausgezahlt"</h3>
+      <p>Die Anzeige <em>Dieses Jahr ausgezahlt</em> zählt nur Beträge, die wirklich
+      angewiesen sind. Nur so stimmt die Zahl, an der du dich für die steuerfreie
+      Jahresgrenze orientierst.</p>
+    </div>
+
+    <h2>Gut zu wissen</h2>
+    <table>
+      <tr><td>Voraussetzung</td><td>Alle fünf Unterlagen müssen freigegeben sein.</td></tr>
+      <tr><td>Wer kommt dran</td><td>Wer die wenigsten Dienste in 90 Tagen hatte. Die Klinik
+        wählt niemanden aus.</td></tr>
+      <tr><td>Fragen</td><td>ehrenamt@lebenpflegenreisen.de oder 0174 3409116</td></tr>
+    </table>
+  </div>
+  <div class="fuss">
+    <span class="rechts">Seite 5 von 5</span>
+    <strong>Leben Pflegen Reisen e.V.</strong> · Stephanstr. 46, 10559 Berlin ·
+    ehrenamt@lebenpflegenreisen.de · 0174 3409116<br>
+    Gemeinnützig nach § 52 AO · Amtsgericht Charlottenburg VR 42682 B
+  </div>
+</div>
+</body></html>

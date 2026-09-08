@@ -3904,7 +3904,12 @@
       const slots = (data || []).map(r => ({
         date: r.datum,
         shift: r.schicht,
-        anzahl: r.anzahl
+        anzahl: r.anzahl,
+        // Getrennt nach Tarif, damit die Klinik sieht, ob jemand mit
+        // Pflegeausbildung dabei ist. Ein leerer Tarif zaehlt als T2 —
+        // so ergeben beide Zahlen zusammen immer die Gesamtzahl.
+        anzahl_t1: r.anzahl_t1 || 0,
+        anzahl_t2: r.anzahl_t2 || 0
       }));
       return { ok: true, slots };
     } catch(e) {
@@ -3941,7 +3946,10 @@
         // 1 oder 2 — mehr laesst die Datenbank nicht zu. Alles andere wird
         // hier auf 1 gezogen, damit ein verirrter Wert nicht als Fehler beim
         // Buchen ankommt.
-        p_patient_count: payload.patient_count === 2 ? 2 : 1
+        p_patient_count: payload.patient_count === 2 ? 2 : 1,
+        // 'T1' | 'T2' | null. Ohne Wert vergibt die Datenbank wie bisher
+        // ueber alle Tarife hinweg — der Aufruf bleibt abwaertskompatibel.
+        p_tarif: (payload.tarif === 'T1' || payload.tarif === 'T2') ? payload.tarif : null
       });
       if (error) return { ok: false, error: error.message };
       const z = Array.isArray(data) ? data[0] : data;
@@ -3953,7 +3961,8 @@
           volunteer_id: z.volunteer_id,
           volunteer_name: z.volunteer_name,
           date: z.datum,
-          shift: z.schicht
+          shift: z.schicht,
+          tarif: z.tarif || 'T2'
         }
       };
     } catch(e) {

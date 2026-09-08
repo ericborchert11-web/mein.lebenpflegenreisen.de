@@ -119,6 +119,13 @@
   color: var(--green-deep);
   font-size: 14.5px;
 }
+/* Die Stufe mit Pflegeausbildung traegt die Farbe, der Zusatz steht ruhig
+   daneben — die Zeile soll im Vorbeiscrollen die erste Frage beantworten.
+   Steht dagegen NUR die Stufe ohne Pflegeausbildung zur Verfuegung, bleibt
+   sie in normaler Textfarbe: Grau haette ausgesehen wie "nicht buchbar",
+   dabei ist es das einzige Angebot fuer diese Schicht. */
+.kb-shift-row .kb-frei .kb-ohne { color: var(--muted); font-weight: 600; }
+.kb-shift-row .kb-frei .kb-nur-ohne { color: var(--text); font-weight: 700; }
 @media (max-width: 640px) {
   .kb-shift-row { grid-template-columns: 1fr; gap: 10px; }
   .kb-shift-row .kb-book-btn { width: 100%; min-height: 48px; }
@@ -342,6 +349,22 @@
 .kb-anzahl-chip.active { background: #E8F0E8; border-color: var(--green-deep); color: var(--green-deep); }
 .kb-anzahl-chip input[type="radio"] { margin: 0; cursor: pointer; }
 
+/* Tarifwahl. Eigene Klasse statt kb-anzahl-chip, weil die Beschriftung hier
+   mehrere Woerter lang ist und der Chip nicht auf 62 px Mindestbreite passt.
+   Der gesperrte Zustand muss sichtbar sein, ohne zu verschwinden: Die Klinik
+   soll erkennen, DASS es die Stufe gibt und dass sie heute leer ist. */
+.kb-tarif { flex-wrap: wrap; }
+.kb-tarif-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border: 1px solid var(--line, #D8D4CC); border-radius: 999px;
+  cursor: pointer; font-size: 14px; font-weight: 600; background: #fff;
+}
+.kb-tarif-chip:hover { border-color: var(--green-deep); }
+.kb-tarif-chip.active { background: #E8F0E8; border-color: var(--green-deep); color: var(--green-deep); }
+.kb-tarif-chip.disabled { opacity: .5; cursor: not-allowed; background: #F5F4F1; }
+.kb-tarif-chip.disabled:hover { border-color: var(--line, #D8D4CC); }
+.kb-tarif-chip input[type="radio"] { margin: 0; cursor: pointer; }
+
 .kb-flag-chip {
   display: flex;
   align-items: center;
@@ -434,6 +457,24 @@
     <h2 id="kb-modal-title">Sitzwache buchen</h2>
     <div class="kb-modal-summary" id="kb-modal-summary"></div>
     <div class="kb-kurzfrist" id="kb-kurzfrist" hidden></div>
+
+    <!--
+      Die Qualifikation steht bewusst als erste Wahl im Dialog: Sie ist die
+      einzige Entscheidung, die die Klinik hier wirklich trifft. Wer die
+      Person bekommt, entscheidet weiterhin die Vergaberegel.
+    -->
+    <div class="kb-modal-section">
+      <label class="kb-section-label">Qualifikation</label>
+      <div class="kb-anzahl kb-tarif" id="kb-tarif">
+        <label class="kb-tarif-chip active">
+          <input type="radio" name="kb-tarif" value="T1" checked> Mit Pflegeausbildung
+        </label>
+        <label class="kb-tarif-chip">
+          <input type="radio" name="kb-tarif" value="T2"> Ohne Pflegeausbildung
+        </label>
+      </div>
+      <div class="kb-field-hint" id="kb-tarif-hint"></div>
+    </div>
 
     <div class="kb-modal-section">
       <label class="kb-section-label" for="kb-station">Station</label>
@@ -541,7 +582,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js?v20260905c"></script>
+<script src="app.js?v20260908a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'klinik-buchen' });
@@ -716,6 +757,29 @@ function leereTageZeitraum() {
   return tage;
 }
 
+/**
+ * Was in der Zeile steht, wenn Sitzwachen verfuegbar sind.
+ *
+ * Nie das Wort "Laie". Die Unterscheidung ist eine fachliche Stufe, keine
+ * Bewertung der Person — und die Klinik liest den Text im Beisein von
+ * Angehoerigen mit. "Mit Pflegeausbildung" / "ohne" sagt dasselbe, ohne
+ * jemanden herabzusetzen.
+ *
+ * Faellt die Aufteilung aus (alte Datenschicht, beide Zahlen 0), bleibt die
+ * frueher gezeigte Gesamtzahl stehen — lieber weniger Auskunft als eine
+ * falsche.
+ */
+function freiText(it) {
+  const t1 = it.anzahl_t1 || 0;
+  const t2 = it.anzahl_t2 || 0;
+  if (t1 + t2 === 0) {
+    return `${it.anzahl} ${it.anzahl === 1 ? 'Sitzwache' : 'Sitzwachen'} verfügbar`;
+  }
+  if (t1 > 0 && t2 > 0) return `${t1} mit Pflegeausbildung · <span class="kb-ohne">${t2} ohne</span>`;
+  if (t1 > 0)           return `${t1} mit Pflegeausbildung`;
+  return `<span class="kb-nur-ohne">${t2} ohne Pflegeausbildung</span>`;
+}
+
 function renderList() {
   const filtered = applyFilters(allShifts);
   const listEl = document.getElementById('kb-list');
@@ -803,8 +867,8 @@ function renderList() {
       html += `
         <div class="kb-shift-row">
           <div><span class="kb-shift-pill ${escape(it.shift)}">${escape(sh.label)} · ${escape(sh.time)}</span>${laeuft}</div>
-          <div class="kb-frei">${it.anzahl} ${it.anzahl === 1 ? 'Sitzwache' : 'Sitzwachen'} verfügbar</div>
-          <button type="button" class="kb-book-btn" data-date="${escape(it.date)}" data-shift="${escape(it.shift)}" data-anzahl="${it.anzahl}">Buchen →</button>
+          <div class="kb-frei">${freiText(it)}</div>
+          <button type="button" class="kb-book-btn" data-date="${escape(it.date)}" data-shift="${escape(it.shift)}" data-anzahl="${it.anzahl}" data-t1="${it.anzahl_t1 || 0}" data-t2="${it.anzahl_t2 || 0}">Buchen →</button>
         </div>`;
     }
     html += `</div>`;
@@ -858,7 +922,9 @@ function renderList() {
       openBookingModal({
         date: btn.dataset.date,
         shift: btn.dataset.shift,
-        anzahl: Number(btn.dataset.anzahl)
+        anzahl: Number(btn.dataset.anzahl),
+        anzahl_t1: Number(btn.dataset.t1) || 0,
+        anzahl_t2: Number(btn.dataset.t2) || 0
       });
     });
   });
@@ -1024,6 +1090,69 @@ function markiereAnzahl() {
 document.querySelectorAll('#kb-patient-count input[name="kb-pc"]')
   .forEach(rb => rb.addEventListener('change', markiereAnzahl));
 
+/** Faerbt den gewaehlten Tarif-Chip. Gleiche Begruendung wie markiereAnzahl. */
+function markiereTarif() {
+  document.querySelectorAll('#kb-tarif .kb-tarif-chip').forEach(chip => {
+    const rb = chip.querySelector('input');
+    chip.classList.toggle('active', !!rb && rb.checked && !rb.disabled);
+  });
+}
+
+document.querySelectorAll('#kb-tarif input[name="kb-tarif"]')
+  .forEach(rb => rb.addEventListener('change', markiereTarif));
+
+/**
+ * Stellt die Tarifwahl auf den Slot ein.
+ *
+ * Erste Wahl ist immer die Stufe mit Pflegeausbildung — das ist der
+ * fachliche Vorrang, den der Verein anbietet. Gibt es sie fuer diesen Dienst
+ * nicht, wird der Chip gesperrt statt versteckt: Die Klinik soll sehen, dass
+ * die Stufe existiert und heute leer ist, und dass sie stattdessen jemanden
+ * ohne Pflegeausbildung bekommt. Genau diese Erkennbarkeit ist der Zweck.
+ */
+function tarifVorbereiten(slot) {
+  const t1 = slot.anzahl_t1 || 0;
+  const t2 = slot.anzahl_t2 || 0;
+  const rbT1 = document.querySelector('#kb-tarif input[value="T1"]');
+  const rbT2 = document.querySelector('#kb-tarif input[value="T2"]');
+  const hint = document.getElementById('kb-tarif-hint');
+  if (!rbT1 || !rbT2) return;
+
+  // Kennt die Datenschicht die Aufteilung nicht (beide Zahlen 0), darf hier
+  // kein Tarif erzwungen werden: Ein gesetzter Wunsch wuerde gegen eine
+  // Zaehlung pruefen, die es nicht gibt. Dann bleibt es beim alten Verhalten
+  // — beide Stufen offen, Buchung ohne Tarifwunsch.
+  if (t1 + t2 === 0) {
+    [rbT1, rbT2].forEach(rb => {
+      rb.disabled = false;
+      rb.checked = false;
+      rb.closest('.kb-tarif-chip').classList.remove('disabled');
+    });
+    markiereTarif();
+    hint.textContent = 'Die Aufteilung nach Qualifikation liegt für diese Schicht nicht vor. '
+      + 'Ohne Auswahl teilt der Verein aus allen verfügbaren Sitzwachen zu.';
+    return;
+  }
+
+  rbT1.disabled = t1 === 0;
+  rbT2.disabled = t2 === 0;
+  rbT1.closest('.kb-tarif-chip').classList.toggle('disabled', rbT1.disabled);
+  rbT2.closest('.kb-tarif-chip').classList.toggle('disabled', rbT2.disabled);
+
+  if (t1 > 0) { rbT1.checked = true; } else { rbT2.checked = true; }
+  markiereTarif();
+
+  if (t1 === 0 && t2 > 0) {
+    hint.innerHTML = '<strong>Für diese Schicht ist niemand mit Pflegeausbildung verfügbar.</strong> '
+      + 'Sie buchen eine Sitzwache ohne Pflegeausbildung: Sie leistet Anwesenheit, '
+      + 'Ansprache und Aufsicht, aber keine pflegerischen Tätigkeiten.';
+  } else if (t1 > 0 && t2 === 0) {
+    hint.textContent = 'Für diese Schicht steht nur die Stufe mit Pflegeausbildung zur Verfügung.';
+  } else {
+    hint.textContent = 'Wer den Dienst übernimmt, teilt der Verein innerhalb der gewählten Stufe zu.';
+  }
+}
+
 /**
  * Kurzfristige Buchungen ehrlich benennen.
  *
@@ -1055,7 +1184,7 @@ function openBookingModal(slot) {
   const sh = SHIFT_LABELS[slot.shift] || { label: slot.shift, time: '' };
   document.getElementById('kb-modal-summary').innerHTML = `
     <strong>${escape(fmtDateShort(slot.date))}</strong> · ${escape(sh.label)} (${escape(sh.time)})<br>
-    <span style="color:var(--muted)">${slot.anzahl} ${slot.anzahl === 1 ? 'Sitzwache ist' : 'Sitzwachen sind'} verfügbar — wer den Dienst übernimmt, teilt der Verein zu.</span>
+    <span style="color:var(--muted)">Verfügbar: ${freiText(slot)}</span>
   `;
   const kf = document.getElementById('kb-kurzfrist');
   const kfText = kurzfristHinweis(slot);
@@ -1073,6 +1202,9 @@ function openBookingModal(slot) {
   // stehengebliebene 2 waere in der naechsten Buchung nicht zu sehen.
   const pcEins = document.querySelector('#kb-patient-count input[value="1"]');
   if (pcEins) { pcEins.checked = true; markiereAnzahl(); }
+  // Muss nach dem Zuruecksetzen laufen: der Dialog wird wiederverwendet, und
+  // eine stehengebliebene Sperre vom vorigen Slot waere hier falsch.
+  tarifVorbereiten(slot);
   document.getElementById('kb-notes').value = '';
   document.querySelectorAll('#kb-flags input[type="checkbox"]').forEach(cb => {
     cb.checked = false;
@@ -1111,6 +1243,8 @@ async function confirmBooking() {
     (document.querySelector('#kb-patient-count input[name="kb-pc"]:checked') || {}).value || 1
   );
 
+  const tarif = (document.querySelector('#kb-tarif input[name="kb-tarif"]:checked') || {}).value || null;
+
   const btn = document.getElementById('kb-confirm');
   btn.disabled = true;
   btn.textContent = 'Wird gebucht…';
@@ -1126,7 +1260,8 @@ async function confirmBooking() {
     patient_room: room,
     patient_flags: flags,
     patient_notes: notes,
-    patient_count: patientCount
+    patient_count: patientCount,
+    tarif: tarif
   });
 
   if (!res.ok) {
@@ -1135,16 +1270,21 @@ async function confirmBooking() {
     LPR.showToast(res.error || 'Buchung fehlgeschlagen.', 'warn');
     btn.disabled = false;
     btn.textContent = 'Verbindlich buchen';
-    if (res.error && (res.error.includes('niemand verf') || res.error.includes('nicht mehr verfügbar'))) {
-      // Zwischenzeitlich weggebucht: Liste neu laden
-      setTimeout(() => { closeBookingModal(); load(); }, 1200);
+    // Die Datenbank weicht bewusst nicht auf den anderen Tarif aus. Kommt
+    // eine dieser Meldungen, hat sich die Lage seit dem Laden der Liste
+    // geaendert — dann ist die aktuelle Liste die richtige Antwort, nicht ein
+    // stiller Ersatz.
+    if (res.error && (res.error.includes('KEIN_T1') || res.error.includes('KEIN_T2')
+                      || res.error.includes('niemand verf') || res.error.includes('nicht mehr verfügbar'))) {
+      setTimeout(() => { closeBookingModal(); load(); }, 1600);
     }
     return;
   }
 
   // Erst jetzt faellt der Name — ab hier braucht die Station ihn auch.
   const bookedSlot = { ...activeBooking, room,
-    volunteer_name: res.booking.volunteer_name, booking_id: res.booking.id };
+    volunteer_name: res.booking.volunteer_name, booking_id: res.booking.id,
+    tarif: res.booking.tarif };
   closeBookingModal();
   showBookingSuccess(bookedSlot);
 }
@@ -1244,6 +1384,9 @@ function showBookingSuccess(slot) {
   document.getElementById('kb-success-summary').innerHTML =
     `<strong>${escape(slot.volunteer_name || 'Sitzwache')}</strong> übernimmt den Dienst<br>` +
     `${escape(fmtDateShort(slot.date))} · ${escape(sh.label)} (${escape(sh.time)})` +
+    // Die Stufe steht in der Bestaetigung, weil die Station danach handelt:
+    // Wer keine Pflegeausbildung hat, uebernimmt keine pflegerischen Aufgaben.
+    (slot.tarif ? `<br>${slot.tarif === 'T1' ? 'Mit' : 'Ohne'} Pflegeausbildung` : '') +
     (slot.room ? `<br>Zimmer: ${escape(slot.room)}` : '');
   document.getElementById('kb-success-bg').classList.add('show');
 }

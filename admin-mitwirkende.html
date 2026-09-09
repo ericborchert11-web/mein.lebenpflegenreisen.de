@@ -457,13 +457,18 @@ const COMPLIANCE_ITEMS = [
   { id: 'ifsg43',           label: '🦠 §43 IfSG',           hasExpiry: false },
   { id: 'erste_hilfe',      label: '🚑 Erste-Hilfe',        hasExpiry: true,  expiryHint: 'Auffrischung nach 2J' },
   { id: 'dsgvo',            label: '🔒 DSGVO',              hasExpiry: false },
-  { id: 'schweigepflicht',  label: '🤫 Schweigepflicht',    hasExpiry: false }
+  { id: 'schweigepflicht',  label: '🤫 Schweigepflicht',    hasExpiry: false },
+  // optional: Wird erfasst wie die anderen, zaehlt aber NICHT in die Ampel
+  // "Unterlagen unvollstaendig". Sie ist nur fuer Haeuser mit BZR-Pflicht
+  // noetig (Justizvollzugskrankenhaus) — ohne dieses Kennzeichen waeren ab
+  // heute alle Mitwirkenden rot, obwohl ihnen fuer Sana nichts fehlt.
+  { id: 'bzr',              label: '⚖️ BZR-Abfrage (JVK)',  hasExpiry: true,  expiryHint: 'Wiederholung alle 2J', optional: true }
 ];
 const COMPLIANCE_STATUS_LABELS = {
   missing: 'Fehlt', submitted: 'Eingereicht', approved: 'Freigegeben',
   expiring_soon: 'Läuft bald ab', expired: 'Abgelaufen'
 };
-const COMPLIANCE_DEFAULT_VALIDITY_DAYS = { fuehrungszeugnis: 3 * 365, erste_hilfe: 2 * 365 };
+const COMPLIANCE_DEFAULT_VALIDITY_DAYS = { fuehrungszeugnis: 3 * 365, erste_hilfe: 2 * 365, bzr: 2 * 365 };
 const EXPIRY_WARN_DAYS = 30;
 
 // State während Dialog offen
@@ -660,6 +665,7 @@ async function render() {
 
     let cmpExpired = 0, cmpExpiringSoon = 0, cmpMissingOrSubmitted = 0;
     for (const item of COMPLIANCE_ITEMS) {
+      if (item.optional) continue;   // siehe Kommentar an COMPLIANCE_ITEMS
       const rec = records.find(r => r.document_type === item.id);
       const eff = complianceEffectiveStatus(rec);
       if      (eff === 'expired')        cmpExpired++;

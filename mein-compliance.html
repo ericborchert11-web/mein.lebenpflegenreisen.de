@@ -208,6 +208,15 @@ const ITEMS = [
     templateUrl: '/dokumente/lpr-dsgvo-verpflichtung.pdf'
   },
   {
+    id: 'bzr',
+    title: '⚖️ Abfrage beim Bundeszentralregister',
+    desc: 'Nur für Dienste im Justizvollzugskrankenhaus. Die Abfrage stellt die Justiz, '
+        + 'nicht du — du musst dafür nichts einreichen. Der Vorstand trägt hier ein, sobald sie vorliegt.',
+    validity: '2 Jahre',
+    method: 'none',
+    optional: true
+  },
+  {
     id: 'schweigepflicht',
     title: '🤫 Schweigepflichterklärung',
     desc: 'Erklärung zur Wahrung der Schweigepflicht gegenüber den von uns begleiteten Menschen.',
@@ -303,7 +312,7 @@ async function render() {
   list.innerHTML = ITEMS.map(item => {
     const record = byType[item.id];
     const status = effectiveStatus(record);
-    if (status === 'approved') completed++;
+    if (status === 'approved' && !item.optional) completed++;
     const meta = record && (record.submitted_at || record.approved_at || record.valid_until)
       ? `<div class="cp-meta">
           ${record.submitted_at ? `<div><strong>Eingereicht:</strong> ${new Date(record.submitted_at).toLocaleDateString('de-DE')}</div>` : ''}
@@ -312,7 +321,16 @@ async function render() {
         </div>`
       : '';
     let actions = '';
-    if (status === 'missing' || status === 'expired') {
+    if (item.method === 'none') {
+      // Kein Einreichen-Knopf: Diese Unterlage entsteht bei der Justiz und
+      // wird vom Vorstand eingetragen. Ein Knopf, der ins Leere fuehrt,
+      // waere schlimmer als keiner.
+      if (status !== 'approved') {
+        actions = `<div class="cp-meta">Hier musst du nichts tun. Ohne diesen Eintrag
+          kannst du nur im Justizvollzugskrankenhaus nicht eingesetzt werden — auf
+          alle anderen Dienste hat er keine Auswirkung.</div>`;
+      }
+    } else if (status === 'missing' || status === 'expired') {
       const mailto = buildMailtoLink(item, session);
       const templateBtn = item.method === 'template' && item.templateUrl
         ? `<a href="${escapeHTML(item.templateUrl)}" class="cp-btn cp-btn-clear" download>Vorlage herunterladen</a>`
@@ -336,9 +354,13 @@ async function render() {
       ${actions}
     </div>`;
   }).join('');
-  const pct = Math.round((completed / ITEMS.length) * 100);
+  // Nur die Pflichtunterlagen zaehlen. Sonst faellt jede und jeder mit dem
+  // Einbau der BZR-Abfrage von 5/5 auf 5/6 — und damit scheinbar von
+  // "vollstaendig" auf "unvollstaendig", ohne dass sich etwas geaendert hat.
+  const pflicht = ITEMS.filter(i => !i.optional).length;
+  const pct = Math.round((completed / pflicht) * 100);
   document.getElementById('cp-percent').textContent = pct + ' %';
-  document.getElementById('cp-count').textContent = completed + ' / ' + ITEMS.length;
+  document.getElementById('cp-count').textContent = completed + ' / ' + pflicht;
   document.getElementById('cp-fill').style.width = pct + '%';
 }
 </script>

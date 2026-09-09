@@ -213,6 +213,9 @@ h1 { margin:0 0 4px; }
         <label>ab: <input type="date" id="f-booking-from"></label>
         <label>bis: <input type="date" id="f-booking-to"></label>
         <button class="as-btn" id="f-booking-apply">Filtern</button>
+        <!-- Steht bei den Filtern und nicht in einem Menue: Wer telefonische
+             Buchungen nachtraegt, kommt ohnehin auf diese Liste. -->
+        <button class="as-btn" id="nb-oeffnen" style="margin-left:auto">Buchung nachtragen</button>
       </div>
       <div id="booking-list"></div>
     </section>
@@ -258,7 +261,7 @@ h1 { margin:0 0 4px; }
 </div>
 </main>
 
-<script src="app.js?v20260907f"></script>
+<script src="app.js?v20260909a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -805,7 +808,89 @@ async function nfSpeichern() {
   await loadBookings();
 }
 
+// ═══ Buchung nachtragen ═══
+let _nbPersonen = [];
+
+async function nbOeffnen() {
+  document.getElementById('nb-fehler').hidden = true;
+  document.getElementById('nb-station').value = '';
+  document.getElementById('nb-notiz').value   = '';
+  document.getElementById('nb-datum').value   = '';
+  document.getElementById('nb-overlay').hidden = false;
+
+  const [kl, pe] = await Promise.all([LPR.boardKlinikKonten(), LPR.boardEhrenamtlicheMitBzr()]);
+  const selK = document.getElementById('nb-klinik');
+  const selP = document.getElementById('nb-person');
+
+  selK.innerHTML = (kl.kliniken || []).map(k =>
+    `<option value="${k.id}">${k.name}${k.abteilung ? ' · ' + k.abteilung : ''}</option>`).join('')
+    || '<option value="">— kein Klinik-Konto —</option>';
+
+  _nbPersonen = pe.personen || [];
+  // Die BZR-Angabe steht am Namen und nicht in einer Fussnote: Beim Auswaehlen
+  // faellt sie auf, danach nicht mehr.
+  selP.innerHTML = _nbPersonen.map(p =>
+    `<option value="${p.id}">${p.name} · ${p.tarif}${p.bzr_ok ? '' : ' · ohne BZR-Abfrage'}</option>`).join('')
+    || '<option value="">— niemand freigegeben —</option>';
+
+  nbBzrHinweis();
+}
+
+function nbBzrHinweis() {
+  const id = document.getElementById('nb-person').value;
+  const p  = _nbPersonen.find(x => x.id === id);
+  const box = document.getElementById('nb-bzr');
+  if (p && !p.bzr_ok) {
+    box.innerHTML = '<strong>Für diese Person liegt keine gültige BZR-Abfrage vor.</strong> '
+      + 'Das Nachtragen wird trotzdem gespeichert — ein geleisteter Dienst gehört dokumentiert. '
+      + 'Für künftige Dienste im Justizvollzugskrankenhaus wird sie ohne Abfrage aber nicht zugeteilt.';
+    box.hidden = false;
+  } else {
+    box.hidden = true;
+  }
+}
+
+function nbSchliessen() { document.getElementById('nb-overlay').hidden = true; }
+
+async function nbSpeichern() {
+  const fehler = document.getElementById('nb-fehler');
+  const btn = document.getElementById('nb-ok');
+  fehler.hidden = true;
+
+  const nutzlast = {
+    clinic_id:    document.getElementById('nb-klinik').value,
+    volunteer_id: document.getElementById('nb-person').value,
+    date:         document.getElementById('nb-datum').value,
+    shift:        document.getElementById('nb-schicht').value,
+    station:      document.getElementById('nb-station').value.trim(),
+    notes:        document.getElementById('nb-notiz').value.trim()
+  };
+  if (!nutzlast.clinic_id || !nutzlast.volunteer_id || !nutzlast.date) {
+    fehler.textContent = 'Klinik, Person und Datum sind Pflicht.';
+    fehler.hidden = false;
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Wird nachgetragen…';
+  const res = await LPR.boardBuchungNachtragen(nutzlast);
+  btn.disabled = false; btn.textContent = 'Nachtragen';
+
+  if (!res.ok) {
+    fehler.textContent = res.error || 'Nachtragen fehlgeschlagen.';
+    fehler.hidden = false;
+    return;
+  }
+  nbSchliessen();
+  LPR.showToast('Buchung nachgetragen. Es wurde niemand benachrichtigt.', 'warn');
+  loadBookings();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('nb-oeffnen').onclick    = nbOeffnen;
+  document.getElementById('nb-abbrechen').onclick  = nbSchliessen;
+  document.getElementById('nb-ok').onclick         = nbSpeichern;
+  document.getElementById('nb-person').onchange    = nbBzrHinweis;
+  document.getElementById('nb-overlay').onclick    = e => { if (e.target.id === 'nb-overlay') nbSchliessen(); };
   document.getElementById('ev-abbrechen').onclick = evSchliessen;
   document.getElementById('ev-ok').onclick = evBestaetigen;
   document.getElementById('ev-overlay').onclick = e => { if (e.target.id === 'ev-overlay') evSchliessen(); };
@@ -968,6 +1053,57 @@ init();
     <div class="ev-actions">
       <button type="button" class="as-btn" id="nf-abbrechen">Abbrechen</button>
       <button type="button" class="as-btn" id="nf-ok">Nachtragen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Telefonisch gebuchten Dienst nachtragen ═══ -->
+<div id="nb-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog breit" role="dialog" aria-labelledby="nb-titel">
+    <h2 id="nb-titel">Buchung nachtragen</h2>
+    <p class="ev-info">
+      Für Dienste, die <strong>telefonisch</strong> gebucht wurden — etwa vom
+      Justizvollzugskrankenhaus, das unsere Seite nicht erreicht. Die Buchung zählt
+      normal für Auswertung, Ausgleich und Abrechnung, löst aber
+      <strong>keine Benachrichtigung</strong> aus: Der Dienst liegt bereits hinter uns.
+    </p>
+
+    <div class="nf-grid">
+      <div>
+        <label class="ev-label" for="nb-klinik">Klinik</label>
+        <select id="nb-klinik"></select>
+      </div>
+      <div>
+        <label class="ev-label" for="nb-person">Wer hat den Dienst geleistet?</label>
+        <select id="nb-person"></select>
+      </div>
+      <div>
+        <label class="ev-label" for="nb-datum">Datum</label>
+        <input type="date" id="nb-datum">
+      </div>
+      <div>
+        <label class="ev-label" for="nb-schicht">Schicht</label>
+        <select id="nb-schicht">
+          <option value="morning">Frühdienst 06–14</option>
+          <option value="afternoon">Spätdienst 14–22</option>
+          <option value="night">Nachtdienst 22–06</option>
+        </select>
+      </div>
+      <div>
+        <label class="ev-label" for="nb-station">Station (optional)</label>
+        <input type="text" id="nb-station" maxlength="60" placeholder="z. B. Station 4B">
+      </div>
+      <div>
+        <label class="ev-label" for="nb-notiz">Notiz (optional)</label>
+        <input type="text" id="nb-notiz" maxlength="200" placeholder="z. B. telefonisch am 08.09. gebucht">
+      </div>
+    </div>
+
+    <div class="as-hint" id="nb-bzr" hidden></div>
+    <div class="ev-fehler" id="nb-fehler" hidden></div>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="nb-abbrechen">Abbrechen</button>
+      <button type="button" class="as-btn" id="nb-ok">Nachtragen</button>
     </div>
   </div>
 </div>

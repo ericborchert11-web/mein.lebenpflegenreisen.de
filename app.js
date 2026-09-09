@@ -4757,6 +4757,93 @@
 
   // Alle Buchungen (board) inkl. aufgelöster Namen. Klinikname kanonisch aus
   // clinic_details.clinic_name (NICHT profiles.full_name = Ansprechperson!).
+
+  // ═══════════════════════════════════════════════════════
+  // NACHERFASSUNG VON BUCHUNGEN
+  //
+  // Das Justizvollzugskrankenhaus bucht telefonisch — die Vereinsseite ist
+  // im Justiznetz gesperrt. Der Vorstand traegt diese Dienste hinterher ein.
+  // Anders als beim Buchen wird die Person BENANNT und nicht zugeteilt: Wer
+  // dort war, steht schon fest.
+  // ═══════════════════════════════════════════════════════
+
+  /** Klinik-Konten, an die eine nachgetragene Buchung haengen kann. */
+  async function boardKlinikKonten() {
+    try {
+      const { data, error } = await (await sb())
+        .from('clinic_details')
+        .select('id, clinic_name, department, status')
+        .eq('status', 'approved')
+        .order('clinic_name');
+      if (error) return { ok: false, error: error.message, kliniken: [] };
+      return { ok: true, kliniken: (data || []).map(c => ({
+        id: c.id,
+        name: c.clinic_name || '(ohne Namen)',
+        abteilung: c.department || ''
+      })) };
+    } catch(e) {
+      console.error('[LPR] boardKlinikKonten:', e);
+      return { ok: false, error: 'Netzwerkfehler.', kliniken: [] };
+    }
+  }
+
+  /**
+   * Ehrenamtliche samt Stand der BZR-Abfrage.
+   *
+   * Die Abfrage blockiert das Nachtragen NICHT — wer im JVK war, war dort,
+   * und das gehoert dokumentiert. Sie wird angezeigt, damit ein Fehlen
+   * auffaellt, statt unbemerkt zu bleiben.
+   */
+  async function boardEhrenamtlicheMitBzr() {
+    try {
+      const client = await sb();
+      const [pRes, cRes] = await Promise.all([
+        client.from('profiles').select('id, full_name, tarif')
+              .eq('role', 'volunteer').eq('status', 'approved').order('full_name'),
+        client.from('compliance_records').select('user_id, status, valid_until')
+              .eq('document_type', 'bzr')
+      ]);
+      if (pRes.error) return { ok: false, error: pRes.error.message, personen: [] };
+      const heute = new Date().setHours(0, 0, 0, 0);
+      const bzr = {};
+      (cRes.data || []).forEach(r => {
+        bzr[r.user_id] = r.status === 'approved'
+          && (!r.valid_until || new Date(r.valid_until).setHours(0, 0, 0, 0) >= heute);
+      });
+      return { ok: true, personen: (pRes.data || []).map(p => ({
+        id: p.id,
+        name: p.full_name || '(ohne Namen)',
+        tarif: p.tarif || 'T2',
+        bzr_ok: !!bzr[p.id]
+      })) };
+    } catch(e) {
+      console.error('[LPR] boardEhrenamtlicheMitBzr:', e);
+      return { ok: false, error: 'Netzwerkfehler.', personen: [] };
+    }
+  }
+
+  /** Traegt eine bereits geleistete Buchung nach — ohne Benachrichtigung. */
+  async function boardBuchungNachtragen(payload) {
+    if (!payload || !payload.clinic_id || !payload.volunteer_id || !payload.date || !payload.shift) {
+      return { ok: false, error: 'Klinik, Person, Datum und Schicht sind Pflicht.' };
+    }
+    try {
+      const { data, error } = await (await sb()).rpc('board_buchung_nachtragen', {
+        p_clinic:    payload.clinic_id,
+        p_volunteer: payload.volunteer_id,
+        p_date:      payload.date,
+        p_shift:     payload.shift,
+        p_station:   payload.station || null,
+        p_notes:     payload.notes   || null
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, booking_id: data };
+    } catch(e) {
+      console.error('[LPR] boardBuchungNachtragen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function adminListBookings(fromDate, toDate) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.', bookings: [] };
@@ -5720,6 +5807,7 @@
     pushErneuerungBeobachten,
     pushAboAbgleichen,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
+    boardKlinikKonten, boardEhrenamtlicheMitBzr, boardBuchungNachtragen,
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
     resendClaimMail, getClaimBeleg, adminClaimsFuerBuchungen, adminAuslagenFuerAnmeldungen,
     // Auslagenersatz (§ 3 Nr. 50 EStG) — Erfassung durch den Vorstand

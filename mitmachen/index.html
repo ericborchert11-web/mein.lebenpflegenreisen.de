@@ -485,5 +485,150 @@ textarea { min-height: 118px; resize: vertical; }
 
 </main>
 
+<script>
+(function () {
+  'use strict';
+
+  // Publishable Key — oeffentlich by design, steht ebenso in app.js.
+  var SUPABASE_URL = 'https://makvwfznbwpjdzmuegoq.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_xF5YO04FE3Xjtl-133cLKw_C9fVs3Y3';
+  var ZIEL = SUPABASE_URL + '/functions/v1/ehrenamt-interesse';
+
+  // Zeitsperre: wer in unter drei Sekunden ein achtfeldriges Formular
+  // ausfuellt, ist kein Mensch. Zweite Bremse neben dem Honigtopf; die
+  // dritte (Dubletten-Sperre) sitzt in der Edge Function.
+  var GEOEFFNET = Date.now();
+  var MINDESTZEIT_MS = 3000;
+
+  var form      = document.getElementById('bewerbung');
+  var knopf     = document.getElementById('absenden');
+  var kasten    = document.getElementById('fehlerkasten');
+  var geschafft = document.getElementById('geschafft');
+
+  function zeigeFormFehler(html) {
+    kasten.innerHTML = html;
+    kasten.hidden = false;
+    kasten.scrollIntoView({ block: 'center' });
+  }
+
+  function feldFehler(id, text) {
+    var feld = document.getElementById(id);
+    feld.setAttribute('aria-invalid', 'true');
+    var span = document.getElementById('fehler-' + id);
+    if (!span) {
+      span = document.createElement('span');
+      span.className = 'feld-fehler';
+      span.id = 'fehler-' + id;
+      feld.parentNode.appendChild(span);
+    }
+    span.textContent = text;
+    span.hidden = false;
+    feld.setAttribute('aria-describedby', 'fehler-' + id);
+  }
+
+  function fehlerZuruecksetzen() {
+    kasten.hidden = true;
+    var offene = form.querySelectorAll('.feld-fehler');
+    for (var i = 0; i < offene.length; i++) offene[i].hidden = true;
+    var markiert = form.querySelectorAll('[aria-invalid="true"]');
+    for (var j = 0; j < markiert.length; j++) markiert[j].removeAttribute('aria-invalid');
+  }
+
+  // Der Kanal aus ?src=. Auf dieselbe Positivliste gefiltert wie in der
+  // Edge Function, damit hier nichts ankommt, was dort ohnehin faellt.
+  function kanal() {
+    var roh = new URLSearchParams(window.location.search).get('src') || '';
+    var sauber = roh.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
+    return sauber ? '/mitmachen/?src=' + sauber : '/mitmachen/';
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    fehlerZuruecksetzen();
+
+    var d = new FormData(form);
+    var name  = (d.get('name')  || '').trim();
+    var email = (d.get('email') || '').trim();
+    var hg    = d.get('hintergrund') || '';
+
+    var erstesFeld = null;
+    if (name.length < 2) { feldFehler('name', 'Bitte trag deinen Namen ein.'); erstesFeld = erstesFeld || 'name'; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      feldFehler('email', 'Diese E-Mail-Adresse sieht nicht vollständig aus.');
+      erstesFeld = erstesFeld || 'email';
+    }
+    if (!hg) { feldFehler('hintergrund', 'Bitte wähl deinen Pflege-Hintergrund aus.'); erstesFeld = erstesFeld || 'hintergrund'; }
+    if (!d.get('dsgvo')) {
+      var sp = document.getElementById('fehler-dsgvo');
+      sp.textContent = 'Ohne dein Einverständnis dürfen wir die Bewerbung nicht speichern.';
+      sp.hidden = false;
+      document.getElementById('dsgvo').setAttribute('aria-invalid', 'true');
+      erstesFeld = erstesFeld || 'dsgvo';
+    }
+    if (erstesFeld) { document.getElementById(erstesFeld).focus(); return; }
+
+    // Zeitsperre. Kein Fehler nach aussen: wer hier haengen bleibt, soll es
+    // nicht merken und keinen zweiten Weg suchen — genau wie beim Honigtopf.
+    if (Date.now() - GEOEFFNET < MINDESTZEIT_MS) {
+      form.hidden = true;
+      geschafft.hidden = false;
+      return;
+    }
+
+    knopf.disabled = true;
+    knopf.textContent = 'Wird gesendet …';
+
+    var verfuegbar = d.getAll('verfuegbarkeit').join(', ');
+
+    fetch(ZIEL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({
+        name:               name,
+        email:              email,
+        phone:              (d.get('phone') || '').trim(),
+        interesse:          'sitzwache',
+        hintergrund:        hg,
+        hintergrund_detail: (d.get('hintergrund_detail') || '').trim(),
+        verfuegbarkeit:     verfuegbar,
+        start_ab:           d.get('start_ab') || '',
+        nachricht:          (d.get('motivation') || '').trim(),
+        datenschutz_ok:     true,
+        website:            d.get('website') || '',
+        quelle:             kanal()
+      })
+    })
+    .then(function (r) {
+      return r.json().catch(function () { return { ok: r.ok }; });
+    })
+    .then(function (a) {
+      if (!a || a.ok === false) {
+        throw new Error((a && a.fehler) || 'Die Bewerbung konnte nicht gespeichert werden.');
+      }
+      form.hidden = true;
+      kasten.hidden = true;
+      geschafft.hidden = false;
+      geschafft.scrollIntoView({ block: 'center' });
+      document.title = 'Bewerbung abgeschickt – Leben Pflegen Reisen e.V.';
+    })
+    .catch(function (err) {
+      knopf.disabled = false;
+      knopf.textContent = 'Bewerbung absenden';
+      // Konkret sagen, was schiefging, und einen zweiten Weg anbieten. Eine
+      // Bewerbung, die an einem Netzwerkfehler scheitert, kommt sonst nie
+      // wieder — der Mailweg ist der Rettungsanker.
+      var betreff = encodeURIComponent('Bewerbung Sitzwache');
+      zeigeFormFehler(
+        '<strong>Das hat nicht geklappt.</strong><br>' +
+        String(err.message || err) +
+        '<br><br>Versuch es gleich noch einmal – oder schick uns deine Bewerbung direkt an ' +
+        '<a href="mailto:ehrenamt@lebenpflegenreisen.de?subject=' + betreff + '">' +
+        'ehrenamt@lebenpflegenreisen.de</a>.'
+      );
+    });
+  });
+})();
+</script>
+
 </body>
 </html>

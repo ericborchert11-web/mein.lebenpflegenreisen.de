@@ -229,6 +229,68 @@ ol.ablauf li:last-child { padding-bottom: 0; }
 ol.ablauf li:last-child::after { display: none; }
 ol.ablauf p { margin: 4px 0 0; font-size: 15.5px; color: var(--mute); }
 
+/* ── Formular ─────────────────────────────────────────────────────────── */
+.form-karte {
+  background: #fff; border: 1px solid var(--rand);
+  border-radius: 16px; padding: clamp(22px, 4vw, 36px);
+  margin-top: 26px;
+}
+.feld { margin-bottom: 20px; }
+.feld label, .gruppe legend {
+  display: block; font-weight: 600; font-size: 15.5px;
+  color: var(--gruen); margin-bottom: 7px;
+}
+.feld .hinweis { font-size: 14px; color: var(--mute); margin: 0 0 7px; font-weight: 400; }
+
+input[type=text], input[type=email], input[type=tel], input[type=date],
+select, textarea {
+  width: 100%; padding: 13px 14px;
+  border: 1.5px solid var(--rand); border-radius: 10px;
+  font-family: inherit; font-size: 16px;   /* 16px verhindert Zoom auf iOS */
+  color: var(--gruen-tief); background: #fff;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--gruen); }
+textarea { min-height: 118px; resize: vertical; }
+
+/* Feldfehler: neben dem Feld und im Klartext, nicht als Browser-Blase, die
+   nach drei Sekunden verschwindet. */
+.feld-fehler { display: block; color: var(--fehler); font-size: 14.5px; margin-top: 6px; }
+[aria-invalid="true"] { border-color: var(--fehler); }
+
+.gruppe { border: 0; margin-bottom: 20px; }
+.kaesten { display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); }
+.kasten {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border: 1.5px solid var(--rand); border-radius: 10px;
+  cursor: pointer; font-size: 15.5px; min-height: 48px;
+}
+.kasten:has(input:checked) { border-color: var(--gruen); background: #F4F8F1; }
+.kasten input { width: 20px; height: 20px; accent-color: var(--gruen); flex: none; }
+
+.dsgvo { display: flex; align-items: flex-start; gap: 12px; margin: 22px 0 8px; }
+.dsgvo input { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--gruen); flex: none; }
+.dsgvo label { font-weight: 400; font-size: 15.5px; color: var(--gruen-tief); }
+
+/* Honigtopf. Nicht display:none — manche Bots ueberspringen genau das.
+   Ausserdem aus der Tabreihenfolge und vom Screenreader ausgenommen. */
+.honig {
+  position: absolute; left: -9999px; width: 1px; height: 1px;
+  overflow: hidden; opacity: 0;
+}
+
+.absenden { width: 100%; margin-top: 8px; }
+.absenden[disabled] { opacity: .6; cursor: not-allowed; }
+
+.form-fehler {
+  background: #FBEDE9; border: 1.5px solid var(--fehler);
+  border-radius: 10px; padding: 15px 17px; margin-bottom: 20px;
+  color: #6E200E; font-size: 15.5px;
+}
+.form-fehler a { color: #6E200E; }
+
+.geschafft { text-align: left; padding: 8px 0; }
+.geschafft h2 { margin-bottom: 14px; }
+
 /* ── Bewegung nur, wenn erwuenscht ────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -324,6 +386,100 @@ ol.ablauf p { margin: 4px 0 0; font-size: 15.5px; color: var(--mute); }
       <li><h3>Unterlagen &amp; Kompaktschulung</h3><p>ein Abend; erweitertes Führungszeugnis (für Ehrenamtliche gebührenfrei, die Bescheinigung stellen wir) und Masernschutznachweis</p></li>
       <li><h3>Hospitation &amp; Ersteinsatz</h3><p>in der Regel bist du nach 3–4 Wochen im Einsatz</p></li>
     </ol>
+  </div>
+</section>
+
+<section id="bewerben">
+  <div class="wrap">
+    <h2>Jetzt bewerben</h2>
+    <p class="sub">Zwei Minuten. Du legst kein Konto an und verpflichtest dich zu nichts.</p>
+
+    <div class="form-karte">
+      <div id="fehlerkasten" class="form-fehler" hidden></div>
+
+      <form id="bewerbung" novalidate>
+        <div class="feld">
+          <label for="name">Name <span aria-hidden="true">*</span><span class="sr-only">(Pflichtfeld)</span></label>
+          <input type="text" id="name" name="name" autocomplete="name" required maxlength="120">
+        </div>
+
+        <div class="feld">
+          <label for="email">E-Mail <span aria-hidden="true">*</span><span class="sr-only">(Pflichtfeld)</span></label>
+          <input type="email" id="email" name="email" autocomplete="email" required maxlength="200">
+        </div>
+
+        <div class="feld">
+          <label for="phone">Telefon</label>
+          <p class="hinweis">Der nächste Schritt ist ein Anruf – mit Nummer geht es schneller.</p>
+          <input type="tel" id="phone" name="phone" autocomplete="tel" maxlength="40">
+        </div>
+
+        <div class="feld">
+          <label for="hintergrund">Dein Pflege-Hintergrund <span aria-hidden="true">*</span><span class="sr-only">(Pflichtfeld)</span></label>
+          <select id="hintergrund" name="hintergrund" required>
+            <option value="">Bitte auswählen</option>
+            <option value="azubi_ab_j2">In der Pflegeausbildung, ab dem 2. Jahr</option>
+            <option value="pflegehilfe_1j">1-jährige Pflegehilfe-Ausbildung abgeschlossen</option>
+            <option value="ausbildung_beendet">Pflegeausbildung begonnen, aber nicht beendet</option>
+            <option value="fachkraft">Examinierte Pflegefachkraft</option>
+            <option value="wiedereinstieg">Wiedereinstieg oder Ruhestand</option>
+            <option value="sonstiges">Etwas anderes</option>
+          </select>
+        </div>
+
+        <div class="feld">
+          <label for="hintergrund_detail">Erzähl kurz mehr dazu</label>
+          <input type="text" id="hintergrund_detail" name="hintergrund_detail" maxlength="300">
+        </div>
+
+        <fieldset class="gruppe">
+          <legend>Wann kannst du?</legend>
+          <div class="kaesten">
+            <label class="kasten"><input type="checkbox" name="verfuegbarkeit" value="vormittags"> vormittags</label>
+            <label class="kasten"><input type="checkbox" name="verfuegbarkeit" value="nachmittags"> nachmittags</label>
+            <label class="kasten"><input type="checkbox" name="verfuegbarkeit" value="abends"> abends</label>
+            <label class="kasten"><input type="checkbox" name="verfuegbarkeit" value="nachts"> nachts</label>
+            <label class="kasten"><input type="checkbox" name="verfuegbarkeit" value="Wochenende"> Wochenende</label>
+          </div>
+        </fieldset>
+
+        <div class="feld">
+          <label for="start_ab">Frühester Start</label>
+          <input type="date" id="start_ab" name="start_ab">
+        </div>
+
+        <div class="feld">
+          <label for="motivation">Warum möchtest du Sitzwache werden?</label>
+          <textarea id="motivation" name="motivation" maxlength="1000"></textarea>
+        </div>
+
+        <!-- Honigtopf. Menschen sehen dieses Feld nicht; die Edge Function
+             verwirft jede Einsendung, in der es gefuellt ist. -->
+        <div class="honig" aria-hidden="true">
+          <label for="website">Website (bitte frei lassen)</label>
+          <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+        </div>
+
+        <div class="dsgvo">
+          <input type="checkbox" id="dsgvo" name="dsgvo" required>
+          <label for="dsgvo">
+            Ich habe die <a href="https://lebenpflegenreisen.de/datenschutz/" target="_blank" rel="noopener">Datenschutzerklärung</a>
+            gelesen und bin einverstanden, dass meine Angaben zur Bearbeitung meiner Bewerbung gespeichert werden.
+            <span aria-hidden="true">*</span><span class="sr-only">(Pflichtfeld)</span>
+          </label>
+        </div>
+        <span class="feld-fehler" id="fehler-dsgvo" hidden></span>
+
+        <button type="submit" class="knopf knopf-haupt absenden" id="absenden">Bewerbung absenden</button>
+      </form>
+
+      <div id="geschafft" class="geschafft" hidden>
+        <h2>Danke! Deine Bewerbung ist da.</h2>
+        <p>Wir melden uns innerhalb von 48 Stunden bei dir.</p>
+        <p class="sub">Noch eine Frage vorab? Schreib an
+          <a href="mailto:ehrenamt@lebenpflegenreisen.de">ehrenamt@lebenpflegenreisen.de</a>.</p>
+      </div>
+    </div>
   </div>
 </section>
 

@@ -52,21 +52,45 @@ Dubletten-Sperre von 15 Minuten gegen den Doppelklick, Herkunfts-Positivliste
 
 ## Was an der Tabelle wächst
 
-Fünf Spalten, alle nullable — die vorhandenen Zeilen aus dem Website-Funnel
-haben sie nicht und sollen nicht nachträglich ungültig werden:
+Weniger als gedacht. Migration R vom 01.09.2026 hat `hintergrund`,
+`verfuegbarkeit`, `bezirk` und `ref_code` bereits angelegt, und
+`admin-ehrenamt-interesse.html` rendert sie auch — **nur füllt sie niemand.**
+Weder die Edge Function noch die Formulare auf der Website senden diese Felder.
+Vier Spalten stehen seit neun Tagen leer da, und die Vorstandsansicht zeigt
+entsprechend nichts an. Das ist dieselbe Falle wie bei `unstaffed_requests`:
+erst nachsehen, was schon da ist.
+
+Neu angelegt werden deshalb nur drei Spalten, alle nullable:
 
 | Spalte | Inhalt |
 |---|---|
-| `hintergrund` | eine von sechs Ausprägungen, per Check gesichert |
-| `hintergrund_detail` | Freitext dazu, optional |
-| `verfuegbarkeit` | `text[]` aus vormittags/nachmittags/abends/nachts/wochenende |
+| `hintergrund_detail` | Freitext zur Qualifikation, optional |
 | `start_ab` | frühester Einstieg, optional |
 | `datenschutz_ok` | Einwilligung; die Function weist ohne sie ab |
 
-**Zwei Felder werden bewusst nicht angelegt.** Die Motivation reist in der
-vorhandenen Spalte `nachricht` — eine zweite, fast gleiche Textspalte hätte
-der Vorstandsansicht nur zwei Kästen statt einem beschert. Und `interesse`
+**Vorhandene Spalten werden mitbenutzt statt gedoppelt:**
+
+`hintergrund` trägt heute einen Check auf `pflege`/`medizin`/`kein`/`unklar` —
+die grobe Frage des allgemeinen Website-Funnels. Die sechs feineren
+Ausprägungen des Briefings (`azubi_ab_j2`, `pflegehilfe_1j`,
+`ausbildung_beendet`, `fachkraft`, `wiedereinstieg`, `sonstiges`) kommen in
+denselben Check dazu, statt eine zweite Qualifikationsspalte anzulegen. Beide
+Funnel behalten ihr Vokabular, die Spalte behält ihre Bedeutung.
+
+`verfuegbarkeit` ist `text` bis 300 Zeichen, kein Array. Die fünf Kästchen
+werden mit Komma verbunden abgelegt — der Typ einer Spalte, auf der schon eine
+Ansicht sitzt, wird nicht wegen fünf Kästchen umgebaut.
+
+`nachricht` nimmt die Motivation auf; eine zweite, fast gleiche Textspalte
+hätte der Vorstandsansicht nur zwei Kästen statt einem beschert. `interesse`
 setzt die Seite fest auf `sitzwache`, weil sie nichts anderes fragt.
+
+`bezirk` und `ref_code` bleiben unberührt — die Seite fragt beides nicht. Dass
+`ref_code` damit weiter leer bleibt, obwohl `PLAN.md` Empfehlungen über
+`?ref=` vorsieht, ist eine bekannte Lücke außerhalb dieses Auftrags.
+
+Die Edge Function muss diese Felder künftig **überhaupt erst lesen** — dass sie
+es bisher nicht tut, ist der eigentliche Grund für die leeren Spalten.
 
 ## Kanal-Messung: eine stille Lücke schließen
 

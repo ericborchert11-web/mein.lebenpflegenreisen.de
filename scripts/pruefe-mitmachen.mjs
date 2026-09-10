@@ -49,9 +49,17 @@ pruefe('Gate 3 — Pflichtsatz woertlich', html.includes(PFLICHTSATZ),
 // Erlaubt sind nur Links (href) auf die Hauptdomain und der fetch-Aufruf an
 // die Edge Function. Verboten ist alles, was der Browser VON SELBST laedt:
 // Schriften, Skripte, Bilder, Stylesheets.
-pruefe('Gate 4 — kein Google-Fonts-Link', !html.includes('fonts.googleapis.com'),
+// Geprueft wird der LADEPFAD, nicht das blosse Vorkommen: href="…",
+// src="…", url(…) und @import. Sonst schlaegt die Pruefung auf einen
+// Kommentar an, der erklaert, warum die Schriften NICHT von dort kommen —
+// beim ersten Lauf am 10.09.2026 genau so passiert.
+const laedtVon = (domain) =>
+  new RegExp(`(?:href|src)\\s*=\\s*["'][^"']*${domain}|url\\(\\s*["']?[^"')]*${domain}|@import[^;]*${domain}`, 'i')
+    .test(html);
+
+pruefe('Gate 4 — kein Google-Fonts-Link', !laedtVon('fonts\\.googleapis\\.com'),
   'Schriften liegen self-gehostet unter mitmachen/fonts/.');
-pruefe('Gate 4 — kein gstatic', !html.includes('fonts.gstatic.com'),
+pruefe('Gate 4 — kein gstatic', !laedtVon('fonts\\.gstatic\\.com'),
   'Schriften liegen self-gehostet unter mitmachen/fonts/.');
 pruefe('Gate 4 — kein CDN-Skript', !/<script[^>]+src=["']https?:/i.test(html),
   'Kein supabase-js, kein jsdelivr. Ein fetch genuegt.');

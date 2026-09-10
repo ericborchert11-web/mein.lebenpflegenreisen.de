@@ -31,8 +31,16 @@ unten.
   „Berliner Partnerkliniken". Wer im Anschreiben Sana liest und dann klickt,
   merkt den Unterschied. Die Nennung steht deshalb unten in eckigen Klammern —
   entweder überall raus oder bewusst drin lassen.
-- **Keine Zahl zum Freibetrag.** Der Betrag nach § 3 Nr. 26a EStG steht in
-  `beleg-vorlage.js` (`FREIBETRAG['26a']`); im Material steht nur der Paragraf.
+- **Zwei verschiedene Pauschalen — nicht verwechseln.** Der Verein rechnet über
+  die **Übungsleiterpauschale, § 3 Nr. 26 EStG** ab: 3.300 € pro Person und
+  Kalenderjahr, steuer- und sozialversicherungsfrei. Die Ehrenamtspauschale
+  nach § 3 Nr. 26a EStG sind nur 960 € und ist hier **nicht** gemeint. Bis zum
+  10.09.2026 stand in diesen Bausteinen dreimal die falsche Nummer.
+  Beide Betraege stehen in `beleg-vorlage.js` (`FREIBETRAG`) — von dort nehmen,
+  nicht aus dem Gedaechtnis.
+- **Was der Verein pro Schicht zahlt, bleibt draussen.** Der gesetzliche
+  Freibetrag darf genannt werden, die eigene Verguetung nicht — dafuer steht die
+  Freigabe des Finanzvorstands aus.
 - Jeder Link bekommt sein `?src=` (siehe `PLAN.md`).
 
 **Zielseite ist ab sofort `/mitmachen/`** auf der Portal-Domain, nicht mehr
@@ -46,7 +54,7 @@ Qualifikation und Verfügbarkeit abfragt.
 > **Sitzwache im Krankenhaus — da sein, wenn es zählt.**  
 > Wir suchen Menschen mit abgeschlossener Pflegeausbildung (ab einem Jahr), die
 > bleiben, wenn jemand nicht allein sein sollte. Schichten selbst wählen,
-> Schulung und Versicherung inklusive. Berlin.
+> Schulung und Versicherung inklusive. Berlin.  
 > mein.lebenpflegenreisen.de/mitmachen/
 
 ---
@@ -67,8 +75,9 @@ Qualifikation und Verfügbarkeit abfragt.
 > und ein erweitertes Führungszeugnis.
 >
 > **Was wir mitbringen:** eine Kompaktschulung, feste Ansprechpersonen,
-> Versicherung über den Verein, eine steuerfreie Aufwandsentschädigung nach
-> § 3 Nr. 26a EStG und Dienste, die Sie selbst wählen.
+> Versicherung über den Verein, eine steuerfreie Aufwandsentschädigung über die
+> Übungsleiterpauschale (§ 3 Nr. 26 EStG, bis 3.300 € im Jahr steuer- und
+> sozialversicherungsfrei) und Dienste, die Sie selbst wählen.
 >
 > Erstes Gespräch unverbindlich: mein.lebenpflegenreisen.de/mitmachen/
 
@@ -106,8 +115,9 @@ Qualifikation und Verfügbarkeit abfragt.
 > **Was Sie bekommen**  
 > Eine Kompaktschulung an einem Abend, begleitete Hospitationsschichten, feste
 > Ansprechpersonen, Versicherungsschutz über den Verein, eine steuerfreie
-> Aufwandsentschädigung nach § 3 Nr. 26a EStG — und die Freiheit, selbst zu
-> entscheiden, wann Sie können.
+> Aufwandsentschädigung über die Übungsleiterpauschale (§ 3 Nr. 26 EStG, bis
+> 3.300 € im Jahr steuer- und sozialversicherungsfrei) — und die Freiheit,
+> selbst zu entscheiden, wann Sie können.
 >
 > **Wie es weitergeht**  
 > Zwei Minuten Formular, dann rufen wir innerhalb von 48 Stunden an. Kein
@@ -160,34 +170,43 @@ gelöscht und kostet den Kanal dauerhaft.
 > ungern gegen eure Gruppenregeln verstoßen: Wäre ein einzelner Beitrag dazu in
 > Ordnung, oder gibt es dafür einen anderen Weg bei euch?
 
-**Der Beitrag selbst** — bewusst als Erzählung, nicht als Anzeige
+**Der Beitrag selbst** — bewusst als Erzaehlung, nicht als Anzeige
 
-> Ich suche jemanden für eine Aufgabe, die es in keiner Stellenanzeige gibt.
+Die Pauschale steht weit oben und mit Zahl, aber nicht in der ersten Zeile.
+Drei Gruende, alle ueberstimmbar: „ehrenamtlich geld verdienen" brachte in drei
+Monaten 21 Impressionen und null Klicks — wer so sucht, will eine Auskunft vom
+Jobcenter. § 3 Nr. 26 setzt ausserdem eine *nebenberufliche* Taetigkeit und eine
+*Aufwandsentschaedigung* voraus, kein Entgelt; ein Aufruf, der wie ein Nebenjob
+klingt, ist das Papier, das bei einer Pruefung dagegen zitiert wird. Und in
+Pflegegruppen wird ein Beitrag im Anzeigenton als Werbung geloescht.
+
+> Ich suche jemanden für eine Aufgabe, die es in keiner Stellenanzeige gibt — und für die es trotzdem Geld gibt.
 >
-> In Berliner Kliniken liegen Menschen, die nachts nicht allein sein sollten:
-> nach einer OP verwirrt, dement, oder einfach am Ende und ohne Angehörige. Die
-> Station kann nicht bleiben — bei dreißig Betten ist niemand für eine Nacht
-> abkömmlich.
+> In Berliner Kliniken liegen Menschen, die nachts nicht allein sein sollten: nach einer OP verwirrt, dement, oder einfach am Ende und ohne Angehörige. Die Station kann nicht bleiben — bei dreißig Betten ist niemand für eine Nacht abkömmlich.
 >
-> Dafür gibt es Sitzwachen. Man sitzt am Bett. Hält eine Hand, redet, schweigt.
-> Merkt, wenn etwas kippt, und holt die Pflege. Gepflegt wird nicht — das
-> bleibt beim Personal.
+> Dafür gibt es Sitzwachen. Man sitzt am Bett. Hält eine Hand, redet, schweigt. Merkt, wenn etwas kippt, und holt die Pflege. Gepflegt wird nicht — das bleibt beim Personal.
 >
-> Warum ich hier frage: Wir dürfen dafür nur Menschen einsetzen, die eine
-> abgeschlossene Ausbildung in der Pflege haben, ab einem Jahr. Pflegehilfe,
-> Pflegeassistenz, Examen — alles recht. Nicht, weil ihr pflegen sollt, sondern
-> weil ihr seht, wann etwas nicht stimmt.
+> **Das Geld, weil die Frage sonst gleich kommt:** Ihr bekommt eine Aufwandsentschädigung über die **Übungsleiterpauschale (§ 3 Nr. 26 EStG)**. Die ist bis **3.300 € im Jahr steuer- und sozialversicherungsfrei** — es geht nichts ans Finanzamt, nichts an die Sozialversicherung, und ihr müsst kein Gewerbe anmelden. Kein Lohn, keine Anstellung, keine Steuererklärungs-Akrobatik. Wer nebenher schon woanders diese Pauschale nutzt, sagt uns kurz Bescheid — der Freibetrag gilt pro Person und Jahr, nicht pro Verein.
 >
-> Es ist ehrenamtlich, mit steuerfreier Aufwandsentschädigung. Eine Schicht pro
-> Woche reicht, und ihr sucht sie euch selbst aus. Schulung an einem Abend,
-> Versicherung über den Verein, Führungszeugnis kostet euch nichts.
+> Was ihr mitbringen müsst: eine **abgeschlossene Ausbildung in der Pflege, ab einem Jahr**. Pflegehilfe, Pflegeassistenz, Examen — alles recht. Nicht, weil ihr pflegen sollt, sondern weil ihr seht, wann etwas nicht stimmt. Ohne Abschluss lassen die Kliniken uns nicht ans Bett.
 >
-> Wenn das jemand von euch liest und denkt „das könnte ich" — zwei Minuten:
+> Der Rest: Eine Schicht pro Woche reicht, und ihr sucht sie euch selbst aus — ihr tragt ein, wann ihr könnt. Schulung an einem Abend, Versicherung über den Verein, erweitertes Führungszeugnis kostet euch nichts.
+>
+> Ihr bezieht ALG oder Bürgergeld? Ehrenamt ist damit grundsätzlich vereinbar. Wie viel anrechnungsfrei bleibt, hängt am Einzelfall — das klären wir in Ruhe am Telefon, bevor ihr irgendetwas zusagt.
+>
+> Zwei Minuten, dann rufen wir innerhalb von 48 Stunden an:  
 > mein.lebenpflegenreisen.de/mitmachen/?src=facebook
 >
 > Fragen beantworte ich hier in den Kommentaren oder unter 0174 3409116.
 >
-> Eric Borchert, Leben Pflegen Reisen e.V.
+> Eric Borchert, Leben Pflegen Reisen e. V.
+
+**Offene Steuerfrage, vor der ersten Kampagne klaeren.** § 3 Nr. 26 verlangt
+unter anderem die „Pflege alter, kranker oder behinderter Menschen". Dass nur
+noch Menschen mit Pflegeabschluss eingesetzt werden, stuetzt das. Der Satz
+„keine pflegerischen oder medizinischen Taetigkeiten" auf der Landingpage zieht
+in die Gegenrichtung. Kein Widerspruch, der aufgeloest werden muss — aber einer,
+den der Steuerberater einmal angesehen haben sollte.
 
 ---
 
@@ -219,10 +238,10 @@ gelöscht und kostet den Kanal dauerhaft.
 > Ihrem Verteiler oder am schwarzen Brett weitergeben können? Wenn Ihnen ein
 > Telefonat lieber ist, rufe ich gern an.
 >
-> Mit freundlichen Grüßen
-> Eric Borchert
-> Vorstand, Leben Pflegen Reisen e.V.
-> ehrenamt@lebenpflegenreisen.de · 0174 3409116
+> Mit freundlichen Grüßen  
+> Eric Borchert  
+> Vorstand, Leben Pflegen Reisen e.V.  
+> ehrenamt@lebenpflegenreisen.de · 0174 3409116  
 > mein.lebenpflegenreisen.de/mitmachen/?src=hospiz
 
 ---
@@ -250,7 +269,7 @@ Für Freiwilligenagenturen, Nachbarschaftshäuser, Gemeinden, Pflegeschulen.
 >
 > Über ein kurzes Gespräch würden wir uns freuen.
 >
-> Mit freundlichen Grüßen
-> Eric Borchert
-> Vorstand, Leben Pflegen Reisen e.V.
+> Mit freundlichen Grüßen  
+> Eric Borchert  
+> Vorstand, Leben Pflegen Reisen e.V.  
 > ehrenamt@lebenpflegenreisen.de · 0174 3409116

@@ -43,11 +43,11 @@ Qualifikation und Verfügbarkeit abfragt.
 
 ## 300 Zeichen — Portale, Kurzmeldungen, Social
 
-> **Sitzwache im Krankenhaus — da sein, wenn es zählt.**
+> **Sitzwache im Krankenhaus — da sein, wenn es zählt.**  
 > Wir suchen Menschen mit abgeschlossener Pflegeausbildung (ab einem Jahr), die
 > bleiben, wenn jemand nicht allein sein sollte. Schichten selbst wählen,
 > Schulung und Versicherung inklusive. Berlin.
-> → mein.lebenpflegenreisen.de/mitmachen/
+> mein.lebenpflegenreisen.de/mitmachen/
 
 ---
 
@@ -87,29 +87,29 @@ Qualifikation und Verfügbarkeit abfragt.
 > einer Station mit dreißig Betten ist niemand für eine Nacht abkömmlich. Genau
 > diese Lücke füllen unsere Sitzwachen.
 >
-> **Was eine Sitzwache tut**
+> **Was eine Sitzwache tut**  
 > Sie ist da. Sie sitzt am Bett, hält eine Hand, spricht ein paar Sätze oder
 > schweigt. Sie merkt, wenn jemand unruhig wird, und holt die Pflege. Sitzwache
 > ist Begleitung — keine pflegerischen oder medizinischen Tätigkeiten.
 >
-> **Warum wir trotzdem einen Pflegeabschluss verlangen**
+> **Warum wir trotzdem einen Pflegeabschluss verlangen**  
 > Nicht, weil Sie pflegen sollen. Sondern weil Sie erkennen müssen, wann etwas
 > nicht stimmt, und weil die Kliniken uns nur unter dieser Bedingung ans Bett
 > lassen. Eine abgeschlossene Ausbildung ab einem Jahr genügt: Pflegehilfe,
 > Pflegeassistenz oder Examen.
 >
-> **Was Sie sonst brauchen**
+> **Was Sie sonst brauchen**  
 > Ein erweitertes Führungszeugnis, einen Masernschutznachweis,
 > Zuverlässigkeit. Wenn Sie einen Dienst zusagen, verlässt sich eine Station
 > darauf.
 >
-> **Was Sie bekommen**
+> **Was Sie bekommen**  
 > Eine Kompaktschulung an einem Abend, begleitete Hospitationsschichten, feste
 > Ansprechpersonen, Versicherungsschutz über den Verein, eine steuerfreie
 > Aufwandsentschädigung nach § 3 Nr. 26a EStG — und die Freiheit, selbst zu
 > entscheiden, wann Sie können.
 >
-> **Wie es weitergeht**
+> **Wie es weitergeht**  
 > Zwei Minuten Formular, dann rufen wir innerhalb von 48 Stunden an. Kein
 > Konto, keine Verpflichtung.
 >

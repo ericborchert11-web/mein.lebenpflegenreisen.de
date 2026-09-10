@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ehrenamtliche Sitzwache werden – Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Werde ehrenamtliche Sitzwache in Berliner Kliniken: schwerkranke Menschen begleiten, Schichten selbst wählen, Schulung und Versicherung inklusive. Mit abgeschlossener einjähriger Pflegeausbildung.">
+<meta property="og:title" content="Ehrenamtliche Sitzwache werden">
+<meta property="og:description" content="Da sein, wenn es zählt. Werde ehrenamtliche Sitzwache in Berliner Kliniken – dein Pflege-Know-how ohne Stationsstress.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<meta property="og:url" content="https://mein.lebenpflegenreisen.de/mitmachen/">
+
+<!-- Favicon: dieselben zwei Chevrons auf dunkelgruenem Quadrat, inline als
+     data-URI. Eine eigene Datei waere ein zweiter Request fuer 400 Byte. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='6' fill='%231A3A2A'/%3E%3Cg fill='none' stroke='%23C8F135' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='11,12 25,24 11,36'/%3E%3Cpolyline points='24,12 38,24 24,36' opacity='.42'/%3E%3C/g%3E%3C/svg%3E">
+
+<!-- Die beiden latin-Schnitte werden sicher gebraucht und deshalb vorgeladen.
+     latin-ext bleibt ungepreloadet: es greift nur bei Zeichen, die auf dieser
+     Seite nicht vorkommen. -->
+<link rel="preload" href="fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/instrument-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+<style>
+/* ── Schriften ────────────────────────────────────────────────────────────
+   Self-gehostet, nicht von fonts.googleapis.com. Der Rest des Repos laedt
+   sie remote; diese Seite wird oeffentlich beworben und soll ohne
+   Cookie-Banner und ohne Drittanbieter-Request auskommen. Beide unter OFL. */
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal; font-weight: 400 800; font-display: swap;
+  src: url('fonts/bricolage-grotesque-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                 U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+                 U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal; font-weight: 400 800; font-display: swap;
+  src: url('fonts/bricolage-grotesque-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+                 U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+                 U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+                 U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url('fonts/instrument-sans-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                 U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+                 U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url('fonts/instrument-sans-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+                 U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+                 U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+                 U+A720-A7FF;
+}
+
+/* ── Farben ───────────────────────────────────────────────────────────────
+   CI-Gruen, nicht die Portal-Token aus shared.css (--green:#2D4A3A). Diese
+   Seite ist Marketing und traegt kein Portal-Chrome.
+
+   --mute ist die einzige bewusste Abweichung vom Briefing: das dort fuer
+   Subtext auf hell vorgesehene #7AAA8A erreicht auf #F5F5F0 nur 2,4:1 und
+   verfehlt damit die im selben Briefing geforderte AA-Schwelle. #7AAA8A
+   steht deshalb nur auf dunklem Grund (4,7:1), --mute traegt hellen
+   Subtext mit 5,3:1. */
+:root {
+  --gruen:#1A3A2A;
+  --gruen-tief:#0D1C13;
+  --lime:#C8F135;
+  --offweiss:#F5F5F0;
+  --sand:#E8E4DC;
+  --mute:#4F6B5C;         /* Subtext auf hell  — 5,3:1 */
+  --mute-dunkel:#7AAA8A;  /* Subtext auf gruen — 4,7:1 */
+  --rand:#D8D4CC;
+  --fehler:#A03216;
+  --max:820px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+body {
+  background: var(--offweiss);
+  color: var(--gruen-tief);
+  font-family: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 17px; line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: 'Bricolage Grotesque', 'Instrument Sans', system-ui, sans-serif;
+  font-weight: 800; line-height: 1.12; letter-spacing: -.015em;
+}
+
+a { color: var(--gruen); }
+
+/* Sichtbarer Fokus ueberall — Tastaturbedienung darf nicht raten muessen. */
+:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.hero :focus-visible { outline-color: var(--lime); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0;
+}
+
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 20px; }
+
+/* Sprungmarke fuer die Tastatur, sichtbar erst bei Fokus. */
+.skip {
+  position: absolute; left: 20px; top: -60px; z-index: 10;
+  background: var(--lime); color: var(--gruen-tief);
+  padding: 12px 18px; border-radius: 0 0 10px 10px;
+  font-weight: 600; text-decoration: none;
+  transition: top .15s;
+}
+.skip:focus { top: 0; }
+
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+.hero {
+  background: var(--gruen); color: #fff;
+  padding: clamp(56px, 11vw, 104px) 0 clamp(48px, 9vw, 88px);
+}
+.hero-chevrons { width: 44px; height: 52px; margin-bottom: 26px; display: block; }
+.hero h1 {
+  font-size: clamp(38px, 8.5vw, 68px);
+  margin: 0 0 20px; max-width: 12ch;
+}
+.hero p {
+  font-size: clamp(18px, 2.4vw, 21px);
+  line-height: 1.55; max-width: 44ch;
+  color: rgba(255,255,255,.92);
+  margin: 0 0 34px;
+}
+.knoepfe { display: flex; flex-wrap: wrap; gap: 14px; }
+.knopf {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 52px; padding: 14px 30px;
+  border-radius: 10px; border: 2px solid transparent;
+  font-family: inherit; font-size: 17px; font-weight: 700;
+  text-decoration: none; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.knopf-haupt { background: var(--lime); color: var(--gruen-tief); }
+.knopf-haupt:hover { background: #d7f65e; }
+.knopf-zweit { background: transparent; color: #fff; border-color: rgba(255,255,255,.42); }
+.knopf-zweit:hover { border-color: var(--lime); color: var(--lime); }
+
+/* ── Abschnitte ───────────────────────────────────────────────────────── */
+section { padding: clamp(48px, 8vw, 80px) 0; }
+section.sand { background: var(--sand); }
+
+section h2 {
+  font-size: clamp(27px, 4.4vw, 38px);
+  color: var(--gruen); margin: 0 0 18px; max-width: 20ch;
+}
+section h3 { font-size: 19px; color: var(--gruen); margin: 0 0 6px; }
+section p { margin: 0 0 16px; max-width: 62ch; }
+section p.sub { color: var(--mute); }
+
+/* Der Abgrenzungssatz. Kein Kasten unter vielen: er steht allein, gross,
+   mit dem Limetten-Balken, weil genau dieses Missverstaendnis die Bewerbung
+   kostet oder — schlimmer — spaeter am Krankenbett auffliegt. */
+.pflichtsatz {
+  border-left: 5px solid var(--lime);
+  padding: 4px 0 4px 20px; margin: 26px 0 0;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: clamp(20px, 3vw, 26px);
+  line-height: 1.3; color: var(--gruen); max-width: 30ch;
+}
+
+/* Aufzaehlungen mit Chevron statt Punkt — greift die Wortmarke auf, ohne
+   dass jeder Abschnitt zur Kachel wird. */
+ul.chev { list-style: none; margin: 0 0 8px; }
+ul.chev li {
+  position: relative; padding-left: 30px; margin-bottom: 13px; max-width: 62ch;
+}
+ul.chev li::before {
+  content: ''; position: absolute; left: 4px; top: .52em;
+  width: 9px; height: 9px; margin-top: -5px;
+  border-right: 2.5px solid var(--gruen); border-top: 2.5px solid var(--gruen);
+  transform: rotate(45deg);
+}
+
+/* Zielgruppen: die einzige Stelle mit Karten. Vier kurze Ansprachen, die
+   nebeneinander gelesen werden — hier traegt das Raster etwas bei. */
+.zielgruppen {
+  display: grid; gap: 16px; margin-top: 30px;
+  grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+}
+.zielgruppe {
+  background: var(--offweiss);
+  border: 1px solid var(--rand); border-left: 4px solid var(--lime);
+  border-radius: 12px; padding: 20px 22px;
+}
+section.sand .zielgruppe { background: #fff; }
+.zielgruppe p { font-size: 15.5px; line-height: 1.55; margin: 0; color: var(--mute); }
+
+/* Ablauf: nummeriert, weil es wirklich eine Reihenfolge ist. */
+ol.ablauf { list-style: none; counter-reset: schritt; margin-top: 28px; }
+ol.ablauf li {
+  counter-increment: schritt; position: relative;
+  padding: 0 0 26px 58px; max-width: 58ch;
+}
+ol.ablauf li::before {
+  content: counter(schritt);
+  position: absolute; left: 0; top: -2px;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--gruen); color: var(--lime);
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 17px;
+  display: flex; align-items: center; justify-content: center;
+}
+/* Verbindungslinie zwischen den Schritten, letzter ohne. */
+ol.ablauf li::after {
+  content: ''; position: absolute; left: 18.5px; top: 42px; bottom: 8px;
+  width: 2px; background: var(--rand);
+}
+ol.ablauf li:last-child { padding-bottom: 0; }
+ol.ablauf li:last-child::after { display: none; }
+ol.ablauf p { margin: 4px 0 0; font-size: 15.5px; color: var(--mute); }
+
+/* ── Formular ─────────────────────────────────────────────────────────── */
+.form-karte {
+  background: #fff; border: 1px solid var(--rand);
+  border-radius: 16px; padding: clamp(22px, 4vw, 36px);
+  margin-top: 26px;
+}
+.feld { margin-bottom: 20px; }
+.feld label, .gruppe legend {
+  display: block; font-weight: 600; font-size: 15.5px;
+  color: var(--gruen); margin-bottom: 7px;
+}
+.feld .hinweis { font-size: 14px; color: var(--mute); margin: 0 0 7px; font-weight: 400; }
+
+input[type=text], input[type=email], input[type=tel], input[type=date],
+select, textarea {
+  width: 100%; padding: 13px 14px;
+  border: 1.5px solid var(--rand); border-radius: 10px;
+  font-family: inherit; font-size: 16px;   /* 16px verhindert Zoom auf iOS */
+  color: var(--gruen-tief); background: #fff;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--gruen); }
+textarea { min-height: 118px; resize: vertical; }
+
+/* Feldfehler: neben dem Feld und im Klartext, nicht als Browser-Blase, die
+   nach drei Sekunden verschwindet. */
+.feld-fehler { display: block; color: var(--fehler); font-size: 14.5px; margin-top: 6px; }
+[aria-invalid="true"] { border-color: var(--fehler); }
+
+.gruppe { border: 0; margin-bottom: 20px; }
+.kaesten { display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); }
+.kasten {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border: 1.5px solid var(--rand); border-radius: 10px;
+  cursor: pointer; font-size: 15.5px; min-height: 48px;
+}
+.kasten:has(input:checked) { border-color: var(--gruen); background: #F4F8F1; }
+.kasten input { width: 20px; height: 20px; accent-color: var(--gruen); flex: none; }
+
+.dsgvo { display: flex; align-items: flex-start; gap: 12px; margin: 22px 0 8px; }
+.dsgvo input { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--gruen); flex: none; }
+.dsgvo label { font-weight: 400; font-size: 15.5px; color: var(--gruen-tief); }
+
+/* Honigtopf. Nicht display:none — manche Bots ueberspringen genau das.
+   Ausserdem aus der Tabreihenfolge und vom Screenreader ausgenommen. */
+.honig {
+  position: absolute; left: -9999px; width: 1px; height: 1px;
+  overflow: hidden; opacity: 0;
+}
+
+.absenden { width: 100%; margin-top: 8px; }
+.absenden[disabled] { opacity: .6; cursor: not-allowed; }
+
+.form-fehler {
+  background: #FBEDE9; border: 1.5px solid var(--fehler);
+  border-radius: 10px; padding: 15px 17px; margin-bottom: 20px;
+  color: #6E200E; font-size: 15.5px;
+}
+.form-fehler a { color: #6E200E; }
+
+.geschafft { text-align: left; padding: 8px 0; }
+.geschafft h2 { margin-bottom: 14px; }
+
+/* ── FAQ ──────────────────────────────────────────────────────────────── */
+details {
+  border-bottom: 1px solid var(--rand);
+  padding: 4px 0;
+}
+details summary {
+  cursor: pointer; list-style: none;
+  padding: 17px 34px 17px 0; position: relative;
+  font-weight: 600; font-size: 17px; color: var(--gruen);
+  min-height: 48px; display: flex; align-items: center;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::after {
+  content: ''; position: absolute; right: 8px; top: 50%;
+  width: 10px; height: 10px; margin-top: -7px;
+  border-right: 2.5px solid var(--gruen); border-bottom: 2.5px solid var(--gruen);
+  transform: rotate(45deg); transition: transform .18s;
+}
+details[open] summary::after { transform: rotate(-135deg); margin-top: -3px; }
+details p { padding: 0 0 18px; color: var(--mute); max-width: 62ch; }
+
+/* ── Fusszeile ────────────────────────────────────────────────────────── */
+footer.seite {
+  background: var(--gruen); color: rgba(255,255,255,.86);
+  padding: 44px 0; font-size: 15px;
+}
+footer.seite a { color: var(--mute-dunkel); }
+footer.seite a:hover { color: var(--lime); }
+footer.seite .zeile { margin-bottom: 8px; }
+footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; }
+
+/* ── Bewegung nur, wenn erwuenscht ────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<a class="skip" href="#inhalt">Zum Inhalt springen</a>
+
+<header class="hero">
+  <div class="wrap">
+    <svg class="hero-chevrons" viewBox="0 0 48 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="5">
+        <polyline points="6,8 24,28 6,48"  stroke="#C8F135"/>
+        <polyline points="22,8 40,28 22,48" stroke="#C8F135" opacity="0.42"/>
+      </g>
+    </svg>
+    <h1>Da sein, wenn es zählt.</h1>
+    <p>Werde ehrenamtliche Sitzwache in Berliner Kliniken. Dein Pflege-Know-how – ohne Stationsstress.</p>
+    <div class="knoepfe">
+      <a class="knopf knopf-haupt" href="#bewerben">Jetzt bewerben</a>
+      <a class="knopf knopf-zweit" href="#ablauf">So läuft&rsquo;s ab</a>
+    </div>
+  </div>
+</header>
+
+<main id="inhalt">
+
+<section>
+  <div class="wrap">
+    <h2>Was ist eine Sitzwache?</h2>
+    <p>Sitzwachen begleiten schwerkranke und sterbende Menschen am Krankenbett: da sein, zuhören, Ruhe geben – und Angehörige wie Pflegekräfte entlasten.</p>
+    <p class="pflichtsatz">Sitzwache ist Begleitung – keine pflegerischen oder medizinischen Tätigkeiten.</p>
+  </div>
+</section>
+
+<section class="sand">
+  <div class="wrap">
+    <h2>Für wen?</h2>
+    <ul class="chev">
+      <li>Eine abgeschlossene mindestens einjährige Ausbildung in der Pflege – zum Beispiel Pflegehilfe, Pflegeassistenz oder examinierte Pflegefachkraft</li>
+      <li>Mindestens 18 Jahre, empathisch und verlässlich</li>
+      <li>Zeit für etwa eine Schicht pro Woche – du wählst deine Schichten selbst</li>
+    </ul>
+
+    <p class="sub">Der Abschluss ist Bedingung, nicht Formsache: Ohne ihn dürfen wir dich in der Klinik nicht einsetzen. Eine begonnene oder abgebrochene Ausbildung reicht dafür leider nicht.</p>
+
+    <div class="zielgruppen">
+      <div class="zielgruppe">
+        <h3>Pflegehilfe-Abschluss</h3>
+        <p>Dein Jahr Ausbildung ist hier genau richtig.</p>
+      </div>
+      <div class="zielgruppe">
+        <h3>Examinierte Pflegefachkraft</h3>
+        <p>Du kennst die Station. Hier bekommst du die Zeit, die dort nie reicht.</p>
+      </div>
+      <div class="zielgruppe">
+        <h3>Wiedereinstieg oder Ruhestand</h3>
+        <p>Deine Erfahrung, dein Tempo, deine Zeiten.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Was du bekommst</h2>
+    <ul class="chev">
+      <li>Eine Aufgabe, die trägt – und Menschen, denen deine Zeit alles bedeutet</li>
+      <li>Selbst gewählte, planbare Schichten</li>
+      <li>Kompaktschulung an einem Abend plus begleitete Hospitationsschichten</li>
+      <li>Versicherungsschutz während deiner Einsätze über den Verein</li>
+      <li>Eine steuerfreie Aufwandsentschädigung (Übungsleiterpauschale)</li>
+      <li>Ehrenamtsbescheinigung – wertvoll für Bewerbungen und Ausbildung</li>
+    </ul>
+  </div>
+</section>
+
+<section class="sand" id="ablauf">
+  <div class="wrap">
+    <h2>So schnell geht&rsquo;s</h2>
+    <ol class="ablauf">
+      <li><h3>Bewerben</h3><p>2 Minuten, Formular unten</p></li>
+      <li><h3>Rückmeldung</h3><p>von uns innerhalb von 48 Stunden</p></li>
+      <li><h3>Erstgespräch</h3><p>20 Minuten, telefonisch</p></li>
+      <li><h3>Unterlagen &amp; Kompaktschulung</h3><p>ein Abend; erweitertes Führungszeugnis (für Ehrenamtliche gebührenfrei, die Bescheinigung stellen wir) und Masernschutznachweis</p></li>
+      <li><h3>Hospitation &amp; Ersteinsatz</h3><p>in der Regel bist du nach 3–4 Wochen im Einsatz</p></li>
+    </ol>
+  </div>
+</section>
+
+<section id="bewerben">
+  <div class="wrap">
+    <h2>Jetzt bewerben</h2>
+    <p class="sub">Zwei Minuten. Du legst kein Konto an und verpflichtest dich zu nichts.</p>
+
+    <div class="form-karte">
+      <div id="fehlerkasten" class="form-fehler" hidden></div>
+
+      <form id="bewerbung" novalidate>
+        <div class="feld">
+          <label for="name">Name <span aria-hidden="true">*</span><span class="sr-only">(Pflichtfeld)</span></label>
+          <input type="text" id="name" name="name" autocomplete="name" required maxlength="120">
+        </div>
+
+        <div class="feld">
+          <label for="email">E-Mail <span aria-hidden="true">*</span><span class="sr-only">(Pflichtfeld)</span></label>
+          <input type="email" id="email" name="email" autocomplete="email" required maxlength="200">
+        </div>
+
+        <div class="feld">
+          <label for="phone">Telefon</label>
+          <p class="hinweis">Der nächste Schritt ist ein Anruf – mit Nummer geht es schneller.</p>
+          <input type="tel" id="phone" name="phone" autocomplete="tel" maxlength="40">
+        </div>
+
+        <div class="feld">
+          <label for="hintergrund">Dein Pflege-Hintergrund <span aria-hidden="true">*</span><span class="sr-only">(Pflichtfeld)</span></label>
+          <select id="hintergrund" name="hintergrund" required>
+            <option value="">Bitte auswählen</option>
+            <option value="pflegehilfe_1j">Pflegehilfe oder Pflegeassistenz, einjährig abgeschlossen</option>
+            <option value="fachkraft">Examinierte Pflegefachkraft</option>
+            <option value="wiedereinstieg">Wiedereinstieg oder Ruhestand, mit abgeschlossener Ausbildung</option>
+            <option value="sonstiges">Ein anderer abgeschlossener Pflegeabschluss</option>
+          </select>
+        </div>
+
+        <div class="feld">
+          <label for="hintergrund_detail">Erzähl kurz mehr dazu</label>
+          <p class="hinweis">Wie heißt dein Abschluss genau, und wann hast du ihn gemacht?</p>
+          <input type="text" id="hintergrund_detail" name="hintergrund_detail" maxlength="300">
+        </div>
+
+        <fieldset class="gruppe">
+          <legend>Wann kannst du?</legend>
+          <div class="kaesten">
+            <label class="kasten"><input type="checkbox" name="verfuegbarkeit" value="vormittags"> vormittags</label>
+            <label class="kasten"><input type="checkbox" name="verfuegbarkeit" value="nachmittags"> nachmittags</label>
+            <label class="kasten"><input type="checkbox" name="verfuegbarkeit" value="abends"> abends</label>
+            <label class="kasten"><input type="checkbox" name="verfuegbarkeit" value="nachts"> nachts</label>
+            <label class="kasten"><input type="checkbox" name="verfuegbarkeit" value="Wochenende"> Wochenende</label>
+          </div>
+        </fieldset>
+
+        <div class="feld">
+          <label for="start_ab">Frühester Start</label>
+          <input type="date" id="start_ab" name="start_ab">
+        </div>
+
+        <div class="feld">
+          <label for="motivation">Warum möchtest du Sitzwache werden?</label>
+          <textarea id="motivation" name="motivation" maxlength="1000"></textarea>
+        </div>
+
+        <!-- Honigtopf. Menschen sehen dieses Feld nicht; die Edge Function
+             verwirft jede Einsendung, in der es gefuellt ist. -->
+        <div class="honig" aria-hidden="true">
+          <label for="website">Website (bitte frei lassen)</label>
+          <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+        </div>
+
+        <div class="dsgvo">
+          <input type="checkbox" id="dsgvo" name="dsgvo" required>
+          <label for="dsgvo">
+            Ich habe die <a href="https://lebenpflegenreisen.de/datenschutz/" target="_blank" rel="noopener">Datenschutzerklärung</a>
+            gelesen und bin einverstanden, dass meine Angaben zur Bearbeitung meiner Bewerbung gespeichert werden.
+            <span aria-hidden="true">*</span><span class="sr-only">(Pflichtfeld)</span>
+          </label>
+        </div>
+        <span class="feld-fehler" id="fehler-dsgvo" hidden></span>
+
+        <button type="submit" class="knopf knopf-haupt absenden" id="absenden">Bewerbung absenden</button>
+      </form>
+
+      <div id="geschafft" class="geschafft" hidden>
+        <h2>Danke! Deine Bewerbung ist da.</h2>
+        <p>Wir melden uns innerhalb von 48 Stunden bei dir.</p>
+        <p class="sub">Noch eine Frage vorab? Schreib an
+          <a href="mailto:ehrenamt@lebenpflegenreisen.de">ehrenamt@lebenpflegenreisen.de</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sand">
+  <div class="wrap">
+    <h2>Häufige Fragen</h2>
+
+    <details>
+      <summary>Brauche ich eine dreijährige Pflegeausbildung?</summary>
+      <p>Nein. Eine abgeschlossene einjährige Ausbildung in der Pflege reicht – zum Beispiel Pflegehilfe oder Pflegeassistenz. Abgeschlossen sein muss sie aber: Eine begonnene oder abgebrochene Ausbildung erfüllt die Voraussetzung nicht.</p>
+    </details>
+    <details>
+      <summary>Übernehme ich pflegerische Aufgaben?</summary>
+      <p>Nein – Sitzwache ist ausschließlich Begleitung, keine Pflege- oder medizinische Tätigkeit.</p>
+    </details>
+    <details>
+      <summary>Wie viel Zeit muss ich mitbringen?</summary>
+      <p>Ab etwa einer Schicht pro Woche; du wählst selbst, wann.</p>
+    </details>
+    <details>
+      <summary>Bin ich versichert?</summary>
+      <p>Ja, während deiner Einsätze bist du über den Verein versichert.</p>
+    </details>
+    <details>
+      <summary>Kostet mich das etwas?</summary>
+      <p>Nein. Schulung und Führungszeugnis sind für dich kostenfrei.</p>
+    </details>
+    <details>
+      <summary>Wo finden die Einsätze statt?</summary>
+      <p>In Berliner Partnerkliniken – Details besprechen wir im Erstgespräch.</p>
+    </details>
+    <details>
+      <summary>Ich beziehe ALG I oder Bürgergeld – geht das?</summary>
+      <p>Ehrenamt ist grundsätzlich damit vereinbar; die Details klären wir gemeinsam im Gespräch.</p>
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="seite">
+  <div class="wrap">
+    <div class="zeile"><strong>Leben Pflegen Reisen e.V.</strong></div>
+    <div class="zeile">Stephanstraße 46, 10559 Berlin · VR 42682 B (AG Charlottenburg)</div>
+    <div class="zeile"><a href="mailto:ehrenamt@lebenpflegenreisen.de">ehrenamt@lebenpflegenreisen.de</a></div>
+    <nav aria-label="Rechtliches">
+      <a href="https://lebenpflegenreisen.de/impressum/">Impressum</a>
+      <a href="https://lebenpflegenreisen.de/datenschutz/">Datenschutz</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  // Publishable Key — oeffentlich by design, steht ebenso in app.js.
+  var SUPABASE_URL = 'https://makvwfznbwpjdzmuegoq.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_xF5YO04FE3Xjtl-133cLKw_C9fVs3Y3';
+  var ZIEL = SUPABASE_URL + '/functions/v1/ehrenamt-interesse';
+
+  // Zeitsperre: wer in unter drei Sekunden ein achtfeldriges Formular
+  // ausfuellt, ist kein Mensch. Zweite Bremse neben dem Honigtopf; die
+  // dritte (Dubletten-Sperre) sitzt in der Edge Function.
+  var GEOEFFNET = Date.now();
+  var MINDESTZEIT_MS = 3000;
+
+  var form      = document.getElementById('bewerbung');
+  var knopf     = document.getElementById('absenden');
+  var kasten    = document.getElementById('fehlerkasten');
+  var geschafft = document.getElementById('geschafft');
+
+  function zeigeFormFehler(html) {
+    kasten.innerHTML = html;
+    kasten.hidden = false;
+    kasten.scrollIntoView({ block: 'center' });
+  }
+
+  function feldFehler(id, text) {
+    var feld = document.getElementById(id);
+    feld.setAttribute('aria-invalid', 'true');
+    var span = document.getElementById('fehler-' + id);
+    if (!span) {
+      span = document.createElement('span');
+      span.className = 'feld-fehler';
+      span.id = 'fehler-' + id;
+      feld.parentNode.appendChild(span);
+    }
+    span.textContent = text;
+    span.hidden = false;
+    feld.setAttribute('aria-describedby', 'fehler-' + id);
+  }
+
+  function fehlerZuruecksetzen() {
+    kasten.hidden = true;
+    var offene = form.querySelectorAll('.feld-fehler');
+    for (var i = 0; i < offene.length; i++) offene[i].hidden = true;
+    var markiert = form.querySelectorAll('[aria-invalid="true"]');
+    for (var j = 0; j < markiert.length; j++) markiert[j].removeAttribute('aria-invalid');
+  }
+
+  // Der Kanal aus ?src=. Auf dieselbe Positivliste gefiltert wie in der
+  // Edge Function, damit hier nichts ankommt, was dort ohnehin faellt.
+  function kanal() {
+    var roh = new URLSearchParams(window.location.search).get('src') || '';
+    var sauber = roh.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
+    return sauber ? '/mitmachen/?src=' + sauber : '/mitmachen/';
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    fehlerZuruecksetzen();
+
+    var d = new FormData(form);
+    var name  = (d.get('name')  || '').trim();
+    var email = (d.get('email') || '').trim();
+    var hg    = d.get('hintergrund') || '';
+
+    var erstesFeld = null;
+    if (name.length < 2) { feldFehler('name', 'Bitte trag deinen Namen ein.'); erstesFeld = erstesFeld || 'name'; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      feldFehler('email', 'Diese E-Mail-Adresse sieht nicht vollständig aus.');
+      erstesFeld = erstesFeld || 'email';
+    }
+    if (!hg) { feldFehler('hintergrund', 'Bitte wähl deinen Pflege-Hintergrund aus.'); erstesFeld = erstesFeld || 'hintergrund'; }
+    if (!d.get('dsgvo')) {
+      var sp = document.getElementById('fehler-dsgvo');
+      sp.textContent = 'Ohne dein Einverständnis dürfen wir die Bewerbung nicht speichern.';
+      sp.hidden = false;
+      document.getElementById('dsgvo').setAttribute('aria-invalid', 'true');
+      erstesFeld = erstesFeld || 'dsgvo';
+    }
+    if (erstesFeld) { document.getElementById(erstesFeld).focus(); return; }
+
+    // Zeitsperre. Kein Fehler nach aussen: wer hier haengen bleibt, soll es
+    // nicht merken und keinen zweiten Weg suchen — genau wie beim Honigtopf.
+    if (Date.now() - GEOEFFNET < MINDESTZEIT_MS) {
+      form.hidden = true;
+      geschafft.hidden = false;
+      return;
+    }
+
+    knopf.disabled = true;
+    knopf.textContent = 'Wird gesendet …';
+
+    var verfuegbar = d.getAll('verfuegbarkeit').join(', ');
+
+    fetch(ZIEL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({
+        name:               name,
+        email:              email,
+        phone:              (d.get('phone') || '').trim(),
+        interesse:          'sitzwache',
+        hintergrund:        hg,
+        hintergrund_detail: (d.get('hintergrund_detail') || '').trim(),
+        verfuegbarkeit:     verfuegbar,
+        start_ab:           d.get('start_ab') || '',
+        nachricht:          (d.get('motivation') || '').trim(),
+        datenschutz_ok:     true,
+        website:            d.get('website') || '',
+        quelle:             kanal()
+      })
+    })
+    .then(function (r) {
+      return r.json().catch(function () { return { ok: r.ok }; });
+    })
+    .then(function (a) {
+      if (!a || a.ok === false) {
+        throw new Error((a && a.fehler) || 'Die Bewerbung konnte nicht gespeichert werden.');
+      }
+      form.hidden = true;
+      kasten.hidden = true;
+      geschafft.hidden = false;
+      geschafft.scrollIntoView({ block: 'center' });
+      document.title = 'Bewerbung abgeschickt – Leben Pflegen Reisen e.V.';
+    })
+    .catch(function (err) {
+      knopf.disabled = false;
+      knopf.textContent = 'Bewerbung absenden';
+      // Konkret sagen, was schiefging, und einen zweiten Weg anbieten. Eine
+      // Bewerbung, die an einem Netzwerkfehler scheitert, kommt sonst nie
+      // wieder — der Mailweg ist der Rettungsanker.
+      var betreff = encodeURIComponent('Bewerbung Sitzwache');
+      zeigeFormFehler(
+        '<strong>Das hat nicht geklappt.</strong><br>' +
+        String(err.message || err) +
+        '<br><br>Versuch es gleich noch einmal – oder schick uns deine Bewerbung direkt an ' +
+        '<a href="mailto:ehrenamt@lebenpflegenreisen.de?subject=' + betreff + '">' +
+        'ehrenamt@lebenpflegenreisen.de</a>.'
+      );
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

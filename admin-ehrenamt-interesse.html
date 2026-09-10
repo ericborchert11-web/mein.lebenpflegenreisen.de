@@ -88,9 +88,11 @@
 <div class="seite">
   <h1>Ehrenamt-Interesse</h1>
   <p class="lead">
-    Meldungen aus dem Formular auf der Website. Das sind noch keine Konten und keine
-    Bewerbungen — es sind Menschen, die zurückgerufen werden möchten. Der nächste
-    Schritt ist immer ein Telefonat, nicht eine Mail.
+    Meldungen aus den Formularen auf der Website und von <code>/mitmachen/</code>.
+    Konten sind das noch keine. Von der Website kommen Menschen, die zurückgerufen
+    werden möchten; über <code>/mitmachen/</code> kommen Bewerbungen mit
+    Qualifikation und Verfügbarkeit. Der nächste Schritt ist in beiden Fällen ein
+    Telefonat, nicht eine Mail.
   </p>
 
   <div class="filter" id="filter"></div>
@@ -125,11 +127,21 @@ const INTERESSE_TEXT = {
 };
 
 let alleZeilen = [];
+// Die ersten vier kommen aus dem allgemeinen Website-Funnel (Migration R),
+// die vier darunter von der Landingpage /mitmachen/ (Migration AE). Eine
+// Spalte, zwei Aufloesungen — deshalb stehen sie hier zusammen.
+//
+// Kein Wert fuer laufende oder abgebrochene Ausbildungen: das Pflegebudget
+// rechnet nur einjaehrig ABGESCHLOSSENE Ausbildungen ab.
 const HINTERGRUND_TEXT = {
   pflege:  'Pflegebezug',
   medizin: 'Medizinbezug',
   kein:    'kein Pflege-/Medizinbezug',
-  unklar:  'noch offen'
+  unklar:  'noch offen',
+  pflegehilfe_1j: 'Pflegehilfe/Pflegeassistenz, einjährig abgeschlossen',
+  fachkraft:      'Examinierte Pflegefachkraft',
+  wiedereinstieg: 'Wiedereinstieg oder Ruhestand, mit Abschluss',
+  sonstiges:      'Anderer abgeschlossener Pflegeabschluss'
 };
 let filterStatus = 'neu';
 
@@ -219,7 +231,13 @@ function zeichneListe() {
         ${z.bezirk ? `<br>📍 ${LPR.escape(z.bezirk)}` : ''}
         ${z.hintergrund && z.hintergrund !== 'unklar'
             ? `<br>🎓 ${HINTERGRUND_TEXT[z.hintergrund] || LPR.escape(z.hintergrund)}` : ''}
+        ${z.hintergrund_detail ? `<br>📝 ${LPR.escape(z.hintergrund_detail)}` : ''}
         ${z.verfuegbarkeit ? `<br>🕑 ${LPR.escape(z.verfuegbarkeit)}` : ''}
+        ${z.start_ab ? `<br>📅 frühester Start ${LPR.escape(
+            new Date(z.start_ab).toLocaleDateString('de-DE')
+          )}` : ''}
+        ${z.datenschutz_ok === false
+            ? '<br><span class="warnung">⚠ Keine Einwilligung erteilt</span>' : ''}
         ${z.quelle ? `<br>🔗 kam über <code>${LPR.escape(z.quelle)}</code>` : ''}
         ${z.ref_code ? `<br>👥 empfohlen über <code>${LPR.escape(z.ref_code)}</code>` : ''}
         ${z.mail_ok === false ? '<br><span class="warnung">⚠ Eingangsbestätigung wurde NICHT zugestellt</span>' : ''}

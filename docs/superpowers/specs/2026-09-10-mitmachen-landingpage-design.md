@@ -71,11 +71,21 @@ Neu angelegt werden deshalb nur drei Spalten, alle nullable:
 **Vorhandene Spalten werden mitbenutzt statt gedoppelt:**
 
 `hintergrund` trägt heute einen Check auf `pflege`/`medizin`/`kein`/`unklar` —
-die grobe Frage des allgemeinen Website-Funnels. Die sechs feineren
-Ausprägungen des Briefings (`azubi_ab_j2`, `pflegehilfe_1j`,
-`ausbildung_beendet`, `fachkraft`, `wiedereinstieg`, `sonstiges`) kommen in
+die grobe Frage des allgemeinen Website-Funnels. Vier feinere Ausprägungen
+(`pflegehilfe_1j`, `fachkraft`, `wiedereinstieg`, `sonstiges`) kommen in
 denselben Check dazu, statt eine zweite Qualifikationsspalte anzulegen. Beide
 Funnel behalten ihr Vokabular, die Spalte behält ihre Bedeutung.
+
+**Nachtrag 10.09.2026 — Zulassung enger als im Briefing.** Das Briefing sah
+sechs Werte vor, darunter `azubi_ab_j2` (in der Ausbildung, ab dem 2. Jahr)
+und `ausbildung_beendet` (begonnen, nicht beendet). Beide sind gestrichen:
+Das Pflegebudget rechnet nur einjährig **abgeschlossene** Ausbildungen ab, und
+ohne Abschluss ist kein Einsatz in der Klinik möglich. Damit fallen auch zwei
+der vier Zielgruppen-Ansprachen des Briefings weg; an ihre Stelle tritt eine
+Karte für examinierte Pflegefachkräfte. Die Seite sagt den Ausschluss
+ausdrücklich, statt ihn zu verschweigen — sonst bewirbt sich jemand umsonst
+und erfährt die Absage erst im Erstgespräch. Ein Wert, den die Oberfläche
+nicht anbietet, gehört auch nicht in den Datenbank-Check.
 
 `verfuegbarkeit` ist `text` bis 300 Zeichen, kein Array. Die fünf Kästchen
 werden mit Komma verbunden abgelegt — der Typ einer Spalte, auf der schon eine

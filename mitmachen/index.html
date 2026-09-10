@@ -291,6 +291,37 @@ textarea { min-height: 118px; resize: vertical; }
 .geschafft { text-align: left; padding: 8px 0; }
 .geschafft h2 { margin-bottom: 14px; }
 
+/* ── FAQ ──────────────────────────────────────────────────────────────── */
+details {
+  border-bottom: 1px solid var(--rand);
+  padding: 4px 0;
+}
+details summary {
+  cursor: pointer; list-style: none;
+  padding: 17px 34px 17px 0; position: relative;
+  font-weight: 600; font-size: 17px; color: var(--gruen);
+  min-height: 48px; display: flex; align-items: center;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::after {
+  content: ''; position: absolute; right: 8px; top: 50%;
+  width: 10px; height: 10px; margin-top: -7px;
+  border-right: 2.5px solid var(--gruen); border-bottom: 2.5px solid var(--gruen);
+  transform: rotate(45deg); transition: transform .18s;
+}
+details[open] summary::after { transform: rotate(-135deg); margin-top: -3px; }
+details p { padding: 0 0 18px; color: var(--mute); max-width: 62ch; }
+
+/* ── Fusszeile ────────────────────────────────────────────────────────── */
+footer.seite {
+  background: var(--gruen); color: rgba(255,255,255,.86);
+  padding: 44px 0; font-size: 15px;
+}
+footer.seite a { color: var(--mute-dunkel); }
+footer.seite a:hover { color: var(--lime); }
+footer.seite .zeile { margin-bottom: 8px; }
+footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; }
+
 /* ── Bewegung nur, wenn erwuenscht ────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -480,7 +511,54 @@ textarea { min-height: 118px; resize: vertical; }
   </div>
 </section>
 
+<section class="sand">
+  <div class="wrap">
+    <h2>Häufige Fragen</h2>
+
+    <details>
+      <summary>Brauche ich eine dreijährige Pflegeausbildung?</summary>
+      <p>Nein. Eine abgeschlossene einjährige Ausbildung in der Pflege reicht – zum Beispiel Pflegehilfe oder Pflegeassistenz. Abgeschlossen sein muss sie aber: Eine begonnene oder abgebrochene Ausbildung erfüllt die Voraussetzung nicht.</p>
+    </details>
+    <details>
+      <summary>Übernehme ich pflegerische Aufgaben?</summary>
+      <p>Nein – Sitzwache ist ausschließlich Begleitung, keine Pflege- oder medizinische Tätigkeit.</p>
+    </details>
+    <details>
+      <summary>Wie viel Zeit muss ich mitbringen?</summary>
+      <p>Ab etwa einer Schicht pro Woche; du wählst selbst, wann.</p>
+    </details>
+    <details>
+      <summary>Bin ich versichert?</summary>
+      <p>Ja, während deiner Einsätze bist du über den Verein versichert.</p>
+    </details>
+    <details>
+      <summary>Kostet mich das etwas?</summary>
+      <p>Nein. Schulung und Führungszeugnis sind für dich kostenfrei.</p>
+    </details>
+    <details>
+      <summary>Wo finden die Einsätze statt?</summary>
+      <p>In Berliner Partnerkliniken – Details besprechen wir im Erstgespräch.</p>
+    </details>
+    <details>
+      <summary>Ich beziehe ALG I oder Bürgergeld – geht das?</summary>
+      <p>Ehrenamt ist grundsätzlich damit vereinbar; die Details klären wir gemeinsam im Gespräch.</p>
+    </details>
+  </div>
+</section>
+
 </main>
+
+<footer class="seite">
+  <div class="wrap">
+    <div class="zeile"><strong>Leben Pflegen Reisen e.V.</strong></div>
+    <div class="zeile">Stephanstraße 46, 10559 Berlin · VR 42682 B (AG Charlottenburg)</div>
+    <div class="zeile"><a href="mailto:ehrenamt@lebenpflegenreisen.de">ehrenamt@lebenpflegenreisen.de</a></div>
+    <nav aria-label="Rechtliches">
+      <a href="https://lebenpflegenreisen.de/impressum/">Impressum</a>
+      <a href="https://lebenpflegenreisen.de/datenschutz/">Datenschutz</a>
+    </nav>
+  </div>
+</footer>
 
 <script>
 (function () {

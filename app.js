@@ -855,9 +855,38 @@
     } catch(e) { console.error('[LPR] getComplianceForUser:', e); return { ok: false, error: 'Netzwerkfehler.', records: [] }; }
   }
 
-  async function setComplianceStatus(recordId, updates) {
+  /**
+   * Compliance-Eintrag setzen — legt ihn an, wenn es ihn noch nicht gibt.
+   *
+   * WARUM UPSERT UND NICHT NUR UPDATE. Die Zeilen in compliance_records
+   * entstehen beim Anlegen eines Profils, und zwar die fuenf Pflichtunterlagen.
+   * Die BZR-Abfrage kam am 09.09.2026 als sechste, OPTIONALE Unterlage dazu —
+   * fuer sie existierte deshalb bei keinem einzigen der 34 Mitwirkenden eine
+   * Zeile. Ein update ... eq('id', '') trifft nichts, und die Oberflaeche
+   * meldete das beim Ablaufdatum nicht einmal. Genau so ist die Funktion am
+   * 11.09.2026 als "speichert nicht" aufgefallen.
+   *
+   * Jede kuenftige optionale Unterlage haette dieselbe Wand getroffen. Deshalb
+   * darf diese Funktion die Zeile anlegen, statt sie vorauszusetzen.
+   *
+   * ZIEL ist entweder eine recordId (wie bisher, unveraendert guelig) oder
+   * { userId, documentType } — dann wird ueber (user_id, document_type)
+   * aufgeloest.
+   */
+  async function setComplianceStatus(ziel, updates) {
     try {
       const session = getSession();
+
+      // Rueckwaertskompatibel: ein String ist weiterhin eine recordId.
+      const z = (typeof ziel === 'string' || ziel == null) ? { recordId: ziel } : ziel;
+      const recordId = z.recordId || null;
+      const userId = z.userId || null;
+      const documentType = z.documentType || null;
+
+      if (!recordId && !(userId && documentType)) {
+        return { ok: false, error: 'Kein Datensatz benannt (weder id noch Person und Unterlage).' };
+      }
+
       const patch = {};
       if (updates.status) patch.status = updates.status;
       if (updates.valid_until !== undefined) patch.valid_until = updates.valid_until;
@@ -867,10 +896,43 @@
         patch.approved_at = new Date().toISOString();
         patch.approved_by = session ? session.id : null;
       }
-      const { data, error } = await (await sb())
-        .from('compliance_records').update(patch).eq('id', recordId).select().single();
+
+      const client = await sb();
+
+      if (recordId) {
+        const { data, error } = await client
+          .from('compliance_records').update(patch).eq('id', recordId).select().single();
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, record: data };
+      }
+
+      // ── Ohne recordId: erst treffen, dann anlegen ──────────────────────
+      //
+      // BEWUSST KEIN upsert. Ein upsert schreibt alle mitgegebenen Spalten,
+      // und beim Anlegen muss `status` dabei sein (die Spalte ist gesetzt,
+      // nicht leer). Traefe dieser Aufruf dann doch eine vorhandene Zeile —
+      // etwa weil die Seite veraltet ist und die recordId fehlt —, wuerde ein
+      // 'approved' still auf 'missing' zurueckfallen. Eine Freigabe, die beim
+      // Speichern eines Datums verschwindet, ist schlimmer als der Fehler,
+      // den wir hier beheben.
+      //
+      // Deshalb zwei Schritte: update ueber (user_id, document_type), und nur
+      // wenn das nichts trifft, ein insert.
+      const treffer = await client
+        .from('compliance_records')
+        .update(patch)
+        .eq('user_id', userId)
+        .eq('document_type', documentType)
+        .select();
+      if (treffer.error) return { ok: false, error: treffer.error.message };
+      if (treffer.data && treffer.data.length) return { ok: true, record: treffer.data[0] };
+
+      // Wirklich neu. `status` nur hier vorbelegen, nie beim Aktualisieren.
+      const neu = { user_id: userId, document_type: documentType, status: 'missing', ...patch };
+      const { data, error } = await client
+        .from('compliance_records').insert(neu).select().single();
       if (error) return { ok: false, error: error.message };
-      return { ok: true, record: data };
+      return { ok: true, record: data, angelegt: true };
     } catch(e) { console.error('[LPR] setComplianceStatus:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
 

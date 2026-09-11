@@ -871,7 +871,8 @@ async function renderCompliance(userId) {
         <option value="approved"  ${(status==='approved' || status==='expired' || status==='expiring_soon') ? 'selected':''}>Freigegeben</option>
       </select>
       ${item.hasExpiry
-        ? `<input type="date" data-cmp-expiry="${escape(recordId)}" value="${escape(validUntil)}" title="${escape(item.expiryHint || '')}">`
+        ? `<input type="date" data-cmp-expiry="${escape(recordId)}" data-doc-type="${item.id}"
+                  value="${escape(validUntil)}" title="${escape(item.expiryHint || '')}">`
         : '<span style="font-size: 11px; color: var(--muted);">—</span>'}
     </div>`;
   }).join('');
@@ -893,13 +894,13 @@ async function renderCompliance(userId) {
         if (suggested) { validUntil = suggested; expiryInput.value = suggested; }
       }
 
-      if (!recordId) {
-        showToast('Fehler: Compliance-Datensatz nicht gefunden. Bitte Seite neu laden.');
-        sel.value = original; return;
-      }
+      // Ohne recordId gibt es die Zeile noch nicht — das ist bei optionalen
+      // Unterlagen wie der BZR-Abfrage der Normalfall, kein Fehler. Dann wird
+      // sie ueber Person und Dokumenttyp angelegt.
+      const ziel = recordId ? recordId : { userId: userId, documentType: docType };
 
       sel.disabled = true;
-      const res = await LPR.setComplianceStatus(recordId, { status: newStatus, valid_until: validUntil });
+      const res = await LPR.setComplianceStatus(ziel, { status: newStatus, valid_until: validUntil });
       sel.disabled = false;
       if (res.ok) {
         const itemDef = COMPLIANCE_ITEMS.find(i => i.id === docType);
@@ -916,11 +917,28 @@ async function renderCompliance(userId) {
   container.querySelectorAll('[data-cmp-expiry]').forEach(inp => {
     inp.addEventListener('change', async () => {
       const recordId = inp.getAttribute('data-cmp-expiry');
+      const docType = inp.getAttribute('data-doc-type');
       const newDate = inp.value || null;
-      if (!recordId) return;
-      const res = await LPR.setComplianceStatus(recordId, { valid_until: newDate });
-      if (res.ok) showToast('✓ Ablaufdatum gespeichert');
-      else        showToast('Fehler: ' + (res.error || 'unbekannt'));
+
+      // Frueher stand hier `if (!recordId) return;` — ein wortloser Abbruch.
+      // Bei der BZR-Abfrage gab es nie eine Zeile, also passierte nichts, und
+      // die Seite sagte auch nichts. Jetzt wird die Zeile angelegt; laesst sich
+      // das Ziel gar nicht bestimmen, gibt es wenigstens eine Meldung.
+      if (!recordId && !docType) {
+        showToast('Fehler: Unterlage nicht zuzuordnen. Bitte Seite neu laden.');
+        return;
+      }
+      const ziel = recordId ? recordId : { userId: userId, documentType: docType };
+
+      inp.disabled = true;
+      const res = await LPR.setComplianceStatus(ziel, { valid_until: newDate });
+      inp.disabled = false;
+      if (res.ok) {
+        showToast('✓ Ablaufdatum gespeichert');
+        if (res.angelegt) await renderCompliance(userId);   // Zeile ist neu, IDs nachziehen
+      } else {
+        showToast('Fehler: ' + (res.error || 'unbekannt'));
+      }
     });
   });
 }

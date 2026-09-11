@@ -313,9 +313,13 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
         <span class="type-label hard">Pflicht · Admin</span>
       </div>
       <div class="hint">
-        Status der 5 Pflicht-Dokumente. Sobald ein Dokument per E-Mail eingegangen und geprüft ist, hier auf <strong>Freigegeben</strong> stellen. Bei Führungszeugnis und Erste-Hilfe das Ablaufdatum eintragen.
+        Status der 5 Pflicht-Dokumente, dazu die optionale BZR-Abfrage fürs JVK. Sobald ein Dokument eingegangen und geprüft ist, hier auf <strong>Genehmigt</strong> stellen. Beim Datum trägst du ein, <strong>wann genehmigt wurde</strong> — auch rückwirkend; die Gültigkeit rechnet die Seite selbst und zeigt sie darunter an.
       </div>
       <div id="pref-compliance" style="display: flex; flex-direction: column; gap: 4px; margin-top: 10px;"></div>
+      <style>
+        .cmp-datum { display: flex; flex-direction: column; gap: 2px; }
+        .cmp-gueltig { font-size: 11px; color: var(--muted); line-height: 1.2; white-space: nowrap; }
+      </style>
     </div>
 
     <!-- HART: Qualifikationen -->
@@ -453,22 +457,26 @@ const SHIFT_TYPES = [
 ];
 
 const COMPLIANCE_ITEMS = [
-  { id: 'fuehrungszeugnis', label: '🛡 Führungszeugnis',    hasExpiry: true,  expiryHint: 'Ablauf 3J nach Ausstellung' },
+  { id: 'fuehrungszeugnis', label: '🛡 Führungszeugnis',    hasExpiry: true,  expiryHint: 'Gültig 3 Jahre ab Genehmigung' },
   { id: 'ifsg43',           label: '🦠 §43 IfSG',           hasExpiry: false },
-  { id: 'erste_hilfe',      label: '🚑 Erste-Hilfe',        hasExpiry: true,  expiryHint: 'Auffrischung nach 2J' },
+  { id: 'erste_hilfe',      label: '🚑 Erste-Hilfe',        hasExpiry: true,  expiryHint: 'Gültig 2 Jahre ab Genehmigung' },
   { id: 'dsgvo',            label: '🔒 DSGVO',              hasExpiry: false },
   { id: 'schweigepflicht',  label: '🤫 Schweigepflicht',    hasExpiry: false },
   // optional: Wird erfasst wie die anderen, zaehlt aber NICHT in die Ampel
   // "Unterlagen unvollstaendig". Sie ist nur fuer Haeuser mit BZR-Pflicht
   // noetig (Justizvollzugskrankenhaus) — ohne dieses Kennzeichen waeren ab
   // heute alle Mitwirkenden rot, obwohl ihnen fuer Sana nichts fehlt.
-  { id: 'bzr',              label: '⚖️ BZR-Abfrage (JVK)',  hasExpiry: true,  expiryHint: 'Wiederholung alle 2J', optional: true }
+  { id: 'bzr',              label: '⚖️ BZR-Abfrage (JVK)',  hasExpiry: true,  expiryHint: 'Gültig 2 Jahre ab Genehmigung', optional: true }
 ];
 const COMPLIANCE_STATUS_LABELS = {
-  missing: 'Fehlt', submitted: 'Eingereicht', approved: 'Freigegeben',
+  missing: 'Fehlt', submitted: 'Eingereicht', approved: 'Genehmigt',
   expiring_soon: 'Läuft bald ab', expired: 'Abgelaufen'
 };
-const COMPLIANCE_DEFAULT_VALIDITY_DAYS = { fuehrungszeugnis: 3 * 365, erste_hilfe: 2 * 365, bzr: 2 * 365 };
+
+// Gueltigkeit in JAHREN, nicht in Tagen: 3*365 verschiebt sich ueber
+// Schaltjahre um einen Tag, und ein Datum, das um einen Tag daneben liegt,
+// erklaert niemand einem Pruefer. setFullYear rechnet kalendarisch.
+const COMPLIANCE_VALIDITY_YEARS = { fuehrungszeugnis: 3, erste_hilfe: 2, bzr: 2 };
 const EXPIRY_WARN_DAYS = 30;
 
 // State während Dialog offen
@@ -494,12 +502,49 @@ function complianceEffectiveStatus(record) {
   return record.status || 'missing';
 }
 
-function defaultValidUntil(docType) {
-  const days = COMPLIANCE_DEFAULT_VALIDITY_DAYS[docType];
-  if (!days) return null;
-  const d = new Date();
-  d.setDate(d.getDate() + days);
+function alsIsoDatum(d) {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+/**
+ * Eingegeben wird, was auf dem Papier steht: das Datum der Genehmigung.
+ * Gespeichert wird weiterhin das Ablaufdatum — die Spalte heisst valid_until
+ * und alles andere (Ampel, hat_bzr, Ablauf-Warnung) haengt daran. Die beiden
+ * Funktionen rechnen zwischen beidem um.
+ *
+ * WARUM NICHT DAS ABLAUFDATUM EINGEBEN: Wer eine BZR-Abfrage vom 15.04.2025
+ * eintraegt, muesste 2027 im Kopf ausrechnen. Bei 34 Mitwirkenden geht das
+ * einmal schief, und dann steht eine faellige Erneuerung als gueltig im System.
+ */
+function ablaufAusGenehmigt(docType, genehmigtAm) {
+  const jahre = COMPLIANCE_VALIDITY_YEARS[docType];
+  if (!jahre || !genehmigtAm) return null;
+  const d = new Date(genehmigtAm + 'T00:00:00');
+  if (isNaN(d)) return null;
+  d.setFullYear(d.getFullYear() + jahre);
+  return alsIsoDatum(d);
+}
+
+/**
+ * Rueckweg fuers Anzeigen im Feld.
+ *
+ * EINE UNSCHAERFE, die sich nicht wegrechnen laesst: Eine Genehmigung vom
+ * 29.02.2024 laeuft am 01.03.2026 ab (den 29.02. gibt es dort nicht), und
+ * zurueckgerechnet ergibt das den 01.03.2024. Das Feld zeigt dann einen Tag
+ * spaeter an als auf dem Papier steht. Betroffen sind ausschliesslich
+ * Genehmigungen am Schalttag, und nur die Anzeige — das gespeicherte
+ * Ablaufdatum stimmt und wandert bei weiteren Bearbeitungen nicht.
+ *
+ * Wer das exakt haben will, braucht eine eigene Spalte fuer das
+ * Genehmigungsdatum; das waere eine Migration und war hier nicht gewollt.
+ */
+function genehmigtAusAblauf(docType, validUntil) {
+  const jahre = COMPLIANCE_VALIDITY_YEARS[docType];
+  if (!jahre || !validUntil) return '';
+  const d = new Date(validUntil.substring(0,10) + 'T00:00:00');
+  if (isNaN(d)) return '';
+  d.setFullYear(d.getFullYear() - jahre);
+  return alsIsoDatum(d);
 }
 
 // ───────────────────────────────────────────────────────
@@ -848,6 +893,7 @@ async function renderCompliance(userId) {
     const record = byType[item.id];
     const status = complianceEffectiveStatus(record);
     const validUntil = record && record.valid_until ? record.valid_until.substring(0, 10) : '';
+    const genehmigtAm = genehmigtAusAblauf(item.id, validUntil);
     const submittedAt = record && record.submitted_at ? new Date(record.submitted_at).toLocaleDateString('de-DE') : null;
     const approvedAt  = record && record.approved_at  ? new Date(record.approved_at).toLocaleDateString('de-DE')  : null;
     const recordId = record ? record.id : '';
@@ -868,11 +914,17 @@ async function renderCompliance(userId) {
               data-original="${(status === 'expired' || status === 'expiring_soon') ? 'approved' : status}">
         <option value="missing"   ${status==='missing'   ? 'selected':''}>Fehlt</option>
         <option value="submitted" ${status==='submitted' ? 'selected':''}>Eingereicht</option>
-        <option value="approved"  ${(status==='approved' || status==='expired' || status==='expiring_soon') ? 'selected':''}>Freigegeben</option>
+        <option value="approved"  ${(status==='approved' || status==='expired' || status==='expiring_soon') ? 'selected':''}>Genehmigt</option>
       </select>
       ${item.hasExpiry
-        ? `<input type="date" data-cmp-expiry="${escape(recordId)}" data-doc-type="${item.id}"
-                  value="${escape(validUntil)}" title="${escape(item.expiryHint || '')}">`
+        ? `<div class="cmp-datum">
+             <input type="date" data-cmp-expiry="${escape(recordId)}" data-doc-type="${item.id}"
+                    value="${escape(genehmigtAm)}" title="${escape(item.expiryHint || '')}"
+                    aria-label="Genehmigt am">
+             <span class="cmp-gueltig">${validUntil
+                ? 'gültig bis ' + escape(new Date(validUntil + 'T00:00:00').toLocaleDateString('de-DE'))
+                : '&nbsp;'}</span>
+           </div>`
         : '<span style="font-size: 11px; color: var(--muted);">—</span>'}
     </div>`;
   }).join('');
@@ -886,13 +938,17 @@ async function renderCompliance(userId) {
       const original = sel.getAttribute('data-original');
       const newStatus = sel.value;
       const expiryInput = rowEl.querySelector('[data-cmp-expiry]');
-      let validUntil = expiryInput ? (expiryInput.value || null) : null;
 
-      // Auto-Vorschlag bei "Freigegeben" und leerem Datum
-      if (newStatus === 'approved' && expiryInput && !validUntil) {
-        const suggested = defaultValidUntil(docType);
-        if (suggested) { validUntil = suggested; expiryInput.value = suggested; }
+      // Auto-Vorschlag bei "Genehmigt" und leerem Datum: HEUTE als Tag der
+      // Genehmigung. Frueher stand hier heute + Laufzeit — was fuer eine
+      // nachgetragene Abfrage von 2025 ein Ablaufdatum 2028 ergab und damit
+      // eine faellige Erneuerung als frisch gueltig auswies.
+      if (newStatus === 'approved' && expiryInput && !expiryInput.value) {
+        expiryInput.value = alsIsoDatum(new Date());
       }
+      const validUntil = expiryInput
+        ? ablaufAusGenehmigt(docType, expiryInput.value)
+        : null;
 
       // Ohne recordId gibt es die Zeile noch nicht — das ist bei optionalen
       // Unterlagen wie der BZR-Abfrage der Normalfall, kein Fehler. Dann wird
@@ -930,12 +986,22 @@ async function renderCompliance(userId) {
       }
       const ziel = recordId ? recordId : { userId: userId, documentType: docType };
 
+      // Eingegeben wird der Tag der Genehmigung, gespeichert das Ablaufdatum.
+      const ablauf = newDate ? ablaufAusGenehmigt(docType, newDate) : null;
+      if (newDate && !ablauf) {
+        showToast('Fehler: Für diese Unterlage ist keine Laufzeit hinterlegt.');
+        return;
+      }
+
       inp.disabled = true;
-      const res = await LPR.setComplianceStatus(ziel, { valid_until: newDate });
+      const res = await LPR.setComplianceStatus(ziel, { valid_until: ablauf });
       inp.disabled = false;
       if (res.ok) {
-        showToast('✓ Ablaufdatum gespeichert');
-        if (res.angelegt) await renderCompliance(userId);   // Zeile ist neu, IDs nachziehen
+        showToast(ablauf
+          ? '✓ Genehmigt am ' + new Date(newDate + 'T00:00:00').toLocaleDateString('de-DE')
+            + ' · gültig bis ' + new Date(ablauf + 'T00:00:00').toLocaleDateString('de-DE')
+          : '✓ Datum entfernt');
+        await renderCompliance(userId);   // Gueltigkeitsanzeige und IDs nachziehen
       } else {
         showToast('Fehler: ' + (res.error || 'unbekannt'));
       }

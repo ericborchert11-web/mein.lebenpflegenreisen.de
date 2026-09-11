@@ -249,7 +249,7 @@ function statusLabel(status) {
   return {
     missing: 'Fehlt',
     submitted: 'Eingereicht – wird geprüft',
-    approved: 'Freigegeben',
+    approved: 'Genehmigt',
     expired: 'Abgelaufen'
   }[status] || status;
 }
@@ -316,7 +316,7 @@ async function render() {
     const meta = record && (record.submitted_at || record.approved_at || record.valid_until)
       ? `<div class="cp-meta">
           ${record.submitted_at ? `<div><strong>Eingereicht:</strong> ${new Date(record.submitted_at).toLocaleDateString('de-DE')}</div>` : ''}
-          ${record.approved_at ? `<div><strong>Freigegeben:</strong> ${new Date(record.approved_at).toLocaleDateString('de-DE')}</div>` : ''}
+          ${record.approved_at ? `<div><strong>Genehmigt:</strong> ${new Date(record.approved_at).toLocaleDateString('de-DE')}</div>` : ''}
           ${record.valid_until ? `<div><strong>Gültig bis:</strong> ${new Date(record.valid_until).toLocaleDateString('de-DE')}${daysUntil(record.valid_until) !== null && daysUntil(record.valid_until) >= 0 ? ' (noch ' + daysUntil(record.valid_until) + ' Tage)' : ''}</div>` : ''}
         </div>`
       : '';

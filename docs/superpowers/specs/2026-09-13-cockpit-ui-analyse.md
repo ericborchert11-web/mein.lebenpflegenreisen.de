@@ -42,7 +42,11 @@ JVK eingesetzt werden.
 **A2 · Eine Stornorechnung wird angemahnt.** `RE-2026-0004 an Heilpraxis
 Frommholz` steht mit **−10.569,00 €** als „überfällig seit 27 Tagen". Das ist
 das Stornodokument zu einer anderen Rechnung, keine offene Forderung.
-→ Negative Summen und Zeilen mit `cancels_invoice_id` ausschließen.
+→ Negative Summen ausschließen — **und nur die**. Der erste Versuch schloss
+auch `cancels_invoice_id` aus und warf damit RE-2026-0010 über 11.169 € mit
+heraus, die größte offene Forderung des Vereins: sie trägt das Feld, weil sie
+eine stornierte Rechnung *ersetzt*. Ersatzdokument und Gutschrift unterscheiden
+sich am Vorzeichen, nicht an diesem Feld.
 
 **A3 · Die Cockpit-Einstellungen existieren nicht in der Datenbank.** Der
 `insert` aus Migration B ist nie gelaufen — der SQL-Editor hat beim

@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Cockpit · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.ck-wrap { max-width: 1050px; margin: 32px auto 60px; padding: 0 24px; }
+
+.ck-header {
+  background: #fff; border-radius: var(--radius); padding: 24px 28px;
+  margin-bottom: 16px; box-shadow: var(--shadow); border: 1px solid var(--border);
+}
+.ck-header h1 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px;
+  color: var(--green-deep); margin: 0 0 6px; letter-spacing: -.02em;
+}
+.ck-header p { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; max-width: 640px; }
+
+/* ── Kennzahlen-Leiste ───────────────────────────────────────────────────
+   Auto-fit statt fester Spaltenzahl: auf dem iPhone stehen zwei Kacheln
+   nebeneinander, am Schreibtisch fuenf. Kein Umbruch, den man pflegen muss. */
+.ck-zahlen {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px; margin-bottom: 18px;
+}
+.ck-kachel {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; box-shadow: var(--shadow);
+  text-align: left; cursor: pointer; font-family: inherit;
+  display: block; width: 100%;
+  border-left: 5px solid var(--green-mute);
+}
+.ck-kachel:hover { border-color: var(--green-mute); }
+.ck-kachel:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+.ck-kachel .zahl {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 26px;
+  color: var(--green-deep); line-height: 1.1;
+}
+.ck-kachel .wort { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.ck-kachel.alarm { border-left-color: #9B2C2C; }
+.ck-kachel.alarm .zahl { color: #9B2C2C; }
+.ck-kachel.ruhig .zahl { color: var(--muted); }
+
+.ck-card {
+  background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+  border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px;
+}
+.ck-card > h2 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 16px;
+  color: var(--green-deep); margin: 0; padding: 16px 18px;
+  border-bottom: 1.5px solid var(--border); background: #FAFAF7;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+}
+.ck-card > h2 .n { font-size: 13px; font-weight: 600; color: var(--muted); }
+
+.ck-gruppe {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); padding: 12px 18px 6px; background: #fff;
+}
+.ck-gruppe.warn { color: #9B2C2C; }
+
+/* ── Eine Zeile ──────────────────────────────────────────────────────────
+   Flex mit Umbruch statt Tabelle: eine Tabelle mit sechs Spalten zwingt das
+   Handy zum Seitwaertsscrollen, und genau das soll die Seite nicht. */
+.ck-zeile {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px;
+  padding: 11px 18px; border-bottom: 1px solid #EFEDE8;
+}
+.ck-zeile:last-child { border-bottom: none; }
+.ck-zeile .titel { font-weight: 600; font-size: 14.5px; flex: 1 1 260px; min-width: 0; }
+.ck-zeile .titel .unter { display: block; font-weight: 400; font-size: 13px; color: var(--muted); margin-top: 2px; }
+.ck-zeile .rechts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.ck-badge {
+  font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+  background: #F1EFE8; color: #5B6660; white-space: nowrap;
+}
+.ck-badge.eigen { background: #E8F0E8; color: #1A3A2A; }
+.ck-datum { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.ck-datum.rot { color: #9B2C2C; font-weight: 700; }
+.ck-hart { font-weight: 800; }
+.ck-betrag { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
+
+.ck-open {
+  font-size: 13px; font-weight: 600; color: #1A3A2A; text-decoration: none;
+  border: 1.5px solid var(--border); border-radius: 999px; padding: 6px 14px;
+  white-space: nowrap;
+}
+.ck-open:hover { border-color: var(--green-mute); background: #FAFAF7; }
+.ck-open:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+
+.ck-leer { padding: 18px; color: var(--muted); font-size: 14px; }
+
+/* ── Vorgangs-Karten ─────────────────────────────────────────────────── */
+.ck-vorgaenge { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; padding: 14px 18px 18px; }
+.ck-vorgang { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: #FDFDFB; }
+.ck-vorgang h3 { font-size: 15px; margin: 0 0 4px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; color: var(--green-deep); }
+.ck-vorgang .meta { font-size: 12.5px; color: var(--muted); }
+.ck-vorgang .naechste { font-size: 13.5px; margin-top: 8px; }
+.ck-balken { height: 5px; border-radius: 999px; background: #EFEDE8; margin: 9px 0 4px; overflow: hidden; }
+.ck-balken i { display: block; height: 100%; background: var(--green-mute); }
+
+.ck-fuss { font-size: 12.5px; color: var(--muted); padding: 0 4px; line-height: 1.6; }
+
+@media (max-width: 560px) {
+  .ck-wrap { padding: 0 14px; margin-top: 18px; }
+  .ck-header { padding: 18px 16px; }
+  .ck-zeile { padding: 11px 14px; }
+  .ck-card > h2 { padding: 14px 14px; }
+  /* Auf dem Handy ist "öffnen" ein Ziel fuer den Daumen, kein Link fuer die Maus. */
+  .ck-open { padding: 9px 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="ck-wrap">
+
+  <div class="ck-header">
+    <h1>Cockpit</h1>
+    <p id="ck-unterzeile">Was diese Woche dran ist — aus den Vorgängen der Geschäftsführung
+       und aus den Modulen des Portals. Bearbeitet wird jeder Punkt dort, wo er herkommt.</p>
+  </div>
+
+  <div class="ck-zahlen" id="ck-zahlen"></div>
+
+  <div class="ck-card" id="block-jetzt">
+    <h2>Jetzt dran <span class="n" id="n-jetzt"></span></h2>
+    <div id="ck-jetzt"><div class="ck-leer">Wird geladen …</div></div>
+  </div>
+
+  <div class="ck-card" id="block-warten">
+    <h2>Warten auf <span class="n" id="n-warten"></span></h2>
+    <div id="ck-warten"><div class="ck-leer">Wird geladen …</div></div>
+  </div>
+
+  <div class="ck-card" id="block-vorgaenge">
+    <h2>Vorgänge <span class="n" id="n-vorgaenge"></span></h2>
+    <div id="ck-vorgaenge"><div class="ck-leer">Wird geladen …</div></div>
+  </div>
+
+  <div class="ck-card" id="block-finanzen">
+    <h2>Finanzen <span class="n" id="n-finanzen"></span></h2>
+    <div id="ck-finanzen"><div class="ck-leer">Wird geladen …</div></div>
+  </div>
+
+  <div class="ck-card" id="block-einsaetze">
+    <h2>Einsätze &amp; Menschen <span class="n" id="n-einsaetze"></span></h2>
+    <div id="ck-einsaetze"><div class="ck-leer">Wird geladen …</div></div>
+  </div>
+
+  <div class="ck-card" id="block-foerder">
+    <h2>Fördermittel <span class="n" id="n-foerder"></span></h2>
+    <div id="ck-foerder"><div class="ck-leer">Wird geladen …</div></div>
+  </div>
+
+  <p class="ck-fuss">
+    Schwellenwerte (Vorwarnzeiten, Nachfass-Abstand) stehen in den Einstellungen und
+    lassen sich ohne Deploy ändern. Das Cockpit erinnert und verlinkt — es überweist
+    nicht, stellt keine Rechnung und schließt keinen Vorgang von selbst ab.
+  </p>
+
+</div>
+
+<script src="app.js?v20260913a"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: 'cockpit' });
+if (!LPR.requireRole('admin', 'login.html?next=admin-cockpit.html')) throw new Error('kein Zugriff');
+
+// LPR_Layout.escapeHtml maskiert nur & < >. Fuer Werte, die in einem
+// Attribut landen (href), reicht das nicht — ein Anfuehrungszeichen im Link
+// bricht sonst aus dem Attribut aus. Dieselbe Ergaenzung wie in
+// admin-foerdermittel.html.
+const esc = LPR_Layout.escapeHtml;
+function escAttr(s) {
+  return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+let VORGAENGE = [], AUFGABEN = [], PUNKTE = [], NAMEN = {};
+
+// ── Herkunft einer Zeile ────────────────────────────────────────────────
+// Jede Quelle sagt, wie sie heisst und wo sie bearbeitet wird. Die Liste ist
+// die einzige Stelle, an der ein neues Abzeichen dazukommt; fehlt eine Quelle
+// hier, faellt sie nicht aus der Anzeige, sondern bekommt ihren Rohnamen —
+// sichtbar falsch ist besser als unsichtbar fehlend.
+const QUELLEN = {
+  rechnung_ueberfaellig: { wort: 'Rechnung',    ziel: 'admin-rechnungen.html' },
+  rechnung_faellig:      { wort: 'Rechnung',    ziel: 'admin-rechnungen.html' },
+  sammelrechnung_offen:  { wort: 'Rechnung',    ziel: 'admin-rechnungen.html' },
+  ueberweisung_offen:    { wort: 'Auszahlung',  ziel: 'admin-auszahlungen.html' },
+  antrag_zur_freigabe:   { wort: 'Auszahlung',  ziel: 'admin-auszahlungen.html' },
+  foerder_aufgabe:       { wort: 'Fördermittel', ziel: 'admin-foerdermittel.html' },
+  foerder_frist:         { wort: 'Fördermittel', ziel: 'admin-foerdermittel.html' },
+  compliance_ablauf:     { wort: 'Compliance',  ziel: 'admin-mitwirkende.html' },
+  dienst_unbesetzt:      { wort: 'Einsatz',     ziel: 'admin-sitzwachen.html' },
+  dienst_unbestaetigt:   { wort: 'Einsatz',     ziel: 'admin-sitzwachen.html' },
+  termin_ohne_zuteilung: { wort: 'Einsatz',     ziel: 'admin-kunden.html' },
+  reise_unterbesetzt:    { wort: 'Reise',       ziel: 'admin-reisen.html' },
+  interessent_wartet:    { wort: 'Menschen',    ziel: 'admin-ehrenamt-interesse.html' },
+  klinik_antrag:         { wort: 'Menschen',    ziel: 'admin-kliniken.html' },
+  dienstsperre:          { wort: 'Menschen',    ziel: 'admin-mitwirkende.html' },
+  ampel:                 { wort: 'Kennzahl',    ziel: 'admin-sitzwachen.html' }
+};
+
+const FINANZ_QUELLEN  = ['rechnung_ueberfaellig','rechnung_faellig','sammelrechnung_offen',
+                         'ueberweisung_offen','antrag_zur_freigabe'];
+const EINSATZ_QUELLEN = ['dienst_unbesetzt','dienst_unbestaetigt','termin_ohne_zuteilung',
+                         'reise_unterbesetzt','interessent_wartet','klinik_antrag',
+                         'dienstsperre','ampel'];
+const FOERDER_QUELLEN = ['foerder_aufgabe','foerder_frist'];
+
+// ── Datum ───────────────────────────────────────────────────────────────
+// Alles rechnet auf dem lokalen Kalendertag. toISOString() liefert in Berlin
+// nachts zwischen 0 und 2 Uhr noch den Vortag — der Fehler waere hier nicht
+// kosmetisch, sondern wuerde eine Frist um einen Tag verschieben.
+function heuteIso() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
+         String(d.getDate()).padStart(2, '0');
+}
+const HEUTE = heuteIso();
+
+function tageBis(iso) {
+  if (!iso) return null;
+  const a = new Date(HEUTE + 'T00:00:00');
+  const b = new Date(String(iso).substring(0, 10) + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+
+function datumWort(iso) {
+  if (!iso) return 'ohne Datum';
+  const t = tageBis(iso);
+  if (t === 0) return 'heute';
+  if (t === 1) return 'morgen';
+  if (t === -1) return 'seit gestern';
+  if (t < 0) return 'seit ' + Math.abs(t) + ' Tagen';
+  const d = new Date(String(iso).substring(0, 10) + 'T12:00:00');
+  const kurz = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+  return t <= 13 ? kurz + ' (in ' + t + ' Tagen)' : kurz;
+}
+
+// Sonntag dieser Woche. Montag ist der erste Tag — dieselbe Woche, die die
+// Wochenmail meint.
+function sonntagIso() {
+  const d = new Date(HEUTE + 'T00:00:00');
+  const wt = (d.getDay() + 6) % 7;          // Mo = 0
+  d.setDate(d.getDate() + (6 - wt));
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
+         String(d.getDate()).padStart(2, '0');
+}
+const SONNTAG = sonntagIso();
+
+function euro(cents) {
+  if (cents === null || cents === undefined) return '';
+  return (Number(cents) / 100).toLocaleString('de-DE',
+    { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 });
+}
+
+// ── Eine Zeile zeichnen ─────────────────────────────────────────────────
+// Eigene Aufgaben und abgeleitete Punkte sehen absichtlich gleich aus: fuer
+// den Blick "was ist heute dran" ist es unerheblich, aus welcher Tabelle eine
+// Zeile kommt. Der Unterschied steht im Abzeichen und im Knopf.
+function zeile(x) {
+  const spaet = x.faellig_am && tageBis(x.faellig_am) < 0;
+  const q = QUELLEN[x.quelle] || null;
+  const wort = x.eigen ? 'Vorgang' : (q ? q.wort : x.quelle);
+  const ziel = x.link || (q ? q.ziel : null);
+
+  return '<div class="ck-zeile">' +
+    '<span class="titel' + (x.faellig_hart ? ' ck-hart' : '') + '">' + esc(x.titel || '—') +
+      (x.untertitel ? '<span class="unter">' + esc(x.untertitel) + '</span>' : '') +
+    '</span>' +
+    '<span class="rechts">' +
+      (x.betrag_cents != null ? '<span class="ck-betrag">' + esc(euro(x.betrag_cents)) + '</span>' : '') +
+      '<span class="ck-datum' + (spaet ? ' rot' : '') + '">' + esc(datumWort(x.faellig_am)) + '</span>' +
+      '<span class="ck-badge' + (x.eigen ? ' eigen' : '') + '">' + esc(wort) + '</span>' +
+      (ziel ? '<a class="ck-open" href="' + escAttr(ziel) + '">öffnen</a>' : '') +
+    '</span>' +
+  '</div>';
+}
+
+function leer(text) { return '<div class="ck-leer">' + esc(text) + '</div>'; }
+
+// ── Zusammenfuehren ─────────────────────────────────────────────────────
+// Eigene Aufgaben und abgeleitete Punkte in EINE Liste. Wartende Aufgaben
+// stehen nicht hier, sondern im eigenen Block darunter: sie sind nicht "dran",
+// sondern liegen bei jemand anderem.
+function jetztDran() {
+  const eigene = AUFGABEN
+    .filter(a => a.status === 'offen')
+    .map(a => ({
+      eigen: true, titel: a.titel, untertitel: vorgangTitel(a.vorgang_id),
+      faellig_am: a.faellig_am, faellig_hart: a.faellig_hart,
+      link: 'admin-cockpit.html?vorgang=' + a.vorgang_id, prio: 2
+    }));
+  return eigene.concat(PUNKTE.map(p => Object.assign({ eigen: false }, p)));
+}
+
+function vorgangTitel(id) {
+  if (!id) return '';
+  const v = VORGAENGE.find(x => x.id === id);
+  return v ? v.titel : '';
+}
+
+function sortiere(liste) {
+  return liste.slice().sort((a, b) => {
+    const da = a.faellig_am || '9999-12-31', db = b.faellig_am || '9999-12-31';
+    if (da !== db) return da < db ? -1 : 1;
+    return (a.prio || 2) - (b.prio || 2);
+  });
+}
+
+function zeichneJetzt() {
+  const alle = sortiere(jetztDran());
+  const gruppen = [
+    { wort: 'Überfällig', warn: true,
+      test: x => x.faellig_am && x.faellig_am < HEUTE },
+    { wort: 'Diese Woche', warn: false,
+      test: x => x.faellig_am && x.faellig_am >= HEUTE && x.faellig_am <= SONNTAG },
+    { wort: 'Nächste 14 Tage', warn: false,
+      test: x => x.faellig_am && x.faellig_am > SONNTAG && tageBis(x.faellig_am) <= 14 },
+    { wort: 'Ohne Datum', warn: false, test: x => !x.faellig_am }
+  ];
+
+  let html = '', gezeigt = 0;
+  gruppen.forEach(g => {
+    const teil = alle.filter(g.test);
+    if (!teil.length) return;
+    gezeigt += teil.length;
+    html += '<div class="ck-gruppe' + (g.warn ? ' warn' : '') + '">' + g.wort +
+            ' · ' + teil.length + '</div>' + teil.map(zeile).join('');
+  });
+
+  // Was weiter als 14 Tage entfernt liegt, steht absichtlich nicht hier. Eine
+  // Liste, die alles zeigt, beantwortet die Frage "was ist jetzt dran" nicht mehr.
+  const spaeter = alle.length - gezeigt;
+  document.getElementById('ck-jetzt').innerHTML =
+    html || leer('Nichts fällig in den nächsten 14 Tagen. Gute Woche.');
+  document.getElementById('n-jetzt').textContent =
+    gezeigt + (spaeter > 0 ? ' · ' + spaeter + ' später' : '');
+  return gezeigt;
+}
+
+function zeichneWarten() {
+  const warten = AUFGABEN.filter(a => a.status === 'wartet');
+  const el = document.getElementById('ck-warten');
+  if (!warten.length) {
+    el.innerHTML = leer('Es liegt nichts bei jemand anderem.');
+    document.getElementById('n-warten').textContent = '';
+    return 0;
+  }
+  const html = warten
+    .slice()
+    .sort((a, b) => String(a.wartet_seit || '') < String(b.wartet_seit || '') ? -1 : 1)
+    .map(a => {
+      const tage = a.wartet_seit ? Math.abs(tageBis(a.wartet_seit)) : null;
+      const lang = tage !== null && tage >= 14;   // Nachfass-Schwelle, Etappe B macht sie einstellbar
+      return '<div class="ck-zeile">' +
+        '<span class="titel">' + esc(a.wartet_auf || a.titel) +
+          '<span class="unter">' + esc(a.titel) +
+            (vorgangTitel(a.vorgang_id) ? ' · ' + esc(vorgangTitel(a.vorgang_id)) : '') + '</span>' +
+        '</span>' +
+        '<span class="rechts">' +
+          '<span class="ck-datum' + (lang ? ' rot' : '') + '">' +
+            (tage !== null ? 'seit ' + tage + ' Tagen' : 'seit unbekannt') + '</span>' +
+          (lang ? '<span class="ck-badge">nachfassen</span>' : '') +
+          '<a class="ck-open" href="admin-cockpit.html?vorgang=' + escAttr(a.vorgang_id || '') + '">öffnen</a>' +
+        '</span></div>';
+    }).join('');
+  el.innerHTML = html;
+  document.getElementById('n-warten').textContent = warten.length;
+  return warten.length;
+}
+
+function zeichneVorgaenge() {
+  const el = document.getElementById('ck-vorgaenge');
+  if (!VORGAENGE.length) {
+    el.innerHTML = leer('Noch kein Vorgang angelegt.');
+    document.getElementById('n-vorgaenge').textContent = '';
+    return;
+  }
+  el.innerHTML = '<div class="ck-vorgaenge">' + VORGAENGE.map(v => {
+    const meine = AUFGABEN.filter(a => a.vorgang_id === v.id);
+    // AUFGABEN enthaelt in Etappe A nur Offenes und Wartendes. Der Nenner ist
+    // deshalb "noch zu tun", nicht "insgesamt" — beschriftet wird das auch so,
+    // statt einen Fortschritt zu behaupten, den die Seite nicht kennt.
+    const offen = meine.filter(a => a.status === 'offen').length;
+    const wartet = meine.filter(a => a.status === 'wartet').length;
+    const naechste = sortiere(meine.filter(a => a.status === 'offen'))[0];
+    const anteil = meine.length ? Math.round((wartet / meine.length) * 100) : 0;
+    return '<div class="ck-vorgang">' +
+      '<h3>' + esc(v.titel) + '</h3>' +
+      '<div class="meta">' + esc(v.bereich) +
+        (NAMEN[v.zustaendig] ? ' · ' + esc(NAMEN[v.zustaendig]) : '') +
+        (v.ansprechpartner ? ' · ' + esc(v.ansprechpartner) : '') + '</div>' +
+      '<div class="ck-balken"><i style="width:' + anteil + '%"></i></div>' +
+      '<div class="meta">' + offen + ' offen' + (wartet ? ' · ' + wartet + ' wartet' : '') + '</div>' +
+      '<div class="naechste">' +
+        (naechste ? '→ ' + esc(naechste.titel) : '<span class="meta">nichts Offenes</span>') +
+      '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+  document.getElementById('n-vorgaenge').textContent = VORGAENGE.length;
+}
+
+// Abgeleitete Bloecke: dieselbe Zeile, nur nach Quelle gefiltert. Die Punkte
+// stehen damit doppelt auf der Seite — einmal nach Dringlichkeit in "Jetzt
+// dran", einmal nach Sachgebiet. Das ist Absicht: die beiden Fragen ("was ist
+// heute dran", "wie steht es um die Finanzen") haben verschiedene Antworten.
+function zeichneQuellenblock(elId, zaehlerId, quellen, leerText) {
+  const teil = sortiere(PUNKTE.filter(p => quellen.indexOf(p.quelle) >= 0));
+  document.getElementById(elId).innerHTML = teil.length ? teil.map(zeile).join('') : leer(leerText);
+  document.getElementById(zaehlerId).textContent = teil.length || '';
+  return teil;
+}
+
+// ── Kennzahlen ──────────────────────────────────────────────────────────
+// Bewusst im Browser aus denselben Listen gerechnet, die darunter stehen, und
+// nicht aus einer zweiten Abfrage: eine Kachel, die "3 überfällig" sagt ueber
+// einer Liste mit vier Zeilen, ist ein Fehler, den niemand mehr findet.
+// cockpit_kennzahlen() bleibt der Datenlieferant der Wochenmail.
+function zeichneZahlen() {
+  const alle = jetztDran();
+  const ueberfaellig = alle.filter(x => x.faellig_am && x.faellig_am < HEUTE).length;
+  const heute = alle.filter(x => x.faellig_am === HEUTE).length;
+  const wartet = AUFGABEN.filter(a => a.status === 'wartet').length;
+  const ueberweisungen = PUNKTE.filter(p => p.quelle === 'ueberweisung_offen').length;
+  const rechnungen = PUNKTE.filter(p => p.quelle === 'rechnung_ueberfaellig').length;
+
+  const kacheln = [
+    { zahl: heute,          wort: 'fällig heute',          ziel: 'block-jetzt',    alarm: false },
+    { zahl: ueberfaellig,   wort: 'überfällig',            ziel: 'block-jetzt',    alarm: ueberfaellig > 0 },
+    { zahl: wartet,         wort: 'warten auf',            ziel: 'block-warten',   alarm: false },
+    { zahl: ueberweisungen, wort: 'Überweisungen offen',   ziel: 'block-finanzen', alarm: false },
+    { zahl: rechnungen,     wort: 'Rechnungen überfällig', ziel: 'block-finanzen', alarm: rechnungen > 0 }
+  ];
+
+  document.getElementById('ck-zahlen').innerHTML = kacheln.map(k =>
+    '<button type="button" class="ck-kachel' + (k.alarm ? ' alarm' : (k.zahl ? '' : ' ruhig')) +
+      '" data-ziel="' + k.ziel + '">' +
+      '<span class="zahl">' + k.zahl + '</span>' +
+      '<span class="wort">' + esc(k.wort) + '</span>' +
+    '</button>').join('');
+
+  document.querySelectorAll('.ck-kachel').forEach(b => {
+    b.addEventListener('click', () => {
+      const z = document.getElementById(b.dataset.ziel);
+      if (z) z.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+// ── Laden ───────────────────────────────────────────────────────────────
+async function laden() {
+  const [v, a, p] = await Promise.all([
+    LPR.cockpitListVorgaenge(),
+    LPR.cockpitListAufgaben(),
+    LPR.cockpitPunkte()
+  ]);
+
+  // null heisst Fehler, [] heisst leer. Der Unterschied muss sichtbar bleiben,
+  // sonst sieht ein abgelaufenes Token aus wie ein aufgeraeumter Schreibtisch.
+  if (v === null || a === null || p === null) {
+    document.querySelector('.ck-wrap').insertAdjacentHTML('afterbegin',
+      '<div class="ck-card" style="padding:18px;border-left:5px solid #9B2C2C;">' +
+      'Die Daten konnten nicht vollständig geladen werden. Bitte neu anmelden; ' +
+      'bleibt es dabei, steht der Fehler in der Browserkonsole.</div>');
+  }
+  VORGAENGE = v || []; AUFGABEN = a || []; PUNKTE = p || [];
+
+  const ids = VORGAENGE.map(x => x.zustaendig).concat(AUFGABEN.map(x => x.zustaendig));
+  NAMEN = await LPR.foerderNamen(ids) || {};
+
+  zeichneZahlen();
+  zeichneJetzt();
+  zeichneWarten();
+  zeichneVorgaenge();
+  zeichneQuellenblock('ck-finanzen', 'n-finanzen', FINANZ_QUELLEN,
+    'Keine offene Rechnung, keine wartende Überweisung.');
+  zeichneQuellenblock('ck-einsaetze', 'n-einsaetze', EINSATZ_QUELLEN,
+    'Nichts Unbesetztes, niemand wartet auf Antwort.');
+  zeichneQuellenblock('ck-foerder', 'n-foerder', FOERDER_QUELLEN,
+    'Keine Fördermittel-Frist in den nächsten 60 Tagen.');
+}
+
+laden();
+</script>
+</body>
+</html>

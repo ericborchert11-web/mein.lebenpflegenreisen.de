@@ -144,6 +144,10 @@
         // "hier wartet jemand auf dich".
         const zahl = `<span id="nav-interesse-zahl" class="nav-badge" hidden></span>`;
         navItems =
+          // Das Cockpit steht VOR den Gruppen und in keiner: es ist die
+          // Startseite des Vorstands und nicht eine vierte Sparte neben
+          // Menschen, Einsaetzen und Finanzen. Es zeigt aus allen dreien.
+          punkt('admin-cockpit.html', 'cockpit', 'Cockpit') +
           gruppe('Menschen',
             ['admin', 'ehrenamt-interesse'],
             punkt('admin-mitwirkende.html', 'admin', 'Mitwirkende') +

@@ -1017,7 +1017,7 @@
 
   function roleTarget(role) {
     if (role === 'klinik') return 'kliniken.html';
-    if (role === 'admin')  return 'admin-mitwirkende.html';
+    if (role === 'admin')  return 'admin-cockpit.html';
     return 'mein-bereich.html';
   }
 
@@ -5285,6 +5285,96 @@
     } catch(e) { console.error('[LPR] foerderNamen failed:', e); return {}; }
   }
 
+  // ── Cockpit: Assistenz der Geschäftsführung ─────────────────────────────
+  // Alle vier Zugänge sind board-only per RLS. Ein Nicht-Board bekommt keine
+  // Fehlermeldung, sondern eine leere Liste — die Seite prüft deshalb zusätzlich
+  // die Rolle, damit der Unterschied zwischen "leer" und "kein Zugriff" sichtbar
+  // bleibt. Rückgabe: null = Fehler, [] = nichts vorhanden. Wie bei foerder*.
+  //
+  // Etappe A ist LESEND. Anlegen, Erledigen und Nachfassen kommen in Etappe B;
+  // bis dahin bearbeitet man einen abgeleiteten Punkt dort, wo er herkommt.
+
+  // Die abgeleiteten Punkte — Rechnungen, Überweisungen, Fristen, ablaufende
+  // Dokumente. Kommen aus einer Sicht und nicht aus einer Tabelle: das Cockpit
+  // hält keine Kopien, sonst gäbe es zwei Wahrheiten über dieselbe Rechnung.
+  async function cockpitPunkte() {
+    try {
+      // Ueber die Funktion und nicht ueber die Sicht: v_cockpit_punkte ist
+      // fuer niemanden freigegeben. cockpit_punkte() ist security definer mit
+      // is_board()-Gate — ein Nicht-Vorstand bekommt hier einen Fehler und
+      // keine leere Liste, und das ist Absicht.
+      const { data, error } = await (await sb()).rpc('cockpit_punkte');
+      if (error) { console.error('[LPR] cockpitPunkte:', error); return null; }
+      return (data || []).slice().sort((a, b) => {
+        const da = a.faellig_am || '9999-12-31', db = b.faellig_am || '9999-12-31';
+        if (da !== db) return da < db ? -1 : 1;
+        return (a.prio || 2) - (b.prio || 2);
+      });
+    } catch(e) { console.error('[LPR] cockpitPunkte failed:', e); return null; }
+  }
+
+  async function cockpitListVorgaenge(nurAktive) {
+    try {
+      let q = (await sb())
+        .from('vorgaenge')
+        .select('*')
+        .order('prio', { ascending: true })
+        .order('sortierung', { ascending: true })
+        .order('titel', { ascending: true });
+      // Abgeschlossene und verworfene Vorgänge sind Archiv. Sie gehören nicht
+      // auf eine Seite, die sagt, was jetzt dran ist.
+      if (nurAktive !== false) q = q.in('status', ['aktiv', 'wartet']);
+      const { data, error } = await q;
+      if (error) { console.error('[LPR] cockpitListVorgaenge:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] cockpitListVorgaenge failed:', e); return null; }
+  }
+
+  // Ohne vorgangId: alle offenen und wartenden Aufgaben — das ist die Liste
+  // "Jetzt dran". Mit vorgangId: die Aufgabenliste eines Vorgangs, dann auch
+  // die erledigten, denn dort ist der Fortschritt die Aussage.
+  async function cockpitListAufgaben(vorgangId) {
+    try {
+      let q = (await sb()).from('aufgaben').select('*');
+      if (vorgangId) {
+        q = q.eq('vorgang_id', vorgangId)
+             .order('sortierung', { ascending: true })
+             .order('created_at', { ascending: true });
+      } else {
+        q = q.in('status', ['offen', 'wartet'])
+             .order('faellig_am', { ascending: true, nullsFirst: false })
+             .order('sortierung', { ascending: true });
+      }
+      const { data, error } = await q;
+      if (error) { console.error('[LPR] cockpitListAufgaben:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] cockpitListAufgaben failed:', e); return null; }
+  }
+
+  async function cockpitVerlauf(vorgangId) {
+    try {
+      const { data, error } = await (await sb())
+        .from('vorgang_verlauf')
+        .select('*')
+        .eq('vorgang_id', vorgangId)
+        .order('created_at', { ascending: false });
+      if (error) { console.error('[LPR] cockpitVerlauf:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] cockpitVerlauf failed:', e); return null; }
+  }
+
+  // Kennzahlen für die Leiste oben. Ohne Zeitraum: die laufende Woche, Montag
+  // bis Sonntag — derselbe Zuschnitt, den die Wochenmail benutzt.
+  async function cockpitKennzahlen(von, bis) {
+    try {
+      const { data, error } = await (await sb()).rpc('cockpit_kennzahlen', {
+        p_von: von || null, p_bis: bis || null
+      });
+      if (error) { console.error('[LPR] cockpitKennzahlen:', error); return null; }
+      return _rpcRow(data);
+    } catch(e) { console.error('[LPR] cockpitKennzahlen failed:', e); return null; }
+  }
+
   // ── Block D: Rechnungsstellung ─────────────────────────────────────────
   // Wahrheitsquelle fuer Nummern und Summen ist die Datenbank (issue_invoice).
   // Im Browser wird nur zur Anzeige gerechnet.
@@ -5877,6 +5967,9 @@
     // Fördermittel-Cockpit
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,
     foerderCreateAufgabe, foerderUpdateAufgabe, foerderCreateNotiz, foerderNamen,
+    // Cockpit — Assistenz der Geschäftsführung (Etappe A: lesend)
+    cockpitPunkte, cockpitListVorgaenge, cockpitListAufgaben, cockpitVerlauf,
+    cockpitKennzahlen,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

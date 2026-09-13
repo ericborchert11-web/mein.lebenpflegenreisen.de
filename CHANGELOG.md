@@ -1,5 +1,30 @@
 # Änderungen
 
+## 13.09.2026 — Cockpit: der Vorstand wird erinnert
+
+Das Cockpit sagt seit heute auch dann Bescheid, wenn niemand sich anmeldet. Die
+Wochenmail am Montag beginnt jetzt mit dem, was ansteht — Überfälliges, diese
+Woche, Wartendes, Finanzen —, der Sitzwachen-Teil mit den beiden Ampeln steht
+darunter. Aus „Wochenbericht" wird damit „Wochenstart".
+
+Dazu ein täglicher Lauf: eine Aufgabe meldet sich sieben Tage, einen Tag und am
+Tag ihrer Fälligkeit; etwas, das auf eine Antwort wartet, meldet sich nach
+vierzehn Tagen und dann in gleichen Abständen wieder; eine Rechnung meldet sich
+genau einmal, am Tag nach dem Zahlungsziel. **Überfälliges wird bewusst nicht
+täglich gemahnt** — wer jeden Morgen dieselbe Mail bekommt, liest ab der dritten
+keine mehr.
+
+Push läuft über dieselbe Warteschlange wie die Mails und nicht daneben.
+`notification_outbox` kennt dafür einen dritten Kanal, `notify` verteilt nach
+Kanal, und `send-push` bekam einen zweiten Zugang, der einen fertigen Inhalt
+annimmt statt ihn aus einer Buchung zu bauen. Der private VAPID-Schlüssel bleibt
+damit in genau einer Funktion, und es gibt weiterhin eine Doppelversand-Bremse,
+ein Statusfeld und eine Stelle, an der man nachsieht, warum nichts ankam.
+
+Auf den Sperrbildschirm geht nur der Titel und wann etwas fällig ist. Rechnungen
+werden deshalb gar nicht gepusht: dort stünden ein Betrag und der Name eines
+Dritten.
+
 ## 04.09.2026 — Freigabe-Mail für Kliniken
 
 Am 03.09.2026 gab der Vorstand ein Klinik-Konto frei, ohne dass die Klinik davon

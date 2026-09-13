@@ -5375,6 +5375,143 @@
     } catch(e) { console.error('[LPR] cockpitKennzahlen failed:', e); return null; }
   }
 
+  // ── Cockpit: schreiben (Etappe B) ───────────────────────────────────────
+  // Jede Funktion hat eine Positivliste der Felder, die der Client setzen darf.
+  // created_by, erledigt_am, erledigt_von und seed_key stehen bewusst nicht
+  // darin: die gehoeren der Datenbank bzw. dem Seed. Muster: foerderUpdateAufgabe.
+
+  const VORGANG_FELDER = ['titel','bereich','status','beschreibung','zustaendig',
+                          'ansprechpartner','kontakt','aktenzeichen','link','prio',
+                          'sortierung','abgeschlossen_am'];
+  // status fehlt hier mit Absicht — Statuswechsel laufen ueber
+  // cockpitSetAufgabeStatus(), damit die Regeln an EINER Stelle stehen.
+  const AUFGABE_FELDER = ['vorgang_id','titel','beschreibung','art','faellig_am',
+                          'faellig_hart','zustaendig','wartet_auf','abhaengig_von',
+                          'erinnern','sortierung'];
+
+  function _nurErlaubt(felder, liste) {
+    const raus = {};
+    for (const k of liste) if (k in felder) raus[k] = felder[k] === '' ? null : felder[k];
+    return raus;
+  }
+
+  async function cockpitCreateVorgang(felder) {
+    try {
+      const satz = _nurErlaubt(felder || {}, VORGANG_FELDER);
+      if (!satz.titel || !String(satz.titel).trim()) return null;
+      const { data, error } = await (await sb())
+        .from('vorgaenge').insert(satz).select().single();
+      if (error) { console.error('[LPR] cockpitCreateVorgang:', error); return null; }
+      return data;
+    } catch(e) { console.error('[LPR] cockpitCreateVorgang failed:', e); return null; }
+  }
+
+  async function cockpitUpdateVorgang(id, felder) {
+    try {
+      const satz = _nurErlaubt(felder || {}, VORGANG_FELDER);
+      if (!Object.keys(satz).length) return null;
+      const { data, error } = await (await sb())
+        .from('vorgaenge').update(satz).eq('id', id).select().single();
+      if (error) { console.error('[LPR] cockpitUpdateVorgang:', error); return null; }
+      return data;
+    } catch(e) { console.error('[LPR] cockpitUpdateVorgang failed:', e); return null; }
+  }
+
+  async function cockpitCreateAufgabe(felder) {
+    try {
+      const satz = _nurErlaubt(felder || {}, AUFGABE_FELDER);
+      if (!satz.titel || !String(satz.titel).trim()) return null;
+      // status darf beim Anlegen mit, aber nur aus der erlaubten Liste — eine
+      // Aufgabe, die gleich wartet, ist ein normaler Fall.
+      if (felder.status && ['offen','wartet'].includes(felder.status)) satz.status = felder.status;
+      const { data, error } = await (await sb())
+        .from('aufgaben').insert(satz).select().single();
+      if (error) { console.error('[LPR] cockpitCreateAufgabe:', error); return null; }
+      return data;
+    } catch(e) { console.error('[LPR] cockpitCreateAufgabe failed:', e); return null; }
+  }
+
+  async function cockpitUpdateAufgabe(id, felder) {
+    try {
+      const satz = _nurErlaubt(felder || {}, AUFGABE_FELDER);
+      if (!Object.keys(satz).length) return null;
+      const { data, error } = await (await sb())
+        .from('aufgaben').update(satz).eq('id', id).select().single();
+      if (error) { console.error('[LPR] cockpitUpdateAufgabe:', error); return null; }
+      return data;
+    } catch(e) { console.error('[LPR] cockpitUpdateAufgabe failed:', e); return null; }
+  }
+
+  /**
+   * Ein Weg fuer alle Statuswechsel.
+   *
+   * Die Zeitstempel und die Verlaufszeile schreibt die Datenbank (Trigger aus
+   * Etappe A). Hier steht nur, was der Browser mitschicken darf — und die eine
+   * Regel, die der Client kennen muss: "wartet" ohne Grund weist die Datenbank
+   * ab, das soll als Fehlermeldung und nicht als Rueckfrage ankommen.
+   */
+  async function cockpitSetAufgabeStatus(id, status, wartetAuf) {
+    if (!['offen','wartet','erledigt','verworfen'].includes(status)) {
+      return { ok: false, error: 'Unbekannter Status.' };
+    }
+    const satz = { status };
+    if (status === 'wartet') {
+      const grund = String(wartetAuf || '').trim();
+      if (!grund) return { ok: false, error: 'Worauf wird gewartet? Ohne Angabe geht es nicht.' };
+      satz.wartet_auf = grund;
+    }
+    try {
+      const { data, error } = await (await sb())
+        .from('aufgaben').update(satz).eq('id', id).select().single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, aufgabe: data };
+    } catch(e) {
+      console.error('[LPR] cockpitSetAufgabeStatus:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  // Ueber die RPC und nicht in zwei Schritten: Datum und Spur gehoeren
+  // zusammen. Faellt der zweite Schritt aus, stuende dort ein Datum, das
+  // niemand mehr erklaeren kann.
+  async function cockpitNachgefasst(id, text) {
+    try {
+      const { data, error } = await (await sb())
+        .rpc('aufgabe_nachgefasst', { p_id: id, p_text: (text || '').trim() || null });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, aufgabe: _rpcRow(data) };
+    } catch(e) {
+      console.error('[LPR] cockpitNachgefasst:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function cockpitCreateNotiz(vorgangId, text, aufgabeId) {
+    const inhalt = String(text || '').trim();
+    if (!inhalt) return null;
+    try {
+      const { data, error } = await (await sb())
+        .from('vorgang_verlauf')
+        .insert({ vorgang_id: vorgangId, aufgabe_id: aufgabeId || null,
+                  art: 'notiz', text: inhalt })
+        .select().single();
+      if (error) { console.error('[LPR] cockpitCreateNotiz:', error); return null; }
+      return data;
+    } catch(e) { console.error('[LPR] cockpitCreateNotiz failed:', e); return null; }
+  }
+
+  // Wer kann zustaendig sein: die Vorstandskonten. Seit dem 13.09.2026 sind das
+  // drei — das Sammelpostfach und die persoenlichen Konten von Eric und Sonja.
+  async function cockpitZustaendige() {
+    try {
+      const { data, error } = await (await sb())
+        .from('profiles').select('id, full_name, email')
+        .eq('role', 'board').order('full_name');
+      if (error) { console.error('[LPR] cockpitZustaendige:', error); return []; }
+      return data || [];
+    } catch(e) { console.error('[LPR] cockpitZustaendige failed:', e); return []; }
+  }
+
   // ── Block D: Rechnungsstellung ─────────────────────────────────────────
   // Wahrheitsquelle fuer Nummern und Summen ist die Datenbank (issue_invoice).
   // Im Browser wird nur zur Anzeige gerechnet.
@@ -5970,6 +6107,8 @@
     // Cockpit — Assistenz der Geschäftsführung (Etappe A: lesend)
     cockpitPunkte, cockpitListVorgaenge, cockpitListAufgaben, cockpitVerlauf,
     cockpitKennzahlen,
+    cockpitCreateVorgang, cockpitUpdateVorgang, cockpitCreateAufgabe, cockpitUpdateAufgabe,
+    cockpitSetAufgabeStatus, cockpitNachgefasst, cockpitCreateNotiz, cockpitZustaendige,
     // UI
     setTextSize, toggleContrast, toggleLS,
     showToast,

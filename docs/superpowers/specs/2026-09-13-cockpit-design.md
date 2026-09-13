@@ -141,10 +141,14 @@ andere steht ohne Datum in „Ohne Datum", bis Eric es selbst setzt (D8). Eine
 erfundene Frist ist schlimmer als keine: Sie sieht aus wie eine Zusage an
 jemanden.
 
-Die Einladungsfrist wird gerechnet, nicht geraten — Satzung § 8 Abs. 4,
-mindestens vier Wochen, Frist beginnt am Tag nach der Absendung. Der Seed trägt
-sie als **zu prüfen** markiert ein, weil die Satzung für diese Spec nicht
-vorlag.
+Für die Mitgliederversammlung heißt das: **nur der Termin selbst ist hart.**
+Die Einladungsfrist aus dem Briefing (§ 8 Abs. 4, vier Wochen) gibt es nicht —
+am 13.09.2026 gegen die konsolidierte Satzung vom 01.08.2026 geprüft: § 12
+verlangt Textform unter Angabe der Tagesordnung und nennt **keine Frist**; § 8
+regelt die Beendigung der Mitgliedschaft. Ohne Satzungsfrist gilt nur § 32 BGB,
+also „rechtzeitig genug, dass Mitglieder teilnehmen können". Die Einladung steht
+deshalb mit einem selbst gesetzten, verschiebbaren Datum im Seed und nicht als
+harte Frist.
 
 ## Was auf dem Sperrbildschirm steht
 
@@ -248,11 +252,40 @@ Wochenmail und im Cockpit.
 
 ## Reihenfolge
 
-**A** Datenmodell, Sichten, Seed, Cockpit lesend, Startseite.
+**A** Datenmodell, Sichten, Seed, Cockpit lesend, Startseite. *(13.09.2026 fertig)*
 **B** Bearbeiten, Schnellerfassung, Verlauf, Einstellungen.
 **C** Wochenmail-Block, Erinnerungen, Push, Testlauf mit Umleitung.
+**D** Sammelrechnung — am 13.09.2026 beauftragt, siehe unten.
 
 Nach jeder Etappe Bericht und Halt.
+
+## Etappe D: Sammelrechnung nachrüsten
+
+Der Punkt fehlt, weil `invoice_items` keine `booking_id` trägt. Zwei Wege:
+
+**a) Spalte nachrüsten.** `invoice_items.booking_id` plus partieller
+Unique-Index über nicht-stornierte Rechnungen — so war es im Briefing gedacht.
+Genau, dauerhaft, und der Doppelabrechnungsschutz säße dort, wo er hingehört.
+Preis: Für die bestehenden Rechnungen weiß niemand mehr, welche Dienste in
+welcher Position stecken; ohne Nacherfassung hielte das Cockpit sie für
+unabgerechnet und würde sie ewig anmahnen. Es bräuchte also entweder eine
+Nacherfassung von Hand oder einen Stichtag, vor dem nicht geprüft wird.
+
+**b) Auf Monatsebene fragen.** Gibt es zu Empfänger X und Monat Y überhaupt
+eine nicht-stornierte Rechnung, deren `service_from`/`service_to` den Monat
+abdeckt? Wenn nicht, und es gab abgeschlossene Dienste — dann fehlt die
+Sammelrechnung. Ohne Schemaänderung, ohne Nacherfassung, und der Punkt räumt
+sich von selbst ab, sobald die Rechnung gestellt ist. Ungenauer: eine Rechnung
+über nur die Hälfte der Dienste eines Monats sieht aus wie eine vollständige.
+
+**Empfehlung b.** Die Sammelrechnung ist ohnehin eine Monatsangelegenheit, und
+die Genauigkeit von (a) kostet eine Nacherfassung, die niemand machen will.
+Fällt später auf, dass halbe Monate vorkommen, lässt sich (a) darauf aufsetzen.
+
+Zu klären ist dabei der Weg von der Buchung zum Rechnungsempfänger:
+`bookings.clinic_id` → `clinic_details.linked_clinic_id` → `clinics.id` →
+`billing_recipients.clinic_id`, bei Kunden-Terminen über `bookings.kunde_id`.
+Vor dem Bauen einmal die Typen dieser Kette prüfen.
 
 ## Später, ausdrücklich nicht jetzt
 

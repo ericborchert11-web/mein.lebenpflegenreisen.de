@@ -197,6 +197,9 @@ let VORGAENGE = [], AUFGABEN = [], PUNKTE = [], NAMEN = {};
 const QUELLEN = {
   rechnung_ueberfaellig: { wort: 'Rechnung',    ziel: 'admin-rechnungen.html' },
   rechnung_faellig:      { wort: 'Rechnung',    ziel: 'admin-rechnungen.html' },
+  // Noch ohne Datengrundlage: invoice_items kennt keine booking_id, also
+  // weiss niemand, welcher Dienst schon abgerechnet ist. Der Eintrag bleibt
+  // stehen, damit die Zeile beim Nachruesten sofort richtig aussieht.
   sammelrechnung_offen:  { wort: 'Rechnung',    ziel: 'admin-rechnungen.html' },
   ueberweisung_offen:    { wort: 'Auszahlung',  ziel: 'admin-auszahlungen.html' },
   antrag_zur_freigabe:   { wort: 'Auszahlung',  ziel: 'admin-auszahlungen.html' },

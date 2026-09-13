@@ -158,14 +158,13 @@ IBAN ist eine eigene Mail an finanzen@ und bleibt es.
 
 ## Abgeleitete Punkte — die Regeln
 
-Eine CTE je Quelle, alle mit denselben Spalten: `quelle`, `art`, `ref_id`,
+Fünfzehn Quellen, alle mit denselben Spalten: `quelle`, `art`, `ref_id`,
 `titel`, `untertitel`, `faellig_am`, `betrag_cents`, `anzahl`, `link`, `prio`.
 
 | quelle | Regel |
 |---|---|
 | `rechnung_ueberfaellig` | `issued` und `due_date` in der Vergangenheit |
 | `rechnung_faellig` | `issued`, `due_date` in `cockpit.rechnung_vorwarnung_tage` (3) |
-| `sammelrechnung_offen` | abgeschlossene Buchungen ohne nicht-stornierte Rechnungsposition, gruppiert je Empfänger und Monat |
 | `ueberweisung_offen` | `claims.status = 'approved'`, beschriftet nach `kind` (Pauschale / Auslage) |
 | `antrag_zur_freigabe` | eingereicht, noch nicht entschieden |
 | `foerder_aufgabe` / `foerder_frist` | offen mit Datum in 60 Tagen |
@@ -200,6 +199,18 @@ Buchung mit `kunde_id` ohne Ersatz.
 **`claims.amount` steht in Euro**, nicht in Cent wie `invoices.*_cents`. Die
 Sicht rechnet um, damit eine Spalte eine Einheit hat. Test B prüft die Summe
 gegen die Tabelle.
+
+**`invoice_items` hat kein `booking_id`.** Das Briefing setzte voraus, dass
+eine Rechnungsposition ihren Dienst kennt und ein partieller Unique-Index den
+Doppelabrechnungsschutz bildet. Beides gibt es nicht — in den
+Rechnungs-Migrationen vom 15.08.2026 kommt das Wort `booking` kein einziges
+Mal vor. Positionen entstehen frei aus den Leistungsvorlagen. **Die Quelle
+`sammelrechnung_offen` entfällt deshalb**; eine Näherung („X abgeschlossene
+Dienste im Vormonat") wäre schlimmer als nichts, weil sie auch nach der
+gestellten Rechnung stehen bliebe und niemand sie loswürde. Sie kommt wieder,
+sobald die Verbindung existiert — entweder durch ein nachgerüstetes
+`invoice_items.booking_id` (mit Nacherfassung der bestehenden Rechnungen) oder
+auf Monatsebene über `invoices.service_from`/`service_to` je Empfänger.
 
 **`unstaffed_requests` hat kein Feld für „erledigt".** Jede Meldung bliebe ewig
 stehen. Aufgenommen werden deshalb nur Meldungen mit einem Datum in der

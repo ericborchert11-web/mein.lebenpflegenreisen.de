@@ -100,7 +100,8 @@
 
   <details style="margin-top:26px; border-top:1px solid #EEE9DD; padding-top:14px;">
     <summary style="cursor:pointer; font-weight:600;">Woher die Meldungen kommen</summary>
-    <div id="quellen" style="margin-top:12px;"></div>
+    <div id="kanaele" style="margin-top:12px;"></div>
+    <div id="quellen" style="margin-top:22px;"></div>
   </details>
 </div>
 </main>
@@ -141,8 +142,24 @@ const HINTERGRUND_TEXT = {
   pflegehilfe_1j: 'Pflegehilfe/Pflegeassistenz, einjährig abgeschlossen',
   fachkraft:      'Examinierte Pflegefachkraft',
   wiedereinstieg: 'Wiedereinstieg oder Ruhestand, mit Abschluss',
-  sonstiges:      'Anderer abgeschlossener Pflegeabschluss'
+  sonstiges:      'Anderer abgeschlossener Pflegeabschluss',
+  studium:        'Studium, ohne abgeschlossene Pflegeausbildung'
 };
+// Woher die Person uns kennt. Nicht zu verwechseln mit `quelle` unten — das ist
+// die Seite, auf der das Formular stand, `kanal` der Weg davor.
+const KANAL_TEXT = {
+  suchmaschine: 'Suchmaschine',
+  linkedin:     'LinkedIn',
+  social:       'Instagram/Facebook o. ä.',
+  empfehlung:   'Empfehlung',
+  klinik:       'über eine Klinik',
+  pflegeschule: 'über eine Pflegeschule',
+  presse:       'Presse/Radio/Podcast',
+  aushang:      'Aushang/Flyer/Veranstaltung',
+  sonstiges:    'anderer Weg',
+  unklar:       'weiß die Person nicht mehr'
+};
+
 let filterStatus = 'neu';
 
 if (!LPR.requireRole('admin', 'login.html?next=admin-ehrenamt-interesse.html')) throw new Error('kein Zugriff');
@@ -166,6 +183,7 @@ async function laden() {
   zeichneFilter();
   zeichneListe();
   ladeQuellen();
+  zeigeKanaele();
 }
 
 function zeichneFilter() {
@@ -238,6 +256,8 @@ function zeichneListe() {
           )}` : ''}
         ${z.datenschutz_ok === false
             ? '<br><span class="warnung">⚠ Keine Einwilligung erteilt</span>' : ''}
+        ${z.kanal ? `<br>📣 gefunden über ${KANAL_TEXT[z.kanal] || LPR.escape(z.kanal)}` : ''}
+        ${z.kanal_detail ? `<br>💬 ${LPR.escape(z.kanal_detail)}` : ''}
         ${z.quelle ? `<br>🔗 kam über <code>${LPR.escape(z.quelle)}</code>` : ''}
         ${z.ref_code ? `<br>👥 empfohlen über <code>${LPR.escape(z.ref_code)}</code>` : ''}
         ${z.mail_ok === false ? '<br><span class="warnung">⚠ Eingangsbestätigung wurde NICHT zugestellt</span>' : ''}
@@ -279,6 +299,42 @@ async function uebernehmen(id) {
   const fe = document.getElementById('fe-' + id);
   if (!res.ok) { fe.textContent = res.error || 'Fehler.'; fe.hidden = false; return; }
   await laden();
+}
+
+/**
+ * Wie haben uns die Leute gefunden? Rechnet aus den bereits geladenen Zeilen,
+ * damit dafuer keine eigene Abfrage noetig ist.
+ *
+ * Zeilen von vor der Einfuehrung des Feldes haben keinen Kanal. Die werden
+ * ausgewiesen statt weggelassen — sonst sieht die Tabelle vollstaendiger aus,
+ * als sie ist.
+ */
+function zeigeKanaele() {
+  const el = document.getElementById('kanaele');
+  if (!el) return;
+
+  const zaehler = new Map();
+  for (const z of alleZeilen) {
+    const k = z.kanal || '(vor Einführung des Feldes)';
+    const e = zaehler.get(k) || { gesamt: 0, uebernommen: 0 };
+    e.gesamt += 1;
+    if (z.status === 'uebernommen') e.uebernommen += 1;
+    zaehler.set(k, e);
+  }
+  if (!zaehler.size) { el.innerHTML = ''; return; }
+
+  const reihen = [...zaehler.entries()].sort((a, b) => b[1].gesamt - a[1].gesamt);
+
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
+    + '<thead><tr><th style="text-align:left;padding:6px 8px;">Gefunden über</th>'
+    + '<th style="text-align:right;padding:6px 8px;">Meldungen</th>'
+    + '<th style="text-align:right;padding:6px 8px;">übernommen</th></tr></thead><tbody>'
+    + reihen.map(([k, e]) =>
+        '<tr><td style="padding:6px 8px;">' + LPR.escape(KANAL_TEXT[k] || k) + '</td>'
+        + '<td style="text-align:right;padding:6px 8px;">' + e.gesamt + '</td>'
+        + '<td style="text-align:right;padding:6px 8px;"><strong>' + e.uebernommen
+        + '</strong></td></tr>').join('')
+    + '</tbody></table>';
 }
 
 /** Welcher Kanal bringt Menschen, die am Ende wirklich Dienst tun? */

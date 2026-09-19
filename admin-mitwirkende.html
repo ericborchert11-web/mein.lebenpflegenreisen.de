@@ -364,6 +364,24 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
           oder Auszahlung.
         </p>
       </div>
+
+      <div class="mw-tarif" style="margin-top:18px">
+        <label for="mw-masern-sel">Masernnachweis</label>
+        <select id="mw-masern-sel">
+          <option value="offen">offen — noch nicht vorgelegt</option>
+          <option value="liegt_vor">Nachweis liegt vor</option>
+          <option value="nicht_erforderlich">nicht erforderlich — vor 1971 geboren</option>
+          <option value="kontraindikation">ärztliche Kontraindikation</option>
+        </select>
+        <p class="mw-hint">
+          § 20 Abs. 8 Infektionsschutzgesetz: Wer nach dem 31.12.1970 geboren ist und
+          im Krankenhaus tätig wird, braucht den Nachweis <strong>vor dem ersten
+          Dienst</strong> — ehrenamtlich wie angestellt. Nur setzen, wenn du das
+          Original gesehen hast. Wir speichern bewusst kein Geburtsdatum, kein
+          Impfdatum und kein Dokument.
+        </p>
+        <p class="mw-hint" id="mw-masern-spur" style="display:none"></p>
+      </div>
     </div>
 
     <!-- WEICH: Schichten -->
@@ -677,8 +695,13 @@ async function render() {
   await renderPending();
 
   const members = await loadMembers();
+  // Offene Masernnachweise sichtbar machen, damit die Nacherfassung ein Ende
+  // hat. Ein fehlender oder unbekannter Wert zaehlt als offen — im Zweifel
+  // fehlt der Nachweis.
+  const offeneMasern = members.filter(m => (m.masernStatus || 'offen') === 'offen').length;
   document.getElementById('member-count').textContent =
-    `${members.length} Person${members.length === 1 ? '' : 'en'}`;
+    `${members.length} Person${members.length === 1 ? '' : 'en'}`
+    + (offeneMasern > 0 ? ` · ${offeneMasern} ohne Masernnachweis` : ' · Masernnachweise vollständig');
 
   const box = document.getElementById('member-list');
 
@@ -725,6 +748,17 @@ async function render() {
     const avoidCount = clinicVals.filter(v => v === 'avoid').length;
 
     const badges = [];
+    // Masernnachweis zuerst: § 20 Abs. 9 IfSG sagt "darf nicht taetig werden".
+    // Das wiegt schwerer als jedes andere Abzeichen und steht deshalb vorn.
+    if (m.masernStatus === 'liegt_vor') {
+      badges.push(`<span class="mbadge hard">✓ Masern</span>`);
+    } else if (m.masernStatus === 'nicht_erforderlich') {
+      badges.push(`<span class="mbadge soft">Masern: vor 1971</span>`);
+    } else if (m.masernStatus === 'kontraindikation') {
+      badges.push(`<span class="mbadge soft">Masern: Kontraind.</span>`);
+    } else {
+      badges.push(`<span class="mbadge block">⚠ Masernnachweis fehlt</span>`);
+    }
     if (cmpExpired > 0)             badges.push(`<span class="mbadge block">⚠ ${cmpExpired}× abgelaufen</span>`);
     if (cmpExpiringSoon > 0)        badges.push(`<span class="mbadge soft">⏳ ${cmpExpiringSoon}× läuft bald ab</span>`);
     if (cmpMissingOrSubmitted > 0)  badges.push(`<span class="mbadge" style="background:#F0ECE4; color:var(--muted);">${cmpMissingOrSubmitted}/5 Dok. offen</span>`);
@@ -782,6 +816,8 @@ async function openProfile(userId, email, name) {
   document.getElementById('pref-plz').value   = '';
   document.getElementById('pref-maxkm').value = '';
   document.getElementById('mw-tarif-sel').value = 'T2';
+  document.getElementById('mw-masern-sel').value = 'offen';
+  document.getElementById('mw-masern-spur').style.display = 'none';
 
   document.getElementById('profile-dialog').showModal();
 
@@ -863,6 +899,21 @@ function renderProfileSections() {
   // leerer Wert darf hier keine leere Auswahl zeigen, sonst saehe eine nicht
   // eingestufte Person aus wie eine, deren Einstufung verlorengegangen ist.
   document.getElementById('mw-tarif-sel').value = p.tarif === 'T1' ? 'T1' : 'T2';
+
+  // Masernnachweis. Ein unbekannter oder fehlender Wert gilt als 'offen' —
+  // im Zweifel fehlt der Nachweis, nicht umgekehrt.
+  const mSel = document.getElementById('mw-masern-sel');
+  const mErlaubt = ['offen','liegt_vor','nicht_erforderlich','kontraindikation'];
+  mSel.value = mErlaubt.indexOf(p.masernStatus) !== -1 ? p.masernStatus : 'offen';
+
+  const spur = document.getElementById('mw-masern-spur');
+  if (p.masernStatus && p.masernStatus !== 'offen' && p.masernGeprueftAm) {
+    const d = new Date(p.masernGeprueftAm + 'T00:00:00');
+    spur.textContent = 'Gesehen am ' + d.toLocaleDateString('de-DE') + '.';
+    spur.style.display = '';
+  } else {
+    spur.style.display = 'none';
+  }
 
   // Anfahrt
   document.getElementById('pref-plz').value   = p.homePlz || '';
@@ -1075,6 +1126,7 @@ async function saveProfile() {
   if (typeof LPR.setUserHardPreferences !== 'function') missing.push('setUserHardPreferences');
   if (typeof LPR.setUserSoftPreferences !== 'function') missing.push('setUserSoftPreferences');
   if (typeof LPR.setUserTarif !== 'function') missing.push('setUserTarif');
+  if (typeof LPR.setUserMasern !== 'function') missing.push('setUserMasern');
   if (missing.length > 0) {
     showToast('Fehler: API unvollständig (' + missing.join(', ') + '). Bitte Strg+Shift+R drücken.');
     return;
@@ -1086,20 +1138,22 @@ async function saveProfile() {
   const homePlz         = document.getElementById('pref-plz').value.trim();
   const maxKm           = document.getElementById('pref-maxkm').value;
   const tarif           = document.getElementById('mw-tarif-sel').value;
+  const masern          = document.getElementById('mw-masern-sel').value;
 
   const saveBtn = document.querySelector('.pd-save');
   const oldText = saveBtn.textContent;
   saveBtn.disabled = true;
   saveBtn.textContent = 'Speichern …';
 
-  let hardRes, softRes, tarifRes;
+  let hardRes, softRes, tarifRes, masernRes;
   try {
     // Hart, weich und Tarif parallel speichern — die Karte schreibt alle
     // Felder in einem Rutsch, nur die Klinik-Praeferenzen laufen sofort.
-    [hardRes, softRes, tarifRes] = await Promise.all([
+    [hardRes, softRes, tarifRes, masernRes] = await Promise.all([
       LPR.setUserHardPreferences(_currentUser.id, { qualifications, activityTypes }),
       LPR.setUserSoftPreferences(_currentUser.id, { preferredShifts, homePlz, maxKm }),
-      LPR.setUserTarif(_currentUser.id, tarif)
+      LPR.setUserTarif(_currentUser.id, tarif),
+      LPR.setUserMasern(_currentUser.id, masern)
     ]);
   } catch (e) {
     saveBtn.disabled = false;
@@ -1127,6 +1181,14 @@ async function saveProfile() {
   // in der Sana-Statistik weiter der alte Tarif steht.
   if (!tarifRes || !tarifRes.ok) {
     showToast('Tarif: ' + ((tarifRes && tarifRes.error) || 'Fehler'));
+    return;
+  }
+  // Gleiche Begruendung wie beim Tarif: b_profiles_masern_schutz setzt einen
+  // unerlaubten Schreibversuch still zurueck. Wird das verschluckt, steht in
+  // der Liste weiter "offen", waehrend die Seite Erfolg meldet — und jemand
+  // geht ohne Nachweis an ein Bett.
+  if (!masernRes || !masernRes.ok) {
+    showToast('Masernnachweis: ' + ((masernRes && masernRes.error) || 'Fehler'));
     return;
   }
 

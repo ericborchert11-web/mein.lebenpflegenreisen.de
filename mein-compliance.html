@@ -167,6 +167,8 @@
     <strong>Wichtig:</strong> Solange nicht alle fünf Dokumente freigegeben sind, kannst du noch keine Einsätze übernehmen.
   </div>
 
+  <div id="cp-masern" class="cp-intro" style="display:none; margin-bottom:18px;"></div>
+
   <div class="cp-list" id="cp-list"></div>
 </main>
 
@@ -297,7 +299,51 @@ function buildMailtoLink(item, session) {
   return `mailto:${VORSTAND_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
+/**
+ * Masernnachweis, nur zur Anzeige.
+ *
+ * § 20 Abs. 8 Infektionsschutzgesetz verlangt den Nachweis von allen, die in
+ * einem Krankenhaus taetig sind und nach dem 31.12.1970 geboren wurden —
+ * ehrenamtlich wie angestellt. Setzen darf ihn ausschliesslich der Vorstand,
+ * nachdem er das Original gesehen hat; deshalb steht hier kein Knopf.
+ */
+async function renderMasern() {
+  const box = document.getElementById('cp-masern');
+  if (!box || typeof LPR.getMyMasern !== 'function') return;
+
+  const res = await LPR.getMyMasern();
+  if (!res.ok) return;   // still lassen statt eine Falschaussage anzeigen
+
+  const datum = res.geprueftAm
+    ? new Date(res.geprueftAm + 'T00:00:00').toLocaleDateString('de-DE')
+    : null;
+
+  let inhalt;
+  if (res.status === 'liegt_vor') {
+    inhalt = '<strong>Masernnachweis: liegt vor.</strong>'
+           + (datum ? ' Gesehen am ' + datum + '.' : '');
+  } else if (res.status === 'nicht_erforderlich') {
+    inhalt = '<strong>Masernnachweis: nicht erforderlich.</strong> '
+           + 'Die Pflicht gilt nur für Menschen, die nach dem 31.12.1970 geboren sind.';
+  } else if (res.status === 'kontraindikation') {
+    inhalt = '<strong>Masernnachweis: ärztliche Kontraindikation anerkannt.</strong>'
+           + (datum ? ' Gesehen am ' + datum + '.' : '');
+  } else {
+    inhalt = '<strong>Masernnachweis fehlt noch.</strong> '
+           + 'Wer nach dem 31.12.1970 geboren ist, braucht vor dem ersten Dienst einen '
+           + 'Nachweis über den Masernschutz: zwei Impfungen im Impfpass, ein ärztliches '
+           + 'Zeugnis über die Immunität oder eine Bescheinigung über eine Kontraindikation. '
+           + 'Das schreibt § 20 Absatz 8 des Infektionsschutzgesetzes für alle vor, die in '
+           + 'einem Krankenhaus tätig sind — ehrenamtlich wie angestellt. '
+           + 'Meistens steht die Impfung längst im gelben Impfpass aus der Kindheit. '
+           + 'Bring ihn zum nächsten Gespräch mit oder melde dich beim Vorstand.';
+  }
+  box.innerHTML = inhalt;
+  box.style.display = '';
+}
+
 async function render() {
+  renderMasern();
   const list = document.getElementById('cp-list');
   list.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--muted);">Lade deine Unterlagen…</div>';
   const session = LPR.getSession();

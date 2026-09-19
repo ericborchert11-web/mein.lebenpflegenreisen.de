@@ -540,7 +540,7 @@
     try {
       let query = (await sb())
         .from('profiles')
-        .select('id, email, full_name, role, status, personalnummer, vereinsnummer, phone, created_at, approved_at, approved_by, rejected_at, rejected_reason')
+        .select('id, email, full_name, role, status, personalnummer, vereinsnummer, phone, created_at, approved_at, approved_by, rejected_at, rejected_reason, masern_status, masern_geprueft_am, masern_geprueft_von')
         .order('created_at', { ascending: true });
       if (status) query = query.eq('status', status);
       const { data, error } = await query;
@@ -549,7 +549,9 @@
         email: p.email, name: p.full_name, role: ROLE_BE_TO_FE[p.role] || p.role,
         status: p.status, personalnummer: p.personalnummer, vereinsnummer: p.vereinsnummer, phone: p.phone,
         registeredAt: p.created_at, approvedAt: p.approved_at, approvedBy: p.approved_by,
-        rejectedAt: p.rejected_at, rejectedReason: p.rejected_reason, _id: p.id
+        rejectedAt: p.rejected_at, rejectedReason: p.rejected_reason, _id: p.id,
+        masernStatus: p.masern_status || 'offen',
+        masernGeprueftAm: p.masern_geprueft_am, masernGeprueftVon: p.masern_geprueft_von
       }));
     } catch(e) { console.error('[LPR] listUsersByStatus failed:', e); return []; }
   }
@@ -3102,6 +3104,97 @@
    * entfernt, macht nichts auf — wer sich auf sie verlaesst, hat den Trigger
    * nicht verstanden.
    */
+  /**
+   * Erlaubte Werte fuer den Masernnachweis. Muss mit dem CHECK
+   * profiles_masern_status_check in Migration AH uebereinstimmen.
+   */
+  const MASERN_STATUS = ['offen', 'liegt_vor', 'nicht_erforderlich', 'kontraindikation'];
+
+  const MASERN_TEXT = {
+    offen:              'offen',
+    liegt_vor:          'Nachweis liegt vor',
+    nicht_erforderlich: 'nicht erforderlich (vor 1971 geboren)',
+    kontraindikation:   'aerztliche Kontraindikation'
+  };
+
+  /**
+   * Setzt den Masernnachweis einer Person.
+   *
+   * § 20 Abs. 8 Satz 1 Nr. 3 IfSG verlangt den Nachweis von allen, die in
+   * einem Krankenhaus taetig sind und nach dem 31.12.1970 geboren wurden —
+   * ehrenamtlich wie angestellt. Nach § 20 Abs. 9 Satz 1 muss er VOR Beginn
+   * der Taetigkeit vorliegen.
+   *
+   * Gespeichert wird nur das Ergebnis der Sichtpruefung, kein Geburtsdatum,
+   * kein Impfdatum, kein Dokument.
+   *
+   * Die Rollenpruefung hier ist Bequemlichkeit, nicht Sicherheit: Der Riegel
+   * ist der Trigger b_profiles_masern_schutz in der Datenbank.
+   */
+  /**
+   * Liest den eigenen Masernnachweis. Fuer mein-compliance.html.
+   *
+   * Eigene Abfrage statt Sitzungszwischenspeicher: Der Vorstand setzt den
+   * Status waehrend die Person angemeldet ist, und eine veraltete Anzeige
+   * waere hier schlimmer als eine Abfrage mehr.
+   */
+  async function getMyMasern() {
+    const s = getSession();
+    if (!s || !s.id) return { ok: false, error: 'Nicht angemeldet.' };
+    try {
+      const { data, error } = await (await sb())
+        .from('profiles')
+        .select('masern_status, masern_geprueft_am')
+        .eq('id', s.id)
+        .single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, status: data.masern_status || 'offen', geprueftAm: data.masern_geprueft_am };
+    } catch (e) {
+      console.error('[LPR] getMyMasern:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function setUserMasern(userId, status) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur der Vorstand kann den Masernnachweis setzen.' };
+    }
+    if (!userId) return { ok: false, error: 'Keine User-ID.' };
+    if (MASERN_STATUS.indexOf(status) === -1) {
+      return { ok: false, error: 'Unbekannter Status fuer den Masernnachweis.' };
+    }
+    const gesetzt = status === 'offen';
+    try {
+      const { data, error } = await (await sb())
+        .from('profiles')
+        .update({
+          masern_status:       status,
+          // Bei 'offen' wird die Pruefspur geloescht: Es gibt nichts, was
+          // jemand gesehen haette. Sonst bliebe ein Datum stehen, das eine
+          // Pruefung behauptet, die es nicht gibt.
+          masern_geprueft_am:  gesetzt ? null : new Date().toISOString().slice(0, 10),
+          masern_geprueft_von: gesetzt ? null : s.id
+        })
+        .eq('id', userId)
+        .select('id, masern_status, masern_geprueft_am, masern_geprueft_von')
+        .single();
+      if (error) return { ok: false, error: error.message };
+      // Zurueckgelesen statt angenommen: Der Trigger setzt einen nicht
+      // erlaubten Wert still zurueck und meldet trotzdem eine betroffene
+      // Zeile. Ohne diese Pruefung zeigt die Oberflaeche Erfolg, wo nichts
+      // passiert ist.
+      if (data.masern_status !== status) {
+        return { ok: false, error: 'Der Masernnachweis wurde nicht uebernommen. Bitte den Vorstand informieren.' };
+      }
+      return { ok: true, masernStatus: data.masern_status,
+               geprueftAm: data.masern_geprueft_am, geprueftVon: data.masern_geprueft_von };
+    } catch (e) {
+      console.error('[LPR] setUserMasern:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function setUserTarif(userId, tarif) {
     const s = getSession();
     if (!s || (s.role !== 'admin' && s.role !== 'board')) {
@@ -6039,6 +6132,7 @@
     interessentUebernehmen, getEhrenamtQuellen, meinEinladungslink,
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference, setUserTarif,
+    setUserMasern, getMyMasern, MASERN_STATUS, MASERN_TEXT,
     register, loginWithPassword, pruefeUndSetzeSession, requireRole,
     requestPasswordReset, setNewPassword, requestMagicLink, hatPasswort, setzePasswort,
     listUsersByStatus, approveUser, rejectUser, deleteRegistration,

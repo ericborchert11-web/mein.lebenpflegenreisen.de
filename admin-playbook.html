@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Playbook · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.pb-wrap { max-width: 1180px; margin: 32px auto 60px; padding: 0 24px; }
+
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0 0 14px; font-size: 14px; font-weight: 600;
+  color: var(--green-deep); text-decoration: none;
+}
+.back-link:hover { text-decoration: underline; }
+
+.pb-header {
+  background: #fff; border-radius: var(--radius); padding: 24px 28px;
+  margin-bottom: 18px; box-shadow: var(--shadow); border: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap;
+}
+.pb-header h1 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px;
+  color: var(--green-deep); margin: 0 0 6px; letter-spacing: -.02em;
+}
+.pb-header p { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; max-width: 620px; }
+.pb-kopf-rechts { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.pb-intern {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1.5px solid #A8382B; color: #A8382B; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  padding: 4px 10px; white-space: nowrap;
+}
+.pb-stand { font-size: 12.5px; color: var(--muted); }
+.pb-drucken {
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  background: #fff; border: 1.5px solid var(--border); color: var(--muted);
+  border-radius: 999px; padding: 6px 14px;
+}
+.pb-drucken:hover { border-color: var(--green-deep); color: var(--green-deep); }
+
+/* Zwei Spalten: Kapitelliste, Inhalt */
+.pb-grid { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 18px; align-items: start; }
+
+.pb-seite {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 14px; position: sticky; top: 16px;
+}
+.pb-suche { position: relative; margin-bottom: 12px; }
+.pb-suche input {
+  width: 100%; font-family: inherit; font-size: 14px; padding: 9px 12px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: #FAFAF7; color: var(--text);
+}
+.pb-suche input:focus-visible { outline: 2px solid var(--green-deep); outline-offset: 1px; }
+.pb-gruppe { margin-bottom: 12px; }
+.pb-gruppe-titel {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--muted); padding: 0 8px 5px;
+}
+.pb-nav-eintrag {
+  display: grid; grid-template-columns: 22px 1fr; gap: 6px; align-items: baseline;
+  width: 100%; text-align: left; font-family: inherit; font-size: 13.5px;
+  line-height: 1.35; color: var(--text); background: none; border: 0;
+  border-radius: var(--radius-sm); padding: 6px 8px; cursor: pointer;
+}
+.pb-nav-eintrag:hover { background: #F2F0EA; }
+.pb-nav-eintrag .nr {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.pb-nav-eintrag[aria-current="true"] { background: var(--green-deep); color: #fff; }
+.pb-nav-eintrag[aria-current="true"] .nr { color: var(--lime); }
+
+.pb-inhalt {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 30px 34px; min-width: 0;
+}
+.pb-kapitelkopf { border-bottom: 2px solid var(--green-deep); padding-bottom: 14px; margin-bottom: 20px; }
+.pb-kapitelkopf .eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--muted); display: block; margin-bottom: 9px;
+}
+.pb-kapitelkopf h2 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+  font-size: clamp(24px, 3.4vw, 34px); line-height: 1.1; color: var(--green-deep);
+  margin: 0; letter-spacing: -.02em;
+}
+.pb-kapitelkopf .lede { color: var(--muted); font-size: 15px; margin: 10px 0 0; max-width: 58ch; }
+
+.pb-abschnitte {
+  background: #FAFAF7; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 12px 14px; margin-bottom: 24px;
+}
+.pb-abschnitte b {
+  display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+}
+.pb-abschnitte a {
+  font-size: 13.5px; color: var(--muted); text-decoration: none;
+  margin-right: 16px; line-height: 1.9; border-bottom: 1px solid transparent;
+}
+.pb-abschnitte a:hover { color: var(--green-deep); border-bottom-color: var(--border); }
+
+/* Gerendertes Markdown */
+.pb-md { font-size: 15.5px; line-height: 1.68; color: var(--text); overflow-wrap: break-word; }
+.pb-md h3, .pb-md h4, .pb-md h5 {
+  font-family: 'Bricolage Grotesque', sans-serif; color: var(--green-deep); line-height: 1.25;
+}
+.pb-md h3 {
+  font-size: 22px; font-weight: 800; margin: 44px 0 12px;
+  padding-top: 20px; border-top: 1px solid var(--border);
+}
+.pb-md h3:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.pb-md h4 { font-size: 17px; font-weight: 700; margin: 28px 0 9px; }
+.pb-md h5 { font-size: 14.5px; font-weight: 700; margin: 20px 0 7px; }
+.pb-md p { margin: 0 0 13px; }
+.pb-md ul, .pb-md ol { margin: 0 0 14px; padding-left: 22px; }
+.pb-md li { margin-bottom: 6px; }
+.pb-md li.aufgabe { list-style: none; margin-left: -22px; }
+.pb-md li.aufgabe span { display: inline-block; width: 14px; color: var(--muted); }
+.pb-md strong { color: var(--green-deep); font-weight: 600; }
+.pb-md a { color: var(--green-deep); }
+.pb-md hr { border: 0; border-top: 1px solid var(--border); margin: 30px 0; }
+.pb-md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .89em; background: #F2F0EA; border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px;
+}
+.pb-md pre {
+  background: #F7F6F1; border: 1px solid var(--border); border-left: 3px solid var(--green-deep);
+  border-radius: var(--radius-sm); padding: 13px 15px; overflow-x: auto; margin: 0 0 16px;
+}
+.pb-md pre code { background: none; border: 0; padding: 0; font-size: 12.5px; line-height: 1.55; white-space: pre; }
+.pb-md blockquote {
+  margin: 20px 0; padding: 13px 17px; background: #FAFAF7;
+  border: 1px solid var(--border); border-left: 3px solid var(--green-mute);
+  border-radius: var(--radius-sm); color: var(--text);
+}
+.pb-md blockquote > :last-child { margin-bottom: 0; }
+.pb-md blockquote h4, .pb-md blockquote h5 { margin-top: 2px; }
+.pb-md blockquote.warnung { background: #FBF4E4; border-color: #C8912F; border-left-color: #C8912F; }
+.pb-md blockquote.warnung h4 { color: #8A5E12; }
+.pb-tabelle { overflow-x: auto; margin: 0 0 18px; -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.pb-tabelle table { border-collapse: collapse; font-size: 13.5px; min-width: 100%; }
+.pb-tabelle th {
+  background: var(--green-deep); color: #fff; text-align: left; font-weight: 600;
+  font-size: 12.5px; padding: 8px 12px; vertical-align: bottom;
+}
+.pb-tabelle td {
+  border-top: 1px solid var(--border); padding: 8px 12px;
+  vertical-align: top; text-align: left; font-variant-numeric: tabular-nums;
+}
+.pb-tabelle tbody tr:nth-child(even) td { background: #FAFAF7; }
+
+.pb-treffer {
+  display: block; width: 100%; text-align: left; font-family: inherit;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 11px 14px; margin-bottom: 6px; cursor: pointer; color: var(--text); font-size: 14.5px;
+}
+.pb-treffer:hover { border-color: var(--green-deep); }
+.pb-treffer .wo {
+  display: block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 4px;
+}
+.pb-treffer mark { background: var(--lime-soft); border-radius: 3px; padding: 0 2px; }
+
+.pb-laden { color: var(--muted); padding: 30px 0; text-align: center; }
+
+@media (max-width: 900px) {
+  .pb-grid { grid-template-columns: 1fr; }
+  .pb-seite { position: static; }
+  .pb-inhalt { padding: 22px 18px; }
+}
+@media (max-width: 720px) {
+  .pb-wrap { padding: 0 14px; }
+  .pb-header { padding: 18px; }
+}
+
+@media print {
+  .site, .site-footer, .a11y-bar, .pb-seite, .back-link, .pb-abschnitte,
+  .pb-drucken, .pb-header { display: none !important; }
+  .pb-wrap { max-width: none; margin: 0; padding: 0; }
+  .pb-grid { display: block; }
+  .pb-inhalt { border: 0; box-shadow: none; padding: 0; }
+  .pb-md { font-size: 10.5pt; }
+  .pb-md h3 { page-break-after: avoid; }
+  .pb-tabelle, .pb-md pre, .pb-md blockquote { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+
+<main id="main">
+<div class="pb-wrap">
+
+  <a href="admin-cockpit.html" class="back-link">← Zurück</a>
+
+  <div class="pb-header">
+    <div>
+      <h1>Playbook</h1>
+      <p>Das Betriebshandbuch des Vereins: wie gearbeitet wird, was entschieden ist,
+         was offen ist und was gefährlich ist. Geschrieben für den Fall, dass jemand
+         anderes weitermachen muss.</p>
+    </div>
+    <div class="pb-kopf-rechts">
+      <span class="pb-intern">Intern · nicht zur Weitergabe</span>
+      <span id="pb-stand" class="pb-stand"></span>
+      <button type="button" class="pb-drucken" id="pb-drucken">Kapitel drucken</button>
+    </div>
+  </div>
+
+  <div class="pb-grid">
+    <aside class="pb-seite">
+      <div class="pb-suche">
+        <input id="pb-q" type="search" placeholder="Suchen …" autocomplete="off" aria-label="Im Playbook suchen">
+      </div>
+      <nav id="pb-nav" aria-label="Kapitel"></nav>
+    </aside>
+
+    <div class="pb-inhalt" id="pb-inhalt">
+      <p class="pb-laden">Wird geladen …</p>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+
+LPR_Layout.init({ page: 'playbook' });
+if (!LPR.requireRole('admin', 'login.html?next=admin-playbook.html')) throw new Error('kein Zugriff');
+
+let KAPITEL = [];
+
+// LPR_Layout.escapeHtml maskiert nur & < >. Werte, die in Attributwerten landen,
+// brauchen zusaetzlich die Anfuehrungszeichen.
+function escapeHtml(s) {
+  return LPR_Layout.escapeHtml(s || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/* ── Markdown ────────────────────────────────────────────────────────────────
+   Uebernommen aus admin-foerdermittel.html und erweitert um Codebloecke,
+   Tabellenkoepfe, Aufgabenlisten und verschachtelte Zitate.
+   Reihenfolge ist bindend: erst maskieren, dann Bloecke, dann Inline.
+   Es darf nie eine Ersetzung vor escapeHtml treten.                          */
+
+function inline(s) {
+  return s
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+
+function kennung(text) {
+  return 'a-' + (text || '').toLowerCase()
+    .replace(/&[a-z]+;/g, '').replace(/[^a-z0-9äöüß\s-]/g, '')
+    .trim().replace(/\s+/g, '-').slice(0, 50);
+}
+
+// Arbeitet auf bereits maskierten Zeilen.
+function bloecke(zeilen) {
+  const aus = [];
+  let modus = null;          // 'ul' | 'ol' | 'p' | 'table'
+  let code = null;           // gesammelte Zeilen im Codeblock
+  let zitat = null;          // gesammelte Zeilen im Zitat
+
+  const schliessen = () => {
+    if (modus === 'ul') aus.push('</ul>');
+    if (modus === 'ol') aus.push('</ol>');
+    if (modus === 'p') aus.push('</p>');
+    if (modus === 'table') aus.push('</tbody></table></div>');
+    modus = null;
+  };
+  const zitatSchliessen = () => {
+    if (zitat === null) return;
+    const innen = bloecke(zitat);
+    const klasse = zitat.join(' ').indexOf('⚠') > -1 ? ' class="warnung"' : '';
+    aus.push('<blockquote' + klasse + '>' + innen + '</blockquote>');
+    zitat = null;
+  };
+
+  for (const roh of zeilen) {
+    const z = roh.trimEnd();
+
+    // Codeblock hat Vorrang vor allem anderen.
+    if (/^\s*```/.test(z)) {
+      if (code === null) { schliessen(); zitatSchliessen(); code = []; }
+      else { aus.push('<pre><code>' + code.join('\n') + '</code></pre>'); code = null; }
+      continue;
+    }
+    if (code !== null) { code.push(z); continue; }
+
+    // Zitat sammeln, statt es zu verflachen.
+    if (/^&gt;\s?/.test(z)) {
+      if (zitat === null) { schliessen(); zitat = []; }
+      zitat.push(z.replace(/^&gt;\s?/, ''));
+      continue;
+    }
+    zitatSchliessen();
+
+    if (!z.trim()) { schliessen(); continue; }
+
+    if (/^(-{3,}|\*{3,})$/.test(z.trim())) { schliessen(); aus.push('<hr>'); continue; }
+
+    const ueber = z.match(/^(#{2,5})\s+(.*)$/);
+    if (ueber) {
+      schliessen();
+      const n = Math.min(ueber[1].length + 1, 5);
+      const text = inline(ueber[2]);
+      const id = kennung(ueber[2]);
+      aus.push('<h' + n + ' id="' + id + '">' + text + '</h' + n + '>');
+      continue;
+    }
+
+    if (/^\s*\|/.test(z)) {
+      const zellen = z.trim().replace(/^\||\|$/g, '').split('|').map(s => s.trim());
+      if (zellen.every(c => /^:?-+:?$/.test(c))) continue;          // Trennzeile
+      if (modus !== 'table') {
+        schliessen(); modus = 'table';
+        aus.push('<div class="pb-tabelle"><table><thead><tr>' +
+          zellen.map(c => '<th>' + inline(c) + '</th>').join('') +
+          '</tr></thead><tbody>');
+        continue;                                                   // erste Zeile ist der Kopf
+      }
+      aus.push('<tr>' + zellen.map(c => '<td>' + inline(c) + '</td>').join('') + '</tr>');
+      continue;
+    }
+
+    const aufgabe = z.match(/^\s*[-*]\s+\[( |x|X)\]\s+(.*)$/);
+    if (aufgabe) {
+      if (modus !== 'ul') { schliessen(); modus = 'ul'; aus.push('<ul>'); }
+      const haken = aufgabe[1].toLowerCase() === 'x' ? '☑' : '☐';
+      aus.push('<li class="aufgabe"><span>' + haken + '</span> ' + inline(aufgabe[2]) + '</li>');
+      continue;
+    }
+
+    const punkt = z.match(/^\s*[-*]\s+(.*)$/);
+    if (punkt) {
+      if (modus !== 'ul') { schliessen(); modus = 'ul'; aus.push('<ul>'); }
+      aus.push('<li>' + inline(punkt[1]) + '</li>');
+      continue;
+    }
+
+    const num = z.match(/^\s*\d+\.\s+(.*)$/);
+    if (num) {
+      if (modus !== 'ol') { schliessen(); modus = 'ol'; aus.push('<ol>'); }
+      aus.push('<li>' + inline(num[1]) + '</li>');
+      continue;
+    }
+
+    if (modus === 'p') { aus.push(' ' + inline(z)); continue; }
+    if (modus === 'ul' || modus === 'ol') { aus.push(' ' + inline(z)); continue; }
+    schliessen(); modus = 'p'; aus.push('<p>' + inline(z));
+  }
+  if (code !== null) aus.push('<pre><code>' + code.join('\n') + '</code></pre>');
+  zitatSchliessen();
+  schliessen();
+  return aus.join('\n');
+}
+
+function markdown(text) {
+  return bloecke(escapeHtml(text).split('\n'));
+}
+
+/* ── Navigation ──────────────────────────────────────────────────────────── */
+
+function navZeichnen(aktiv) {
+  const nav = document.getElementById('pb-nav');
+  const gruppen = [];
+  KAPITEL.forEach(k => {
+    const g = k.gruppe || 'Kapitel';
+    let letzte = gruppen[gruppen.length - 1];
+    if (!letzte || letzte.name !== g) { letzte = { name: g, eintraege: [] }; gruppen.push(letzte); }
+    letzte.eintraege.push(k);
+  });
+  nav.innerHTML = gruppen.map(g =>
+    '<div class="pb-gruppe"><div class="pb-gruppe-titel">' + escapeHtml(g.name) + '</div>' +
+    g.eintraege.map(k =>
+      '<button type="button" class="pb-nav-eintrag" data-slug="' + escapeHtml(k.slug) + '"' +
+      (k.slug === aktiv ? ' aria-current="true"' : '') + '>' +
+      '<span class="nr">' + escapeHtml(k.nummer) + '</span>' +
+      '<span>' + escapeHtml(k.titel) + '</span></button>'
+    ).join('') + '</div>'
+  ).join('');
+}
+
+/* ── Ansichten ───────────────────────────────────────────────────────────── */
+
+function kapitelZeichnen(slug) {
+  const k = KAPITEL.find(x => x.slug === slug) || KAPITEL[0];
+  if (!k) return;
+  const html = markdown(k.inhalt_md);
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const ueber = [...tmp.querySelectorAll('h3')];
+  const abschnitte = ueber.length > 2
+    ? '<div class="pb-abschnitte"><b>Abschnitte</b>' +
+      ueber.map(h => '<a href="#' + h.id + '">' + escapeHtml(h.textContent) + '</a>').join('') +
+      '</div>'
+    : '';
+
+  document.getElementById('pb-inhalt').innerHTML =
+    '<header class="pb-kapitelkopf">' +
+      '<span class="eyebrow">Kapitel ' + escapeHtml(k.nummer) + '</span>' +
+      '<h2>' + escapeHtml(k.titel) + '</h2>' +
+      (k.lede ? '<p class="lede">' + escapeHtml(k.lede) + '</p>' : '') +
+    '</header>' + abschnitte +
+    '<div class="pb-md">' + html + '</div>';
+
+  navZeichnen(k.slug);
+  if (location.hash.slice(1) !== k.slug) history.replaceState(null, '', '#' + k.slug);
+  window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+}
+
+/* ── Suche ───────────────────────────────────────────────────────────────── */
+
+function suchen(begriff) {
+  const nadel = begriff.toLowerCase();
+  const treffer = [];
+  KAPITEL.forEach(k => {
+    let ueberschrift = '';
+    k.inhalt_md.split('\n').forEach(zeile => {
+      const u = zeile.match(/^#{2,4}\s+(.*)$/);
+      if (u) { ueberschrift = u[1].replace(/[*`⚠️]/g, '').trim(); return; }
+      const t = zeile.trim();
+      if (t.length < 28 || treffer.length >= 60) return;
+      const pos = t.toLowerCase().indexOf(nadel);
+      if (pos > -1) treffer.push({ k, ueberschrift, t, pos });
+    });
+  });
+
+  const ziel = document.getElementById('pb-inhalt');
+  if (!treffer.length) {
+    ziel.innerHTML = '<header class="pb-kapitelkopf"><span class="eyebrow">Suche</span>' +
+      '<h2>Nichts gefunden</h2></header>' +
+      '<p class="pb-laden">Kein Treffer für „' + escapeHtml(begriff) + '".</p>';
+    return;
+  }
+  const re = new RegExp('(' + begriff.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+  ziel.innerHTML = '<header class="pb-kapitelkopf"><span class="eyebrow">Suche</span>' +
+    '<h2>' + treffer.length + ' Treffer</h2>' +
+    '<p class="lede">für „' + escapeHtml(begriff) + '"</p></header>' +
+    treffer.map(h => {
+      const text = h.t.replace(/[*`]/g, '');
+      const von = Math.max(0, h.pos - 70);
+      const auszug = text.slice(von, h.pos + 190);
+      return '<button type="button" class="pb-treffer" data-slug="' + escapeHtml(h.k.slug) + '">' +
+        '<span class="wo">' + escapeHtml(h.k.nummer + ' · ' + h.k.titel) +
+        (h.ueberschrift ? ' → ' + escapeHtml(h.ueberschrift) : '') + '</span>' +
+        (von > 0 ? '… ' : '') + escapeHtml(auszug).replace(re, '<mark>$1</mark>') + '…</button>';
+    }).join('');
+  navZeichnen(null);
+}
+
+/* ── Ereignisse ──────────────────────────────────────────────────────────── */
+
+document.getElementById('pb-nav').addEventListener('click', e => {
+  const b = e.target.closest('[data-slug]');
+  if (!b) return;
+  document.getElementById('pb-q').value = '';
+  kapitelZeichnen(b.dataset.slug);
+});
+
+document.getElementById('pb-inhalt').addEventListener('click', e => {
+  const b = e.target.closest('.pb-treffer');
+  if (!b) return;
+  document.getElementById('pb-q').value = '';
+  kapitelZeichnen(b.dataset.slug);
+});
+
+let sucheTimer;
+document.getElementById('pb-q').addEventListener('input', e => {
+  clearTimeout(sucheTimer);
+  const wert = e.target.value.trim();
+  sucheTimer = setTimeout(() => {
+    if (wert.length < 2) kapitelZeichnen(location.hash.slice(1) || (KAPITEL[0] && KAPITEL[0].slug));
+    else suchen(wert);
+  }, 150);
+});
+
+document.getElementById('pb-drucken').addEventListener('click', () => window.print());
+
+window.addEventListener('hashchange', () => {
+  document.getElementById('pb-q').value = '';
+  kapitelZeichnen(location.hash.slice(1));
+});
+
+/* ── Start ───────────────────────────────────────────────────────────────── */
+
+(async function () {
+  const daten = await LPR.playbookKapitel();
+  if (daten === null) {
+    document.getElementById('pb-inhalt').innerHTML =
+      '<p class="pb-laden">Das Playbook konnte nicht geladen werden. ' +
+      'Bitte neu anmelden; bleibt es dabei, steht der Fehler in der Browserkonsole.</p>';
+    return;
+  }
+  if (!daten.length) {
+    document.getElementById('pb-inhalt').innerHTML =
+      '<p class="pb-laden">Es sind noch keine Kapitel eingespielt.</p>';
+    return;
+  }
+  KAPITEL = daten;
+  const stand = KAPITEL.map(k => k.stand).filter(Boolean).sort().at(-1);
+  document.getElementById('pb-stand').textContent =
+    stand ? 'Stand ' + new Date(stand).toLocaleDateString('de-DE') : '';
+  kapitelZeichnen(location.hash.slice(1) || KAPITEL[0].slug);
+})();
+</script>
+</body>
+</html>

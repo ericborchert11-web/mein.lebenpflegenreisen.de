@@ -5315,6 +5315,22 @@
   // die Rolle, damit der Unterschied zwischen "leer" und "kein Zugriff" sichtbar ist.
   // Rückgabe: null = Fehler, [] = nichts vorhanden.
 
+  // ---- Playbook ----------------------------------------------------------
+  // Das Betriebshandbuch des Vereins. Der Inhalt liegt in der Datenbank und
+  // NICHT im Repo: dieses Repo ist oeffentlich und GitHub Pages liefert jede
+  // Datei darin aus. Lesen darf nur der Vorstand (Policy ueber is_board()).
+  // Rueckgabe: null = Fehler, [] = nichts eingespielt.
+  async function playbookKapitel() {
+    try {
+      const { data, error } = await (await sb())
+        .from('playbook_kapitel')
+        .select('slug,nummer,titel,lede,gruppe,inhalt_md,stand')
+        .order('sortierung', { ascending: true });
+      if (error) { console.error('[LPR] playbookKapitel:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] playbookKapitel failed:', e); return null; }
+  }
+
   async function foerderListProgramme() {
     try {
       const { data, error } = await (await sb())
@@ -6235,6 +6251,7 @@
     // Auslagenersatz (§ 3 Nr. 50 EStG) — Erfassung durch den Vorstand
     adminCreateAuslageClaim,
     // Fördermittel-Cockpit
+    playbookKapitel,
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,
     foerderCreateAufgabe, foerderUpdateAufgabe, foerderCreateNotiz, foerderNamen,
     // Cockpit — Assistenz der Geschäftsführung (Etappe A: lesend)

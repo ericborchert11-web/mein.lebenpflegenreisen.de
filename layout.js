@@ -148,6 +148,9 @@
           // Startseite des Vorstands und nicht eine vierte Sparte neben
           // Menschen, Einsaetzen und Finanzen. Es zeigt aus allen dreien.
           punkt('admin-cockpit.html', 'cockpit', 'Cockpit') +
+          // Das Playbook steht wie das Cockpit ausserhalb der Gruppen: es ist
+          // Nachschlagewerk fuer alle drei Sparten, nicht Teil einer davon.
+          punkt('admin-playbook.html', 'playbook', 'Playbook') +
           gruppe('Menschen',
             ['admin', 'ehrenamt-interesse'],
             punkt('admin-mitwirkende.html', 'admin', 'Mitwirkende') +

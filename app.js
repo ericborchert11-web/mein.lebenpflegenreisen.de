@@ -938,17 +938,46 @@
     } catch(e) { console.error('[LPR] setComplianceStatus:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
 
+  /**
+   * Prueft die fuenf Compliance-Dokumente UND den Masernnachweis.
+   *
+   * Der Masernnachweis steht nicht in compliance_records, sondern als Spalte
+   * an profiles — er ist keine Unterlage, die jemand einreicht und die
+   * ablaeuft, sondern das Ergebnis einer einmaligen Sichtpruefung durch den
+   * Vorstand (§ 20 Abs. 9 IfSG). Er wird hier trotzdem mitgeprueft, damit es
+   * genau EIN Tor gibt: Wer diese Funktion aufruft, hat beides geprueft.
+   *
+   * ZUSCHNITT, von Eric am 19.09.2026 entschieden: Die Sperre gilt fuer ALLE
+   * Taetigkeiten, auch Reisen und Termine bei Kunden zu Hause. Das ist
+   * strenger als § 20 IfSG, der nur Einrichtungen nach § 23 Abs. 3
+   * (Krankenhaeuser) erfasst — bewusst so gewollt.
+   *
+   * Der eigentliche Riegel ist der Trigger verlange_masernnachweis in der
+   * Datenbank. Diese Pruefung sorgt nur fuer eine verstaendliche Meldung,
+   * statt eine rohe Datenbankfehlermeldung zu zeigen.
+   */
   async function isComplianceComplete(userId) {
     const id = userId || (getSession() && getSession().id);
     if (!id) return { ok: false, complete: false, missing: [] };
     const REQUIRED = ['fuehrungszeugnis','ifsg43','erste_hilfe','dsgvo','schweigepflicht'];
     try {
-      const { data, error } = await (await sb())
-        .from('compliance_records').select('document_type, status, valid_until').eq('user_id', id);
-      if (error) return { ok: false, complete: false, missing: [] };
+      const client = await sb();
+      const [cmp, prof] = await Promise.all([
+        client.from('compliance_records').select('document_type, status, valid_until').eq('user_id', id),
+        client.from('profiles').select('masern_status').eq('id', id).single()
+      ]);
+      if (cmp.error) return { ok: false, complete: false, missing: [] };
+      const data = cmp.data;
       const approved = new Set((data || []).filter(r => r.status === 'approved' && (!r.valid_until || new Date(r.valid_until).setHours(0,0,0,0) >= new Date().setHours(0,0,0,0))).map(r => r.document_type));
       const missing = REQUIRED.filter(t => !approved.has(t));
-      return { ok: true, complete: missing.length === 0, missing };
+
+      // Ein Lesefehler darf hier NICHT als "Nachweis liegt vor" durchgehen.
+      // Im Zweifel fehlt er — das ist die Richtung, in die ein Irrtum bei
+      // einer gesetzlichen Nachweispflicht fallen muss.
+      const masern = prof.error ? 'offen' : ((prof.data && prof.data.masern_status) || 'offen');
+      if (masern === 'offen') missing.push('masernnachweis');
+
+      return { ok: true, complete: missing.length === 0, missing, masernStatus: masern };
     } catch(e) { return { ok: false, complete: false, missing: [] }; }
   }
 
@@ -1361,7 +1390,9 @@
   async function signupForTrip(tripId, note, days) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
-    const cc = await isComplianceComplete(s.id); if (!cc.complete) return { ok: false, error: 'Compliance unvollständig oder abgelaufen. Bitte Vorstand kontaktieren.', missing: cc.missing };
+    const cc = await isComplianceComplete(s.id); if (!cc.complete) return { ok: false, error: (cc.missing || []).indexOf('masernnachweis') !== -1
+        ? 'Der Masernschutznachweis fehlt. Ohne ihn dürfen wir dich nicht einsetzen (§ 20 Infektionsschutzgesetz). Bitte leg ihn dem Vorstand vor.'
+        : 'Compliance unvollständig oder abgelaufen. Bitte Vorstand kontaktieren.', missing: cc.missing };
     try {
       // 1. Trip prüfen, max_spots ermitteln
       const tripRes = await getTrip(tripId);
@@ -1649,7 +1680,9 @@
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
     if (!['morning','afternoon','night'].includes(shift)) return { ok: false, error: 'Ungültige Schicht.' };
-    const cc = await isComplianceComplete(s.id); if (!cc.complete) return { ok: false, error: 'Compliance unvollständig oder abgelaufen. Bitte Vorstand kontaktieren.', missing: cc.missing };
+    const cc = await isComplianceComplete(s.id); if (!cc.complete) return { ok: false, error: (cc.missing || []).indexOf('masernnachweis') !== -1
+        ? 'Der Masernschutznachweis fehlt. Ohne ihn dürfen wir dich nicht einsetzen (§ 20 Infektionsschutzgesetz). Bitte leg ihn dem Vorstand vor.'
+        : 'Compliance unvollständig oder abgelaufen. Bitte Vorstand kontaktieren.', missing: cc.missing };
     try {
       const { data, error } = await (await sb())
         .from('availabilities')

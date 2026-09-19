@@ -313,10 +313,37 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
         <span class="type-label hard">Pflicht · Admin</span>
       </div>
       <div class="hint">
-        Status der 5 Pflicht-Dokumente, dazu die optionale BZR-Abfrage fürs JVK. Sobald ein Dokument eingegangen und geprüft ist, hier auf <strong>Genehmigt</strong> stellen. Beim Datum trägst du ein, <strong>wann genehmigt wurde</strong> — auch rückwirkend; die Gültigkeit rechnet die Seite selbst und zeigt sie darunter an.
+        Status der 5 Pflicht-Dokumente, dazu die optionale BZR-Abfrage fürs JVK und der Masernnachweis. Sobald ein Dokument eingegangen und geprüft ist, hier auf <strong>Genehmigt</strong> stellen. Beim Datum trägst du ein, <strong>wann genehmigt wurde</strong> — auch rückwirkend; die Gültigkeit rechnet die Seite selbst und zeigt sie darunter an.
       </div>
       <div id="pref-compliance" style="display: flex; flex-direction: column; gap: 4px; margin-top: 10px;"></div>
+
+      <!-- Masernnachweis steht bei den Unterlagen, nicht bei der Tarif-Einstufung:
+           Er ist ein Nachweis wie das Fuehrungszeugnis oder das BZR, kein
+           Abrechnungsmerkmal. Er liegt technisch NICHT in compliance_records,
+           weil er nichts ist, was jemand einreicht und was ablaeuft, sondern das
+           Ergebnis einer einmaligen Sichtpruefung (§ 20 Abs. 9 IfSG). Deshalb
+           ein eigener Kasten statt einer sechsten Zeile in der Liste. -->
+      <div class="cmp-masern">
+        <label for="mw-masern-sel">💉 Masernnachweis</label>
+        <select id="mw-masern-sel">
+          <option value="offen">Fehlt — noch nicht vorgelegt</option>
+          <option value="liegt_vor">Genehmigt — Nachweis liegt vor</option>
+          <option value="nicht_erforderlich">Nicht erforderlich — vor 1971 geboren</option>
+          <option value="kontraindikation">Ärztliche Kontraindikation</option>
+        </select>
+        <div class="hint" style="margin-top:8px">
+          § 20 Abs. 8 Infektionsschutzgesetz: Wer nach dem 31.12.1970 geboren ist und
+          im Krankenhaus tätig wird, braucht den Nachweis <strong>vor dem ersten
+          Dienst</strong> — ehrenamtlich wie angestellt. Nur setzen, wenn du das
+          Original gesehen hast. Wir speichern bewusst kein Geburtsdatum, kein
+          Impfdatum und kein Dokument.
+        </div>
+        <div class="hint" id="mw-masern-spur" style="display:none; margin-top:4px"></div>
+      </div>
       <style>
+        .cmp-masern { margin-top: 14px; padding-top: 14px; border-top: 1px solid #EEE9DD; }
+        .cmp-masern label { display: block; font-weight: 600; margin-bottom: 6px; }
+        .cmp-masern select { width: 100%; }
         .cmp-datum { display: flex; flex-direction: column; gap: 2px; }
         .cmp-gueltig { font-size: 11px; color: var(--muted); line-height: 1.2; white-space: nowrap; }
       </style>
@@ -363,24 +390,6 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
           gegen das Pflegebudget ab. Bei uns ändert die Einstufung nichts an Preis
           oder Auszahlung.
         </p>
-      </div>
-
-      <div class="mw-tarif" style="margin-top:18px">
-        <label for="mw-masern-sel">Masernnachweis</label>
-        <select id="mw-masern-sel">
-          <option value="offen">offen — noch nicht vorgelegt</option>
-          <option value="liegt_vor">Nachweis liegt vor</option>
-          <option value="nicht_erforderlich">nicht erforderlich — vor 1971 geboren</option>
-          <option value="kontraindikation">ärztliche Kontraindikation</option>
-        </select>
-        <p class="mw-hint">
-          § 20 Abs. 8 Infektionsschutzgesetz: Wer nach dem 31.12.1970 geboren ist und
-          im Krankenhaus tätig wird, braucht den Nachweis <strong>vor dem ersten
-          Dienst</strong> — ehrenamtlich wie angestellt. Nur setzen, wenn du das
-          Original gesehen hast. Wir speichern bewusst kein Geburtsdatum, kein
-          Impfdatum und kein Dokument.
-        </p>
-        <p class="mw-hint" id="mw-masern-spur" style="display:none"></p>
       </div>
     </div>
 

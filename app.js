@@ -3274,7 +3274,7 @@
       const client = await sb();
       const [profileRes, prefsRes] = await Promise.all([
         client.from('profiles')
-          .select('qualifications, activity_types, preferred_shifts, home_plz, max_km, tarif')
+          .select('qualifications, activity_types, preferred_shifts, home_plz, max_km, tarif, masern_status, masern_geprueft_am')
           .eq('id', userId)
           .single(),
         client.from('clinic_preferences')
@@ -3298,6 +3298,12 @@
           // Ohne Einstufung gilt T2. Das ist auch der Default der Spalte —
           // T1 steht nur da, wo jemand den Nachweis gesehen hat.
           tarif:            profileRes.data.tarif === 'T1' ? 'T1' : 'T2',
+          // Masernnachweis. Muss HIER mitgeliefert werden: Die Profilkarte in
+          // admin-mitwirkende.html wird aus diesem Objekt befuellt, nicht aus
+          // listUsersByStatus. Am 19.09.2026 stand deshalb in der Karte
+          // "Fehlt", waehrend die Liste daneben "✓ Masern" zeigte.
+          masernStatus:     profileRes.data.masern_status || 'offen',
+          masernGeprueftAm: profileRes.data.masern_geprueft_am || null,
           clinicPrefs
         }
       };

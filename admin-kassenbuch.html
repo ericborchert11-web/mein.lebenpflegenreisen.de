@@ -590,7 +590,7 @@ async function zeigeSaldo() {
       <label style="font-size:13px;font-weight:600;color:var(--muted);">Stichtag<br>
         <input id="s-tag" type="date" class="f-in" style="width:170px;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;"></label>
       <label style="font-size:13px;font-weight:600;color:var(--muted);">Kontostand (€)<br>
-        <input id="s-stand" type="text" inputmode="decimal" placeholder="853,28" class="f-in"
+        <input id="s-stand" type="text" inputmode="decimal" placeholder="z. B. 1.234,56" class="f-in"
                style="width:150px;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;"></label>
       <input type="hidden" id="s-konto" value="${escapeAttr(konto)}">
       <button class="btn btn-primary" onclick="standSpeichern(this)">Eintragen</button>

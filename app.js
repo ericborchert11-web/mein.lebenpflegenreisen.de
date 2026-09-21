@@ -6248,6 +6248,62 @@
     }
   }
 
+  // Kontostaende fuer den Saldo-Abgleich. Der Kontoauszug bringt keinen Stand
+  // mit, also tippt ihn der Vorstand je Stichtag ab — erst der Vergleich mit
+  // dem gerechneten Stand beweist, dass keine Buchung fehlt.
+  async function kassenbuchStaende() {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', staende: [] };
+    try {
+      const { data, error } = await (await sb()).from('kontostaende')
+        .select('id, konto_iban, stichtag, stand_cents, notiz')
+        .order('stichtag', { ascending: true });
+      if (error) return { ok: false, error: error.message, staende: [] };
+      return { ok: true, staende: data || [] };
+    } catch(e) {
+      console.error('[LPR] kassenbuchStaende:', e);
+      return { ok: false, error: 'Netzwerkfehler.', staende: [] };
+    }
+  }
+
+  async function kassenbuchStandSetzen(stand) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    const z = stand || {};
+    if (!z.stichtag) return { ok: false, error: 'Bitte einen Stichtag angeben.' };
+    if (!Number.isFinite(Number(z.stand_cents))) return { ok: false, error: 'Bitte einen Kontostand angeben.' };
+    try {
+      // upsert auf (konto_iban, stichtag): ein zweiter Eintrag zum selben Tag
+      // ersetzt den ersten, statt zwei Wahrheiten nebeneinanderzustellen.
+      const { data, error } = await (await sb()).from('kontostaende')
+        .upsert({
+          konto_iban:  z.konto_iban || '',
+          stichtag:    z.stichtag,
+          stand_cents: Math.round(Number(z.stand_cents)),
+          notiz:       z.notiz || null
+        }, { onConflict: 'konto_iban,stichtag' })
+        .select('id, konto_iban, stichtag, stand_cents, notiz').maybeSingle();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, stand: data };
+    } catch(e) {
+      console.error('[LPR] kassenbuchStandSetzen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function kassenbuchStandLoeschen(id) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    try {
+      const { error } = await (await sb()).from('kontostaende').delete().eq('id', id);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] kassenbuchStandLoeschen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   // ── Leistungsvorlagen ──────────────────────────────────────────────────
   // Frei benannte Positionen, die in jede Rechnung eingefuegt werden koennen.
   // Eine Vorlage ist ein Vorschlag: die eingefuegte Position ist danach eine
@@ -6718,6 +6774,7 @@
     // Kassenbuch
     kassenbuchListe, kassenbuchBekannteAbdruecke, kassenbuchImport,
     kassenbuchVorgaenge, kassenbuchZuordnen,
+    kassenbuchStaende, kassenbuchStandSetzen, kassenbuchStandLoeschen,
     listItemTemplates, saveItemTemplate, hatBriefFelder, deleteItemTemplate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     // Besetzungsregel — geteilt von admin-reisen.html und admin-jahreskalender.html

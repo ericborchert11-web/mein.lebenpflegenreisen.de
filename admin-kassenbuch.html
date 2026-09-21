@@ -136,6 +136,8 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
       <div id="vorschau" style="margin-top:16px;" hidden></div>
     </div>
 
+    <div class="kb-card" id="auswertung-wrap" style="margin-top:14px;"></div>
+    <div class="kb-card" id="saldo-wrap" style="margin-top:14px;"></div>
     <div class="kb-card" id="liste-wrap" style="margin-top:14px;"></div>
   </div>
 </div>
@@ -171,7 +173,8 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
 
 <script src="kassenbuch-csv.js?v20260921a"></script>
 <script src="kassenbuch-zuordnung.js?v20260921b"></script>
-<script src="app.js?v20260921d"></script>
+<script src="kassenbuch-auswertung.js?v20260921a"></script>
+<script src="app.js?v20260921e"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -182,6 +185,7 @@ let _neue = [];
 let _vorgaenge = { rechnungen: [], antraege: [] };
 let _buchungen = [];
 let _offen = null;   // die Buchung, die gerade im Dialog liegt
+let _staende = [];
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 // Fuer Werte, die in value="…" landen: das obige escapt KEINE Anfuehrungszeichen.
@@ -442,6 +446,8 @@ async function ladeListe() {
   _buchungen = res.buchungen;
   if (!_buchungen.length) {
     wrap.innerHTML = '<div class="kb-empty">Für dieses Jahr ist noch nichts erfasst.</div>';
+    document.getElementById('auswertung-wrap').innerHTML = '';
+    document.getElementById('saldo-wrap').innerHTML = '';
     return;
   }
 
@@ -464,6 +470,9 @@ async function ladeListe() {
        </div>`
     : '<div style="flex:1;min-width:220px;text-align:right;color:#2C6B45;font-weight:700;">Alles zugeordnet und belegt.</div>';
 
+  zeigeAuswertung();
+  zeigeSaldo();
+
   wrap.innerHTML =
     `<div class="kb-pad" style="border-bottom:1px solid var(--border);display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;">
        <div><div class="kb-zweck">Buchungen</div><strong>${_buchungen.length}</strong></div>
@@ -473,6 +482,141 @@ async function ladeListe() {
      </div>`
     + (sichtbar.length ? tabelle(sichtbar, true)
         : '<div class="kb-empty">Keine Buchung in dieser Auswahl.</div>');
+}
+
+// ── Auswertung ───────────────────────────────────────────────────────────
+const SPHAERE_NAME = {};
+KassenbuchZuordnung.SPHAEREN.forEach(x => { SPHAERE_NAME[x.wert] = x.name; });
+
+function zeigeAuswertung() {
+  const jahr = document.getElementById('f-jahr').value;
+  const a = KassenbuchAuswertung.auswertung(_buchungen);
+  const zeile = (label, wert, klasse) =>
+    `<tr><td>${escapeHtml(label)}</td><td class="num ${klasse || ''}">${eur(wert)}</td></tr>`;
+
+  const kosten = a.jeKostenart.length
+    ? a.jeKostenart.map(k => `<tr>
+         <td>${escapeHtml(k.kostenart)}<div class="kb-zweck">${escapeHtml(sphaereVon(k.kostenart))}</div></td>
+         <td class="num kb-aus">${eur(k.betrag_cents)}</td></tr>`).join('')
+    : '<tr><td colspan="2" style="color:var(--muted);">Noch keine eigenen Kostenbelege erfasst.</td></tr>';
+
+  const sphaeren = a.jeSphaere.map(x =>
+    `<tr><td>${escapeHtml(SPHAERE_NAME[x.sphaere] || x.sphaere)}</td>
+         <td class="num kb-aus">${eur(x.betrag_cents)}</td></tr>`).join('');
+
+  document.getElementById('auswertung-wrap').innerHTML = `
+    <div class="kb-pad" style="border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;">
+      <strong style="font-family:'Bricolage Grotesque',sans-serif;font-size:17px;color:var(--green-deep);">Auswertung ${escapeHtml(jahr)}</strong>
+      <button class="btn" onclick="exportiere()">Als CSV exportieren</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;">
+      <div style="flex:1;min-width:280px;">
+        <table class="kb-table">
+          <thead><tr><th>Über Vorgänge belegt</th><th class="num">Betrag</th></tr></thead>
+          <tbody>
+            ${zeile('Einnahmen aus Rechnungen', a.einnahmenRechnungen, 'kb-ein')}
+            ${zeile('Auszahlungen an Ehrenamtliche', a.auszahlungenAntraege, 'kb-aus')}
+          </tbody>
+        </table>
+        <table class="kb-table">
+          <thead><tr><th>Eigene Kostenbelege</th><th class="num">Betrag</th></tr></thead>
+          <tbody>${kosten}</tbody>
+        </table>
+      </div>
+      <div style="flex:1;min-width:280px;">
+        <table class="kb-table">
+          <thead><tr><th>Sphäre (nur Kostenbelege)</th><th class="num">Betrag</th></tr></thead>
+          <tbody>${sphaeren || '<tr><td colspan="2" style="color:var(--muted);">—</td></tr>'}</tbody>
+        </table>
+        <p class="kb-hinweis" style="padding:0 16px 16px;">
+          Sphären werden nur dort ausgewiesen, wo ein eigener Kostenbeleg sie trägt.
+          Für Rechnungen und Anträge rät das Portal nicht — in welche Sphäre diese
+          Blöcke gehören, entscheidet die Steuererklärung, nicht diese Seite.
+        </p>
+      </div>
+    </div>`;
+}
+
+function sphaereVon(kostenart) {
+  const b = _buchungen.find(x => x.kostenart === kostenart && x.sphaere);
+  return b ? (SPHAERE_NAME[b.sphaere] || b.sphaere) : '—';
+}
+
+function exportiere() {
+  const namen = {};
+  _vorgaenge.rechnungen.forEach(r => { namen[r.id] = r.invoice_no; });
+  _vorgaenge.antraege.forEach(a => { namen[a.id] = a.beleg_nr || ('Antrag ' + String(a.id).slice(0,8).toUpperCase()); });
+  const csv = KassenbuchAuswertung.alsCsv(_buchungen, namen);
+  // Mit BOM, sonst zeigt Excel die Umlaute falsch an.
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'kassenbuch-' + document.getElementById('f-jahr').value + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+// ── Saldo-Abgleich ───────────────────────────────────────────────────────
+async function zeigeSaldo() {
+  const res = await LPR.kassenbuchStaende();
+  const wrap = document.getElementById('saldo-wrap');
+  if (!res.ok) { wrap.innerHTML = '<div class="kb-pad">Kontostände nicht ladbar: ' + escapeHtml(res.error) + '</div>'; return; }
+  _staende = res.staende;
+  const reihe = KassenbuchAuswertung.saldoReihe(_buchungen, _staende);
+
+  const zeilen = reihe.map(r => `<tr>
+      <td>${deDate(r.stichtag)}${r.anker ? '<div class="kb-zweck">Anfangsbestand — der Anker, ab dem gerechnet wird</div>' : ''}</td>
+      <td class="num">${eur(r.stand_cents)}</td>
+      <td class="num">${eur(r.berechnet_cents)}</td>
+      <td class="num" style="font-weight:700;color:${r.differenz_cents === 0 ? '#2C6B45' : '#B4231A'};">
+        ${r.differenz_cents === 0 ? 'stimmt' : eur(r.differenz_cents)}</td>
+      <td><button class="btn" style="padding:4px 10px;font-size:12px;" onclick="standLoeschen('${escapeAttr(r.id)}')">Löschen</button></td>
+    </tr>`).join('');
+
+  const konto = (_buchungen[0] && _buchungen[0].konto_iban) || '';
+  wrap.innerHTML = `
+    <div class="kb-pad" style="border-bottom:1px solid var(--border);">
+      <strong style="font-family:'Bricolage Grotesque',sans-serif;font-size:17px;color:var(--green-deep);">Saldo-Abgleich</strong>
+      <p class="kb-hinweis" style="margin-top:4px;">
+        Der Kontoauszug bringt keinen Kontostand mit. Trag ihn je Stichtag vom Auszug ab:
+        Stimmt er mit dem gerechneten Stand überein, ist bewiesen, dass keine Buchung fehlt.
+      </p>
+    </div>
+    ${reihe.length ? `<table class="kb-table">
+      <thead><tr><th>Stichtag</th><th class="num">laut Konto</th><th class="num">gerechnet</th><th class="num">Differenz</th><th></th></tr></thead>
+      <tbody>${zeilen}</tbody></table>`
+      : '<div class="kb-empty">Noch kein Kontostand erfasst — ohne ihn lässt sich Vollständigkeit nicht belegen.</div>'}
+    <div class="kb-pad" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;border-top:1px solid var(--border);">
+      <label style="font-size:13px;font-weight:600;color:var(--muted);">Stichtag<br>
+        <input id="s-tag" type="date" class="f-in" style="width:170px;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;"></label>
+      <label style="font-size:13px;font-weight:600;color:var(--muted);">Kontostand (€)<br>
+        <input id="s-stand" type="text" inputmode="decimal" placeholder="853,28" class="f-in"
+               style="width:150px;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;"></label>
+      <input type="hidden" id="s-konto" value="${escapeAttr(konto)}">
+      <button class="btn btn-primary" onclick="standSpeichern(this)">Eintragen</button>
+    </div>`;
+}
+
+async function standSpeichern(btn) {
+  const tag = document.getElementById('s-tag').value;
+  const roh = document.getElementById('s-stand').value;
+  const cents = KassenbuchCSV.centsAusText(roh);
+  if (!tag) { LPR.showToast('Bitte einen Stichtag wählen.', 'warn'); return; }
+  if (cents === null) { LPR.showToast('Bitte einen Betrag eingeben, z. B. 853,28.', 'warn'); return; }
+  btn.disabled = true;
+  const res = await LPR.kassenbuchStandSetzen({
+    konto_iban: document.getElementById('s-konto').value, stichtag: tag, stand_cents: cents
+  });
+  btn.disabled = false;
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  LPR.showToast('Kontostand eingetragen.');
+  await zeigeSaldo();
+}
+
+async function standLoeschen(id) {
+  const res = await LPR.kassenbuchStandLoeschen(id);
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  await zeigeSaldo();
 }
 
 init();

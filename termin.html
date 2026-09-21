@@ -49,7 +49,7 @@ body { background:#F5F5F0; }
   <div id="tm-inhalt"><p>Einen Moment…</p></div>
 </main>
 
-<script src="app.js?v20260921a"></script>
+<script src="app.js?v20260921b"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -86,6 +86,52 @@ function fehler(text) {
     'dann tragen wir deine Antwort von Hand ein.</p>';
 }
 
+// Die Rueckgabe von termin_top_einreichen traegt bei Misserfolg einen dieser
+// Schluessel als "fehler" — hier stehen die deutschen Saetze dazu, damit auf
+// der Seite nie ein roher Schluessel auftaucht.
+const TOP_FEHLER = {
+  unbekannt:      'Diesen Link kennen wir nicht.',
+  nicht_offen:    'Für diesen Termin werden keine Tagesordnungspunkte angenommen.',
+  nicht_moeglich: 'Für diesen Termin nehmen wir gerade keine Einreichungen an — er ist abgesagt oder schon vorbei.',
+  titel_zu_kurz:  'Der Titel ist zu kurz — mindestens 3 Zeichen.',
+  titel_zu_lang:  'Der Titel darf höchstens 200 Zeichen lang sein.',
+  zu_viele:       'Du hast zu diesem Termin schon fünf Punkte eingereicht — mehr sind nicht vorgesehen.',
+};
+function topFehlertext(code) {
+  return TOP_FEHLER[code] || 'Das hat leider nicht geklappt.';
+}
+
+const TOP_STAND = { offen: 'offen', aufgenommen: 'aufgenommen', abgelehnt: 'abgelehnt' };
+
+/**
+ * Das Feld fuer einen eigenen Tagesordnungspunkt, samt der bereits
+ * eingereichten. NUR wenn der Termin es zulaesst und noch offen ist — sonst
+ * stuende hier ein Eingabefeld, das niemand ausfuellen darf.
+ */
+function topBlock(t) {
+  if (!t.tagesordnung_offen || t.status === 'abgesagt' || t.vorbei) return '';
+  const meine = Array.isArray(t.meine_punkte) ? t.meine_punkte : [];
+  return '<div style="margin-top:22px;border-top:1px solid #EFEDE6;padding-top:16px;">' +
+    '<p class="tm-zeile" style="font-weight:700;margin-bottom:10px;">Punkt für die Tagesordnung</p>' +
+    '<label style="display:block;font-size:.92rem;font-weight:600;color:#5B6660;margin-bottom:4px;">Titel</label>' +
+    '<input type="text" id="tm-top-titel" maxlength="200" ' +
+      'style="width:100%;padding:10px 12px;border:1px solid #CFCBBF;border-radius:10px;font:inherit;box-sizing:border-box;">' +
+    '<label style="display:block;font-size:.92rem;font-weight:600;color:#5B6660;margin:10px 0 4px;">Begründung (optional)</label>' +
+    '<textarea id="tm-top-text" rows="3" maxlength="2000" ' +
+      'style="width:100%;padding:10px 12px;border:1px solid #CFCBBF;border-radius:10px;font:inherit;box-sizing:border-box;"></textarea>' +
+    '<button type="button" class="tm-knopf voll" id="tm-top-senden" style="margin-top:12px;">Punkt einreichen</button>' +
+    '<div id="tm-top-meldung"></div>' +
+    (meine.length
+      ? '<div style="margin-top:16px;">' +
+          '<p class="tm-mini" style="font-weight:700;margin-bottom:4px;">Deine eingereichten Punkte</p>' +
+          meine.map(m =>
+            '<p class="tm-zeile" style="margin:4px 0;">' + esc(m.titel) +
+            ' <span class="tm-mini">(' + esc(TOP_STAND[m.status] || m.status) + ')</span></p>').join('') +
+        '</div>'
+      : '') +
+    '</div>';
+}
+
 function zeichne(t) {
   const stand =
     t.antwort === 'zusage' ? '<div class="tm-stand ja">Du bist dabei. Danke!</div>' :
@@ -113,8 +159,16 @@ function zeichne(t) {
     '<p class="tm-zeile"><b>Wo:</b> ' + esc(t.ort || 'Ort folgt') + '</p>' +
     (t.online_link ? '<p class="tm-zeile"><b>Online:</b> <a href="' + esc(t.online_link) + '">' + esc(t.online_link) + '</a></p>' : '') +
     (t.beschreibung ? '<div class="tm-beschreibung">' + esc(t.beschreibung) + '</div>' : '') +
+    (Array.isArray(t.dateien) && t.dateien.length
+      ? '<div class="tm-zeile" style="margin-top:14px;"><b>Unterlagen:</b><br>' +
+        t.dateien.map(d =>
+          '<a href="' + esc(d.url) + '" target="_blank" rel="noopener" style="display:block;margin:4px 0;color:#1A3A2A;">' +
+          esc(d.titel) + '</a>').join('') +
+        '</div>'
+      : '') +
     (abgesagt || vorbei ? '' : stand) +
     knoepfe +
+    topBlock(t) +
     // NICHT bedingungslos "gespeichert" schreiben: Wer den Link nur oeffnet,
     // hat nichts geklickt und haelt sich sonst faelschlich fuer angemeldet.
     '<p class="tm-mini" style="margin-top:22px;border-top:1px solid #EFEDE6;padding-top:12px;">' +
@@ -136,6 +190,37 @@ function zeichne(t) {
       zeichne(r.termin);
     });
   });
+
+  const topSenden = document.getElementById('tm-top-senden');
+  if (topSenden) {
+    topSenden.addEventListener('click', async () => {
+      const feldTitel = document.getElementById('tm-top-titel');
+      const feldText  = document.getElementById('tm-top-text');
+      const meldung   = document.getElementById('tm-top-meldung');
+      const titel = feldTitel.value.trim();
+      if (!titel) {
+        meldung.innerHTML = '<p class="tm-mini" style="color:#8d2626;margin-top:8px;">Titel fehlt.</p>';
+        return;
+      }
+      topSenden.disabled = true;
+      const r = await LPR.terminPunktEinreichen(token, titel, feldText.value.trim());
+      if (!r.ok) {
+        topSenden.disabled = false;
+        const code = r.daten && r.daten.fehler;
+        meldung.innerHTML = '<p class="tm-mini" style="color:#8d2626;margin-top:8px;">' +
+          esc(topFehlertext(code)) + '</p>';
+        return;
+      }
+      // Neu laden, damit der eigene Punkt in der Liste erscheint.
+      const r2 = await LPR.terminAnsehen(token);
+      if (r2.ok && r2.termin && r2.termin.ok !== false) {
+        zeichne(r2.termin);
+      } else {
+        topSenden.disabled = false;
+        meldung.innerHTML = '<p class="tm-mini" style="margin-top:8px;">Punkt eingereicht.</p>';
+      }
+    });
+  }
 }
 
 (async function start() {

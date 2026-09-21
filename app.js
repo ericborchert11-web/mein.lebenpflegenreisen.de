@@ -6181,7 +6181,7 @@
     try {
       const { data, error } = await (await sb())
         .from('termine')
-        .select('id, titel, beschreibung, datum, uhrzeit, ende_uhrzeit, ort, online_link, zielgruppe, status, antwort_bis, version, eingeladen_am')
+        .select('id, titel, beschreibung, datum, uhrzeit, ende_uhrzeit, ort, online_link, zielgruppe, status, antwort_bis, version, eingeladen_am, tagesordnung_offen')
         .order('datum', { ascending: true });
       if (error) return { ok: false, error: error.message, termine: [] };
       return { ok: true, termine: data || [] };
@@ -6206,6 +6206,7 @@
       online_link:  t.online_link || null,
       zielgruppe:   t.zielgruppe,
       antwort_bis:  t.antwort_bis || null,
+      tagesordnung_offen: !!t.tagesordnung_offen,
     };
     try {
       const client = await sb();
@@ -6356,6 +6357,120 @@
     }
   }
 
+  // ══ Termine — Dateien und Tagesordnungspunkte ═══════════════════════════
+  //
+  // Zweite Runde des Termin-Features. Lesen geht wie bei allen anderen
+  // Termin-Tabellen ueber RLS; termin_tagesordnung laesst sich ausserdem gar
+  // nicht direkt beschreiben — dafuer gibt es termin_top_einreichen (Token)
+  // und termin_top_status (Vorstand), beide ueber rpcTermin().
+
+  async function listTerminDateien(terminId) {
+    try {
+      const { data, error } = await (await sb())
+        .from('termin_dateien')
+        .select('id, titel, url, sortierung')
+        .eq('termin_id', terminId)
+        .order('sortierung', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (error) return { ok: false, error: error.message, dateien: [] };
+      return { ok: true, dateien: data || [] };
+    } catch (e) {
+      console.error('[LPR] listTerminDateien:', e);
+      return { ok: false, error: 'Netzwerkfehler.', dateien: [] };
+    }
+  }
+
+  async function addTerminDatei(terminId, titel, url, sortierung) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur für den Vorstand.' };
+    }
+    try {
+      const { data, error } = await (await sb())
+        .from('termin_dateien')
+        .insert({ termin_id: terminId, titel, url, sortierung: sortierung || 0 })
+        .select('id').single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, id: data.id };
+    } catch (e) {
+      console.error('[LPR] addTerminDatei:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function deleteTerminDatei(id) {
+    try {
+      const { error } = await (await sb()).from('termin_dateien').delete().eq('id', id);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch (e) {
+      console.error('[LPR] deleteTerminDatei:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Nur a-z0-9.-_ im Dateinamen — sonst scheitert der Upload an
+   * Sonderzeichen (Leerzeichen, Umlaute, Klammern).
+   */
+  function terminDateiname(name) {
+    const teile = String(name || 'datei').split('.');
+    const endung = teile.length > 1 ? teile.pop() : '';
+    const basis = teile.join('.')
+      .toLowerCase()
+      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+      .replace(/[^a-z0-9.\-_]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^[-.]+|[-.]+$/g, '') || 'datei';
+    const endungRein = endung.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return endungRein ? basis + '.' + endungRein : basis;
+  }
+
+  /**
+   * Oeffentlicher Bucket, mit Absicht: der Link steht in einer Mail an
+   * Menschen ohne Portalkonto. Der Zufallsanteil im Pfad verhindert das
+   * Erraten — geheim ist dieser Bucket nicht, das steht auch auf der Seite.
+   */
+  async function uploadTerminDatei(terminId, file) {
+    try {
+      const zufall = Math.random().toString(36).slice(2, 10);
+      const pfad = terminId + '/' + zufall + '-' + terminDateiname(file.name);
+      const client = await sb();
+      const { error } = await client.storage
+        .from('termin-dateien')
+        .upload(pfad, file, { contentType: file.type || undefined, upsert: false });
+      if (error) return { ok: false, error: 'Datei konnte nicht hochgeladen werden: ' + error.message };
+      const { data } = client.storage.from('termin-dateien').getPublicUrl(pfad);
+      return { ok: true, url: data.publicUrl, pfad };
+    } catch (e) {
+      console.error('[LPR] uploadTerminDatei:', e);
+      return { ok: false, error: 'Netzwerkfehler beim Hochladen.' };
+    }
+  }
+
+  const terminPunktEinreichen = (token, titel, beschreibung) =>
+    rpcTermin('termin_top_einreichen',
+              { p_token: token, p_titel: titel, p_beschreibung: beschreibung || null });
+
+  const setTerminPunktStatus = (id, status) =>
+    rpcTermin('termin_top_status', { p_id: id, p_status: status });
+
+  /** Fuer die Vorstandsseite: alle Punkte zu einem Termin. */
+  async function listTerminPunkte(terminId) {
+    try {
+      const { data, error } = await (await sb())
+        .from('termin_tagesordnung')
+        .select('id, name, titel, beschreibung, status, created_at')
+        .eq('termin_id', terminId)
+        .order('created_at', { ascending: true });
+      if (error) return { ok: false, error: error.message, punkte: [] };
+      return { ok: true, punkte: data || [] };
+    } catch (e) {
+      console.error('[LPR] listTerminPunkte:', e);
+      return { ok: false, error: 'Netzwerkfehler.', punkte: [] };
+    }
+  }
+
   global.LPR = {
     // Der fertig eingerichtete Supabase-Client. Seiten, die selbst an der
     // Auth-Schicht arbeiten (passwort-neu.html), brauchen ihn direkt —
@@ -6379,6 +6494,8 @@
     terminEingeladenenHinzufuegen, terminEinladungVerschicken, terminProbeVerschicken,
     terminAenderungVerschicken, terminAbsagen, setTerminAntwortAdmin,
     terminAnsehen, terminAntworten, setMeinTerminAntwort, listMeineTermine,
+    listTerminDateien, addTerminDatei, deleteTerminDatei, uploadTerminDatei,
+    terminPunktEinreichen, setTerminPunktStatus, listTerminPunkte,
     interessentUebernehmen, getEhrenamtQuellen, meinEinladungslink,
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference, setUserTarif,

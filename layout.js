@@ -152,9 +152,10 @@
           // Nachschlagewerk fuer alle drei Sparten, nicht Teil einer davon.
           punkt('admin-playbook.html', 'playbook', 'Playbook') +
           gruppe('Menschen',
-            ['admin', 'ehrenamt-interesse'],
+            ['admin', 'ehrenamt-interesse', 'termine-admin'],
             punkt('admin-mitwirkende.html', 'admin', 'Mitwirkende') +
-            punkt('admin-ehrenamt-interesse.html', 'ehrenamt-interesse', 'Interessenten'),
+            punkt('admin-ehrenamt-interesse.html', 'ehrenamt-interesse', 'Interessenten') +
+            punkt('admin-termine.html', 'termine-admin', 'Termine'),
             zahl) +
           gruppe('Einsätze',
             ['sitzwachen-admin', 'meldungen', 'kunden', 'kliniken-admin', 'reisen-admin', 'jahreskalender'],

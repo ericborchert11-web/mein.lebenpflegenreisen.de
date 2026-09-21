@@ -6187,6 +6187,67 @@
     }
   }
 
+  /**
+   * Die Vorgaenge, gegen die eine Buchung zugeordnet werden kann.
+   *
+   * Beides kommt aus den vorhandenen Lesewegen — eine eigene Abfrage waere eine
+   * zweite Wahrheit darueber, was eine Rechnung oder ein Antrag ist. Entwuerfe
+   * bleiben draussen: was nie festgeschrieben wurde, kann auch nicht bezahlt
+   * worden sein.
+   */
+  async function kassenbuchVorgaenge() {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', rechnungen: [], antraege: [] };
+    const [r, c] = await Promise.all([listInvoices({}), adminListClaims()]);
+    if (!r.ok) return { ok: false, error: r.error, rechnungen: [], antraege: [] };
+    if (!c.ok) return { ok: false, error: c.error, rechnungen: [], antraege: [] };
+    return {
+      ok: true,
+      rechnungen: r.invoices.filter(i => i.invoice_no).map(i => ({
+        id: i.id, invoice_no: i.invoice_no, invoice_date: i.invoice_date,
+        total_cents: i.total_cents, recipient_name: i.recipient_name, status: i.status
+      })),
+      antraege: c.claims.map(a => ({
+        id: a.id, beleg_nr: a.beleg_nr, amount: a.amount,
+        user_name: a.user_name, status: a.status, paid_at: a.paid_at
+      }))
+    };
+  }
+
+  /**
+   * Setzt die Zuordnung einer Buchung — und nur EINE.
+   *
+   * Die jeweils anderen Felder werden mitgeleert, damit nie zwei Belege
+   * nebeneinander stehen. Ein leeres Objekt loest die Zuordnung wieder.
+   */
+  async function kassenbuchZuordnen(id, zuordnung) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    const z = zuordnung || {};
+    const patch = {
+      invoice_id: z.invoice_id || null,
+      claim_id:   z.claim_id   || null,
+      kostenart:  z.kostenart  || null,
+      sphaere:    z.sphaere    || null,
+      beleg_url:  z.beleg_url  || null,
+      notiz:      z.notiz      || null
+    };
+    if (patch.invoice_id && patch.claim_id) {
+      return { ok: false, error: 'Eine Buchung gehört zu höchstens einem Vorgang.' };
+    }
+    try {
+      const { data, error } = await (await sb()).from('bank_buchungen')
+        .update(patch).eq('id', id).select(KASSENBUCH_COLS).maybeSingle();
+      if (error) return { ok: false, error: error.message };
+      // Zurueckgelesen statt auf "1 Zeile" vertraut: in diesem Projekt setzen
+      // stille Schutztrigger schon oefter Werte zurueck, ohne zu meckern.
+      return { ok: true, buchung: data };
+    } catch(e) {
+      console.error('[LPR] kassenbuchZuordnen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   // ── Leistungsvorlagen ──────────────────────────────────────────────────
   // Frei benannte Positionen, die in jede Rechnung eingefuegt werden koennen.
   // Eine Vorlage ist ein Vorschlag: die eingefuegte Position ist danach eine
@@ -6656,6 +6717,7 @@
     deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid, getInvoiceRef,
     // Kassenbuch
     kassenbuchListe, kassenbuchBekannteAbdruecke, kassenbuchImport,
+    kassenbuchVorgaenge, kassenbuchZuordnen,
     listItemTemplates, saveItemTemplate, hatBriefFelder, deleteItemTemplate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     // Besetzungsregel — geteilt von admin-reisen.html und admin-jahreskalender.html

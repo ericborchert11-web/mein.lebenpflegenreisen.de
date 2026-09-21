@@ -59,6 +59,37 @@
 .kb-meldung.warn { color: #8A3A22; }
 
 .kb-empty { padding: 48px 28px; text-align: center; color: var(--muted); }
+
+.kb-beleg { font-size: 12.5px; }
+.kb-offen { color: #8A3A22; font-weight: 700; }
+.kb-vorschlag { color: #2C6B45; font-weight: 600; }
+
+dialog.kb-dlg {
+  border: none; border-radius: var(--radius); padding: 0; width: min(560px, 94vw);
+  box-shadow: 0 18px 50px rgba(0,0,0,.22);
+}
+dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
+.kb-dlg-kopf { padding: 20px 24px 0; }
+.kb-dlg-kopf h2 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-size: 19px; font-weight: 800;
+  color: var(--green-deep); margin: 0 0 6px;
+}
+.kb-dlg-body { padding: 4px 24px 20px; }
+.kb-dlg-fuss {
+  padding: 14px 24px; background: #FAFAF7; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+}
+.kb-dlg-body label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 14px; }
+.kb-dlg-body select, .kb-dlg-body input {
+  display: block; width: 100%; margin-top: 5px; font-family: inherit; font-size: 14px;
+  padding: 9px 11px; border: 1.5px solid var(--border); border-radius: 8px;
+  background: #fff; color: var(--text);
+}
+.kb-trenner {
+  margin: 20px 0 0; font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px;
+}
+.kb-dlg-meldung { margin-top: 12px; font-size: 13.5px; font-weight: 600; color: #8A3A22; }
 @media (max-width: 720px) {
   .kb-table th:nth-child(2), .kb-table td:nth-child(2) { display: none; }
 }
@@ -81,9 +112,15 @@
            deiner Bank hoch — das Portal zeigt dir vor dem Speichern, was neu ist,
            und überspringt, was schon drinsteht.</p>
       </div>
-      <div class="kb-year">
-        <label for="f-jahr">Jahr</label>
-        <select id="f-jahr" class="f-in" onchange="ladeListe()"></select>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <label style="font-size:13px;font-weight:600;color:var(--muted);">Jahr<br>
+          <select id="f-jahr" class="f-in" style="width:110px;" onchange="ladeListe()"></select></label>
+        <label style="font-size:13px;font-weight:600;color:var(--muted);">Anzeige<br>
+          <select id="f-stand" class="f-in" style="width:170px;" onchange="ladeListe()">
+            <option value="">alle</option>
+            <option value="offen">nur offene</option>
+            <option value="fertig">nur zugeordnete</option>
+          </select></label>
       </div>
     </div>
 
@@ -102,10 +139,39 @@
     <div class="kb-card" id="liste-wrap" style="margin-top:14px;"></div>
   </div>
 </div>
+
+<dialog id="dlg" class="kb-dlg">
+  <div class="kb-dlg-kopf">
+    <h2>Buchung zuordnen</h2>
+    <p class="kb-zweck" id="dlg-kopf"></p>
+  </div>
+  <div class="kb-dlg-body">
+    <p id="dlg-hinweis" class="kb-dlg-meldung" hidden></p>
+    <label for="dlg-vorgang">Gehört zu einem Vorgang im Portal</label>
+    <select id="dlg-vorgang" onchange="vorgangGewaehlt()"></select>
+
+    <p class="kb-trenner">oder eigener Kostenbeleg</p>
+    <label for="dlg-kostenart">Kostenart</label>
+    <select id="dlg-kostenart" onchange="kostenartGewaehlt()"></select>
+    <label for="dlg-sphaere">Sphäre</label>
+    <select id="dlg-sphaere"></select>
+    <label for="dlg-beleg">Beleg-Link (Google Drive)</label>
+    <input id="dlg-beleg" type="url" placeholder="https://drive.google.com/…">
+    <label for="dlg-notiz">Notiz</label>
+    <input id="dlg-notiz" type="text" placeholder="optional">
+    <p id="dlg-meldung" class="kb-dlg-meldung" hidden></p>
+  </div>
+  <div class="kb-dlg-fuss">
+    <button class="btn" onclick="document.getElementById('dlg').close()">Abbrechen</button>
+    <button class="btn" onclick="speichern(this, true)">Zuordnung lösen</button>
+    <button class="btn btn-primary" onclick="speichern(this, false)">Speichern</button>
+  </div>
+</dialog>
 </main>
 
 <script src="kassenbuch-csv.js?v20260921a"></script>
-<script src="app.js?v20260921c"></script>
+<script src="kassenbuch-zuordnung.js?v20260921a"></script>
+<script src="app.js?v20260921d"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -113,8 +179,13 @@
 LPR_Layout.init({ page: 'kassenbuch' });
 
 let _neue = [];
+let _vorgaenge = { rechnungen: [], antraege: [] };
+let _buchungen = [];
+let _offen = null;   // die Buchung, die gerade im Dialog liegt
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+// Fuer Werte, die in value="…" landen: das obige escapt KEINE Anfuehrungszeichen.
+function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 function deDate(iso) { return iso ? iso.slice(8,10) + '.' + iso.slice(5,7) + '.' + iso.slice(0,4) : '—'; }
 function eur(cents) { return LPR.centsToEUR(cents); }
 
@@ -128,6 +199,9 @@ async function init() {
   document.getElementById('f-jahr').innerHTML =
     [jahr, jahr - 1, jahr - 2].map(j => `<option value="${j}"${j === jahr ? ' selected' : ''}>${j}</option>`).join('');
 
+  fuelleDialogListen();
+  const v = await LPR.kassenbuchVorgaenge();
+  if (v.ok) { _vorgaenge = { rechnungen: v.rechnungen, antraege: v.antraege }; fuelleVorgangsListe(); }
   await ladeListe();
 }
 
@@ -176,7 +250,7 @@ async function verarbeite(text) {
   if (!_neue.length) { box.innerHTML = kopf; return; }
 
   box.innerHTML = kopf
-    + '<div class="kb-card">' + tabelle(_neue) + '</div>'
+    + '<div class="kb-card">' + tabelle(_neue, false) + '</div>'
     + '<div style="margin-top:14px;text-align:right;">'
     + '<button class="btn btn-primary" onclick="importieren(this)">'
     + _neue.length + ' Buchungen übernehmen</button></div>';
@@ -193,9 +267,156 @@ async function importieren(btn) {
   await ladeListe();
 }
 
+// ── Zuordnung ────────────────────────────────────────────────────────────
+function vorgangName(b) {
+  if (b.invoice_id) {
+    const r = _vorgaenge.rechnungen.find(x => x.id === b.invoice_id);
+    return r ? r.invoice_no : 'Rechnung';
+  }
+  if (b.claim_id) {
+    const a = _vorgaenge.antraege.find(x => x.id === b.claim_id);
+    return a ? (a.beleg_nr || 'Antrag ' + String(a.id).slice(0,8).toUpperCase()) : 'Antrag';
+  }
+  return null;
+}
+
+function istZugeordnet(b) { return !!(b.invoice_id || b.claim_id || b.kostenart); }
+function belegFehlt(b) { return !!b.kostenart && !b.beleg_url; }
+
+function belegZelle(b) {
+  const name = vorgangName(b);
+  if (name) return '<span class="kb-beleg">' + escapeHtml(name) + '</span>';
+  if (b.kostenart) {
+    return '<span class="kb-beleg">' + escapeHtml(b.kostenart) + '</span>'
+      + (b.beleg_url
+          ? ' <a class="kb-beleg" href="' + escapeAttr(b.beleg_url) + '" target="_blank" rel="noopener">Beleg ↗</a>'
+          : ' <span class="kb-offen">Beleg fehlt</span>');
+  }
+  const v = KassenbuchZuordnung.vorschlagFuer(b, _vorgaenge);
+  if (v.art) return '<span class="kb-vorschlag">Vorschlag: ' + escapeHtml(v.bezeichnung) + '</span>';
+  if (v.hinweis) return '<span class="kb-offen">offen</span> <span class="kb-beleg">' + escapeHtml(v.hinweis) + '</span>';
+  return '<span class="kb-offen">offen</span>';
+}
+
+function fuelleDialogListen() {
+  document.getElementById('dlg-kostenart').innerHTML = '<option value="">— keine —</option>'
+    + KassenbuchZuordnung.KOSTENARTEN.map(k =>
+        `<option value="${escapeAttr(k.name)}">${escapeHtml(k.name)}</option>`).join('');
+  document.getElementById('dlg-sphaere').innerHTML = '<option value="">— keine —</option>'
+    + KassenbuchZuordnung.SPHAEREN.map(s =>
+        `<option value="${escapeAttr(s.wert)}">${escapeHtml(s.name)}</option>`).join('');
+}
+
+function fuelleVorgangsListe() {
+  const r = _vorgaenge.rechnungen.map(x =>
+    `<option value="i:${escapeAttr(x.id)}">Rechnung ${escapeHtml(x.invoice_no)} · ${escapeHtml(x.recipient_name)} · ${eur(x.total_cents)}</option>`);
+  const a = _vorgaenge.antraege.map(x =>
+    `<option value="c:${escapeAttr(x.id)}">Antrag ${escapeHtml(x.beleg_nr || String(x.id).slice(0,8).toUpperCase())} · ${escapeHtml(x.user_name || '')} · ${eur(Math.round(Number(x.amount) * 100))}</option>`);
+  document.getElementById('dlg-vorgang').innerHTML =
+    '<option value="">— keiner —</option>' + r.join('') + a.join('');
+}
+
+function oeffneDialog(id) {
+  const b = _buchungen.find(x => x.id === id);
+  if (!b) return;
+  _offen = b;
+  document.getElementById('dlg-kopf').textContent =
+    deDate(b.buchungstag) + ' · ' + (b.gegenpartei || '—') + ' · ' + eur(b.betrag_cents)
+    + ' — ' + (b.verwendungszweck || '');
+
+  const hinweis = document.getElementById('dlg-hinweis');
+  const vorschlag = istZugeordnet(b) ? { art: null, hinweis: '' } : KassenbuchZuordnung.vorschlagFuer(b, _vorgaenge);
+  hinweis.hidden = !vorschlag.hinweis;
+  hinweis.textContent = vorschlag.hinweis || '';
+
+  const vorgang = document.getElementById('dlg-vorgang');
+  vorgang.value = b.invoice_id ? 'i:' + b.invoice_id
+                : b.claim_id   ? 'c:' + b.claim_id
+                : vorschlag.art === 'invoice' ? 'i:' + vorschlag.id
+                : vorschlag.art === 'claim'   ? 'c:' + vorschlag.id : '';
+  document.getElementById('dlg-kostenart').value = b.kostenart || '';
+  document.getElementById('dlg-sphaere').value   = b.sphaere || '';
+  document.getElementById('dlg-beleg').value     = b.beleg_url || '';
+  document.getElementById('dlg-notiz').value     = b.notiz || '';
+  const m = document.getElementById('dlg-meldung');
+  m.hidden = true; m.textContent = '';
+  document.getElementById('dlg').showModal();
+}
+
+// Ein Vorgang und ein eigener Kostenbeleg schliessen einander aus — sonst
+// stuenden zwei Belege fuer dieselbe Zahlung nebeneinander.
+function vorgangGewaehlt() {
+  if (!document.getElementById('dlg-vorgang').value) return;
+  document.getElementById('dlg-kostenart').value = '';
+  document.getElementById('dlg-sphaere').value = '';
+}
+
+function kostenartGewaehlt() {
+  const k = document.getElementById('dlg-kostenart').value;
+  if (!k) return;
+  document.getElementById('dlg-vorgang').value = '';
+  document.getElementById('dlg-sphaere').value = KassenbuchZuordnung.sphaereZu(k);
+}
+
+async function speichern(btn, loesen) {
+  if (!_offen) return;
+  const m = document.getElementById('dlg-meldung');
+  m.hidden = true;
+
+  let z = {};
+  if (!loesen) {
+    const v = document.getElementById('dlg-vorgang').value;
+    const k = document.getElementById('dlg-kostenart').value;
+    if (v) {
+      z = v.slice(0,2) === 'i:' ? { invoice_id: v.slice(2) } : { claim_id: v.slice(2) };
+    } else if (k) {
+      z = {
+        kostenart: k,
+        sphaere:   document.getElementById('dlg-sphaere').value || KassenbuchZuordnung.sphaereZu(k),
+        beleg_url: document.getElementById('dlg-beleg').value.trim(),
+        notiz:     document.getElementById('dlg-notiz').value.trim()
+      };
+    } else {
+      // Die Meldung gehoert IN den Dialog: ein Toast liegt unter dem Backdrop
+      // und ist unsichtbar.
+      m.textContent = 'Bitte einen Vorgang wählen oder eine Kostenart angeben.';
+      m.hidden = false;
+      return;
+    }
+  }
+
+  btn.disabled = true;
+  const res = await LPR.kassenbuchZuordnen(_offen.id, z);
+  btn.disabled = false;
+  if (!res.ok) { m.textContent = res.error; m.hidden = false; return; }
+  document.getElementById('dlg').close();
+  LPR.showToast(loesen ? 'Zuordnung gelöst.' : 'Zuordnung gespeichert.');
+  await ladeListe();
+}
+
+// Wendet alle eindeutigen Treffer auf einmal an. Mehrdeutiges und
+// Betragsabweichungen bleiben liegen — das ist der Sinn der Sache.
+async function vorschlaegeUebernehmen(btn) {
+  const offen = _buchungen.filter(b => !istZugeordnet(b));
+  const treffer = offen.map(b => ({ b, v: KassenbuchZuordnung.vorschlagFuer(b, _vorgaenge) }))
+                       .filter(x => x.v.art);
+  if (!treffer.length) { LPR.showToast('Keine eindeutigen Vorschläge gefunden.', 'warn'); return; }
+  btn.disabled = true;
+  btn.textContent = 'Übernehme …';
+  let geschrieben = 0, misslungen = 0;
+  for (const t of treffer) {
+    const z = t.v.art === 'invoice' ? { invoice_id: t.v.id } : { claim_id: t.v.id };
+    const res = await LPR.kassenbuchZuordnen(t.b.id, z);
+    if (res.ok) geschrieben++; else misslungen++;
+  }
+  LPR.showToast(geschrieben + ' zugeordnet' + (misslungen ? ', ' + misslungen + ' fehlgeschlagen' : '') + '.',
+    misslungen ? 'warn' : undefined);
+  await ladeListe();
+}
+
 // ── Liste ────────────────────────────────────────────────────────────────
-function tabelle(buchungen) {
-  const zeilen = buchungen.map(b => `<tr>
+function tabelle(buchungen, mitBeleg) {
+  const zeilen = buchungen.map(b => `<tr${mitBeleg ? ` onclick="oeffneDialog('${escapeAttr(b.id)}')" style="cursor:pointer;"` : ''}>
       <td>${deDate(b.buchungstag)}</td>
       <td>${escapeHtml(b.buchungstext || '')}</td>
       <td>
@@ -203,9 +424,10 @@ function tabelle(buchungen) {
         <div class="kb-zweck">${escapeHtml((b.verwendungszweck || '').slice(0, 120))}</div>
       </td>
       <td class="num ${b.betrag_cents < 0 ? 'kb-aus' : 'kb-ein'}">${eur(b.betrag_cents)}</td>
+      ${mitBeleg ? '<td>' + belegZelle(b) + '</td>' : ''}
     </tr>`).join('');
   return `<table class="kb-table">
-      <thead><tr><th>Datum</th><th>Art</th><th>Gegenpartei / Zweck</th><th class="num">Betrag</th></tr></thead>
+      <thead><tr><th>Datum</th><th>Art</th><th>Gegenpartei / Zweck</th><th class="num">Betrag</th>${mitBeleg ? '<th>Beleg</th>' : ''}</tr></thead>
       <tbody>${zeilen}</tbody>
     </table>`;
 }
@@ -217,18 +439,40 @@ async function ladeListe() {
     wrap.innerHTML = '<div class="kb-empty">Fehler beim Laden: ' + escapeHtml(res.error) + '</div>';
     return;
   }
-  if (!res.buchungen.length) {
+  _buchungen = res.buchungen;
+  if (!_buchungen.length) {
     wrap.innerHTML = '<div class="kb-empty">Für dieses Jahr ist noch nichts erfasst.</div>';
     return;
   }
-  const ein = res.buchungen.filter(b => b.betrag_cents > 0).reduce((s, b) => s + b.betrag_cents, 0);
-  const aus = res.buchungen.filter(b => b.betrag_cents < 0).reduce((s, b) => s + b.betrag_cents, 0);
+
+  const ein = _buchungen.filter(b => b.betrag_cents > 0).reduce((s, b) => s + b.betrag_cents, 0);
+  const aus = _buchungen.filter(b => b.betrag_cents < 0).reduce((s, b) => s + b.betrag_cents, 0);
+  const ohneZuordnung = _buchungen.filter(b => !istZugeordnet(b)).length;
+  const ohneBeleg     = _buchungen.filter(belegFehlt).length;
+  const vorschlaege   = _buchungen.filter(b => !istZugeordnet(b)
+                          && KassenbuchZuordnung.vorschlagFuer(b, _vorgaenge).art).length;
+
+  const stand = document.getElementById('f-stand').value;
+  const sichtbar = stand === 'offen'  ? _buchungen.filter(b => !istZugeordnet(b))
+                 : stand === 'fertig' ? _buchungen.filter(istZugeordnet)
+                 : _buchungen;
+
+  const arbeit = ohneZuordnung || ohneBeleg
+    ? `<div style="flex:1;min-width:220px;text-align:right;">
+         <span class="kb-offen">${ohneZuordnung} ohne Zuordnung · ${ohneBeleg} ohne Beleg</span>
+         ${vorschlaege ? `<div style="margin-top:8px;"><button class="btn" onclick="vorschlaegeUebernehmen(this)">${vorschlaege} Vorschläge übernehmen</button></div>` : ''}
+       </div>`
+    : '<div style="flex:1;min-width:220px;text-align:right;color:#2C6B45;font-weight:700;">Alles zugeordnet und belegt.</div>';
+
   wrap.innerHTML =
-    `<div class="kb-pad" style="border-bottom:1px solid var(--border);display:flex;gap:26px;flex-wrap:wrap;">
-       <div><div class="kb-zweck">Buchungen</div><strong>${res.buchungen.length}</strong></div>
+    `<div class="kb-pad" style="border-bottom:1px solid var(--border);display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;">
+       <div><div class="kb-zweck">Buchungen</div><strong>${_buchungen.length}</strong></div>
        <div><div class="kb-zweck">Eingänge</div><strong class="kb-ein">${eur(ein)}</strong></div>
        <div><div class="kb-zweck">Ausgänge</div><strong class="kb-aus">${eur(aus)}</strong></div>
-     </div>` + tabelle(res.buchungen);
+       ${arbeit}
+     </div>`
+    + (sichtbar.length ? tabelle(sichtbar, true)
+        : '<div class="kb-empty">Keine Buchung in dieser Auswahl.</div>');
 }
 
 init();

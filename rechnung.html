@@ -465,8 +465,14 @@ function renderBar() {
     }
     if ((s === 'issued' || s === 'paid') && !gutschrift)
       bits.push('<button class="btn" onclick="storno()">Stornieren</button>');
-    if (gutschrift)
-      bits.push('<span style="font-size:12.5px;color:var(--muted);">Storno-Gutschrift — verrechnet mit der stornierten Rechnung, keine offene Forderung.</span>');
+    if (gutschrift) {
+      const bezug = _bezug ? escapeHtml(_bezug.invoice_no) : 'der bezogenen Rechnung';
+      bits.push('<span style="font-size:12.5px;color:var(--muted);">' +
+        (belegTitel() === 'Storno-Rechnung'
+          ? 'Storno-Gutschrift — verrechnet mit ' + bezug + ', keine offene Forderung.'
+          : 'Gutschrift zu ' + bezug + ' — verrechnet, keine offene Forderung.') +
+        '</span>');
+    }
   }
   document.getElementById('action-bar').innerHTML = bits.join(' ');
 }

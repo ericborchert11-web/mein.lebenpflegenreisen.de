@@ -114,9 +114,9 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
       </div>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
         <label style="font-size:13px;font-weight:600;color:var(--muted);">Jahr<br>
-          <select id="f-jahr" class="f-in" style="width:110px;" onchange="ladeListe()"></select></label>
+          <select id="f-jahr" class="f-in" style="width:110px;" onchange="ladeAlles()"></select></label>
         <label style="font-size:13px;font-weight:600;color:var(--muted);">Anzeige<br>
-          <select id="f-stand" class="f-in" style="width:170px;" onchange="ladeListe()">
+          <select id="f-stand" class="f-in" style="width:170px;" onchange="ladeAlles()">
             <option value="">alle</option>
             <option value="offen">nur offene</option>
             <option value="fertig">nur zugeordnete</option>
@@ -173,7 +173,7 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
 
 <script src="kassenbuch-csv.js?v20260921a"></script>
 <script src="kassenbuch-zuordnung.js?v20260921b"></script>
-<script src="kassenbuch-auswertung.js?v20260921a"></script>
+<script src="kassenbuch-auswertung.js?v20260921b"></script>
 <script src="app.js?v20260921e"></script>
 <script src="layout.js"></script>
 <script>
@@ -186,6 +186,7 @@ let _vorgaenge = { rechnungen: [], antraege: [] };
 let _buchungen = [];
 let _offen = null;   // die Buchung, die gerade im Dialog liegt
 let _staende = [];
+let _alle = [];      // alle Jahre — der Kontostand darf nicht am Jahresfilter haengen
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 // Fuer Werte, die in value="…" landen: das obige escapt KEINE Anfuehrungszeichen.
@@ -206,7 +207,7 @@ async function init() {
   fuelleDialogListen();
   const v = await LPR.kassenbuchVorgaenge();
   if (v.ok) { _vorgaenge = { rechnungen: v.rechnungen, antraege: v.antraege }; fuelleVorgangsListe(); }
-  await ladeListe();
+  await ladeAlles();
 }
 
 // ── Datei lesen und Vorschau ─────────────────────────────────────────────
@@ -268,7 +269,7 @@ async function importieren(btn) {
   _neue = [];
   document.getElementById('vorschau').hidden = true;
   document.getElementById('datei').value = '';
-  await ladeListe();
+  await ladeAlles();
 }
 
 // ── Zuordnung ────────────────────────────────────────────────────────────
@@ -438,12 +439,16 @@ function tabelle(buchungen, mitBeleg) {
 
 async function ladeListe() {
   const wrap = document.getElementById('liste-wrap');
-  const res = await LPR.kassenbuchListe({ jahr: document.getElementById('f-jahr').value });
+  // Ohne Jahresfilter geladen: der Kontostand ist nur richtig, wenn ALLE
+  // Buchungen seit dem Anfangsbestand mitzaehlen. Gefiltert wird danach hier.
+  const res = await LPR.kassenbuchListe({});
   if (!res.ok) {
     wrap.innerHTML = '<div class="kb-empty">Fehler beim Laden: ' + escapeHtml(res.error) + '</div>';
     return;
   }
-  _buchungen = res.buchungen;
+  _alle = res.buchungen;
+  const jahr = document.getElementById('f-jahr').value;
+  _buchungen = jahr ? _alle.filter(b => String(b.buchungstag).slice(0, 4) === String(jahr)) : _alle;
   if (!_buchungen.length) {
     wrap.innerHTML = '<div class="kb-empty">Für dieses Jahr ist noch nichts erfasst.</div>';
     document.getElementById('auswertung-wrap').innerHTML = '';
@@ -471,17 +476,32 @@ async function ladeListe() {
     : '<div style="flex:1;min-width:220px;text-align:right;color:#2C6B45;font-weight:700;">Alles zugeordnet und belegt.</div>';
 
   zeigeAuswertung();
-  zeigeSaldo();
+
+  const kontostand = KassenbuchAuswertung.aktuellerStand(_alle, _staende);
+  const standBlock = kontostand.cents === null
+    ? `<div><div class="kb-zweck">Kontostand</div><strong style="color:var(--muted);">—</strong>
+         <div class="kb-zweck">kein Anfangsbestand erfasst</div></div>`
+    : `<div><div class="kb-zweck">Kontostand (rechnerisch)</div>
+         <strong style="color:${kontostand.cents < 0 ? '#B4231A' : '#2C6B45'};font-size:18px;">${eur(kontostand.cents)}</strong>
+         <div class="kb-zweck">seit ${deDate(kontostand.anker)}</div></div>`;
 
   wrap.innerHTML =
     `<div class="kb-pad" style="border-bottom:1px solid var(--border);display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;">
-       <div><div class="kb-zweck">Buchungen</div><strong>${_buchungen.length}</strong></div>
+       <div><div class="kb-zweck">Buchungen ${escapeHtml(jahr)}</div><strong>${_buchungen.length}</strong></div>
        <div><div class="kb-zweck">Eingänge</div><strong class="kb-ein">${eur(ein)}</strong></div>
        <div><div class="kb-zweck">Ausgänge</div><strong class="kb-aus">${eur(aus)}</strong></div>
+       ${standBlock}
        ${arbeit}
      </div>`
     + (sichtbar.length ? tabelle(sichtbar, true)
         : '<div class="kb-empty">Keine Buchung in dieser Auswahl.</div>');
+}
+
+// Die Kopfzeile zeigt den Kontostand, der aus den Kontostaenden folgt — also
+// erst laden, dann die Liste zeichnen.
+async function ladeAlles() {
+  await zeigeSaldo();
+  await ladeListe();
 }
 
 // ── Auswertung ───────────────────────────────────────────────────────────
@@ -516,6 +536,9 @@ function zeigeAuswertung() {
           <tbody>
             ${zeile('Einnahmen aus Rechnungen', a.einnahmenRechnungen, 'kb-ein')}
             ${zeile('Auszahlungen an Ehrenamtliche', a.auszahlungenAntraege, 'kb-aus')}
+            <tr style="border-top:1.5px solid var(--border);font-weight:700;">
+              <td>Ergebnis ${escapeHtml(jahr)} (alle Ein- und Ausgänge)</td>
+              <td class="num ${a.summe < 0 ? 'kb-aus' : 'kb-ein'}">${eur(a.summe)}</td></tr>
           </tbody>
         </table>
         <table class="kb-table">
@@ -562,7 +585,7 @@ async function zeigeSaldo() {
   const wrap = document.getElementById('saldo-wrap');
   if (!res.ok) { wrap.innerHTML = '<div class="kb-pad">Kontostände nicht ladbar: ' + escapeHtml(res.error) + '</div>'; return; }
   _staende = res.staende;
-  const reihe = KassenbuchAuswertung.saldoReihe(_buchungen, _staende);
+  const reihe = KassenbuchAuswertung.saldoReihe(_alle, _staende);
 
   const zeilen = reihe.map(r => `<tr>
       <td>${deDate(r.stichtag)}${r.anker ? '<div class="kb-zweck">Anfangsbestand — der Anker, ab dem gerechnet wird</div>' : ''}</td>
@@ -610,13 +633,13 @@ async function standSpeichern(btn) {
   btn.disabled = false;
   if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
   LPR.showToast('Kontostand eingetragen.');
-  await zeigeSaldo();
+  await ladeAlles();
 }
 
 async function standLoeschen(id) {
   const res = await LPR.kassenbuchStandLoeschen(id);
   if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
-  await zeigeSaldo();
+  await ladeAlles();
 }
 
 init();

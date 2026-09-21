@@ -90,6 +90,33 @@
     });
   }
 
+  /**
+   * Der rechnerische Kontostand zu einem Stichtag.
+   *
+   * Ohne erfassten Anfangsbestand gibt es KEINEN Kontostand: Die blosse Summe
+   * der Buchungen waere nur dann der Stand, wenn das Konto vorher leer war —
+   * das behauptet hier niemand. Deshalb `cents: null` statt einer Zahl, die
+   * plausibel aussieht und falsch ist.
+   */
+  function aktuellerStand(buchungen, staende, bisDatum) {
+    var liste = (staende || []).slice().sort(function (a, b) {
+      return String(a.stichtag).localeCompare(String(b.stichtag));
+    });
+    if (!liste.length) return { cents: null, anker: null, ankerStand: null };
+    var anker = liste[0];
+    var bis = String(bisDatum || '9999-12-31');
+    var bewegung = 0;
+    (buchungen || []).forEach(function (b) {
+      var tag = String(b.buchungstag || '');
+      if (tag > String(anker.stichtag) && tag <= bis) bewegung += cents(b);
+    });
+    return {
+      cents: Number(anker.stand_cents || 0) + bewegung,
+      anker: anker.stichtag,
+      ankerStand: Number(anker.stand_cents || 0)
+    };
+  }
+
   function deBetrag(c) { return (Number(c || 0) / 100).toFixed(2).replace('.', ','); }
 
   function feld(wert) {
@@ -117,6 +144,7 @@
   var KassenbuchAuswertung = {
     auswertung: auswertung,
     saldoReihe: saldoReihe,
+    aktuellerStand: aktuellerStand,
     alsCsv: alsCsv,
     deBetrag: deBetrag
   };

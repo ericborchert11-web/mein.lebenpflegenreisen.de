@@ -52,6 +52,21 @@ pruefe('Abweichung wird ausgewiesen', schief[1].differenz_cents === -10000, JSON
 // Ohne erfassten Stand gibt es nichts zu vergleichen — und keinen Absturz.
 pruefe('Ohne Kontostand leere Reihe', KA.saldoReihe(buchungen, []).length === 0, 'Reihe war nicht leer');
 
+// Rechnerischer Kontostand: Anker plus alle Buchungen bis zum Stichtag.
+const stand = KA.aktuellerStand(buchungen, staende, '2026-09-30');
+pruefe('Kontostand ab Anker gerechnet', stand.cents === 1114203, JSON.stringify(stand));
+pruefe('Kontostand kennt seinen Anker', stand.anker === '2026-08-18', JSON.stringify(stand));
+
+// Ein frueheres Stichdatum schneidet spaetere Buchungen ab.
+pruefe('Stichtag schneidet ab',
+  KA.aktuellerStand(buchungen, staende, '2026-08-19').cents === 1056900,
+  JSON.stringify(KA.aktuellerStand(buchungen, staende, '2026-08-19')));
+
+// Ohne Anker ist kein Kontostand berechenbar — und es wird auch keiner
+// behauptet: eine Summe ohne Anfangsbestand waere schlicht falsch.
+pruefe('Ohne Anker kein Kontostand', KA.aktuellerStand(buchungen, [], '2026-09-30').cents === null,
+  JSON.stringify(KA.aktuellerStand(buchungen, [], '2026-09-30')));
+
 const csv = KA.alsCsv(buchungen);
 const zeilen = csv.trim().split('\n');
 pruefe('CSV hat Kopf und je Buchung eine Zeile', zeilen.length === 7, `bekommen: ${zeilen.length}`);

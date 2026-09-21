@@ -241,7 +241,7 @@
 LPR_Layout.init({ page: 'rechnungen-admin' });
 
 const INV_ID = new URLSearchParams(location.search).get('id');
-let _inv = null, _recipient = null, _items = [], _recipients = [], _templates = [];
+let _inv = null, _recipient = null, _items = [], _recipients = [], _templates = [], _bezug = null;
 
 // Escapt auch Anfuehrungszeichen: Vorlagennamen landen in value="…"-Attributen,
 // und ein Name wie 'Nachtwache 12" Schicht' wuerde das Feld sonst zerreissen.
@@ -280,6 +280,13 @@ async function reload() {
   const res = await LPR.getInvoice(INV_ID);
   if (!res.ok) { LPR.showToast(res.error, 'warn'); location.href = 'admin-rechnungen.html'; return; }
   _inv = res.invoice; _recipient = res.recipient; _items = res.items;
+  // Bezug einer Gutschrift: nur daran ist zu erkennen, ob sie die Rechnung
+  // ganz aufhebt (Vollstorno) oder sie nur korrigiert (Teilgutschrift).
+  _bezug = null;
+  if (_inv.cancels_invoice_id && typeof LPR.getInvoiceRef === 'function') {
+    const b = await LPR.getInvoiceRef(_inv.cancels_invoice_id);
+    if (b.ok) _bezug = b.invoice;
+  }
   if (!_items.length && _inv.status === 'draft') _items = [emptyItem()];
   render();
 }
@@ -424,6 +431,14 @@ function render() {
   if (isDraft) renderEditor();
   renderBrief();
   renderBeleg();
+}
+
+// Ein Vollstorno hebt die Rechnung auf — sie steht danach auf 'cancelled'.
+// Eine Teilgutschrift korrigiert nur den Betrag und laesst die Rechnung
+// bestehen. Das Dokument muss das Richtige ueber sich behaupten.
+function belegTitel() {
+  if (!_inv.cancels_invoice_id) return 'Rechnung';
+  return (_bezug && _bezug.status === 'cancelled') ? 'Storno-Rechnung' : 'Gutschrift';
 }
 
 function renderBar() {
@@ -783,7 +798,7 @@ function renderBeleg() {
   document.getElementById('beleg').innerHTML = `
   <div class="beleg">
     <div class="beleg-claim">${escapeHtml(V.claim)}</div>
-    <h1>${_inv.cancels_invoice_id ? 'Storno-Rechnung' : 'Rechnung'}</h1>
+    <h1>${belegTitel()}</h1>
     ${_inv.betreff ? '<div class="beleg-betreff">' + escapeHtml(_inv.betreff) + '</div>' : ''}
     ${stornoHinweis}
 

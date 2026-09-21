@@ -6059,6 +6059,21 @@
     }
   }
 
+  // Kopfdaten einer anderen Rechnung: der Bezug, auf den sich eine Gutschrift
+  // beruft. Bewusst schmal — der ganze Beleg waere dafuer Ballast.
+  async function getInvoiceRef(id) {
+    try {
+      const { data, error } = await (await sb())
+        .from('invoices').select('id, invoice_no, invoice_date, status')
+        .eq('id', id).maybeSingle();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, invoice: data };
+    } catch(e) {
+      console.error('[LPR] getInvoiceRef:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function cancelInvoice(id, reason) {
     try {
       const { data, error } = await (await sb())
@@ -6551,7 +6566,7 @@
     centsToEUR, eurToCents, qtyToNumber, itemAmountCents, invoiceSubtotalCents, invoiceIsOverdue, invoiceIsCredit, invoiceIsOpen,
     listRecipients, saveRecipient, setRecipientActive,
     listInvoices, getInvoice, createInvoice, updateInvoiceDraft, reopenInvoice, saveInvoiceItems,
-    deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid,
+    deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid, getInvoiceRef,
     listItemTemplates, saveItemTemplate, hatBriefFelder, deleteItemTemplate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     // Besetzungsregel — geteilt von admin-reisen.html und admin-jahreskalender.html

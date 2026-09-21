@@ -6259,6 +6259,11 @@
     nicht_moeglich:   'Der Termin nimmt gerade keine Antworten an — abgesagt, vorbei oder noch nicht eingeladen.',
     nicht_angemeldet: 'Du bist nicht angemeldet.',
     unbekannt:        'Diesen Eintrag gibt es nicht mehr.',
+    nicht_offen:      'Für diesen Termin werden keine Tagesordnungspunkte angenommen.',
+    titel_zu_kurz:    'Der Titel ist zu kurz — mindestens 3 Zeichen.',
+    titel_zu_lang:    'Der Titel darf höchstens 200 Zeichen lang sein.',
+    text_zu_lang:     'Die Begründung darf höchstens 2000 Zeichen lang sein.',
+    zu_viele:         'Zu diesem Termin sind schon fünf Punkte eingereicht.',
   };
 
   async function rpcTermin(name, args, schluessel) {
@@ -6398,10 +6403,33 @@
     }
   }
 
+  /**
+   * Entfernt die Zeile UND die Datei im Bucket.
+   *
+   * Ohne den zweiten Schritt bliebe eine geloeschte Datei unter ihrer Adresse
+   * abrufbar — fuer jeden, der den Link schon in einer Mail hat. Genau dafuer
+   * drueckt man "Entfernen" aber, wenn man die falsche Datei erwischt hat.
+   * Nur der eigene Bucket wird angefasst: eine eingefuegte Fremdadresse
+   * gehoert uns nicht und wird nur aus der Liste genommen.
+   */
   async function deleteTerminDatei(id) {
     try {
-      const { error } = await (await sb()).from('termin_dateien').delete().eq('id', id);
+      const client = await sb();
+      const { data: zeile } = await client
+        .from('termin_dateien').select('url').eq('id', id).maybeSingle();
+
+      const { error } = await client.from('termin_dateien').delete().eq('id', id);
       if (error) return { ok: false, error: error.message };
+
+      const marke = '/termin-dateien/';
+      const url = zeile && zeile.url ? String(zeile.url) : '';
+      if (url.indexOf(marke) !== -1) {
+        const pfad = decodeURIComponent(url.slice(url.indexOf(marke) + marke.length).split('?')[0]);
+        // Scheitert das Aufraeumen, ist die Zeile trotzdem weg — das melden
+        // wir, statt es zu verschweigen.
+        const { error: e2 } = await client.storage.from('termin-dateien').remove([pfad]);
+        if (e2) return { ok: true, warnung: 'Aus der Liste entfernt, die Datei liegt aber noch im Speicher: ' + e2.message };
+      }
       return { ok: true };
     } catch (e) {
       console.error('[LPR] deleteTerminDatei:', e);

@@ -126,6 +126,8 @@
     <h3 style="margin:28px 0 4px;font-size:16px;color:var(--green-deep);">Unterlagen</h3>
     <p class="tm-mini" style="margin:0 0 10px;">
       Diese Dateien sind für jeden erreichbar, der den Link kennt — nichts Vertrauliches hier ablegen.
+      Bereits verschickte Einladungen enthalten eine später hinzugefügte Datei <strong>nicht</strong>;
+      dafür gibt es „Änderung mitteilen".
     </p>
     <div id="tm-d-dateien" class="tm-liste" style="margin-bottom:12px;"></div>
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
@@ -295,6 +297,9 @@ async function ladeDateien() {
       if (!window.confirm('Diese Unterlage entfernen?')) return;
       const r2 = await LPR.deleteTerminDatei(b.dataset.loeschDatei);
       if (!r2.ok) { LPR.showToast(r2.error, 'warn'); return; }
+      // Die Zeile ist weg, die Datei im Speicher vielleicht nicht — das sagen
+      // wir, statt es zu verschweigen.
+      if (r2.warnung) LPR.showToast(r2.warnung, 'warn');
       await ladeDateien();
     });
   });
@@ -305,6 +310,9 @@ $('tm-df-add').addEventListener('click', async () => {
   if (!titel) { LPR.showToast('Titel fehlt.', 'warn'); return; }
   const datei = $('tm-df-datei').files[0];
   let url = $('tm-df-url').value.trim();
+  // Beides ausgefuellt: nachfragen statt die eingetippte Adresse
+  // stillschweigend zu verwerfen.
+  if (datei && url && !window.confirm('Du hast eine Datei ausgewählt UND eine Adresse eingetippt. Die hochgeladene Datei gewinnt, die Adresse wird verworfen. Fortfahren?')) return;
   if (datei) {
     const ru = await LPR.uploadTerminDatei(aktuell.id, datei);
     if (!ru.ok) { LPR.showToast(ru.error, 'warn'); return; }

@@ -6165,6 +6165,171 @@
     }
   }
 
+  // ══ Termine ════════════════════════════════════════════════════════════
+  //
+  // Lesen geht ueber RLS: der Vorstand sieht alles, ein Mitglied seinen
+  // eigenen Termin und seine eigene Zeile. Geschrieben wird NIE direkt —
+  // jede Aenderung an einer Antwort laeuft durch eine Funktion in der
+  // Datenbank, weil RLS Zeilen begrenzt und keine Spalten.
+
+  // Heisst listVereinsTermine statt listTermine: der Name listTermine ist
+  // schon fuer die Kunden-Termine (bookings mit shift='termin') vergeben
+  // und wird von admin-kunden.html aufgerufen — ein zweiter listTermine
+  // wuerde die erste Funktion in strict mode still ueberschreiben, ohne
+  // Fehler, und admin-kunden.html liefe mit falschen Daten.
+  async function listVereinsTermine() {
+    try {
+      const { data, error } = await (await sb())
+        .from('termine')
+        .select('id, titel, beschreibung, datum, uhrzeit, ende_uhrzeit, ort, online_link, zielgruppe, status, antwort_bis, version, eingeladen_am')
+        .order('datum', { ascending: true });
+      if (error) return { ok: false, error: error.message, termine: [] };
+      return { ok: true, termine: data || [] };
+    } catch (e) {
+      console.error('[LPR] listVereinsTermine:', e);
+      return { ok: false, error: 'Netzwerkfehler.', termine: [] };
+    }
+  }
+
+  async function saveTermin(t) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur für den Vorstand.' };
+    }
+    const zeile = {
+      titel:        t.titel,
+      beschreibung: t.beschreibung || null,
+      datum:        t.datum,
+      uhrzeit:      t.uhrzeit || null,
+      ende_uhrzeit: t.ende_uhrzeit || null,
+      ort:          t.ort || null,
+      online_link:  t.online_link || null,
+      zielgruppe:   t.zielgruppe,
+      antwort_bis:  t.antwort_bis || null,
+    };
+    try {
+      const client = await sb();
+      if (t.id) {
+        const { error } = await client.from('termine').update(zeile).eq('id', t.id);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, id: t.id };
+      }
+      // Das Sitzungsobjekt heisst hier `id`, nicht `userId` — siehe setSession().
+      zeile.created_by = s.id || null;
+      const { data, error } = await client.from('termine').insert(zeile).select('id').single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, id: data.id };
+    } catch (e) {
+      console.error('[LPR] saveTermin:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function listTerminEingeladene(terminId) {
+    try {
+      const { data, error } = await (await sb())
+        .from('termin_eingeladene')
+        .select('id, name, email, antwort, antwort_am, antwort_quelle, eingeladen_am, profile_id, probe')
+        .eq('termin_id', terminId)
+        .order('name', { ascending: true });
+      if (error) return { ok: false, error: error.message, eingeladene: [] };
+      // Probezeilen sind ein Werkzeug, kein Gast: sie gehoeren in keine Liste
+      // und in keinen Zaehler.
+      return { ok: true, eingeladene: (data || []).filter(e => !e.probe) };
+    } catch (e) {
+      console.error('[LPR] listTerminEingeladene:', e);
+      return { ok: false, error: 'Netzwerkfehler.', eingeladene: [] };
+    }
+  }
+
+  async function rpcTermin(name, args, schluessel) {
+    try {
+      const { data, error } = await (await sb()).rpc(name, args);
+      if (error) return { ok: false, error: error.message };
+      const antwort = { ok: true };
+      if (schluessel) antwort[schluessel] = data;
+      return antwort;
+    } catch (e) {
+      console.error('[LPR] ' + name + ':', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  const terminEingeladeneErzeugen = (id) =>
+    rpcTermin('termin_eingeladene_erzeugen', { p_termin: id }, 'anzahl');
+
+  const terminEingeladenenHinzufuegen = (id, name, email) =>
+    rpcTermin('termin_eingeladener_hinzufuegen',
+              { p_termin: id, p_name: name, p_email: email || null }, 'id');
+
+  const terminEinladungVerschicken = (id) =>
+    rpcTermin('termin_einladung_verschicken', { p_termin: id }, 'anzahl');
+
+  const terminProbeVerschicken = (id) =>
+    rpcTermin('termin_probe_verschicken', { p_termin: id }, 'anzahl');
+
+  const terminAenderungVerschicken = (id) =>
+    rpcTermin('termin_aenderung_verschicken', { p_termin: id }, 'anzahl');
+
+  const terminAbsagen = (id) =>
+    rpcTermin('termin_absagen', { p_termin: id }, 'anzahl');
+
+  const setTerminAntwortAdmin = (eingeladenerId, antwort) =>
+    rpcTermin('termin_antwort_setzen',
+              { p_eingeladener: eingeladenerId, p_antwort: antwort });
+
+  // ── Die beiden Wege, auf denen geantwortet wird ─────────────────────────
+
+  /** Ohne Anmeldung, aus der Mail heraus. */
+  const terminAnsehen = (token) =>
+    rpcTermin('termin_ansehen', { p_token: token }, 'termin');
+
+  const terminAntworten = (token, antwort) =>
+    rpcTermin('termin_antwort', { p_token: token, p_antwort: antwort }, 'termin');
+
+  /** Angemeldet, aus dem Portal heraus. */
+  const setMeinTerminAntwort = (terminId, antwort) =>
+    rpcTermin('termin_antwort_im_portal', { p_termin: terminId, p_antwort: antwort });
+
+  /** Die eigenen kommenden Termine samt eigener Antwort. */
+  async function listMeineTermine() {
+    const s = getSession();
+    if (!s) return { ok: true, termine: [] };
+    try {
+      const client = await sb();
+      const heute = new Date().toLocaleDateString('sv-SE');
+      const { data: termine, error: e1 } = await client
+        .from('termine')
+        .select('id, titel, datum, uhrzeit, ende_uhrzeit, ort, online_link, beschreibung, status')
+        .eq('status', 'eingeladen')
+        .gte('datum', heute)
+        .order('datum', { ascending: true });
+      if (e1) return { ok: false, error: e1.message, termine: [] };
+      if (!termine || !termine.length) return { ok: true, termine: [] };
+
+      const { data: meine, error: e2 } = await client
+        .from('termin_eingeladene')
+        .select('termin_id, antwort')
+        .in('termin_id', termine.map(t => t.id));
+      if (e2) return { ok: false, error: e2.message, termine: [] };
+
+      const antwortZu = {};
+      (meine || []).forEach(m => { antwortZu[m.termin_id] = m.antwort; });
+      // Nur Termine, zu denen man wirklich eingeladen ist: die Policy laesst
+      // einen Termin schon dann lesen, wenn eine eigene Zeile existiert —
+      // aber ohne Zeile steht hier nichts zu antworten.
+      return {
+        ok: true,
+        termine: termine
+          .filter(t => antwortZu[t.id])
+          .map(t => Object.assign({}, t, { antwort: antwortZu[t.id] })),
+      };
+    } catch (e) {
+      console.error('[LPR] listMeineTermine:', e);
+      return { ok: false, error: 'Netzwerkfehler.', termine: [] };
+    }
+  }
+
   global.LPR = {
     // Der fertig eingerichtete Supabase-Client. Seiten, die selbst an der
     // Auth-Schicht arbeiten (passwort-neu.html), brauchen ihn direkt —
@@ -6184,6 +6349,10 @@
     setClinicNotifySettings, setClinicControlling, getBookingNotifications,
     setBookingNoShow, clearBookingNoShow,
     getKpiAmpeln, getKpiPersonen, getBoardMeldungen, setDienstsperre, getAppSettings, setAppSetting,
+    listVereinsTermine, saveTermin, listTerminEingeladene, terminEingeladeneErzeugen,
+    terminEingeladenenHinzufuegen, terminEinladungVerschicken, terminProbeVerschicken,
+    terminAenderungVerschicken, terminAbsagen, setTerminAntwortAdmin,
+    terminAnsehen, terminAntworten, setMeinTerminAntwort, listMeineTermine,
     interessentUebernehmen, getEhrenamtQuellen, meinEinladungslink,
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference, setUserTarif,

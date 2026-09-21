@@ -63,6 +63,21 @@ v = KZ.vorschlagFuer(buchung(-15000, 'Antrag 96A9D0D7'), doppelt);
 pruefe('Mehrdeutiges wird nicht geraten', v && v.art === null && /mehrdeutig|eindeutig/i.test(v.hinweis || ''),
   JSON.stringify(v));
 
+// 8 — nackte Nummer ohne "RE-": Kunden tippen im Verwendungszweck oft nur
+//     "2026-0004". Erlaubt, weil der Betrag zusaetzlich passen muss.
+v = KZ.vorschlagFuer(buchung(431250, '2026-0014 Ueberweisung'), welt);
+pruefe('Nackte Rechnungsnummer wird erkannt', v && v.art === 'invoice' && v.id === 'r-14', JSON.stringify(v));
+
+// 9 — dieselbe nackte Nummer bei falschem Betrag bleibt liegen
+v = KZ.vorschlagFuer(buchung(999, '2026-0014'), welt);
+pruefe('Nackte Nummer ohne Betragsgleichheit ordnet nicht zu', v && v.art === null, JSON.stringify(v));
+
+// 10 — eine Belegnummer darf NICHT als Rechnungsnummer missverstanden werden:
+//      "LPR-AZB-2026-0020" enthaelt die Zeichenfolge "2026-0020".
+v = KZ.vorschlagFuer(buchung(-105000, 'LPR-AZB-2026-0020 DATUM'), welt);
+pruefe('Belegnummer wird nicht als Rechnungsnummer gelesen',
+  v && v.art === 'claim' && v.id === antraege[2].id, JSON.stringify(v));
+
 // 8 — Kostenarten bringen einen Sphaerenvorschlag mit
 pruefe('Kostenarten vorhanden', Array.isArray(KZ.KOSTENARTEN) && KZ.KOSTENARTEN.length >= 8,
   `bekommen: ${KZ.KOSTENARTEN && KZ.KOSTENARTEN.length}`);

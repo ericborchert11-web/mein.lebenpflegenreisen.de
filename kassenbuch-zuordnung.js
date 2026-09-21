@@ -65,8 +65,13 @@
     var antraege   = (welt && welt.antraege) || [];
     var leer = { art: null, id: null, bezeichnung: '', hinweis: '' };
 
-    // 1 — Rechnungsnummer
-    var mRe = zweck.match(/RE-(\d{4})-(\d{4})/);
+    // 1 — Rechnungsnummer. Zuerst mit Kuerzel, sonst die nackte Nummer:
+    //     Kunden tippen im Verwendungszweck oft nur "2026-0004". Das ist
+    //     erlaubt, weil ohnehin auch der Betrag stimmen muss — vorher werden
+    //     aber die Auszahlungs-Belegnummern entfernt, in denen dieselbe
+    //     Zeichenfolge steckt (LPR-AZB-2026-0020 enthaelt "2026-0020").
+    var ohneAzb = zweck.replace(/LPR-AZB-\d{4}-\d{4}/g, ' ');
+    var mRe = ohneAzb.match(/RE-(\d{4})-(\d{4})/) || ohneAzb.match(/(?:^|[^-\w])(\d{4})-(\d{4})(?![\w-])/);
     if (mRe) {
       var nummer = 'RE-' + mRe[1] + '-' + mRe[2];
       var treffer = rechnungen.filter(function (r) { return r.invoice_no === nummer; });

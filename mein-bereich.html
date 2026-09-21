@@ -539,7 +539,7 @@ body.contrast .anleitung-hinweis, body.contrast .anleitung-hinweis a { color: #0
 </div>
 </main>
 
-<script src="app.js?v20260909a"></script>
+<script src="app.js?v20260921a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'mein-bereich' });
@@ -621,7 +621,15 @@ function fmtDateLong(iso) {
   if (session.role === 'ehrenamt') showKennenlernNote(session);
 
   await renderUpcomingBookings();
-  await renderMeineTermine();
+  // Gekapselt und mit Vorhandenseins-Pruefung: Liefert der Browser-Cache noch
+  // eine aeltere app.js aus, gibt es LPR.listMeineTermine nicht — ohne diese
+  // beiden Sicherungen riss der Fehler die ganze Init-Kette mit, und der
+  // Mitgliederbereich waere leer geblieben statt nur ohne Terminblock.
+  try {
+    if (typeof LPR.listMeineTermine === 'function') await renderMeineTermine();
+  } catch (e) {
+    console.error('[LPR] renderMeineTermine:', e);
+  }
   await renderStats();
   if (session.role === 'ehrenamt') {
     await checkCompliance();

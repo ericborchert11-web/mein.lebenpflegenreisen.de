@@ -99,7 +99,10 @@ function zeichne(t) {
     '<p class="tm-zeile" style="margin-top:18px;">' +
       (t.antwort === 'offen' ? 'Sag uns bitte Bescheid:' : 'Doch anders?') + '</p>' +
     '<button type="button" class="tm-knopf' + (t.antwort === 'zusage' ? '' : ' voll') + '" data-a="zusage">Ich komme</button>' +
-    '<button type="button" class="tm-knopf' + (t.antwort === 'absage' ? '' : '') + '" data-a="absage">Ich kann nicht</button>';
+    // Hervorgehoben ist immer der Knopf, den man NOCH nicht gedrueckt hat —
+    // bei einer Absage also "Ich kann nicht" blass und "Ich komme" kraeftig,
+    // damit die eigene Antwort auf einen Blick ablesbar bleibt.
+    '<button type="button" class="tm-knopf' + (t.antwort === 'absage' ? ' voll' : '') + '" data-a="absage">Ich kann nicht</button>';
 
   document.getElementById('tm-inhalt').innerHTML =
     '<p class="tm-mini">Hallo ' + esc(t.name) + ',</p>' +
@@ -112,8 +115,15 @@ function zeichne(t) {
     (t.beschreibung ? '<div class="tm-beschreibung">' + esc(t.beschreibung) + '</div>' : '') +
     (abgesagt || vorbei ? '' : stand) +
     knoepfe +
+    // NICHT bedingungslos "gespeichert" schreiben: Wer den Link nur oeffnet,
+    // hat nichts geklickt und haelt sich sonst faelschlich fuer angemeldet.
     '<p class="tm-mini" style="margin-top:22px;border-top:1px solid #EFEDE6;padding-top:12px;">' +
-      'Deine Antwort ist gespeichert. Du kannst sie jederzeit über denselben Link ändern.</p>';
+      (abgesagt || vorbei
+        ? 'Hier gibt es nichts mehr zu tun.'
+        : t.antwort === 'offen'
+          ? 'Ein Klick genügt — deine Antwort wird sofort gespeichert.'
+          : 'Deine Antwort ist gespeichert. Du kannst sie jederzeit über denselben Link ändern.') +
+      '</p>';
 
   [].forEach.call(document.querySelectorAll('[data-a]'), b => {
     b.addEventListener('click', async () => {

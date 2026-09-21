@@ -195,6 +195,13 @@ async function zeigeDetail(id) {
   $('tm-detail').hidden = false;
   $('tm-d-titel').textContent = aktuell.titel;
   $('tm-d-wann').textContent = wannText(aktuell) + ' · ' + (aktuell.ort || 'Ort folgt');
+  // Vor dem Versand gibt es nichts mitzuteilen und nichts abzusagen. Beide
+  // Knoepfe wuerden sonst die Version hochzaehlen und "0 Person(en)
+  // benachrichtigt" melden — in Gruen, also wie ein Erfolg.
+  const nochNichtRaus = aktuell.status !== 'eingeladen';
+  $('tm-d-aenderung').disabled = nochNichtRaus;
+  $('tm-d-absagen').disabled   = aktuell.status === 'abgesagt';
+  $('tm-d-einladen').disabled  = aktuell.status === 'abgesagt';
   [].forEach.call($('tm-liste').querySelectorAll('.tm-zeile'), el =>
     el.setAttribute('aria-selected', el.dataset.id === id ? 'true' : 'false'));
   await ladeEingeladene();
@@ -269,6 +276,10 @@ $('tm-d-bearbeiten').addEventListener('click', () => formularFuellen(aktuell));
 $('tm-form').addEventListener('submit', async ev => {
   ev.preventDefault();
   const id = $('tm-form').dataset.id;
+  // Was stand vorher da? Nur damit laesst sich hinterher fragen, ob die
+  // Eingeladenen es erfahren sollen — ein Knopf allein wuerde vergessen, und
+  // dann haette jemand die alte Uhrzeit im Kalender.
+  const vorher = id ? termine.find(t => t.id === id) : null;
   const r = await LPR.saveTermin({
     id: id || null,
     titel:        $('tm-titel').value.trim(),
@@ -285,9 +296,26 @@ $('tm-form').addEventListener('submit', async ev => {
   $('tm-form-karte').hidden = true;
   await ladeListe(r.id);
   await zeigeDetail(r.id);
-  melde(id
-    ? 'Gespeichert. Wenn sich Datum, Uhrzeit oder Ort geändert haben: „Änderung mitteilen" schickt eine Mail an alle außer den Absagen.'
-    : 'Termin angelegt. Als Nächstes: „Eingeladene erzeugen".', false);
+
+  const kurz = w => (w || '').slice(0, 5);
+  const verschoben = vorher && vorher.status === 'eingeladen' && (
+    vorher.datum !== $('tm-datum').value ||
+    kurz(vorher.uhrzeit) !== $('tm-uhrzeit').value ||
+    (vorher.ort || '') !== $('tm-ort').value.trim());
+
+  if (verschoben) {
+    if (window.confirm('Wann oder Wo hat sich geändert. Eingeladene jetzt benachrichtigen?')) {
+      const rn = await LPR.terminAenderungVerschicken(aktuell.id);
+      if (!rn.ok) { melde(rn.error, true); return; }
+      await ladeListe(aktuell.id);
+      melde('Gespeichert, ' + rn.anzahl + ' Person(en) benachrichtigt.', false);
+      return;
+    }
+    melde('Gespeichert — es wurde NIEMAND benachrichtigt. Über „Änderung mitteilen" kannst du das nachholen.', true);
+    return;
+  }
+
+  melde(id ? 'Gespeichert.' : 'Termin angelegt. Als Nächstes: „Eingeladene erzeugen".', false);
 });
 
 $('tm-d-erzeugen').addEventListener('click', async () => {

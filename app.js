@@ -6242,10 +6242,31 @@
     }
   }
 
+  /**
+   * Ruft eine Termin-Funktion der Datenbank auf.
+   *
+   * WICHTIG: Ein Fehler kommt hier auf ZWEI Wegen zurueck. Entweder als
+   * Postgres-Fehler in `error` — oder als ganz normale Antwort, die im Rumpf
+   * `{"ok": false, "fehler": "..."}` traegt. Den zweiten Weg gehen alle
+   * Antwort-Funktionen (termin_antwort, termin_antwort_im_portal,
+   * termin_antwort_setzen), weil eine unmoegliche Antwort kein Programmfehler
+   * ist. Wer nur `error` prueft, meldet dem Menschen Erfolg, waehrend nichts
+   * gespeichert wurde.
+   */
+  const RPC_FEHLERTEXT = {
+    antwort:          'Diese Antwort gibt es nicht.',
+    nicht_moeglich:   'Der Termin nimmt gerade keine Antworten an — abgesagt, vorbei oder noch nicht eingeladen.',
+    nicht_angemeldet: 'Du bist nicht angemeldet.',
+    unbekannt:        'Diesen Eintrag gibt es nicht mehr.',
+  };
+
   async function rpcTermin(name, args, schluessel) {
     try {
       const { data, error } = await (await sb()).rpc(name, args);
       if (error) return { ok: false, error: error.message };
+      if (data && typeof data === 'object' && data.ok === false) {
+        return { ok: false, error: RPC_FEHLERTEXT[data.fehler] || 'Das hat nicht geklappt.', daten: data };
+      }
       const antwort = { ok: true };
       if (schluessel) antwort[schluessel] = data;
       return antwort;
@@ -6307,9 +6328,14 @@
       if (e1) return { ok: false, error: e1.message, termine: [] };
       if (!termine || !termine.length) return { ok: true, termine: [] };
 
+      // Der profile_id-Filter ist KEINE Verzierung: fuer Mitglieder wuerde die
+      // Policy reichen, der Vorstand sieht ueber is_board() aber ALLE Zeilen.
+      // Ohne Filter stuende bei Eric und Sonja die Antwort irgendeiner
+      // fremden Person als ihre eigene — und der Knopf liefe ins Leere.
       const { data: meine, error: e2 } = await client
         .from('termin_eingeladene')
         .select('termin_id, antwort')
+        .eq('profile_id', s.id)
         .in('termin_id', termine.map(t => t.id));
       if (e2) return { ok: false, error: e2.message, termine: [] };
 

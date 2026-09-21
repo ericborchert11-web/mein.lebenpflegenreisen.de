@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Termin · Leben Pflegen Reisen e.V.</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#2D4A3A">
+<meta name="robots" content="noindex">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="stylesheet" href="shared.css">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Keine Portal-Navigation: eine Aktion pro Seite. Wer aus einer Mail kommt,
+   will antworten und nicht ein Menü lesen. Bewusst grosszuegig gesetzt —
+   ein Teil der Mitglieder liest das auf dem Telefon mit vergroesserter
+   Systemschrift. */
+body { background:#F5F5F0; }
+.tm-karte { max-width:560px; margin:40px auto; background:#fff; border:1px solid #E4E2DC;
+            border-radius:16px; padding:28px 24px 24px; }
+.tm-kopf { background:#1A3A2A; color:#fff; border-radius:16px 16px 0 0;
+           margin:40px auto -16px; max-width:560px; padding:16px 24px; }
+.tm-kopf .marke { font-weight:800; font-size:17px; }
+.tm-kopf .unter { color:#C8F135; font-weight:600; font-size:13px; }
+.tm-titel { font-family:Georgia,serif; font-size:1.5rem; color:#1A3A2A; margin:4px 0 12px; }
+.tm-zeile { font-size:1.05rem; margin:6px 0; }
+.tm-zeile b { color:#1A3A2A; }
+.tm-stand { border-radius:12px; padding:14px 16px; font-size:1.05rem; font-weight:700; margin:18px 0; }
+.tm-stand.ja   { background:#E7F3E9; color:#245c2c; }
+.tm-stand.nein { background:#FBE9E9; color:#8d2626; }
+.tm-stand.offen{ background:#F1EFE7; color:#4a534d; }
+.tm-knopf { display:inline-block; border:1px solid #CFCBBF; background:#fff; color:#12291d;
+            font-weight:800; font-size:1rem; padding:14px 22px; border-radius:12px;
+            margin:0 10px 10px 0; cursor:pointer; }
+.tm-knopf.voll { background:#C8F135; border-color:#C8F135; }
+.tm-mini { font-size:.9rem; color:#5B6660; }
+.tm-beschreibung { background:#F7F6F1; border-radius:10px; padding:14px 16px; margin:14px 0;
+                   font-size:1rem; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+
+<div class="tm-kopf">
+  <div class="marke">Leben Pflegen Reisen e.V.</div>
+  <div class="unter">Termin</div>
+</div>
+
+<main class="tm-karte" id="main">
+  <div id="tm-inhalt"><p>Einen Moment…</p></div>
+</main>
+
+<script src="app.js?v20260921a"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+// Nur die A11y-Leiste: kein Menü, kein Footer, kein Chatbot.
+LPR_Layout.init({ header: false, footer: false, chatbot: false });
+
+function esc(x) {
+  return String(x == null ? '' : x)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+const params = new URLSearchParams(location.search);
+const token  = params.get('t') || '';
+const wunsch = params.get('a');           // 'ja' | 'nein' | null
+
+const MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August',
+                'September','Oktober','November','Dezember'];
+
+function wannText(t) {
+  if (!t.datum) return '';
+  const d = new Date(t.datum + 'T12:00:00');
+  const lang = t.wochentag + ', ' + d.getDate() + '. ' + MONATE[d.getMonth()] + ' ' + d.getFullYear();
+  if (!t.uhrzeit) return lang + ' · Uhrzeit folgt';
+  return lang + ', ' + t.uhrzeit + ' Uhr' + (t.ende_uhrzeit ? ' bis ' + t.ende_uhrzeit + ' Uhr' : '');
+}
+
+function fehler(text) {
+  document.getElementById('tm-inhalt').innerHTML =
+    '<h1 class="tm-titel">Das hat nicht geklappt</h1>' +
+    '<p class="tm-zeile">' + esc(text) + '</p>' +
+    '<p class="tm-mini">Schreib uns kurz an ' +
+    '<a href="mailto:vorstand@lebenpflegenreisen.de">vorstand@lebenpflegenreisen.de</a>, ' +
+    'dann tragen wir deine Antwort von Hand ein.</p>';
+}
+
+function zeichne(t) {
+  const stand =
+    t.antwort === 'zusage' ? '<div class="tm-stand ja">Du bist dabei. Danke!</div>' :
+    t.antwort === 'absage' ? '<div class="tm-stand nein">Du hast abgesagt. Schade — bis zum nächsten Mal.</div>' :
+                             '<div class="tm-stand offen">Wir wissen noch nicht, ob du kommst.</div>';
+
+  const abgesagt = t.status === 'abgesagt';
+  const vorbei   = t.vorbei;
+
+  const knoepfe = (abgesagt || vorbei) ? '' :
+    '<p class="tm-zeile" style="margin-top:18px;">' +
+      (t.antwort === 'offen' ? 'Sag uns bitte Bescheid:' : 'Doch anders?') + '</p>' +
+    '<button type="button" class="tm-knopf' + (t.antwort === 'zusage' ? '' : ' voll') + '" data-a="zusage">Ich komme</button>' +
+    // Hervorgehoben ist immer der Knopf, den man NOCH nicht gedrueckt hat —
+    // bei einer Absage also "Ich kann nicht" blass und "Ich komme" kraeftig,
+    // damit die eigene Antwort auf einen Blick ablesbar bleibt.
+    '<button type="button" class="tm-knopf' + (t.antwort === 'absage' ? ' voll' : '') + '" data-a="absage">Ich kann nicht</button>';
+
+  document.getElementById('tm-inhalt').innerHTML =
+    '<p class="tm-mini">Hallo ' + esc(t.name) + ',</p>' +
+    '<h1 class="tm-titel">' + esc(t.titel) + '</h1>' +
+    (abgesagt ? '<div class="tm-stand nein">Dieser Termin wurde abgesagt.</div>' : '') +
+    (!abgesagt && vorbei ? '<div class="tm-stand offen">Dieser Termin liegt bereits hinter uns.</div>' : '') +
+    '<p class="tm-zeile"><b>Wann:</b> ' + esc(wannText(t)) + '</p>' +
+    '<p class="tm-zeile"><b>Wo:</b> ' + esc(t.ort || 'Ort folgt') + '</p>' +
+    (t.online_link ? '<p class="tm-zeile"><b>Online:</b> <a href="' + esc(t.online_link) + '">' + esc(t.online_link) + '</a></p>' : '') +
+    (t.beschreibung ? '<div class="tm-beschreibung">' + esc(t.beschreibung) + '</div>' : '') +
+    (abgesagt || vorbei ? '' : stand) +
+    knoepfe +
+    // NICHT bedingungslos "gespeichert" schreiben: Wer den Link nur oeffnet,
+    // hat nichts geklickt und haelt sich sonst faelschlich fuer angemeldet.
+    '<p class="tm-mini" style="margin-top:22px;border-top:1px solid #EFEDE6;padding-top:12px;">' +
+      (abgesagt || vorbei
+        ? 'Hier gibt es nichts mehr zu tun.'
+        : t.antwort === 'offen'
+          ? 'Ein Klick genügt — deine Antwort wird sofort gespeichert.'
+          : 'Deine Antwort ist gespeichert. Du kannst sie jederzeit über denselben Link ändern.') +
+      '</p>';
+
+  [].forEach.call(document.querySelectorAll('[data-a]'), b => {
+    b.addEventListener('click', async () => {
+      b.disabled = true;
+      const r = await LPR.terminAntworten(token, b.dataset.a);
+      if (!r.ok || !r.termin || r.termin.ok === false) {
+        fehler('Die Antwort ließ sich nicht speichern.');
+        return;
+      }
+      zeichne(r.termin);
+    });
+  });
+}
+
+(async function start() {
+  if (!token) { fehler('In der Adresse fehlt der persönliche Link aus deiner Einladung.'); return; }
+
+  // Erst lesen, dann — falls die Mail einen Wunsch mitgibt — schreiben.
+  // Geschrieben wird hier im Browser und nicht beim Aufruf der Adresse:
+  // manche Mailsysteme oeffnen Links vorab zur Pruefung, und die wuerden
+  // sonst eine Zusage abgeben, die niemand gegeben hat.
+  let t;
+  if (wunsch === 'ja' || wunsch === 'nein') {
+    const r = await LPR.terminAntworten(token, wunsch === 'ja' ? 'zusage' : 'absage');
+    if (r.ok && r.termin && r.termin.ok !== false) {
+      t = r.termin;
+    } else {
+      // Nicht moeglich (abgesagt, vorbei, unbekannt) — trotzdem zeigen, was Sache ist.
+      const r2 = await LPR.terminAnsehen(token);
+      if (!r2.ok || !r2.termin || r2.termin.ok === false) {
+        fehler('Diesen Link kennen wir nicht. Vielleicht ist er unvollständig kopiert worden.');
+        return;
+      }
+      t = r2.termin;
+    }
+  } else {
+    const r = await LPR.terminAnsehen(token);
+    if (!r.ok || !r.termin || r.termin.ok === false) {
+      fehler('Diesen Link kennen wir nicht. Vielleicht ist er unvollständig kopiert worden.');
+      return;
+    }
+    t = r.termin;
+  }
+  zeichne(t);
+})();
+</script>
+</body>
+</html>

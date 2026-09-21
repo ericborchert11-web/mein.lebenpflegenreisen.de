@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Termine · Leben Pflegen Reisen e.V.</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#2D4A3A">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="stylesheet" href="shared.css">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+.tm-wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+.tm-karte { background:#fff; border:1px solid var(--line,#E4E2DC); border-radius:14px; padding:18px; margin-bottom:16px; }
+.tm-liste { display:grid; gap:10px; }
+.tm-zeile { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+            border:1px solid var(--line,#E4E2DC); border-radius:12px; padding:12px 14px; background:#fff; cursor:pointer; }
+.tm-zeile[aria-selected="true"] { border-color:#1A3A2A; box-shadow:0 0 0 2px rgba(26,58,42,.12); }
+.tm-datum { font-weight:800; color:var(--green-deep,#1A3A2A); min-width:9ch; }
+.tm-status { font-size:12.5px; font-weight:700; border-radius:999px; padding:3px 10px; }
+.tm-status.entwurf   { background:#F1EFE7; color:#5B6660; }
+.tm-status.eingeladen{ background:#E7F3E9; color:#2E7D32; }
+.tm-status.abgesagt  { background:#FBE9E9; color:#9B2C2C; }
+.tm-zahlen { display:flex; gap:14px; font-size:14px; color:#5B6660; }
+.tm-zahlen strong { color:#1A1A18; }
+.tm-feld { display:block; margin-bottom:12px; }
+.tm-feld span { display:block; font-size:13.5px; font-weight:700; color:#5B6660; margin-bottom:4px; }
+.tm-feld input, .tm-feld select, .tm-feld textarea {
+  width:100%; padding:10px 12px; border:1px solid #CFCBBF; border-radius:10px; font:inherit; background:#fff; }
+.tm-reihe { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+.tm-aktionen { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+.tm-tab { width:100%; border-collapse:collapse; font-size:14.5px; }
+.tm-tab th { text-align:left; padding:8px 10px; background:#1A3A2A; color:#fff; font-size:13px; }
+.tm-tab td { padding:8px 10px; border-bottom:1px solid #EFEDE6; vertical-align:top; }
+.tm-warn { background:#FFF8E1; border:1px solid #F0E0A8; border-radius:10px; padding:12px 14px; margin:12px 0; font-size:14px; }
+.tm-mini { font-size:12.5px; color:#5B6660; }
+</style>
+</head>
+<body>
+
+<main class="tm-wrap" id="main">
+  <h1 style="font-size:var(--fs-h2);margin:0 0 6px;color:var(--green-deep);">Termine</h1>
+  <p style="margin:0 0 18px;color:var(--muted);font-size:14px;max-width:70ch;">
+    Mitgliederversammlung, Treffen, Infoabende. Eingeladene bekommen eine Mail mit zwei
+    Knöpfen und werden sieben Tage sowie einen Tag vorher erinnert.
+    <strong>Das ist nicht die satzungsgemäße Einladung nach § 12</strong> — die verschickst du weiterhin selbst.
+  </p>
+
+  <div id="tm-meldung"></div>
+
+  <div class="tm-karte">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+      <h2 style="margin:0;font-size:18px;color:var(--green-deep);">Alle Termine</h2>
+      <button type="button" class="btn btn-primary" id="tm-neu">Neuer Termin</button>
+    </div>
+    <div class="tm-liste" id="tm-liste" style="margin-top:14px;">Wird geladen…</div>
+  </div>
+
+  <div class="tm-karte" id="tm-form-karte" hidden>
+    <h2 style="margin:0 0 14px;font-size:18px;color:var(--green-deep);" id="tm-form-titel">Neuer Termin</h2>
+    <form id="tm-form">
+      <label class="tm-feld"><span>Titel</span>
+        <input type="text" id="tm-titel" required maxlength="120" placeholder="Mitgliederversammlung 2026"></label>
+      <div class="tm-reihe">
+        <label class="tm-feld"><span>Datum</span><input type="date" id="tm-datum" required></label>
+        <label class="tm-feld"><span>Uhrzeit (darf leer bleiben)</span><input type="time" id="tm-uhrzeit"></label>
+        <label class="tm-feld"><span>Ende (optional)</span><input type="time" id="tm-ende"></label>
+      </div>
+      <label class="tm-feld"><span>Ort (darf leer bleiben)</span>
+        <input type="text" id="tm-ort" maxlength="160" placeholder="Treibende Kraft, Berlin-Moabit"></label>
+      <label class="tm-feld"><span>Online-Link (optional)</span>
+        <input type="url" id="tm-online" maxlength="300" placeholder="https://…"></label>
+      <div class="tm-reihe">
+        <label class="tm-feld"><span>Eingeladen sind</span>
+          <select id="tm-zielgruppe">
+            <option value="mitglieder">Alle Mitglieder (mit Vereinsnummer)</option>
+            <option value="mitwirkende">Alle Mitwirkenden</option>
+            <option value="vorstand">Nur der Vorstand</option>
+            <option value="handverlesen">Handverlesen</option>
+          </select></label>
+        <label class="tm-feld"><span>Antwort erbeten bis (optional)</span>
+          <input type="date" id="tm-antwort-bis"></label>
+      </div>
+      <label class="tm-feld"><span>Beschreibung (steht in der Mail; hier kann die Tagesordnung stehen)</span>
+        <textarea id="tm-beschreibung" rows="5" maxlength="4000"></textarea></label>
+      <div class="tm-aktionen">
+        <button type="submit" class="btn btn-primary">Speichern</button>
+        <button type="button" class="btn" id="tm-abbrechen">Abbrechen</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="tm-karte" id="tm-detail" hidden>
+    <h2 style="margin:0 0 4px;font-size:18px;color:var(--green-deep);" id="tm-d-titel">—</h2>
+    <p class="tm-mini" id="tm-d-wann" style="margin:0 0 14px;">—</p>
+
+    <div id="tm-d-warnung"></div>
+
+    <div class="tm-aktionen">
+      <button type="button" class="btn" id="tm-d-bearbeiten">Bearbeiten</button>
+      <button type="button" class="btn" id="tm-d-erzeugen">Eingeladene erzeugen</button>
+      <button type="button" class="btn" id="tm-d-probe">Probe an mich</button>
+      <button type="button" class="btn btn-primary" id="tm-d-einladen">Einladung verschicken</button>
+      <button type="button" class="btn" id="tm-d-aenderung">Änderung mitteilen</button>
+      <button type="button" class="btn" id="tm-d-absagen">Termin absagen</button>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:18px;">
+      <label class="tm-feld" style="margin:0;flex:1 1 200px;"><span>Person von Hand hinzufügen</span>
+        <input type="text" id="tm-p-name" placeholder="Vor- und Nachname"></label>
+      <label class="tm-feld" style="margin:0;flex:1 1 220px;"><span>Mailadresse (optional)</span>
+        <input type="email" id="tm-p-mail" placeholder="name@example.de"></label>
+      <button type="button" class="btn" id="tm-p-add">Hinzufügen</button>
+    </div>
+
+    <div class="tm-zahlen" id="tm-d-zahlen" style="margin:18px 0 10px;"></div>
+    <div style="overflow-x:auto;"><table class="tm-tab" id="tm-d-tab"><tbody></tbody></table></div>
+    <div class="tm-aktionen">
+      <button type="button" class="btn" id="tm-d-csv">Liste als CSV</button>
+    </div>
+  </div>
+</main>
+
+<script src="app.js?v20260921a"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+LPR_Layout.init({ page: 'termine-admin' });
+if (!LPR.requireRole('admin', 'login.html?next=admin-termine.html')) throw new Error('kein Zugriff');
+
+const $ = id => document.getElementById(id);
+
+// LPR_Layout.escapeHtml maskiert KEINE Anfuehrungszeichen. Alles, was in ein
+// Attribut geht, braucht diese Fassung.
+function esc(x) {
+  return String(x == null ? '' : x)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+const MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August',
+                'September','Oktober','November','Dezember'];
+const WOCHENTAGE = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+
+function langesDatum(iso) {
+  if (!iso) return '—';
+  // Mittags ansetzen: um Mitternacht verschiebt die Zeitzone das Datum.
+  const d = new Date(iso + 'T12:00:00');
+  return WOCHENTAGE[d.getDay()] + ', ' + d.getDate() + '. ' + MONATE[d.getMonth()] + ' ' + d.getFullYear();
+}
+function wannText(t) {
+  const d = langesDatum(t.datum);
+  if (!t.uhrzeit) return d + ' · Uhrzeit folgt';
+  return d + ', ' + t.uhrzeit.slice(0,5) + ' Uhr' + (t.ende_uhrzeit ? ' bis ' + t.ende_uhrzeit.slice(0,5) + ' Uhr' : '');
+}
+function melde(text, warnung) {
+  $('tm-meldung').innerHTML = text
+    ? '<div class="tm-warn" style="' + (warnung ? '' : 'background:#E7F3E9;border-color:#BFE3C6;') + '">' + esc(text) + '</div>'
+    : '';
+  if (text) window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+let termine = [];
+let aktuell = null;      // der angezeigte Termin
+let eingeladene = [];
+
+async function ladeListe(auswahlId) {
+  const r = await LPR.listVereinsTermine();
+  if (!r.ok) { $('tm-liste').textContent = r.error; return; }
+  termine = r.termine;
+  if (!termine.length) {
+    $('tm-liste').innerHTML = '<p class="tm-mini">Noch kein Termin angelegt.</p>';
+    return;
+  }
+  $('tm-liste').innerHTML = termine.map(t =>
+    '<div class="tm-zeile" role="button" tabindex="0" data-id="' + esc(t.id) + '"' +
+    ' aria-selected="' + (t.id === auswahlId ? 'true' : 'false') + '">' +
+      '<span class="tm-datum">' + esc(t.datum.split('-').reverse().join('.')) + '</span>' +
+      '<span style="flex:1 1 200px;font-weight:600;">' + esc(t.titel) + '</span>' +
+      '<span class="tm-status ' + esc(t.status) + '">' + esc(t.status) + '</span>' +
+    '</div>').join('');
+  [].forEach.call($('tm-liste').querySelectorAll('.tm-zeile'), el => {
+    el.addEventListener('click', () => zeigeDetail(el.dataset.id));
+    el.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); zeigeDetail(el.dataset.id); }
+    });
+  });
+}
+
+async function zeigeDetail(id) {
+  aktuell = termine.find(t => t.id === id) || null;
+  if (!aktuell) return;
+  $('tm-form-karte').hidden = true;
+  $('tm-detail').hidden = false;
+  $('tm-d-titel').textContent = aktuell.titel;
+  $('tm-d-wann').textContent = wannText(aktuell) + ' · ' + (aktuell.ort || 'Ort folgt');
+  // Vor dem Versand gibt es nichts mitzuteilen und nichts abzusagen. Beide
+  // Knoepfe wuerden sonst die Version hochzaehlen und "0 Person(en)
+  // benachrichtigt" melden — in Gruen, also wie ein Erfolg.
+  const nochNichtRaus = aktuell.status !== 'eingeladen';
+  $('tm-d-aenderung').disabled = nochNichtRaus;
+  $('tm-d-absagen').disabled   = aktuell.status === 'abgesagt';
+  $('tm-d-einladen').disabled  = aktuell.status === 'abgesagt';
+  [].forEach.call($('tm-liste').querySelectorAll('.tm-zeile'), el =>
+    el.setAttribute('aria-selected', el.dataset.id === id ? 'true' : 'false'));
+  await ladeEingeladene();
+}
+
+async function ladeEingeladene() {
+  const r = await LPR.listTerminEingeladene(aktuell.id);
+  if (!r.ok) { melde(r.error, true); return; }
+  eingeladene = r.eingeladene;
+
+  const zusagen = eingeladene.filter(e => e.antwort === 'zusage').length;
+  const absagen = eingeladene.filter(e => e.antwort === 'absage').length;
+  const offen   = eingeladene.filter(e => e.antwort === 'offen').length;
+  const ohneMail = eingeladene.filter(e => !e.email);
+
+  $('tm-d-zahlen').innerHTML =
+    '<span>Zusagen <strong>' + zusagen + '</strong></span>' +
+    '<span>Absagen <strong>' + absagen + '</strong></span>' +
+    '<span>keine Antwort <strong>' + offen + '</strong></span>' +
+    '<span>eingeladen <strong>' + eingeladene.length + '</strong></span>';
+
+  $('tm-d-warnung').innerHTML = ohneMail.length
+    ? '<div class="tm-warn"><strong>' + ohneMail.length + ' Person' + (ohneMail.length === 1 ? '' : 'en') +
+      ' ohne Mailadresse</strong> — die musst du persönlich einladen: ' +
+      esc(ohneMail.map(e => e.name).join(', ')) + '</div>'
+    : '';
+
+  const zeilen = eingeladene.map(e =>
+    '<tr>' +
+      '<td>' + esc(e.name) + (e.email ? '' : ' <span class="tm-mini">(keine Mailadresse)</span>') + '</td>' +
+      '<td class="tm-mini">' + esc(e.email || '—') + '</td>' +
+      '<td>' + esc(e.antwort) + (e.antwort_quelle ? ' <span class="tm-mini">(' + esc(e.antwort_quelle) + ')</span>' : '') + '</td>' +
+      '<td class="tm-mini">' + (e.eingeladen_am ? 'verschickt' : 'noch nicht') + '</td>' +
+      '<td>' +
+        '<button type="button" class="btn" data-setz="' + esc(e.id) + '" data-wert="zusage" style="padding:4px 10px;">kommt</button> ' +
+        '<button type="button" class="btn" data-setz="' + esc(e.id) + '" data-wert="absage" style="padding:4px 10px;">kommt nicht</button>' +
+      '</td>' +
+    '</tr>').join('');
+
+  $('tm-d-tab').querySelector('tbody').innerHTML =
+    '<tr><th>Name</th><th>Mail</th><th>Antwort</th><th>Einladung</th><th>Von Hand setzen</th></tr>' + zeilen;
+
+  [].forEach.call($('tm-d-tab').querySelectorAll('[data-setz]'), b => {
+    b.addEventListener('click', async () => {
+      const r2 = await LPR.setTerminAntwortAdmin(b.dataset.setz, b.dataset.wert);
+      if (!r2.ok) { LPR.showToast(r2.error, 'warn'); return; }
+      await ladeEingeladene();
+    });
+  });
+}
+
+function formularFuellen(t) {
+  $('tm-form-titel').textContent = t ? 'Termin bearbeiten' : 'Neuer Termin';
+  $('tm-titel').value        = t ? t.titel : '';
+  $('tm-datum').value        = t ? t.datum : '';
+  $('tm-uhrzeit').value      = t && t.uhrzeit ? t.uhrzeit.slice(0,5) : '';
+  $('tm-ende').value         = t && t.ende_uhrzeit ? t.ende_uhrzeit.slice(0,5) : '';
+  $('tm-ort').value          = t ? (t.ort || '') : '';
+  $('tm-online').value       = t ? (t.online_link || '') : '';
+  $('tm-zielgruppe').value   = t ? t.zielgruppe : 'mitglieder';
+  $('tm-antwort-bis').value  = t ? (t.antwort_bis || '') : '';
+  $('tm-beschreibung').value = t ? (t.beschreibung || '') : '';
+  $('tm-form').dataset.id    = t ? t.id : '';
+  $('tm-form-karte').hidden  = false;
+  $('tm-form-karte').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+$('tm-neu').addEventListener('click', () => { $('tm-detail').hidden = true; formularFuellen(null); });
+$('tm-abbrechen').addEventListener('click', () => { $('tm-form-karte').hidden = true; });
+$('tm-d-bearbeiten').addEventListener('click', () => formularFuellen(aktuell));
+
+$('tm-form').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const id = $('tm-form').dataset.id;
+  // Was stand vorher da? Nur damit laesst sich hinterher fragen, ob die
+  // Eingeladenen es erfahren sollen — ein Knopf allein wuerde vergessen, und
+  // dann haette jemand die alte Uhrzeit im Kalender.
+  const vorher = id ? termine.find(t => t.id === id) : null;
+  const r = await LPR.saveTermin({
+    id: id || null,
+    titel:        $('tm-titel').value.trim(),
+    datum:        $('tm-datum').value,
+    uhrzeit:      $('tm-uhrzeit').value,
+    ende_uhrzeit: $('tm-ende').value,
+    ort:          $('tm-ort').value.trim(),
+    online_link:  $('tm-online').value.trim(),
+    zielgruppe:   $('tm-zielgruppe').value,
+    antwort_bis:  $('tm-antwort-bis').value,
+    beschreibung: $('tm-beschreibung').value.trim(),
+  });
+  if (!r.ok) { melde(r.error, true); return; }
+  $('tm-form-karte').hidden = true;
+  await ladeListe(r.id);
+  await zeigeDetail(r.id);
+
+  const kurz = w => (w || '').slice(0, 5);
+  const verschoben = vorher && vorher.status === 'eingeladen' && (
+    vorher.datum !== $('tm-datum').value ||
+    kurz(vorher.uhrzeit) !== $('tm-uhrzeit').value ||
+    (vorher.ort || '') !== $('tm-ort').value.trim());
+
+  if (verschoben) {
+    if (window.confirm('Wann oder Wo hat sich geändert. Eingeladene jetzt benachrichtigen?')) {
+      const rn = await LPR.terminAenderungVerschicken(aktuell.id);
+      if (!rn.ok) { melde(rn.error, true); return; }
+      await ladeListe(aktuell.id);
+      melde('Gespeichert, ' + rn.anzahl + ' Person(en) benachrichtigt.', false);
+      return;
+    }
+    melde('Gespeichert — es wurde NIEMAND benachrichtigt. Über „Änderung mitteilen" kannst du das nachholen.', true);
+    return;
+  }
+
+  melde(id ? 'Gespeichert.' : 'Termin angelegt. Als Nächstes: „Eingeladene erzeugen".', false);
+});
+
+$('tm-d-erzeugen').addEventListener('click', async () => {
+  const r = await LPR.terminEingeladeneErzeugen(aktuell.id);
+  if (!r.ok) { melde(r.error, true); return; }
+  await ladeEingeladene();
+  melde(r.anzahl === 0
+    ? 'Keine neuen Personen gefunden. Bei „Handverlesen" trägst du sie unten von Hand ein.'
+    : r.anzahl + ' Person' + (r.anzahl === 1 ? '' : 'en') + ' hinzugefügt. Es ist noch nichts verschickt.', false);
+});
+
+$('tm-p-add').addEventListener('click', async () => {
+  const name = $('tm-p-name').value.trim();
+  if (!name) { LPR.showToast('Name fehlt.', 'warn'); return; }
+  const r = await LPR.terminEingeladenenHinzufuegen(aktuell.id, name, $('tm-p-mail').value.trim());
+  if (!r.ok) { melde(r.error, true); return; }
+  $('tm-p-name').value = ''; $('tm-p-mail').value = '';
+  await ladeEingeladene();
+});
+
+$('tm-d-probe').addEventListener('click', async () => {
+  const r = await LPR.terminProbeVerschicken(aktuell.id);
+  if (!r.ok) { melde(r.error, true); return; }
+  melde('Probe verschickt — sie geht nur an deine eigene Adresse und zählt in keiner Liste mit.', false);
+});
+
+$('tm-d-einladen').addEventListener('click', async () => {
+  const offen = eingeladene.filter(e => !e.eingeladen_am && e.email).length;
+  if (!offen) {
+    melde('Es gibt niemanden, der noch keine Einladung hat. (Nachzügler bekommen ihre Einladung über denselben Knopf, sobald sie in der Liste stehen.)', true);
+    return;
+  }
+  if (!window.confirm('Einladung an ' + offen + ' Person(en) verschicken?')) return;
+  const r = await LPR.terminEinladungVerschicken(aktuell.id);
+  if (!r.ok) { melde(r.error, true); return; }
+  await ladeListe(aktuell.id);
+  await zeigeDetail(aktuell.id);
+  melde(r.anzahl + ' Einladung(en) auf den Weg gebracht.', false);
+});
+
+$('tm-d-aenderung').addEventListener('click', async () => {
+  if (!window.confirm('Allen Eingeladenen außer den Absagen mitteilen, dass sich der Termin geändert hat?')) return;
+  const r = await LPR.terminAenderungVerschicken(aktuell.id);
+  if (!r.ok) { melde(r.error, true); return; }
+  await ladeListe(aktuell.id);
+  melde(r.anzahl + ' Person(en) benachrichtigt.', false);
+});
+
+$('tm-d-absagen').addEventListener('click', async () => {
+  if (!window.confirm('Termin absagen? Alle Eingeladenen bekommen eine Mail, der Kalendereintrag wird zurückgenommen.')) return;
+  const r = await LPR.terminAbsagen(aktuell.id);
+  if (!r.ok) { melde(r.error, true); return; }
+  await ladeListe(aktuell.id);
+  await zeigeDetail(aktuell.id);
+  melde('Termin abgesagt, ' + r.anzahl + ' Person(en) benachrichtigt.', false);
+});
+
+$('tm-d-csv').addEventListener('click', () => {
+  const kopf = 'Name;Mail;Antwort;Antwort am;Quelle\n';
+  const leib = eingeladene.map(e => [
+    e.name, e.email || '', e.antwort,
+    e.antwort_am ? e.antwort_am.slice(0,10) : '', e.antwort_quelle || '',
+  ].map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\n');
+  // ﻿, sonst zeigt Excel die Umlaute falsch.
+  const blob = new Blob(['﻿' + kopf + leib], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'teilnehmer-' + aktuell.datum + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+ladeListe();
+</script>
+</body>
+</html>

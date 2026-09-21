@@ -253,6 +253,17 @@
 }
 .bookings-block .bb-intro { font-size: 14px; color: var(--text); margin: 0 0 14px; line-height: 1.5; }
 
+.termine-block { background:#fff; border:1px solid var(--line,#E4E2DC); border-radius:14px;
+                 padding:18px; margin:18px 0; }
+.termine-block h3 { margin:0 0 10px; font-size:17px; color:var(--green-deep,#1A3A2A); }
+.tb-karte { border:1px solid #EFEDE6; border-radius:12px; padding:14px; margin-bottom:10px; }
+.tb-wann { font-weight:700; color:#1A3A2A; }
+.tb-stand { font-size:13.5px; font-weight:700; margin:8px 0 0; }
+.tb-stand.ja { color:#2E7D32; } .tb-stand.nein { color:#9B2C2C; } .tb-stand.offen { color:#5B6660; }
+.tb-btn { border:1px solid #CFCBBF; background:#fff; color:#12291d; font-weight:700;
+          padding:9px 16px; border-radius:10px; margin:10px 10px 0 0; cursor:pointer; }
+.tb-btn.voll { background:#C8F135; border-color:#C8F135; }
+
 .push-block {
   background: #fff;
   border: 1px solid var(--border);
@@ -414,6 +425,14 @@ body.contrast .anleitung-hinweis, body.contrast .anleitung-hinweis a { color: #0
       <p class="anleitung-hinweis">Zum ersten Mal? <a href="dokumente/anleitung-dienstablauf.html">So läuft ein Dienst</a> — von der Ankunft bis zur Unterschrift der Pflegekraft.</p>
     </div>
 
+    <!-- Vereinstermine. Kein eigener Menüpunkt: zwei Termine im Jahr
+         rechtfertigen keinen. Der Block hängt an den Daten — keine
+         Einladung, keine Zeile. -->
+    <div id="termine-block" class="termine-block" hidden>
+      <h3>📅 <span data-ls="Termine vom Verein">Nächste Termine</span></h3>
+      <div id="termine-liste"></div>
+    </div>
+
     <!-- Mitteilungen aufs Gerät. Bleibt versteckt, bis geklärt ist, ob das
          Gerät überhaupt kann — ein Schalter, der nichts tut, ist schlimmer
          als keiner. -->
@@ -520,7 +539,7 @@ body.contrast .anleitung-hinweis, body.contrast .anleitung-hinweis a { color: #0
 </div>
 </main>
 
-<script src="app.js?v20260909a"></script>
+<script src="app.js?v20260921a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'mein-bereich' });
@@ -602,6 +621,15 @@ function fmtDateLong(iso) {
   if (session.role === 'ehrenamt') showKennenlernNote(session);
 
   await renderUpcomingBookings();
+  // Gekapselt und mit Vorhandenseins-Pruefung: Liefert der Browser-Cache noch
+  // eine aeltere app.js aus, gibt es LPR.listMeineTermine nicht — ohne diese
+  // beiden Sicherungen riss der Fehler die ganze Init-Kette mit, und der
+  // Mitgliederbereich waere leer geblieben statt nur ohne Terminblock.
+  try {
+    if (typeof LPR.listMeineTermine === 'function') await renderMeineTermine();
+  } catch (e) {
+    console.error('[LPR] renderMeineTermine:', e);
+  }
   await renderStats();
   if (session.role === 'ehrenamt') {
     await checkCompliance();
@@ -658,6 +686,51 @@ function dismissKennenlern() {
   if (!note) return;
   note.hidden = true;
   try { if (note.dataset.key) localStorage.setItem(note.dataset.key, '1'); } catch(e) {}
+}
+
+async function renderMeineTermine() {
+  const block = document.getElementById('termine-block');
+  const liste = document.getElementById('termine-liste');
+  if (!block || !liste) return;
+
+  const r = await LPR.listMeineTermine();
+  if (!r.ok || !r.termine.length) { block.hidden = true; return; }
+
+  const MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August',
+                  'September','Oktober','November','Dezember'];
+  const WOCHENTAGE = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+
+  liste.innerHTML = r.termine.map(t => {
+    // Mittags ansetzen: um Mitternacht schiebt die Zeitzone das Datum.
+    const d = new Date(t.datum + 'T12:00:00');
+    const wann = WOCHENTAGE[d.getDay()] + ', ' + d.getDate() + '. ' + MONATE[d.getMonth()] +
+                 ' ' + d.getFullYear() +
+                 (t.uhrzeit ? ', ' + t.uhrzeit.slice(0,5) + ' Uhr' : ' · Uhrzeit folgt');
+    const stand = t.antwort === 'zusage' ? '<p class="tb-stand ja">Du hast zugesagt.</p>'
+                : t.antwort === 'absage' ? '<p class="tb-stand nein">Du hast abgesagt.</p>'
+                : '<p class="tb-stand offen">Du hast noch nicht geantwortet.</p>';
+    return '<div class="tb-karte">' +
+      '<div class="tb-wann">' + escape(wann) + '</div>' +
+      '<div style="font-size:16px;font-weight:700;margin:2px 0 4px;">' + escape(t.titel) + '</div>' +
+      '<div style="font-size:14px;color:#5B6660;">' + escape(t.ort || 'Ort folgt') + '</div>' +
+      stand +
+      '<button type="button" class="tb-btn' + (t.antwort === 'zusage' ? '' : ' voll') +
+        '" data-termin="' + escape(t.id) + '" data-antwort="zusage">Ich komme</button>' +
+      '<button type="button" class="tb-btn" data-termin="' + escape(t.id) +
+        '" data-antwort="absage">Ich kann nicht</button>' +
+      '</div>';
+  }).join('');
+
+  [].forEach.call(liste.querySelectorAll('[data-termin]'), b => {
+    b.addEventListener('click', async () => {
+      b.disabled = true;
+      const res = await LPR.setMeinTerminAntwort(b.dataset.termin, b.dataset.antwort);
+      if (!res.ok) { LPR.showToast(res.error || 'Das hat nicht geklappt.', 'warn'); b.disabled = false; return; }
+      await renderMeineTermine();
+    });
+  });
+
+  block.hidden = false;
 }
 
 async function renderUpcomingBookings() {

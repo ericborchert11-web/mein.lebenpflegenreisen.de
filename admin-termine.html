@@ -84,6 +84,9 @@
       </div>
       <label class="tm-feld"><span>Beschreibung (steht in der Mail; hier kann die Tagesordnung stehen)</span>
         <textarea id="tm-beschreibung" rows="5" maxlength="4000"></textarea></label>
+      <label class="tm-feld" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="tm-tagesordnung-offen" style="width:auto;">
+        <span style="margin:0;">Tagesordnungspunkte zulassen</span></label>
       <div class="tm-aktionen">
         <button type="submit" class="btn btn-primary">Speichern</button>
         <button type="button" class="btn" id="tm-abbrechen">Abbrechen</button>
@@ -119,10 +122,28 @@
     <div class="tm-aktionen">
       <button type="button" class="btn" id="tm-d-csv">Liste als CSV</button>
     </div>
+
+    <h3 style="margin:28px 0 4px;font-size:16px;color:var(--green-deep);">Unterlagen</h3>
+    <p class="tm-mini" style="margin:0 0 10px;">
+      Diese Dateien sind für jeden erreichbar, der den Link kennt — nichts Vertrauliches hier ablegen.
+    </p>
+    <div id="tm-d-dateien" class="tm-liste" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+      <label class="tm-feld" style="margin:0;flex:1 1 200px;"><span>Titel</span>
+        <input type="text" id="tm-df-titel" maxlength="160" placeholder="Tagesordnung 2026"></label>
+      <label class="tm-feld" style="margin:0;flex:1 1 220px;"><span>Datei hochladen</span>
+        <input type="file" id="tm-df-datei"></label>
+      <label class="tm-feld" style="margin:0;flex:1 1 220px;"><span>oder vorhandene Adresse</span>
+        <input type="url" id="tm-df-url" placeholder="https://…"></label>
+      <button type="button" class="btn" id="tm-df-add">Hinzufügen</button>
+    </div>
+
+    <h3 style="margin:28px 0 4px;font-size:16px;color:var(--green-deep);" id="tm-d-top-h" hidden>Eingereichte Punkte</h3>
+    <div style="overflow-x:auto;"><table class="tm-tab" id="tm-d-top-tab" hidden><tbody></tbody></table></div>
   </div>
 </main>
 
-<script src="app.js?v20260921a"></script>
+<script src="app.js?v20260921b"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -205,6 +226,8 @@ async function zeigeDetail(id) {
   [].forEach.call($('tm-liste').querySelectorAll('.tm-zeile'), el =>
     el.setAttribute('aria-selected', el.dataset.id === id ? 'true' : 'false'));
   await ladeEingeladene();
+  await ladeDateien();
+  await ladePunkte();
 }
 
 async function ladeEingeladene() {
@@ -253,6 +276,82 @@ async function ladeEingeladene() {
   });
 }
 
+let dateien = [];
+
+async function ladeDateien() {
+  const r = await LPR.listTerminDateien(aktuell.id);
+  if (!r.ok) { melde(r.error, true); return; }
+  dateien = r.dateien;
+  $('tm-d-dateien').innerHTML = dateien.length
+    ? dateien.map(d =>
+        '<div class="tm-zeile" style="cursor:default;">' +
+          '<a href="' + esc(d.url) + '" target="_blank" rel="noopener" style="font-weight:600;flex:1 1 auto;">' +
+            esc(d.titel) + '</a>' +
+          '<button type="button" class="btn" data-loesch-datei="' + esc(d.id) + '" style="padding:4px 10px;">Entfernen</button>' +
+        '</div>').join('')
+    : '<p class="tm-mini">Noch keine Unterlage hinterlegt.</p>';
+  [].forEach.call($('tm-d-dateien').querySelectorAll('[data-loesch-datei]'), b => {
+    b.addEventListener('click', async () => {
+      if (!window.confirm('Diese Unterlage entfernen?')) return;
+      const r2 = await LPR.deleteTerminDatei(b.dataset.loeschDatei);
+      if (!r2.ok) { LPR.showToast(r2.error, 'warn'); return; }
+      await ladeDateien();
+    });
+  });
+}
+
+$('tm-df-add').addEventListener('click', async () => {
+  const titel = $('tm-df-titel').value.trim();
+  if (!titel) { LPR.showToast('Titel fehlt.', 'warn'); return; }
+  const datei = $('tm-df-datei').files[0];
+  let url = $('tm-df-url').value.trim();
+  if (datei) {
+    const ru = await LPR.uploadTerminDatei(aktuell.id, datei);
+    if (!ru.ok) { LPR.showToast(ru.error, 'warn'); return; }
+    url = ru.url;
+  }
+  if (!url) { LPR.showToast('Entweder eine Datei auswählen oder eine Adresse einfügen.', 'warn'); return; }
+  const r = await LPR.addTerminDatei(aktuell.id, titel, url, dateien.length);
+  if (!r.ok) { LPR.showToast(r.error, 'warn'); return; }
+  $('tm-df-titel').value = ''; $('tm-df-datei').value = ''; $('tm-df-url').value = '';
+  await ladeDateien();
+});
+
+const TOP_STAND_TEXT = { offen: 'offen', aufgenommen: 'aufgenommen', abgelehnt: 'abgelehnt' };
+
+async function ladePunkte() {
+  const r = await LPR.listTerminPunkte(aktuell.id);
+  if (!r.ok) { melde(r.error, true); return; }
+  const punkte = r.punkte;
+  const zeigen = punkte.length > 0;
+  $('tm-d-top-h').hidden = !zeigen;
+  $('tm-d-top-tab').hidden = !zeigen;
+  if (!zeigen) return;
+
+  const zeilen = punkte.map(p =>
+    '<tr>' +
+      '<td>' + esc(p.name) + '</td>' +
+      '<td>' + esc(p.titel) + '</td>' +
+      '<td class="tm-mini">' + esc(p.beschreibung || '—') + '</td>' +
+      '<td>' + esc(TOP_STAND_TEXT[p.status] || p.status) + '</td>' +
+      '<td>' +
+        '<button type="button" class="btn" data-top-status="' + esc(p.id) + '" data-stand="aufgenommen" style="padding:4px 10px;">aufnehmen</button> ' +
+        '<button type="button" class="btn" data-top-status="' + esc(p.id) + '" data-stand="abgelehnt" style="padding:4px 10px;">ablehnen</button>' +
+      '</td>' +
+    '</tr>').join('');
+
+  $('tm-d-top-tab').querySelector('tbody').innerHTML =
+    '<tr><th>Name</th><th>Titel</th><th>Begründung</th><th>Stand</th><th>Entscheiden</th></tr>' + zeilen;
+
+  [].forEach.call($('tm-d-top-tab').querySelectorAll('[data-top-status]'), b => {
+    b.addEventListener('click', async () => {
+      const r2 = await LPR.setTerminPunktStatus(b.dataset.topStatus, b.dataset.stand);
+      if (!r2.ok) { LPR.showToast(r2.error, 'warn'); return; }
+      await ladePunkte();
+    });
+  });
+}
+
 function formularFuellen(t) {
   $('tm-form-titel').textContent = t ? 'Termin bearbeiten' : 'Neuer Termin';
   $('tm-titel').value        = t ? t.titel : '';
@@ -264,6 +363,7 @@ function formularFuellen(t) {
   $('tm-zielgruppe').value   = t ? t.zielgruppe : 'mitglieder';
   $('tm-antwort-bis').value  = t ? (t.antwort_bis || '') : '';
   $('tm-beschreibung').value = t ? (t.beschreibung || '') : '';
+  $('tm-tagesordnung-offen').checked = t ? !!t.tagesordnung_offen : false;
   $('tm-form').dataset.id    = t ? t.id : '';
   $('tm-form-karte').hidden  = false;
   $('tm-form-karte').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -291,6 +391,7 @@ $('tm-form').addEventListener('submit', async ev => {
     zielgruppe:   $('tm-zielgruppe').value,
     antwort_bis:  $('tm-antwort-bis').value,
     beschreibung: $('tm-beschreibung').value.trim(),
+    tagesordnung_offen: $('tm-tagesordnung-offen').checked,
   });
   if (!r.ok) { melde(r.error, true); return; }
   $('tm-form-karte').hidden = true;

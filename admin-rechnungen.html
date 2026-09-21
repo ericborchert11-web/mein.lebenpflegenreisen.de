@@ -242,8 +242,8 @@ function renderTable(invoices) {
       <td class="num">${LPR.centsToEUR(i.total_cents)}</td>
       <td>${badge}</td>
       <td>${LPR.invoiceIsOpen(i) ? deDate(i.due_date)
-            : (LPR.invoiceIsCredit(i) ? 'verrechnet'
-            : (i.paid_on ? 'bezahlt ' + deDate(i.paid_on) : '—'))}</td>
+            : (i.paid_on ? 'bezahlt ' + deDate(i.paid_on)
+            : (LPR.invoiceIsCredit(i) ? 'verrechnet' : '—'))}</td>
     </tr>`;
   }).join('');
 

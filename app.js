@@ -6100,6 +6100,93 @@
     }
   }
 
+  // ── Kassenbuch ─────────────────────────────────────────────────────────
+  // Der Kontoauszug ist die Wahrheit: jede Bewegung des Vereinskontos wird
+  // einmal erfasst und danach nicht mehr veraendert. Gelesen und zerlegt wird
+  // die CSV im Browser (kassenbuch-csv.js) — hier geht es nur noch um die
+  // Datenbank.
+
+  const KASSENBUCH_COLS =
+    'id, konto_iban, buchungstag, valuta, buchungstext, verwendungszweck, ' +
+    'gegenpartei, betrag_cents, fingerabdruck, invoice_id, claim_id, ' +
+    'kostenart, sphaere, beleg_url, notiz, importiert_am';
+
+  async function kassenbuchListe(filter) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', buchungen: [] };
+    const f = filter || {};
+    try {
+      let q = (await sb()).from('bank_buchungen').select(KASSENBUCH_COLS)
+        .order('buchungstag', { ascending: false });
+      if (f.jahr) q = q.gte('buchungstag', f.jahr + '-01-01').lte('buchungstag', f.jahr + '-12-31');
+      const { data, error } = await q;
+      if (error) return { ok: false, error: error.message, buchungen: [] };
+      return { ok: true, buchungen: data || [] };
+    } catch(e) {
+      console.error('[LPR] kassenbuchListe:', e);
+      return { ok: false, error: 'Netzwerkfehler.', buchungen: [] };
+    }
+  }
+
+  /**
+   * Welche dieser Fingerabdruecke kennt die Datenbank schon?
+   *
+   * Grundlage der Vorschau: Der Vorstand soll VOR dem Schreiben sehen, was neu
+   * ist. In Bloecken, weil `in.(…)` als Abfrageparameter in der URL landet und
+   * ein ganzes Jahr Kontoauszug die Laengengrenze reisst.
+   */
+  async function kassenbuchBekannteAbdruecke(abdruecke) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', bekannt: [] };
+    const liste = Array.from(new Set(abdruecke || []));
+    const bekannt = [];
+    try {
+      const client = await sb();
+      for (let i = 0; i < liste.length; i += 200) {
+        const teil = liste.slice(i, i + 200);
+        const { data, error } = await client.from('bank_buchungen')
+          .select('fingerabdruck').in('fingerabdruck', teil);
+        if (error) return { ok: false, error: error.message, bekannt: [] };
+        (data || []).forEach(r => bekannt.push(r.fingerabdruck));
+      }
+      return { ok: true, bekannt };
+    } catch(e) {
+      console.error('[LPR] kassenbuchBekannteAbdruecke:', e);
+      return { ok: false, error: 'Netzwerkfehler.', bekannt: [] };
+    }
+  }
+
+  /**
+   * Schreibt neue Buchungen. `ignoreDuplicates` haengt am eindeutigen
+   * Fingerabdruck: Wer dieselbe Datei zweimal hochlaedt, legt nichts doppelt
+   * an — auch dann nicht, wenn die Vorschau zwischendurch veraltet ist.
+   */
+  async function kassenbuchImport(zeilen) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', neu: 0 };
+    const rows = (zeilen || []).map(z => ({
+      konto_iban:       z.konto_iban,
+      buchungstag:      z.buchungstag,
+      valuta:           z.valuta,
+      buchungstext:     z.buchungstext,
+      verwendungszweck: z.verwendungszweck,
+      gegenpartei:      z.gegenpartei,
+      betrag_cents:     z.betrag_cents,
+      fingerabdruck:    z.fingerabdruck
+    }));
+    if (!rows.length) return { ok: true, neu: 0 };
+    try {
+      const { data, error } = await (await sb()).from('bank_buchungen')
+        .upsert(rows, { onConflict: 'fingerabdruck', ignoreDuplicates: true })
+        .select('id');
+      if (error) return { ok: false, error: error.message, neu: 0 };
+      return { ok: true, neu: (data || []).length };
+    } catch(e) {
+      console.error('[LPR] kassenbuchImport:', e);
+      return { ok: false, error: 'Netzwerkfehler.', neu: 0 };
+    }
+  }
+
   // ── Leistungsvorlagen ──────────────────────────────────────────────────
   // Frei benannte Positionen, die in jede Rechnung eingefuegt werden koennen.
   // Eine Vorlage ist ein Vorschlag: die eingefuegte Position ist danach eine
@@ -6567,6 +6654,8 @@
     listRecipients, saveRecipient, setRecipientActive,
     listInvoices, getInvoice, createInvoice, updateInvoiceDraft, reopenInvoice, saveInvoiceItems,
     deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid, getInvoiceRef,
+    // Kassenbuch
+    kassenbuchListe, kassenbuchBekannteAbdruecke, kassenbuchImport,
     listItemTemplates, saveItemTemplate, hatBriefFelder, deleteItemTemplate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     // Besetzungsregel — geteilt von admin-reisen.html und admin-jahreskalender.html

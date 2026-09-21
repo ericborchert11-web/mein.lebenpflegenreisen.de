@@ -232,7 +232,7 @@
 </div>
 </main>
 
-<script src="app.js?v20260819a"></script>
+<script src="app.js?v20260921a"></script>
 <script src="druck-anpassen.js?v20260823a"></script>
 <script src="layout.js"></script>
 <script>
@@ -436,12 +436,22 @@ function renderBar() {
     bits.push('<button class="btn btn-primary" onclick="issue()">Festschreiben</button>');
   } else {
     bits.push('<button class="btn btn-primary" onclick="printInvoice()">Drucken / Als PDF sichern</button>');
-    if (s === 'issued') bits.push('<button class="btn" onclick="markPaid()">Als bezahlt markieren</button>');
-    // Nur bei 'issued': eine bezahlte oder stornierte Rechnung laesst die
-    // Datenbankfunktion ohnehin nicht zurueck, und ein Knopf, der immer eine
-    // Fehlermeldung wirft, ist schlimmer als keiner.
-    if (s === 'issued') bits.push('<button class="btn" onclick="reopen()">Wieder öffnen</button>');
-    if (s === 'issued' || s === 'paid') bits.push('<button class="btn" onclick="storno()">Stornieren</button>');
+    // Eine Storno-Gutschrift ist ein Gegenbuchungsbeleg, keine Forderung: sie
+    // wird nie bezahlt, nicht wieder geoeffnet (das laesst reopen_invoice
+    // ohnehin nicht zu) und vor allem nicht ihrerseits storniert — genau daraus
+    // ist im August die Kette 0005 → 0008 → 0010 → 0015 entstanden.
+    const gutschrift = LPR.invoiceIsCredit(_inv);
+    if (s === 'issued' && !gutschrift) {
+      bits.push('<button class="btn" onclick="markPaid()">Als bezahlt markieren</button>');
+      // Nur bei 'issued': eine bezahlte oder stornierte Rechnung laesst die
+      // Datenbankfunktion ohnehin nicht zurueck, und ein Knopf, der immer eine
+      // Fehlermeldung wirft, ist schlimmer als keiner.
+      bits.push('<button class="btn" onclick="reopen()">Wieder öffnen</button>');
+    }
+    if ((s === 'issued' || s === 'paid') && !gutschrift)
+      bits.push('<button class="btn" onclick="storno()">Stornieren</button>');
+    if (gutschrift)
+      bits.push('<span style="font-size:12.5px;color:var(--muted);">Storno-Gutschrift — verrechnet mit der stornierten Rechnung, keine offene Forderung.</span>');
   }
   document.getElementById('action-bar').innerHTML = bits.join(' ');
 }

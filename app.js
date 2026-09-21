@@ -5746,8 +5746,18 @@
 
   // 'issued' und faellig in der Vergangenheit. Bewusst eine Anzeigeregel und
   // kein gespeicherter Status — sonst muesste nachts jemand umstempeln.
+  // Eine Storno-Gutschrift traegt cancels_invoice_id. Sie bleibt technisch
+  // 'issued' — es gibt fuer sie keinen Zahlweg —, ist aber KEINE Forderung:
+  // sie verrechnet sich mit der Rechnung, die sie storniert. Sie darf deshalb
+  // nirgends als offen oder gar als ueberfaellig gelten.
+  function invoiceIsCredit(inv) { return !!(inv && inv.cancels_invoice_id); }
+
+  function invoiceIsOpen(inv) {
+    return !!inv && inv.status === 'issued' && !invoiceIsCredit(inv);
+  }
+
   function invoiceIsOverdue(inv) {
-    if (!inv || inv.status !== 'issued' || !inv.due_date) return false;
+    if (!invoiceIsOpen(inv) || !inv.due_date) return false;
     return inv.due_date < dateKey(new Date());
   }
 
@@ -6538,7 +6548,7 @@
     getRates, getRate,
     // Block D: Rechnungsstellung
     VEREIN, BILLING_DEFAULT_SHIFT_CENTS,
-    centsToEUR, eurToCents, qtyToNumber, itemAmountCents, invoiceSubtotalCents, invoiceIsOverdue,
+    centsToEUR, eurToCents, qtyToNumber, itemAmountCents, invoiceSubtotalCents, invoiceIsOverdue, invoiceIsCredit, invoiceIsOpen,
     listRecipients, saveRecipient, setRecipientActive,
     listInvoices, getInvoice, createInvoice, updateInvoiceDraft, reopenInvoice, saveInvoiceItems,
     deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid,

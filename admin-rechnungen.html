@@ -153,7 +153,7 @@
         <select id="f-status" class="f-in" style="width:170px;" onchange="loadData()">
           <option value="">alle</option>
           <option value="draft">Entwurf</option>
-          <option value="issued">offen</option>
+          <option value="issued">offen (inkl. Storno-Gutschriften)</option>
           <option value="paid">bezahlt</option>
           <option value="cancelled">storniert</option>
         </select></label>
@@ -166,7 +166,7 @@
 </div>
 </main>
 
-<script src="app.js?v20260815a"></script>
+<script src="app.js?v20260921a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -215,7 +215,9 @@ async function loadData() {
 }
 
 function renderTable(invoices) {
-  const offen = invoices.filter(i => i.status === 'issued')
+  // Storno-Gutschriften zaehlen hier NICHT mit: sie sind mit der stornierten
+  // Rechnung verrechnet und werden nie bezahlt (siehe LPR.invoiceIsOpen).
+  const offen = invoices.filter(i => LPR.invoiceIsOpen(i))
                         .reduce((s, i) => s + (i.total_cents || 0), 0);
   document.getElementById('kpi-open').textContent = LPR.centsToEUR(offen);
 
@@ -227,17 +229,21 @@ function renderTable(invoices) {
 
   const rows = invoices.map(i => {
     const overdue = LPR.invoiceIsOverdue(i);
+    const label = LPR.invoiceIsCredit(i) && i.status === 'issued'
+      ? 'Storno-Gutschrift' : STATUS_LABEL[i.status];
     const badge = overdue
       ? '<span style="background:#C85B30;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;">überfällig</span>'
       : '<span style="background:#EFEDE8;color:#4A4A46;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;">' +
-        STATUS_LABEL[i.status] + '</span>';
+        label + '</span>';
     return `<tr onclick="location.href='rechnung.html?id=${i.id}'" style="cursor:pointer;">
       <td><strong>${escapeHtml(i.invoice_no || 'Entwurf')}</strong></td>
       <td>${deDate(i.invoice_date)}</td>
       <td>${escapeHtml(i.recipient_name)}</td>
       <td class="num">${LPR.centsToEUR(i.total_cents)}</td>
       <td>${badge}</td>
-      <td>${i.status === 'issued' ? deDate(i.due_date) : (i.paid_on ? 'bezahlt ' + deDate(i.paid_on) : '—')}</td>
+      <td>${LPR.invoiceIsOpen(i) ? deDate(i.due_date)
+            : (LPR.invoiceIsCredit(i) ? 'verrechnet'
+            : (i.paid_on ? 'bezahlt ' + deDate(i.paid_on) : '—'))}</td>
     </tr>`;
   }).join('');
 

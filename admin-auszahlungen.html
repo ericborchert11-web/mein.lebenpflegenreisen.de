@@ -517,7 +517,15 @@ function auslageAnreiseRechnung(vergleichCents, personen, hinUndZurueck) {
   const cents = basis * strecken * p;
   // Label ohne Umlaute: es landet unverändert als Position auf dem Beleg und
   // wandert von dort durch Mail und PDF.
-  const label = 'Anreise mit dem eigenen Fahrzeug, ' + p + (p === 1 ? ' Person, ' : ' Personen, ')
+  //
+  // Bewusst ohne „eigenes Fahrzeug" (geändert am 22.09.2026): der Beleg geht
+  // bei Ehrenamtlichen im Leistungsbezug ans Amt, und dort zieht dieser Satz
+  // eine Nachfrage nach den Fahrzeugpapieren nach sich — für eine Erstattung,
+  // die gar kein Kilometersatz ist, sondern der Preis der günstigsten
+  // zumutbaren öffentlichen Verbindung. Intern bleibt die Autoanreise als
+  // claims.auslage_art = 'anreise' erkennbar, hier oben in der Auswahl und in
+  // der Art-Spalte der Freigabe.
+  const label = 'Fahrtkosten Anreise, ' + p + (p === 1 ? ' Person, ' : ' Personen, ')
     + (hinUndZurueck ? 'Hin- und Rueckfahrt' : 'einfache Fahrt');
   const text = p + (p === 1 ? ' Person' : ' Personen') + ' × ' + strecken
     + (strecken === 1 ? ' Strecke' : ' Strecken') + ' × ' + auEuro(basis) + ' = ' + auEuro(cents);

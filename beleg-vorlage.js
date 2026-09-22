@@ -84,6 +84,25 @@
     return Number(d.toLocaleDateString('de-DE', { year: 'numeric', timeZone: 'Europe/Berlin' }));
   }
 
+  // ── Bezeichnung der Anreise-Position ────────────────────────────────────────
+  // Bis zum 22.09.2026 hiess sie „Anreise mit dem eigenen Fahrzeug". Der Beleg
+  // geht bei Ehrenamtlichen im Leistungsbezug ans Amt, und dieser Satz loest
+  // dort eine Nachfrage nach den Fahrzeugpapieren aus — samt Meldepflicht fuer
+  // ein Fahrzeug, mit dem die Erstattung gar nichts zu tun hat: gezahlt wird
+  // der Preis der guenstigsten zumutbaren oeffentlichen Verbindung, kein
+  // Kilometersatz. Der Beleg nennt deshalb nur noch die Fahrtkosten.
+  //
+  // Das ist ein Weglassen, keine Umdeutung: welches Verkehrsmittel es war,
+  // steht unveraendert an claims.auslage_art und in der Vorstandsansicht.
+  //
+  // Alte Belege werden NICHT in der Datenbank umgeschrieben (GoBD: ein
+  // gebuchter Satz bleibt stehen) — stattdessen traegt der Nachdruck die neue
+  // Bezeichnung. Betrag, Beleg-Nr. und Rechenweg bleiben dieselben.
+  function anreiseLabel(text) {
+    return String(text === null || text === undefined ? '' : text)
+      .replace(/^Anreise mit dem eigenen Fahrzeug/, 'Fahrtkosten Anreise');
+  }
+
   function belegHtml(d) {
     d = d || {};
     var c = d.claim || {};
@@ -151,7 +170,8 @@
           row = breakdown[i];
           var anzahl = row.factor != null ? (row.count != null ? row.count : row.factor) : '–';
           var satz = row.base != null ? eur(row.base) : '';
-          positionsHtml += '<tr><td>' + escape(row.label) + '</td><td class="num">' + escape(anzahl)
+          var posLabel = isAuslage ? anreiseLabel(row.label) : row.label;
+          positionsHtml += '<tr><td>' + escape(posLabel) + '</td><td class="num">' + escape(anzahl)
             + '</td><td class="num">' + satz + '</td><td class="num">' + eur(row.amount) + '</td></tr>';
         }
       } else {
@@ -174,7 +194,7 @@
     if (isAuslage) {
       aktivitaet = 'Erstattete Auslagen';
       aktivitaetSub = c.auslage_art === 'anreise'
-        ? 'Anreise mit dem eigenen Fahrzeug'
+        ? 'Fahrtkosten der Anreise'
         : (c.auslage_art === 'beleg' ? 'Erstattung gegen eingereichten Nachweis' : '');
     } else {
       aktivitaet = isSitz ? 'Ehrenamtliche Sitzwache' : 'Ehrenamtliche Reisebegleitung';
@@ -242,8 +262,8 @@
         + 'Jahresfreibetrag</strong> der Übungsleiterpauschale (§ 3 Nr. 26 EStG). In der '
         + 'Einkommensteuererklärung ist sie nicht anzugeben.</li>'
         + (c.auslage_art === 'anreise'
-          ? '<li>Bei Anreise mit dem eigenen Fahrzeug erstattet der Verein pauschal in Höhe der '
-            + 'günstigsten zumutbaren Alternative des öffentlichen Verkehrs; die Berechnung steht '
+          ? '<li>Die Fahrtkosten der Anreise erstattet der Verein pauschal in Höhe der '
+            + 'günstigsten zumutbaren Verbindung des öffentlichen Verkehrs; die Berechnung steht '
             + 'oben. Ein zusätzlicher Abzug als Werbungskosten für dieselbe Fahrt ist damit nicht '
             + 'möglich.</li>'
           : '')

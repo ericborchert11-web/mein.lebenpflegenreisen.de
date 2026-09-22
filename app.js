@@ -6112,8 +6112,11 @@
     'kostenart, sphaere, beleg_url, notiz, importiert_am';
 
   async function kassenbuchListe(filter) {
+    // Kein Rollencheck ueber "eingeloggt" hinaus: Wer die Zeilen sehen darf,
+    // entscheidet RLS — Vorstand oder Kassenpruefer. Ein zusaetzlicher Check im
+    // Frontend wuerde nur sperren, was die Datenbank erlaubt.
     const s = getSession();
-    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', buchungen: [] };
+    if (!s) return { ok: false, error: 'Nicht angemeldet.', buchungen: [] };
     const f = filter || {};
     try {
       let q = (await sb()).from('bank_buchungen').select(KASSENBUCH_COLS)
@@ -6253,7 +6256,7 @@
   // dem gerechneten Stand beweist, dass keine Buchung fehlt.
   async function kassenbuchStaende() {
     const s = getSession();
-    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', staende: [] };
+    if (!s) return { ok: false, error: 'Nicht angemeldet.', staende: [] };
     try {
       const { data, error } = await (await sb()).from('kontostaende')
         .select('id, konto_iban, stichtag, stand_cents, notiz')
@@ -6300,6 +6303,75 @@
       return { ok: true };
     } catch(e) {
       console.error('[LPR] kassenbuchStandLoeschen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  // ── Kassenpruefung ─────────────────────────────────────────────────────
+  // Das Pruefrecht ist KEINE Rolle: die Rollen des Portals schliessen einander
+  // aus, und die Kassenpruefer sind zugleich Ehrenamtliche mit eigenen
+  // Antraegen. Es haengt deshalb als Zusatzrecht am Profil.
+  //
+  // Abgefragt wird es per RPC und nicht aus der Session: die Session entsteht
+  // beim Login aus einem festen Spaltenset. Waere die Spalte dort drin, haette
+  // ein Push vor der Migration JEDEN Login zerlegt, nicht nur diese Seite.
+
+  let _pruefRecht = null;
+  async function pruefRecht(force) {
+    if (_pruefRecht !== null && !force) return _pruefRecht;
+    const s = getSession();
+    if (!s) return (_pruefRecht = false);
+    if (s.role === 'admin') return (_pruefRecht = true);
+    try {
+      const { data, error } = await (await sb()).rpc('is_kassenpruefer');
+      if (error) { console.warn('[LPR] pruefRecht:', error.message); return (_pruefRecht = false); }
+      return (_pruefRecht = data === true);
+    } catch(e) {
+      console.error('[LPR] pruefRecht:', e);
+      return (_pruefRecht = false);
+    }
+  }
+
+  /**
+   * Alles, was die Kassenpruefung braucht, in einem Rutsch.
+   *
+   * Namen kommen aus der engen Sicht v_pruefung_namen und NICHT aus profiles:
+   * RLS begrenzt Zeilen, nicht Spalten — ein Leserecht auf profiles gaebe der
+   * Pruefung alle 36 Spalten jeder Person.
+   */
+  async function pruefungDaten() {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht angemeldet.' };
+    try {
+      const client = await sb();
+      const [buchungen, staende, rechnungen, antraege, namen] = await Promise.all([
+        client.from('bank_buchungen').select(KASSENBUCH_COLS).order('buchungstag', { ascending: false }),
+        client.from('kontostaende').select('id, konto_iban, stichtag, stand_cents, notiz').order('stichtag'),
+        client.from('invoices').select('id, invoice_no, invoice_date, total_cents, status, paid_on, recipient_snapshot, billing_recipients(name)')
+              .not('invoice_no', 'is', null).order('invoice_date', { ascending: false }),
+        client.from('claims').select('id, user_id, beleg_nr, amount, status, kind, auslage_art, submitted_at, paid_at, notes')
+              .order('paid_at', { ascending: false, nullsFirst: false }),
+        client.from('v_pruefung_namen').select('id, full_name')
+      ]);
+      const fehler = [buchungen, staende, rechnungen, antraege, namen].find(r => r.error);
+      if (fehler) return { ok: false, error: fehler.error.message };
+
+      const nameZu = {};
+      (namen.data || []).forEach(n => { nameZu[n.id] = n.full_name; });
+
+      return {
+        ok: true,
+        buchungen: buchungen.data || [],
+        staende:   staende.data || [],
+        rechnungen: (rechnungen.data || []).map(i => ({
+          ...i,
+          recipient_name: (i.billing_recipients && i.billing_recipients.name)
+            || (i.recipient_snapshot && i.recipient_snapshot.name) || '—'
+        })),
+        antraege: (antraege.data || []).map(c => ({ ...c, user_name: nameZu[c.user_id] || '—' }))
+      };
+    } catch(e) {
+      console.error('[LPR] pruefungDaten:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
     }
   }
@@ -6775,6 +6847,8 @@
     kassenbuchListe, kassenbuchBekannteAbdruecke, kassenbuchImport,
     kassenbuchVorgaenge, kassenbuchZuordnen,
     kassenbuchStaende, kassenbuchStandSetzen, kassenbuchStandLoeschen,
+    // Kassenpruefung
+    pruefRecht, pruefungDaten,
     listItemTemplates, saveItemTemplate, hatBriefFelder, deleteItemTemplate,
     listTrips, getTrip, getTripSignups, getMySignup, signupForTrip, cancelSignup,
     // Besetzungsregel — geteilt von admin-reisen.html und admin-jahreskalender.html

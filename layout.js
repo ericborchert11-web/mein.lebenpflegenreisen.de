@@ -166,11 +166,12 @@
             punkt('admin-reisen.html', 'reisen-admin', 'Reisen') +
             punkt('admin-jahreskalender.html', 'jahreskalender', 'Jahreskalender')) +
           gruppe('Finanzen',
-            ['auszahlungen-admin', 'pauschalen-admin', 'rechnungen-admin', 'kassenbuch', 'kalkulation', 'foerdermittel'],
+            ['auszahlungen-admin', 'pauschalen-admin', 'rechnungen-admin', 'kassenbuch', 'pruefung', 'kalkulation', 'foerdermittel'],
             punkt('admin-auszahlungen.html', 'auszahlungen-admin', 'Auszahlungen') +
             punkt('admin-pauschalen.html', 'pauschalen-admin', 'Pauschalen') +
             punkt('admin-rechnungen.html', 'rechnungen-admin', 'Rechnungen') +
             punkt('admin-kassenbuch.html', 'kassenbuch', 'Kassenbuch') +
+            punkt('pruefung.html', 'pruefung', 'Kassenprüfung') +
             punkt('kalkulation.html', 'kalkulation', 'Kalkulation') +
             punkt('admin-foerdermittel.html', 'foerdermittel', 'Fördermittel')) +
           abmelden;
@@ -210,6 +211,25 @@
     header.querySelectorAll('nav ul a').forEach(a => {
       a.addEventListener('click', () => header.querySelector('nav ul').classList.remove('open'));
     });
+
+    // Das Pruefrecht der Kassenpruefung ist KEINE Rolle, sondern ein Zusatzrecht
+    // am Profil — es steht deshalb nicht in der Session, sondern wird bei der
+    // Datenbank erfragt. Der Menuepunkt kommt daher nachtraeglich dazu, sobald
+    // die Antwort da ist. Beim Vorstand steht er ohnehin schon in den Finanzen.
+    if (session && session.role !== 'admin' && LPR && typeof LPR.pruefRecht === 'function') {
+      LPR.pruefRecht().then(darf => {
+        if (!darf) return;
+        const liste = header.querySelector('nav ul');
+        if (!liste || liste.querySelector('a[href="pruefung.html"]')) return;
+        const li = document.createElement('li');
+        li.innerHTML = '<a href="pruefung.html"' +
+          (currentPage === 'pruefung' ? ' aria-current="page"' : '') + '>Kassenprüfung</a>';
+        // Vor "Abmelden" einhaengen; der Punkt ist am logout-Aufruf erkennbar.
+        const abmeldenPunkt = liste.querySelector('a[onclick*="logout"]');
+        liste.insertBefore(li, abmeldenPunkt ? abmeldenPunkt.closest('li') : null);
+        li.querySelector('a').addEventListener('click', () => liste.classList.remove('open'));
+      }).catch(() => {});
+    }
 
     // Eine offene Gruppe legt sich ueber die Seite. Sie muss sich schliessen
     // lassen, ohne den Menuepunkt noch einmal zu treffen — sonst verdeckt sie

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Kassenprüfung · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.kp-wrap { max-width: 1050px; margin: 32px auto 60px; padding: 0 24px; }
+.kp-card {
+  background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+  border: 1px solid var(--border); overflow: hidden; margin-bottom: 14px;
+}
+.kp-pad { padding: 20px 24px; }
+.kp-card h1 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px;
+  color: var(--green-deep); margin: 0 0 6px; letter-spacing: -.02em;
+}
+.kp-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 17px;
+  color: var(--green-deep); margin: 0;
+}
+.kp-card p { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; max-width: 680px; }
+.kp-tab { width: 100%; border-collapse: collapse; font-size: 14px; }
+.kp-tab th {
+  text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted); padding: 13px 16px;
+  border-bottom: 1.5px solid var(--border); background: #FAFAF7; white-space: nowrap;
+}
+.kp-tab th.num, .kp-tab td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.kp-tab td { padding: 11px 16px; border-bottom: 1px solid #EFEDE8; vertical-align: top; }
+.kp-tab tr:last-child td { border-bottom: none; }
+.kp-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+.kp-aus { color: #B4231A; }
+.kp-ein { color: #2C6B45; }
+.kp-zahlen { display: flex; gap: 28px; flex-wrap: wrap; }
+.kp-zahl strong { display: block; font-size: 18px; }
+.kp-warn { color: #8A3A22; font-weight: 700; }
+.kp-leer { padding: 40px 24px; text-align: center; color: var(--muted); }
+@media (max-width: 720px) { .kp-tab th:nth-child(2), .kp-tab td:nth-child(2) { display: none; } }
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+<main id="main">
+<div class="kp-wrap">
+  <div id="kein-recht" hidden>
+    <div class="kp-card kp-pad">
+      <h1>Kassenprüfung</h1>
+      <p>Dieser Bereich ist den gewählten Kassenprüferinnen und Kassenprüfern des
+         Vereins vorbehalten. Wenn du dieses Amt innehast und die Seite trotzdem
+         nicht siehst, wende dich an den Vorstand.</p>
+    </div>
+  </div>
+  <div id="inhalt" hidden></div>
+</div>
+</main>
+
+<script src="kassenbuch-auswertung.js?v20260921b"></script>
+<script src="app.js?v20260922a"></script>
+<script src="layout.js?v20260922a"></script>
+<script>
+'use strict';
+
+LPR_Layout.init({ page: 'pruefung' });
+
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+function deDate(iso) { return iso ? String(iso).slice(8,10) + '.' + String(iso).slice(5,7) + '.' + String(iso).slice(0,4) : '—'; }
+function eur(cents) { return LPR.centsToEUR(cents); }
+
+const SPHAERE_NAME = {
+  ideell: 'Ideeller Bereich', zweckbetrieb: 'Zweckbetrieb',
+  wirtschaftlich: 'Wirtschaftlicher Geschäftsbetrieb', vermoegensverwaltung: 'Vermögensverwaltung'
+};
+const CLAIM_STATUS = { draft:'Entwurf', submitted:'eingereicht', approved:'freigegeben', paid:'ausgezahlt', rejected:'abgelehnt' };
+const INV_STATUS   = { draft:'Entwurf', issued:'offen', paid:'bezahlt', cancelled:'storniert' };
+
+let _daten = null;
+
+async function init() {
+  const session = LPR.getSession();
+  if (!session) { location.href = 'login.html?next=pruefung.html'; return; }
+  if (!(await LPR.pruefRecht())) { document.getElementById('kein-recht').hidden = false; return; }
+
+  const res = await LPR.pruefungDaten();
+  if (!res.ok) {
+    document.getElementById('inhalt').hidden = false;
+    document.getElementById('inhalt').innerHTML =
+      '<div class="kp-card kp-pad"><h1>Kassenprüfung</h1><p>Die Daten konnten nicht geladen werden: '
+      + escapeHtml(res.error) + '</p></div>';
+    return;
+  }
+  _daten = res;
+  document.getElementById('inhalt').hidden = false;
+  zeichne();
+}
+
+function zeichne() {
+  const b = _daten.buchungen;
+  const a = KassenbuchAuswertung.auswertung(b);
+  const stand = KassenbuchAuswertung.aktuellerStand(b, _daten.staende);
+  const reihe = KassenbuchAuswertung.saldoReihe(b, _daten.staende);
+  const ein = b.filter(x => x.betrag_cents > 0).reduce((s, x) => s + x.betrag_cents, 0);
+  const aus = b.filter(x => x.betrag_cents < 0).reduce((s, x) => s + x.betrag_cents, 0);
+  const ohneZuordnung = b.filter(x => !x.invoice_id && !x.claim_id && !x.kostenart).length;
+  const ohneBeleg     = b.filter(x => x.kostenart && !x.beleg_url).length;
+
+  document.getElementById('inhalt').innerHTML = `
+    <div class="kp-card kp-pad">
+      <h1>Kassenprüfung</h1>
+      <p>Alle Zahlen dieses Bereichs sind schreibgeschützt. Grundlage ist das Kassenbuch:
+         jede Bewegung des Vereinskontos, jeweils mit dem Vorgang oder dem Beleg, der
+         dahintersteht. Stand: ${escapeHtml(new Date().toLocaleDateString('de-DE'))}.</p>
+    </div>
+
+    <div class="kp-card">
+      <div class="kp-pad" style="border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;">
+        <h2>Überblick</h2>
+        <button class="btn" onclick="exportiere()">Kassenbuch als CSV</button>
+      </div>
+      <div class="kp-pad kp-zahlen">
+        <div class="kp-zahl"><span class="kp-sub">Buchungen</span><strong>${b.length}</strong></div>
+        <div class="kp-zahl"><span class="kp-sub">Eingänge</span><strong class="kp-ein">${eur(ein)}</strong></div>
+        <div class="kp-zahl"><span class="kp-sub">Ausgänge</span><strong class="kp-aus">${eur(aus)}</strong></div>
+        <div class="kp-zahl"><span class="kp-sub">Kontostand (rechnerisch)</span>
+          <strong>${stand.cents === null ? '—' : eur(stand.cents)}</strong>
+          <span class="kp-sub">${stand.cents === null ? 'kein Anfangsbestand erfasst' : 'seit ' + deDate(stand.anker)}</span></div>
+        <div class="kp-zahl"><span class="kp-sub">Offen</span>
+          <strong class="${ohneZuordnung || ohneBeleg ? 'kp-warn' : 'kp-ein'}">${ohneZuordnung} / ${ohneBeleg}</strong>
+          <span class="kp-sub">ohne Zuordnung / ohne Beleg</span></div>
+      </div>
+    </div>
+
+    <div class="kp-card">
+      <div class="kp-pad" style="border-bottom:1px solid var(--border);">
+        <h2>Saldo-Abgleich</h2>
+        <p style="margin-top:4px;">Der gerechnete Stand wird dem abgetippten Kontostand gegenübergestellt.
+           Stimmen beide überein, fehlt keine Buchung.</p>
+      </div>
+      ${reihe.length ? `<table class="kp-tab">
+        <thead><tr><th>Stichtag</th><th class="num">laut Konto</th><th class="num">gerechnet</th><th class="num">Differenz</th></tr></thead>
+        <tbody>${reihe.map(r => `<tr>
+          <td>${deDate(r.stichtag)}${r.anker ? '<div class="kp-sub">Anfangsbestand</div>' : ''}</td>
+          <td class="num">${eur(r.stand_cents)}</td>
+          <td class="num">${eur(r.berechnet_cents)}</td>
+          <td class="num" style="font-weight:700;color:${r.differenz_cents === 0 ? '#2C6B45' : '#B4231A'};">
+            ${r.differenz_cents === 0 ? 'stimmt' : eur(r.differenz_cents)}</td></tr>`).join('')}</tbody></table>`
+        : '<div class="kp-leer">Noch kein Kontostand erfasst.</div>'}
+    </div>
+
+    <div class="kp-card">
+      <div class="kp-pad" style="border-bottom:1px solid var(--border);"><h2>Ausgaben nach Kostenart</h2></div>
+      <table class="kp-tab">
+        <thead><tr><th>Posten</th><th>Sphäre</th><th class="num">Betrag</th></tr></thead>
+        <tbody>
+          <tr><td>Einnahmen aus Rechnungen</td><td>—</td><td class="num kp-ein">${eur(a.einnahmenRechnungen)}</td></tr>
+          <tr><td>Auszahlungen an Ehrenamtliche</td><td>—</td><td class="num kp-aus">${eur(a.auszahlungenAntraege)}</td></tr>
+          ${a.jeKostenart.map(k => `<tr><td>${escapeHtml(k.kostenart)}</td>
+            <td>${escapeHtml(SPHAERE_NAME[sphaereVon(k.kostenart)] || '—')}</td>
+            <td class="num kp-aus">${eur(k.betrag_cents)}</td></tr>`).join('')}
+          <tr style="border-top:1.5px solid var(--border);font-weight:700;">
+            <td>Ergebnis</td><td></td>
+            <td class="num ${a.summe < 0 ? 'kp-aus' : 'kp-ein'}">${eur(a.summe)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="kp-card">
+      <div class="kp-pad" style="border-bottom:1px solid var(--border);"><h2>Kassenbuch — ${b.length} Buchungen</h2></div>
+      <table class="kp-tab">
+        <thead><tr><th>Datum</th><th>Gegenpartei / Zweck</th><th class="num">Betrag</th><th>Beleg</th></tr></thead>
+        <tbody>${b.map(x => `<tr>
+          <td>${deDate(x.buchungstag)}</td>
+          <td><div style="font-weight:600;">${escapeHtml(x.gegenpartei || '—')}</div>
+              <div class="kp-sub">${escapeHtml((x.verwendungszweck || '').slice(0, 110))}</div></td>
+          <td class="num ${x.betrag_cents < 0 ? 'kp-aus' : 'kp-ein'}">${eur(x.betrag_cents)}</td>
+          <td>${belegZelle(x)}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+
+    <div class="kp-card">
+      <div class="kp-pad" style="border-bottom:1px solid var(--border);"><h2>Rechnungen — ${_daten.rechnungen.length}</h2></div>
+      <table class="kp-tab">
+        <thead><tr><th>Nummer</th><th>Empfänger</th><th class="num">Betrag</th><th>Status</th></tr></thead>
+        <tbody>${_daten.rechnungen.map(i => `<tr>
+          <td>${escapeHtml(i.invoice_no)}<div class="kp-sub">${deDate(i.invoice_date)}</div></td>
+          <td>${escapeHtml(i.recipient_name)}</td>
+          <td class="num">${eur(i.total_cents)}</td>
+          <td>${escapeHtml(INV_STATUS[i.status] || i.status)}${i.paid_on ? '<div class="kp-sub">bezahlt ' + deDate(i.paid_on) + '</div>' : ''}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>
+
+    <div class="kp-card">
+      <div class="kp-pad" style="border-bottom:1px solid var(--border);"><h2>Auszahlungsanträge — ${_daten.antraege.length}</h2></div>
+      <table class="kp-tab">
+        <thead><tr><th>Beleg-Nr.</th><th>Person</th><th class="num">Betrag</th><th>Status</th></tr></thead>
+        <tbody>${_daten.antraege.map(c => `<tr>
+          <td>${escapeHtml(c.beleg_nr || '—')}<div class="kp-sub">${c.kind === 'auslage' ? 'Auslage' : 'Pauschale'}</div></td>
+          <td>${escapeHtml(c.user_name)}</td>
+          <td class="num">${eur(Math.round(Number(c.amount) * 100))}</td>
+          <td>${escapeHtml(CLAIM_STATUS[c.status] || c.status)}${c.paid_at ? '<div class="kp-sub">' + deDate(String(c.paid_at).slice(0,10)) + '</div>' : ''}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+function sphaereVon(kostenart) {
+  const b = _daten.buchungen.find(x => x.kostenart === kostenart && x.sphaere);
+  return b ? b.sphaere : null;
+}
+
+function belegZelle(x) {
+  if (x.invoice_id) {
+    const r = _daten.rechnungen.find(i => i.id === x.invoice_id);
+    return '<span class="kp-sub">' + escapeHtml(r ? r.invoice_no : 'Rechnung') + '</span>';
+  }
+  if (x.claim_id) {
+    const c = _daten.antraege.find(i => i.id === x.claim_id);
+    return '<span class="kp-sub">' + escapeHtml(c ? (c.beleg_nr || 'Antrag') : 'Antrag') + '</span>';
+  }
+  if (x.kostenart) {
+    return '<span class="kp-sub">' + escapeHtml(x.kostenart) + '</span>'
+      + (x.beleg_url
+          ? ' <a class="kp-sub" href="' + escapeAttr(x.beleg_url) + '" target="_blank" rel="noopener">Beleg ↗</a>'
+          : ' <span class="kp-warn">Beleg fehlt</span>');
+  }
+  return '<span class="kp-warn">offen</span>';
+}
+
+function exportiere() {
+  const namen = {};
+  _daten.rechnungen.forEach(r => { namen[r.id] = r.invoice_no; });
+  _daten.antraege.forEach(c => { namen[c.id] = c.beleg_nr || 'Antrag'; });
+  const csv = KassenbuchAuswertung.alsCsv(_daten.buchungen, namen);
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'kassenbuch-pruefung.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+init();
+</script>
+</body>
+</html>

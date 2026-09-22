@@ -147,7 +147,15 @@
       // Nacherfassung durch den Vorstand: es gibt keine Positionen, weil der
       // Antrag nicht über das Formular kam. Der Beleg braucht trotzdem eine
       // Zeile, sonst steht die Summe allein in der Tabelle.
-      positionsHtml = '<tr><td colspan="' + totalColspan + '">Aufwandsentschädigung (Nacherfassung durch den Vorstand)</td>'
+      //
+      // Bei einer Auslage darf dort NICHT „Aufwandsentschädigung" stehen: der
+      // Hinweis zwei Absätze weiter sagt im ersten Punkt ausdrücklich, dass die
+      // Zahlung keine ist (§ 3 Nr. 50 EStG statt § 3 Nr. 26 EStG). Bis zum
+      // 22.09.2026 widersprachen sich Tabelle und Hinweis auf demselben Blatt.
+      var nacherfasst = isAuslage
+        ? (c.auslage_art === 'anreise' ? 'Fahrtkosten Anreise' : 'Erstattete Auslagen')
+        : 'Aufwandsentschädigung';
+      positionsHtml = '<tr><td colspan="' + totalColspan + '">' + nacherfasst + ' (Nacherfassung durch den Vorstand)</td>'
         + '<td class="num">' + eur(c.amount) + '</td></tr>';
     } else if (isSitz) {
       if (isNewFormat) {
@@ -261,7 +269,11 @@
         + '<li>Sie ist <strong>steuerfrei</strong> und <strong>zählt nicht gegen den '
         + 'Jahresfreibetrag</strong> der Übungsleiterpauschale (§ 3 Nr. 26 EStG). In der '
         + 'Einkommensteuererklärung ist sie nicht anzugeben.</li>'
-        + (c.auslage_art === 'anreise'
+        // Punkt 3 nur, wenn oben wirklich ein Rechenweg steht. Bei einer
+        // Nacherfassung ohne Positionen verweist „die Berechnung steht oben"
+        // ins Leere, und der Vergleichspreis war dort gar nicht die Grundlage —
+        // erstattet wurde, was tatsächlich angefallen ist.
+        + (c.auslage_art === 'anreise' && breakdown.length
           ? '<li>Die Fahrtkosten der Anreise erstattet der Verein pauschal in Höhe der '
             + 'günstigsten zumutbaren Verbindung des öffentlichen Verkehrs; die Berechnung steht '
             + 'oben. Ein zusätzlicher Abzug als Werbungskosten für dieselbe Fahrt ist damit nicht '

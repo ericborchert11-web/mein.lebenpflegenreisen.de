@@ -9,8 +9,8 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#1A3A2A">
-<title>Konto erstellen oder anmelden · Leben Pflegen Reisen e.V.</title>
-<meta name="description" content="Konto anlegen als Ehrenamtliche:r oder Klinik — oder im Mitgliederbereich anmelden.">
+<title>Einloggen · Leben Pflegen Reisen e.V.</title>
+<meta name="description" content="Einloggen in den Mitgliederbereich von Leben Pflegen Reisen e.V.">
 <meta name="robots" content="noindex, follow">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared.css">
@@ -57,6 +57,19 @@
 }
 .info-small strong { font-weight: 700; }
 .info-small a { color: var(--green-deep); font-weight: 700; }
+/* "Neu hier?"-Karte: steht im Einlog-Modus dort, wo sonst die Registrierung steht */
+.neu-weg {
+  display: block; padding: 16px 18px; margin-bottom: 12px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  text-decoration: none; color: var(--green-deep);
+  transition: border-color .15s, background .15s;
+}
+.neu-weg:hover { border-color: var(--green); background: var(--lime-soft); }
+.neu-weg--haupt { background: var(--lime-soft); border-color: var(--lime); }
+.neu-weg strong { display: block; font-size: 15px; margin-bottom: 2px; }
+.neu-weg span { font-size: 13px; color: var(--muted); }
+/* Einloggen steht vorn (auf dem Handy oben), "Neu hier?" dahinter */
+#neu-hier { order: 2; }
 .info-small code {
   background: rgba(30,49,39,.1); padding: 1px 5px; border-radius: 3px;
   font-family: monospace;
@@ -68,6 +81,27 @@
 
 <main id="main">
 <div class="auth-wrap">
+
+  <!-- "Anmelden" heisst im Deutschen auch "sich registrieren". Wer von der
+       Website auf "Einloggen" kommt, soll deshalb NICHT zuerst ein
+       Registrierungsformular sehen. Die Registrierung erscheint nur mit
+       ?role=... oder #register; sonst steht hier diese Karte. -->
+  <div class="auth-card" id="neu-hier" hidden>
+    <h2>Neu hier?</h2>
+    <p class="sub">Ein Konto brauchen Sie erst, wenn wir uns kennengelernt haben.</p>
+    <a class="neu-weg neu-weg--haupt" href="mitmachen/?src=login">
+      <strong>Ehrenamtlich mitmachen →</strong>
+      <span>Kurz bewerben, ohne Konto und ohne Passwort. Wir melden uns innerhalb von zwei Werktagen.</span>
+    </a>
+    <a class="neu-weg" href="login.html?role=klinik">
+      <strong>Als Klinik Sitzwachen buchen →</strong>
+      <span>Einrichtung anmelden. Der Vorstand prüft und schickt Ihnen den Zugang.</span>
+    </a>
+    <p class="sub" style="margin:14px 0 0; text-align:center;">
+      Wir haben Sie nach dem Kennenlernen gebeten, ein Konto anzulegen?
+      <a href="login.html?role=ehrenamt" style="color:var(--green); font-weight:700;">Konto erstellen</a>
+    </p>
+  </div>
 
   <div class="auth-card" id="register">
     <h2 data-ls="Konto erstellen">Konto erstellen</h2>
@@ -164,8 +198,8 @@
   </div>
 
   <div class="auth-card">
-    <h2 data-ls="Anmelden">Ich habe schon ein Konto</h2>
-    <p class="sub" data-ls="Mit E-Mail und Passwort einloggen.">Mit E-Mail und Passwort anmelden.</p>
+    <h2 data-ls="Einloggen">Einloggen</h2>
+    <p class="sub" data-ls="Mit E-Mail und Passwort einloggen.">Sie haben schon ein Konto? Mit E-Mail und Passwort einloggen.</p>
 
     <form onsubmit="event.preventDefault(); doLogin();">
       <div class="field">
@@ -177,7 +211,7 @@
         <input type="password" id="li-password" autocomplete="current-password" required>
       <div class="field-hint" style="margin-top:6px; font-size:13px;"><a href="passwort-vergessen.html" style="color:var(--green);">Passwort vergessen?</a> — Sie setzen es selbst zurück.</div></div>
       <div class="field-error" id="li-error" hidden></div>
-      <button type="submit" class="btn btn-primary btn-block">Anmelden</button>
+      <button type="submit" class="btn btn-primary btn-block">Einloggen</button>
     </form>
 
     <div class="info-small" style="margin-top:14px;">
@@ -224,6 +258,14 @@ const _nextUrl = _urlParams.get('next');
     note.innerHTML = `Sie sind bereits als <strong>${LPR.escape(s.name)}</strong> (${s.role}) angemeldet. <a href="${target}" style="color:var(--green-deep); font-weight:700; margin-left:8px;">→ Zu Ihrem Bereich</a> &nbsp;|&nbsp; <a href="#" onclick="LPR.logout(); location.reload(); return false;" style="color:var(--warn); font-weight:700;">Abmelden</a>`;
     document.querySelector('main').prepend(note);
   }
+})();
+
+// Einlog-Modus ist der Normalfall. Die Registrierung zeigen wir nur, wenn
+// jemand ausdruecklich dorthin geschickt wurde (?role=... oder #register).
+(function waehleModus() {
+  const regModus = _preRole === 'ehrenamt' || _preRole === 'klinik' || location.hash === '#register';
+  document.getElementById('register').hidden = !regModus;
+  document.getElementById('neu-hier').hidden = regModus;
 })();
 
 let selectedRole = null;

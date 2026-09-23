@@ -179,7 +179,7 @@
     } else {
       navItems = `
         <li><a href="https://lebenpflegenreisen.de" target="_blank" rel="noopener" style="opacity:.8;">Zur Website ↗</a></li>
-        <li><a href="login.html" class="btn btn-primary" style="padding:8px 18px;">Anmelden</a></li>
+        <li><a href="login.html" class="btn btn-primary" style="padding:8px 18px;">Einloggen</a></li>
       `;
     }
 
@@ -284,8 +284,8 @@
                 <li><a href="profil.html">Profil</a></li>
                 <li><a href="#" onclick="LPR.logout().then(function(){ location.href='index.html'; }); return false;">Abmelden</a></li>
               ` : `
-                <li><a href="login.html">Anmelden</a></li>
-                <li><a href="login.html">Konto erstellen</a></li>
+                <li><a href="login.html">Einloggen</a></li>
+                <li><a href="mitmachen/?src=portal-footer">Ehrenamtlich mitmachen</a></li>
               `}
               <li><a href="barrierefreiheit.html">Barrierefreiheit</a></li>
             </ul>

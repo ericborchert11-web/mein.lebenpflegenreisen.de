@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ehrenamtliche Sitzwache werden – Leben Pflegen Reisen e.V.</title>
-<meta name="description" content="Ehrenamtliche Sitzwache in Berliner Kliniken werden: Schichten selbst wählen, Schulung und Versicherung inklusive. Auch ohne Pflegeausbildung – für Studierende.">
+<meta name="description" content="Ehrenamtliche Sitzwache in Berliner Kliniken werden: Schichten selbst wählen, Schulung und Versicherung inklusive. Auch ohne Pflegeausbildung – Laien sind willkommen.">
 <meta property="og:title" content="Ehrenamtliche Sitzwache werden">
 <meta property="og:description" content="Da sein, wenn es zählt. Werde ehrenamtliche Sitzwache in Berliner Kliniken – dein Pflege-Know-how ohne Stationsstress.">
 <meta property="og:type" content="website">
@@ -375,6 +375,13 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
     <p class="sub">Eine Pflegeausbildung ist keine Bedingung. Sie entscheidet nur über die <strong>Höhe</strong> der steuerfreien Aufwandsentschädigung – mit dreijähriger Ausbildung fällt sie höher aus. An das Bett darfst du in beiden Fällen, nach der Schulung.</p>
 
     <div class="zielgruppen">
+      <!-- Laien stehen ZUERST: Sitzwache ist Begleitung, keine Pflege. Vorher
+           fehlte diese Gruppe hier und im Formular ganz — wer weder Abschluss
+           noch Studium hatte, fand keine passende Auswahl und brach ab. -->
+      <div class="zielgruppe">
+        <h3>Ohne Pflegeausbildung</h3>
+        <p>Du bringst Ruhe, Zeit und ein offenes Ohr mit. Alles Weitere lernst du in der Schulung.</p>
+      </div>
       <div class="zielgruppe">
         <h3>Pflegehilfe-Abschluss</h3>
         <p>Dein Jahr Ausbildung ist hier genau richtig.</p>
@@ -448,9 +455,10 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
         </div>
 
         <div class="feld">
-          <label for="hintergrund">Dein Pflege-Hintergrund <span aria-hidden="true">*</span><span class="sr-only">(Pflichtfeld)</span></label>
+          <label for="hintergrund">Dein Hintergrund <span aria-hidden="true">*</span><span class="sr-only">(Pflichtfeld)</span></label>
           <select id="hintergrund" name="hintergrund" required>
             <option value="">Bitte auswählen</option>
+            <option value="kein">Keine Pflegeausbildung – ich komme aus einem anderen Bereich</option>
             <option value="pflegehilfe_1j">Pflegehilfe oder Pflegeassistenz, einjährig abgeschlossen</option>
             <option value="fachkraft">Examinierte Pflegefachkraft</option>
             <option value="wiedereinstieg">Wiedereinstieg oder Ruhestand, mit abgeschlossener Ausbildung</option>
@@ -461,7 +469,7 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
 
         <div class="feld">
           <label for="hintergrund_detail">Erzähl kurz mehr dazu</label>
-          <p class="hinweis">Wie heißt dein Abschluss genau, und wann hast du ihn gemacht? Wenn du studierst: welches Fach, welches Semester?</p>
+          <p class="hinweis">Ohne Pflegeausbildung: Was machst du beruflich oder im Alltag? Mit Abschluss: Wie heißt er, und wann hast du ihn gemacht? Im Studium: welches Fach, welches Semester?</p>
           <input type="text" id="hintergrund_detail" name="hintergrund_detail" maxlength="300">
         </div>
 
@@ -522,7 +530,7 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
 
     <details>
       <summary>Brauche ich eine Pflegeausbildung?</summary>
-      <p>Nein – du brauchst überhaupt keine Pflegeausbildung. Sie entscheidet nur über die Höhe der steuerfreien Aufwandsentschädigung, die mit dreijähriger Ausbildung höher ausfällt. Auch Studierende ohne Pflegehintergrund sind willkommen; die Schulung ersetzt das Vorwissen.</p>
+      <p>Nein – du brauchst überhaupt keine Pflegeausbildung. Sie entscheidet nur über die Höhe der steuerfreien Aufwandsentschädigung, die mit dreijähriger Ausbildung höher ausfällt. Laien sind ausdrücklich willkommen – ob im Beruf, im Studium oder in Rente. Die Schulung ersetzt das Vorwissen.</p>
     </details>
     <details>
       <summary>Brauche ich einen Masernschutznachweis?</summary>
@@ -641,7 +649,7 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
       feldFehler('email', 'Diese E-Mail-Adresse sieht nicht vollständig aus.');
       erstesFeld = erstesFeld || 'email';
     }
-    if (!hg) { feldFehler('hintergrund', 'Bitte wähl deinen Pflege-Hintergrund aus.'); erstesFeld = erstesFeld || 'hintergrund'; }
+    if (!hg) { feldFehler('hintergrund', 'Bitte wähl deinen Hintergrund aus.'); erstesFeld = erstesFeld || 'hintergrund'; }
     if (!d.get('dsgvo')) {
       var sp = document.getElementById('fehler-dsgvo');
       sp.textContent = 'Ohne dein Einverständnis dürfen wir die Bewerbung nicht speichern.';

@@ -258,6 +258,7 @@ textarea { min-height: 118px; resize: vertical; }
 [aria-invalid="true"] { border-color: var(--fehler); }
 
 .gruppe { border: 0; margin-bottom: 20px; }
+.hinweis-inline { font-weight: 400; color: var(--mute); }
 .kaesten { display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); }
 .kasten {
   display: flex; align-items: center; gap: 10px;
@@ -345,7 +346,7 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
       </g>
     </svg>
     <h1>Da sein, wenn es zählt.</h1>
-    <p>Werde ehrenamtliche Sitzwache in Berliner Kliniken. Mit oder ohne Pflegeausbildung – wir schulen dich.</p>
+    <p>Werde ehrenamtliche Sitzwache in Berliner Kliniken – oder begleite unsere Reisen. Mit oder ohne Pflegeausbildung, wir schulen dich.</p>
     <div class="knoepfe">
       <a class="knopf knopf-haupt" href="#bewerben">Jetzt bewerben</a>
       <a class="knopf knopf-zweit" href="#ablauf">So läuft&rsquo;s ab</a>
@@ -408,7 +409,7 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
     <ul class="chev">
       <li>Eine Aufgabe, die trägt – und Menschen, denen deine Zeit alles bedeutet</li>
       <li>Selbst gewählte, planbare Schichten</li>
-      <li>Kompaktschulung an einem Abend plus begleitete Hospitationsschichten</li>
+      <li>Eine Schulung vor dem ersten Einsatz (für Sitzwachen mindestens 8 Stunden) plus begleitete Hospitationsschichten</li>
       <li>Versicherungsschutz während deiner Einsätze über den Verein</li>
       <li>Eine steuerfreie Aufwandsentschädigung (Übungsleiterpauschale)</li>
       <li>Ehrenamtsbescheinigung – wertvoll für Bewerbungen und Ausbildung</li>
@@ -421,9 +422,9 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
     <h2>So schnell geht&rsquo;s</h2>
     <ol class="ablauf">
       <li><h3>Bewerben</h3><p>2 Minuten, Formular unten</p></li>
-      <li><h3>Rückmeldung</h3><p>von uns innerhalb von 48 Stunden</p></li>
+      <li><h3>Rückmeldung</h3><p>von uns innerhalb von zwei Werktagen</p></li>
       <li><h3>Erstgespräch</h3><p>20 Minuten, telefonisch</p></li>
-      <li><h3>Unterlagen &amp; Kompaktschulung</h3><p>ein Abend; erweitertes Führungszeugnis (für Ehrenamtliche gebührenfrei, die Bescheinigung stellen wir) und Masernschutznachweis</p></li>
+      <li><h3>Unterlagen &amp; Schulung</h3><p>Schulung: für Sitzwachen mindestens 8 Stunden. Unterlagen: erweitertes Führungszeugnis (für Ehrenamtliche gebührenfrei, die Bescheinigung stellen wir), Masernschutznachweis, Belehrung nach § 43 IfSG, Erste-Hilfe-Nachweis (nicht älter als zwei Jahre), Datenschutz- und Schweigepflichterklärung. Bei allem helfen wir dir.</p></li>
       <li><h3>Hospitation &amp; Ersteinsatz</h3><p>in der Regel bist du nach 3–4 Wochen im Einsatz</p></li>
     </ol>
   </div>
@@ -473,6 +474,17 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
           <input type="text" id="hintergrund_detail" name="hintergrund_detail" maxlength="300">
         </div>
 
+        <!-- Reisen gehoeren dazu: Der Menuepunkt "Mitmachen" fuehrt von jeder
+             Seite hierher, auch fuer alle, die Reisen begleiten wollen. -->
+        <fieldset class="gruppe">
+          <legend>Wofür interessierst du dich?</legend>
+          <div class="kaesten">
+            <label class="kasten"><input type="radio" name="interesse" value="sitzwache" checked> Sitzwachen</label>
+            <label class="kasten"><input type="radio" name="interesse" value="reise"> Reisebegleitung</label>
+            <label class="kasten"><input type="radio" name="interesse" value="beides"> Beides</label>
+          </div>
+        </fieldset>
+
         <fieldset class="gruppe">
           <legend>Wann kannst du?</legend>
           <div class="kaesten">
@@ -490,8 +502,24 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
         </div>
 
         <div class="feld">
-          <label for="motivation">Warum möchtest du Sitzwache werden?</label>
+          <label for="motivation">Warum möchtest du mitmachen?</label>
           <textarea id="motivation" name="motivation" maxlength="1000"></textarea>
+        </div>
+
+        <div class="feld">
+          <label for="kanal">Wie hast du von uns erfahren? <span class="hinweis-inline">(freiwillig)</span></label>
+          <select id="kanal" name="kanal">
+            <option value="">Bitte auswählen</option>
+            <option value="suchmaschine">Suchmaschine (Google o. ä.)</option>
+            <option value="empfehlung">Empfehlung aus dem Bekanntenkreis</option>
+            <option value="social">Instagram, Facebook oder anderes Netzwerk</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="klinik">Über eine Klinik oder Station</option>
+            <option value="pflegeschule">Über eine Pflegeschule oder Praxisanleitung</option>
+            <option value="presse">Presse, Radio oder Podcast</option>
+            <option value="aushang">Aushang, Flyer oder Veranstaltung</option>
+            <option value="sonstiges">Anderer Weg</option>
+          </select>
         </div>
 
         <!-- Honigtopf. Menschen sehen dieses Feld nicht; die Edge Function
@@ -516,7 +544,7 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
 
       <div id="geschafft" class="geschafft" hidden>
         <h2>Danke! Deine Bewerbung ist da.</h2>
-        <p>Wir melden uns innerhalb von 48 Stunden bei dir.</p>
+        <p>Wir melden uns innerhalb von zwei Werktagen bei dir.</p>
         <p class="sub">Noch eine Frage vorab? Schreib an
           <a href="mailto:ehrenamt@lebenpflegenreisen.de">ehrenamt@lebenpflegenreisen.de</a>.</p>
       </div>
@@ -679,7 +707,8 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
         name:               name,
         email:              email,
         phone:              (d.get('phone') || '').trim(),
-        interesse:          'sitzwache',
+        interesse:          d.get('interesse') || 'sitzwache',
+        kanal:              d.get('kanal') || '',
         hintergrund:        hg,
         hintergrund_detail: (d.get('hintergrund_detail') || '').trim(),
         verfuegbarkeit:     verfuegbar,

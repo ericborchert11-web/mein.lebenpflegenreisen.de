@@ -2814,6 +2814,35 @@
    * Der Einladungsweg bleibt der bestehende; das Compliance-Gate greift danach
    * unveraendert.
    */
+  /**
+   * VORSTAND: Nach dem Kennenlernen ins Portal einladen. Die Function
+   * ehrenamt-einladen legt das Konto an (oder nimmt das vorhandene), gibt es
+   * frei und schickt der Person einen Link, mit dem sie nur noch ihr Passwort
+   * vergibt. Erneut aufrufen verschickt einen frischen Link.
+   */
+  async function interessentEinladen(id) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur für den Vorstand.' };
+    }
+    try {
+      const { data, error } = await (await sb())
+        .functions.invoke('ehrenamt-einladen', { body: { id } });
+      if (error) {
+        // Bei 4xx/5xx liefert supabase-js nur eine allgemeine Meldung; die
+        // eigentliche steht im Antwortkoerper der Function.
+        let text = error.message;
+        try { const j = await error.context.json(); if (j && j.fehler) text = j.fehler; } catch(_) {}
+        return { ok: false, error: text };
+      }
+      if (data && data.ok === false) return { ok: false, error: data.fehler || 'Einladung fehlgeschlagen.' };
+      return { ok: true, neuesKonto: !!(data && data.neuesKonto), email: data && data.email };
+    } catch(e) {
+      console.error('[LPR] interessentEinladen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function interessentUebernehmen(id, notiz) {
     const s = getSession();
     if (!s || (s.role !== 'admin' && s.role !== 'board')) {
@@ -6825,7 +6854,7 @@
     terminAnsehen, terminAntworten, setMeinTerminAntwort, listMeineTermine,
     listTerminDateien, addTerminDatei, deleteTerminDatei, uploadTerminDatei,
     terminPunktEinreichen, setTerminPunktStatus, listTerminPunkte,
-    interessentUebernehmen, getEhrenamtQuellen, meinEinladungslink,
+    interessentUebernehmen, interessentEinladen, getEhrenamtQuellen, meinEinladungslink,
     // Präferenzen — Vorstand
     setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference, setUserTarif,
     setUserMasern, getMyMasern, MASERN_STATUS, MASERN_TEXT,

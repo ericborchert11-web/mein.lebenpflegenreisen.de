@@ -106,7 +106,7 @@
 </div>
 </main>
 
-<script src="app.js"></script>
+<script src="app.js?v20260924a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'ehrenamt-interesse' });
@@ -272,9 +272,13 @@ function zeichneListe() {
         </select>
         <textarea id="nz-${z.id}" placeholder="Notiz zum Verlauf — keine Gesundheitsdaten">${LPR.escape(z.notizen || '')}</textarea>
         <button class="btn btn-primary" onclick="speichern('${z.id}')">Speichern</button>
+        ${z.status !== 'abgelehnt'
+          ? `<button type="button" class="btn btn-primary" id="ei-${z.id}" onclick="einladen('${z.id}')"
+                     title="Legt das Konto an, gibt es frei und schickt einen Link zum Passwort-Vergeben (24 Stunden gültig).">${z.status === 'uebernommen' ? 'Einladung erneut schicken' : 'Ins Portal einladen'}</button>`
+          : ''}
         ${z.status !== 'uebernommen'
           ? `<button type="button" class="btn" onclick="uebernehmen('${z.id}')"
-                     title="Markiert als übernommen. Das Auth-Konto lädst du danach wie gewohnt ein.">In Profil überführen</button>`
+                     title="Nur als übernommen markieren, ohne Einladung.">Nur als übernommen markieren</button>`
           : ''}
         <span class="loeschbereich" id="lb-${z.id}">
           <button type="button" class="btn-loeschen" onclick="loeschenFragen('${z.id}')">Löschen</button>
@@ -292,6 +296,32 @@ function zeichneListe() {
  * Edge Function. Der Knopf hält fest, dass die Person übernommen ist, und wer
  * das wann entschieden hat; eingeladen wird danach wie bisher.
  */
+/**
+ * Nach dem Kennenlernen: Konto anlegen, freigeben, Link zum Passwort schicken.
+ * Ersetzt den alten Weg (Person registriert sich selbst und wartet erneut auf
+ * die Freigabe).
+ */
+async function einladen(id) {
+  const z = alleZeilen.find(x => x.id === id);
+  if (!z) return;
+  const frage = z.status === 'uebernommen'
+    ? `Einen frischen Einladungslink an ${z.email} schicken?`
+    : `${z.full_name} jetzt ins Portal einladen?\n\nDas Konto wird angelegt und freigegeben; ${z.email} bekommt eine Mail, um das Passwort zu vergeben.`;
+  if (!confirm(frage)) return;
+  const knopf = document.getElementById('ei-' + id);
+  const fe = document.getElementById('fe-' + id);
+  fe.hidden = true;
+  if (knopf) { knopf.disabled = true; knopf.textContent = 'Wird eingeladen …'; }
+  const res = await LPR.interessentEinladen(id);
+  if (!res.ok) {
+    fe.textContent = res.error || 'Fehler.'; fe.hidden = false;
+    if (knopf) { knopf.disabled = false; knopf.textContent = 'Ins Portal einladen'; }
+    return;
+  }
+  await laden();
+  alert(`Einladung an ${res.email} verschickt${res.neuesKonto ? ' — Konto neu angelegt und freigegeben.' : ' — vorhandenes Konto freigegeben.'}`);
+}
+
 async function uebernehmen(id) {
   const notiz = prompt('Kurze Notiz zur Übernahme (optional):', '');
   if (notiz === null) return;

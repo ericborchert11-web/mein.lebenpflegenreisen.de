@@ -39,8 +39,8 @@
 <main id="main">
 <div class="auth-wrap">
   <div class="auth-card">
-    <h2>Neues Passwort setzen</h2>
-    <p class="sub">Sie sind über den Link aus der E-Mail hier. Jetzt nur noch das neue Passwort.</p>
+    <h2 id="np-titel">Neues Passwort setzen</h2>
+    <p class="sub" id="np-sub">Sie sind über den Link aus der E-Mail hier. Jetzt nur noch das neue Passwort.</p>
 
     <form id="np-form" onsubmit="event.preventDefault(); doSet();">
       <div class="field">
@@ -59,7 +59,7 @@
 
     <div class="info-small" id="np-kein-link" hidden>
       <strong>Dieser Link trägt keine gültige Sitzung mehr.</strong>
-      Das passiert, wenn der Link älter als eine Stunde ist oder schon einmal benutzt wurde.
+      Das passiert, wenn der Link älter als 24 Stunden ist oder schon einmal benutzt wurde.
       <a href="passwort-vergessen.html" style="color:var(--green-deep);font-weight:700">Neuen Link anfordern →</a>
     </div>
   </div>
@@ -70,6 +70,17 @@
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: '' });
+
+// Einladung nach dem Kennenlernen (Function ehrenamt-einladen): gleiche Seite,
+// aber als Begruessung und in du-Form — Ehrenamtliche werden geduzt.
+if (new URLSearchParams(location.search).get('willkommen') === '1') {
+  document.title = 'Willkommen · Leben Pflegen Reisen e.V.';
+  document.getElementById('np-titel').textContent = 'Willkommen! Vergib dein Passwort';
+  document.getElementById('np-sub').textContent = 'Dein Zugang ist fertig. Mit diesem Passwort loggst du dich ab jetzt ein.';
+  document.querySelector('label[for="np-password"]').innerHTML = 'Dein Passwort <span class="req">*</span>';
+  document.getElementById('np-ok').innerHTML = '<strong>Geschafft.</strong> Dein Passwort ist gesetzt. '
+    + '<a href="login.html" style="color:var(--green-deep);font-weight:700">Jetzt einloggen →</a>';
+}
 
 /**
  * Supabase legt die Recovery-Sitzung beim Aufruf dieser Seite selbst an — der

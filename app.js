@@ -5708,7 +5708,7 @@
     bank:         'Berliner Sparkasse',
     email:        'info@lebenpflegenreisen.de',
     web:          'lebenpflegenreisen.de',
-    vorstand:     'Eric Borchert · Sonja Vogl · Simeon Frommholz',
+    vorstand:     'Eric Borchert · Sonja Vogl',
     claim:        'Menschen begleiten. Würde bewahren. Teilhabe ermöglichen.'
   };
 

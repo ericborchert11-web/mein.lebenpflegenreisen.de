@@ -82,17 +82,41 @@ if (new URLSearchParams(location.search).get('willkommen') === '1') {
     + '<a href="login.html" style="color:var(--green-deep);font-weight:700">Jetzt einloggen →</a>';
 }
 
-/**
- * Supabase legt die Recovery-Sitzung beim Aufruf dieser Seite selbst an — der
- * Token steht im Fragment der URL (#access_token=…&type=recovery) und wird vom
- * Client eingelesen. Bis das passiert ist, vergeht ein Augenblick; deshalb wird
- * hier auf das Ereignis gewartet, statt sofort zu pruefen.
+/*
+ * ZWEI ARTEN VON LINKS fuehren hierher.
+ *
+ * 1. Neu (seit 26.09.2026): ?token_hash=…&type=invite|recovery. Der Token ist
+ *    noch NICHT eingeloest. Das passiert erst in doSet(), wenn die Person
+ *    "Passwort speichern" drueckt. Grund: Ein Link, der schon beim Aufrufen
+ *    verbraucht wird, ueberlebt keinen Link-Scanner im Postfach und keine
+ *    Vorschau. Bei der ersten echten Einladung war er 43 Sekunden nach dem
+ *    Versand weg, die Person sah spaeter nur "otp_expired". Beim Laden der
+ *    Seite darf deshalb NICHTS mit dem Token passieren.
+ *
+ * 2. Alt: Supabase hat den Token schon eingeloest und die Sitzung steht im
+ *    Fragment (#access_token=…&type=recovery), oder es steht ein Fehler dort
+ *    (#error_code=otp_expired). Der Client liest das Fragment beim Start.
  *
  * FALLE: Das Fragment erreicht den Server nie. Wer diese Seite ohne den Link
  * aufruft, hat keine Sitzung — und bekommt hier einen Hinweis statt eines
  * Formulars, das beim Absenden scheitern wuerde.
  */
+const LINK = new URLSearchParams(location.search);
+const TOKEN = LINK.get('token_hash');
+const TOKEN_TYP = LINK.get('type') === 'invite' ? 'invite' : 'recovery';
+let tokenEingeloest = false;
+
+function zeigeKeinLink() {
+  document.getElementById('np-form').hidden = true;
+  document.getElementById('np-kein-link').hidden = false;
+}
+
 (async function pruefeSitzung() {
+  if (TOKEN) return;   // Fall 1: erst beim Absenden einloesen
+
+  const fragment = new URLSearchParams(location.hash.slice(1));
+  if (fragment.has('error') || fragment.has('error_code')) { zeigeKeinLink(); return; }
+
   const sb = await LPR.supabase();
   let hat = false;
 
@@ -105,11 +129,36 @@ if (new URLSearchParams(location.search).get('willkommen') === '1') {
   const { data } = await sb.auth.getSession();
   if (data && data.session) hat = true;
 
-  if (!hat) {
-    document.getElementById('np-form').hidden = true;
-    document.getElementById('np-kein-link').hidden = false;
-  }
+  if (!hat) zeigeKeinLink();
 })();
+
+/**
+ * Loest den Token aus dem Link ein (Fall 1). Einmal geklappt, bleibt die
+ * Sitzung stehen — scheitert danach nur das Passwort (zu schwach), darf der
+ * zweite Versuch den verbrauchten Token nicht noch einmal einreichen.
+ * Liefert 'ok' | 'verbraucht' | 'netz'.
+ */
+async function loeseTokenEin() {
+  if (!TOKEN || tokenEingeloest) return 'ok';
+  try {
+    const sb = await LPR.supabase();
+    const { error } = await sb.auth.verifyOtp({ token_hash: TOKEN, type: TOKEN_TYP });
+    if (error) {
+      console.error('[LPR] verifyOtp:', error);
+      if (error.name === 'AuthRetryableFetchError' || error.status === 0) return 'netz';
+      return 'verbraucht';
+    }
+    tokenEingeloest = true;
+    // Token aus der Adresszeile nehmen: Neu laden oder Zurueck soll ihn nicht
+    // noch einmal einreichen (er ist jetzt ohnehin verbraucht).
+    history.replaceState(null, '', location.pathname
+      + (LINK.get('willkommen') === '1' ? '?willkommen=1' : ''));
+    return 'ok';
+  } catch (e) {
+    console.error('[LPR] verifyOtp:', e);
+    return 'netz';
+  }
+}
 
 async function doSet() {
   const pw = document.getElementById('np-password').value;
@@ -118,6 +167,26 @@ async function doSet() {
   err.hidden = true;
   btn.disabled = true;
   btn.textContent = 'Wird gespeichert …';
+
+  // Zu kurz? Dann gar nicht erst einloesen — sonst waere der Link verbraucht,
+  // ohne dass ein Passwort gesetzt wurde.
+  if (TOKEN && !tokenEingeloest && (!pw || pw.length < 8)) {
+    err.textContent = 'Passwort muss mindestens 8 Zeichen lang sein.';
+    err.hidden = false;
+    btn.disabled = false;
+    btn.textContent = 'Passwort speichern';
+    return;
+  }
+
+  const eingeloest = await loeseTokenEin();
+  if (eingeloest === 'verbraucht') { zeigeKeinLink(); return; }
+  if (eingeloest === 'netz') {
+    err.textContent = 'Netzwerkfehler. Bitte erneut versuchen.';
+    err.hidden = false;
+    btn.disabled = false;
+    btn.textContent = 'Passwort speichern';
+    return;
+  }
 
   const res = await LPR.setzePasswort(pw);
 

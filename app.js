@@ -6619,6 +6619,11 @@
     rpcTermin('termin_eingeladener_hinzufuegen',
               { p_termin: id, p_name: name, p_email: email || null }, 'id');
 
+  /** Bestehende Mitglieder per Profil-ID; Name und Mail kommen aus dem Profil. */
+  const terminMitgliederHinzufuegen = (id, profilIds) =>
+    rpcTermin('termin_mitglieder_hinzufuegen',
+              { p_termin: id, p_profile: profilIds }, 'anzahl');
+
   const terminEinladungVerschicken = (id) =>
     rpcTermin('termin_einladung_verschicken', { p_termin: id }, 'anzahl');
 
@@ -6849,7 +6854,7 @@
     setBookingNoShow, clearBookingNoShow,
     getKpiAmpeln, getKpiPersonen, getBoardMeldungen, setDienstsperre, getAppSettings, setAppSetting,
     listVereinsTermine, saveTermin, listTerminEingeladene, terminEingeladeneErzeugen,
-    terminEingeladenenHinzufuegen, terminEinladungVerschicken, terminProbeVerschicken,
+    terminEingeladenenHinzufuegen, terminMitgliederHinzufuegen, terminEinladungVerschicken, terminProbeVerschicken,
     terminAenderungVerschicken, terminAbsagen, setTerminAntwortAdmin,
     terminAnsehen, terminAntworten, setMeinTerminAntwort, listMeineTermine,
     listTerminDateien, addTerminDatei, deleteTerminDatei, uploadTerminDatei,

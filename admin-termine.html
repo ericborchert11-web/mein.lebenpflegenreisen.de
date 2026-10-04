@@ -35,6 +35,11 @@
 .tm-tab td { padding:8px 10px; border-bottom:1px solid #EFEDE6; vertical-align:top; }
 .tm-warn { background:#FFF8E1; border:1px solid #F0E0A8; border-radius:10px; padding:12px 14px; margin:12px 0; font-size:14px; }
 .tm-mini { font-size:12.5px; color:#5B6660; }
+.tm-auswahl { max-height:300px; overflow-y:auto; border:1px solid #CFCBBF; border-radius:10px; background:#fff; }
+.tm-auswahl label { display:flex; gap:10px; align-items:center; padding:9px 12px; border-bottom:1px solid #EFEDE6; cursor:pointer; }
+.tm-auswahl label:last-child { border-bottom:0; }
+.tm-auswahl label.drin { color:#9A9A92; cursor:default; }
+.tm-auswahl input { width:auto; margin:0; flex:none; }
 </style>
 </head>
 <body>
@@ -109,8 +114,20 @@
       <button type="button" class="btn" id="tm-d-absagen">Termin absagen</button>
     </div>
 
+    <h3 style="margin:24px 0 4px;font-size:16px;color:var(--green-deep);">Mitglieder auswählen</h3>
+    <p class="tm-mini" style="margin:0 0 10px;">
+      Ankreuzen und hinzufügen — es wird dabei noch nichts verschickt.
+      Wer schon auf der Liste steht, ist ausgegraut.
+    </p>
+    <label class="tm-feld" style="margin-bottom:8px;"><span>Suchen</span>
+      <input type="search" id="tm-m-suche" placeholder="Name, Mail oder Vereinsnummer"></label>
+    <div class="tm-auswahl" id="tm-m-liste">Wird geladen…</div>
+    <div class="tm-aktionen" style="margin-top:10px;">
+      <button type="button" class="btn btn-primary" id="tm-m-add" disabled>Ausgewählte hinzufügen</button>
+    </div>
+
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:18px;">
-      <label class="tm-feld" style="margin:0;flex:1 1 200px;"><span>Person von Hand hinzufügen</span>
+      <label class="tm-feld" style="margin:0;flex:1 1 200px;"><span>Jemand ohne Portalkonto — von Hand hinzufügen</span>
         <input type="text" id="tm-p-name" placeholder="Vor- und Nachname"></label>
       <label class="tm-feld" style="margin:0;flex:1 1 220px;"><span>Mailadresse (optional)</span>
         <input type="email" id="tm-p-mail" placeholder="name@example.de"></label>
@@ -145,7 +162,7 @@
   </div>
 </main>
 
-<script src="app.js?v20260921b"></script>
+<script src="app.js?v20261004a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -217,6 +234,9 @@ async function zeigeDetail(id) {
   $('tm-form-karte').hidden = true;
   $('tm-detail').hidden = false;
   $('tm-d-titel').textContent = aktuell.titel;
+  gewaehlt.clear();
+  $('tm-m-suche').value = '';
+  if (!mitglieder) await ladeMitglieder();
   $('tm-d-wann').textContent = wannText(aktuell) + ' · ' + (aktuell.ort || 'Ort folgt');
   // Vor dem Versand gibt es nichts mitzuteilen und nichts abzusagen. Beide
   // Knoepfe wuerden sonst die Version hochzaehlen und "0 Person(en)
@@ -266,6 +286,8 @@ async function ladeEingeladene() {
       '</td>' +
     '</tr>').join('');
 
+  zeigeMitglieder();
+
   $('tm-d-tab').querySelector('tbody').innerHTML =
     '<tr><th>Name</th><th>Mail</th><th>Antwort</th><th>Einladung</th><th>Von Hand setzen</th></tr>' + zeilen;
 
@@ -277,6 +299,79 @@ async function ladeEingeladene() {
     });
   });
 }
+
+// ── Auswahl bestehender Mitglieder ─────────────────────────────────────
+// Kliniken haben auch ein Profil, gehoeren aber nicht in diese Liste.
+let mitglieder = null;
+const gewaehlt = new Set();
+
+function istPlatzhalter(mail) {
+  return !mail || !/.@./.test(mail) || /^manuell\./i.test(mail);
+}
+
+async function ladeMitglieder() {
+  const alle = await LPR.listUsersByStatus('approved');
+  mitglieder = alle
+    .filter(u => u.role !== 'klinik')
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+}
+
+function zeigeMitglieder() {
+  if (!mitglieder) return;
+  const drinIds  = new Set(eingeladene.map(e => e.profile_id).filter(Boolean));
+  const drinMail = new Set(eingeladene.map(e => (e.email || '').toLowerCase()).filter(Boolean));
+  const q = $('tm-m-suche').value.trim().toLowerCase();
+  const treffer = mitglieder.filter(u => !q ||
+    [u.name, u.email, u.vereinsnummer].some(x => String(x || '').toLowerCase().includes(q)));
+
+  if (!treffer.length) {
+    $('tm-m-liste').innerHTML = '<p class="tm-mini" style="padding:10px 12px;margin:0;">Niemand gefunden.</p>';
+  } else {
+    $('tm-m-liste').innerHTML = treffer.map(u => {
+      const drin = drinIds.has(u._id) || drinMail.has((u.email || '').toLowerCase());
+      if (drin) gewaehlt.delete(u._id);
+      const info = [
+        u.vereinsnummer ? 'Nr. ' + u.vereinsnummer : 'kein Mitglied',
+        u.role === 'admin' ? 'Vorstand' : null,
+        istPlatzhalter(u.email) ? 'keine Mailadresse' : null,
+        drin ? 'schon auf der Liste' : null,
+      ].filter(Boolean).join(' · ');
+      return '<label' + (drin ? ' class="drin"' : '') + '>' +
+        '<input type="checkbox" data-mid="' + esc(u._id) + '"' +
+          (drin ? ' disabled checked' : (gewaehlt.has(u._id) ? ' checked' : '')) + '>' +
+        '<span style="flex:1;">' + esc(u.name || 'Ohne Namen') + '</span>' +
+        '<span class="tm-mini">' + esc(info) + '</span>' +
+      '</label>';
+    }).join('');
+  }
+  zaehleAuswahl();
+}
+
+function zaehleAuswahl() {
+  const n = gewaehlt.size;
+  $('tm-m-add').disabled = n === 0;
+  $('tm-m-add').textContent = n ? n + ' ausgewählte hinzufügen' : 'Ausgewählte hinzufügen';
+}
+
+$('tm-m-liste').addEventListener('change', ev => {
+  const cb = ev.target;
+  if (!cb.dataset || !cb.dataset.mid) return;
+  if (cb.checked) gewaehlt.add(cb.dataset.mid); else gewaehlt.delete(cb.dataset.mid);
+  zaehleAuswahl();
+});
+
+$('tm-m-suche').addEventListener('input', zeigeMitglieder);
+
+$('tm-m-add').addEventListener('click', async () => {
+  if (!gewaehlt.size) return;
+  $('tm-m-add').disabled = true;
+  const r = await LPR.terminMitgliederHinzufuegen(aktuell.id, Array.from(gewaehlt));
+  if (!r.ok) { melde(r.error, true); zaehleAuswahl(); return; }
+  gewaehlt.clear();
+  $('tm-m-suche').value = '';
+  await ladeEingeladene();
+  melde(r.anzahl + ' Person' + (r.anzahl === 1 ? '' : 'en') + ' hinzugefügt. Es ist noch nichts verschickt.', false);
+});
 
 let dateien = [];
 
@@ -432,7 +527,7 @@ $('tm-d-erzeugen').addEventListener('click', async () => {
   if (!r.ok) { melde(r.error, true); return; }
   await ladeEingeladene();
   melde(r.anzahl === 0
-    ? 'Keine neuen Personen gefunden. Bei „Handverlesen" trägst du sie unten von Hand ein.'
+    ? 'Keine neuen Personen gefunden. Bei „Handverlesen" kreuzt du sie unten unter „Mitglieder auswählen" an.'
     : r.anzahl + ' Person' + (r.anzahl === 1 ? '' : 'en') + ' hinzugefügt. Es ist noch nichts verschickt.', false);
 });
 

@@ -5462,6 +5462,59 @@
     } catch(e) { console.error('[LPR] foerderNamen failed:', e); return {}; }
   }
 
+  // ── Fördermittel-Bereich: Arbeitsplan, Nachweismappe, Anträge ──────────
+  // Alles board-only per RLS. Rückgabe wie bei foerder*: null = Fehler,
+  // [] = nichts vorhanden. Etappe 1 ist lesend.
+
+  // Arbeitsplan = Cockpit-Aufgaben mit gesetzter Phase, gleich welcher Vorgang.
+  async function foerderArbeitsplan() {
+    try {
+      const { data, error } = await (await sb())
+        .from('aufgaben')
+        .select('*, vorgang:vorgaenge(id, titel, status)')
+        .not('arbeitsplan_phase', 'is', null)
+        .order('arbeitsplan_phase', { ascending: true })
+        .order('sortierung', { ascending: true });
+      if (error) { console.error('[LPR] foerderArbeitsplan:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] foerderArbeitsplan failed:', e); return null; }
+  }
+
+  async function foerderDokumentKategorien() {
+    try {
+      const { data, error } = await (await sb())
+        .from('document_categories')
+        .select('*')
+        .order('sortierung', { ascending: true });
+      if (error) { console.error('[LPR] foerderDokumentKategorien:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] foerderDokumentKategorien failed:', e); return null; }
+  }
+
+  async function foerderDokumente() {
+    try {
+      const { data, error } = await (await sb())
+        .from('association_documents')
+        .select('*')
+        .order('category', { ascending: true })
+        .order('version', { ascending: false });
+      if (error) { console.error('[LPR] foerderDokumente:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] foerderDokumente failed:', e); return null; }
+  }
+
+  async function foerderAntraege() {
+    try {
+      const { data, error } = await (await sb())
+        .from('funding_applications')
+        .select('*, projekt:funding_projects(*), positionen:funding_application_items(*), ' +
+                'anlagen:funding_application_documents(document_id, sort_order)')
+        .order('created_at', { ascending: false });
+      if (error) { console.error('[LPR] foerderAntraege:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] foerderAntraege failed:', e); return null; }
+  }
+
   // ── Cockpit: Assistenz der Geschäftsführung ─────────────────────────────
   // Alle vier Zugänge sind board-only per RLS. Ein Nicht-Board bekommt keine
   // Fehlermeldung, sondern eine leere Liste — die Seite prüft deshalb zusätzlich
@@ -6934,6 +6987,7 @@
     // Fördermittel-Cockpit
     playbookKapitel,
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,
+    foerderArbeitsplan, foerderDokumentKategorien, foerderDokumente, foerderAntraege,
     foerderCreateAufgabe, foerderUpdateAufgabe, foerderCreateNotiz, foerderNamen,
     // Cockpit — Assistenz der Geschäftsführung (Etappe A: lesend)
     cockpitPunkte, cockpitListVorgaenge, cockpitListAufgaben, cockpitVerlauf,

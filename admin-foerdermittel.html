@@ -109,6 +109,26 @@
 
 /* Fristenliste */
 .fm-liste { list-style: none; margin: 0; padding: 0; }
+/* Arbeitsplan, Dokumente, Anträge (Etappe 1) */
+.fm-ap, .fm-dok, .fm-antrag {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 10px 18px; border-bottom: 1px solid var(--border);
+}
+.fm-ap:last-child, .fm-dok:last-child, .fm-antrag:last-child { border-bottom: none; }
+.fm-ap-symbol { flex: 0 0 auto; font-size: 16px; line-height: 1.3; color: var(--green-deep); }
+.fm-ap-mitte { flex: 1 1 auto; min-width: 0; }
+.fm-ap-titel { font-size: 14.5px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.fm-ap-mitte a { color: var(--green-deep); }
+.fm-ap-erledigt .fm-ap-titel, .fm-ap-verworfen .fm-ap-titel { color: var(--muted); text-decoration: line-through; font-weight: 500; }
+.fm-dok-alt { opacity: .6; }
+.fm-zaehler { font-weight: 500; margin-left: 8px; }
+.fm-kat-hinweis { margin: 0 18px 4px; }
+.fm-hinweis { padding: 12px 18px; font-size: 13.5px; color: var(--muted); }
+@media (max-width: 640px) {
+  .fm-dok, .fm-antrag { flex-wrap: wrap; }
+  .fm-dok .fm-frist-rest, .fm-antrag .fm-frist-rest { margin-left: 0; }
+}
+
 .fm-frist {
   display: flex; align-items: flex-start; gap: 14px;
   padding: 13px 16px 13px 14px;
@@ -383,16 +403,18 @@
   <div class="fm-header">
     <div>
       <h1>Fördermittel</h1>
-      <p>Stand der Akquise: Fristen, Programme, offene Aufgaben.
-         Programmdaten kommen aus der Wissensbasis und sind hier nicht änderbar.</p>
+      <p>Arbeitsplan, Anträge und Nachweismappe des Vereins. Programmdaten kommen
+         aus der Wissensbasis und sind hier nicht änderbar.</p>
     </div>
     <div id="fm-stand" class="fm-sub"></div>
   </div>
 
   <nav class="fm-tabs" role="tablist" aria-label="Bereiche">
-    <button type="button" role="tab" data-tab="fristen"   aria-selected="true">Fristen</button>
+    <button type="button" role="tab" data-tab="arbeitsplan" aria-selected="true">Arbeitsplan</button>
+    <button type="button" role="tab" data-tab="antraege"  aria-selected="false">Anträge</button>
+    <button type="button" role="tab" data-tab="dokumente" aria-selected="false">Dokumente</button>
     <button type="button" role="tab" data-tab="programme" aria-selected="false">Programme</button>
-    <button type="button" role="tab" data-tab="aufgaben"  aria-selected="false">Aufgaben</button>
+    <button type="button" role="tab" data-tab="aufgaben"  aria-selected="false">Checklisten</button>
     <button type="button" role="tab" data-tab="straenge"  aria-selected="false">Stränge</button>
   </nav>
 
@@ -415,6 +437,9 @@ LPR_Layout.init({ page: 'foerdermittel' });
 if (!LPR.requireRole('admin', 'login.html?next=admin-foerdermittel.html')) throw new Error('kein Zugriff');
 
 let PROGRAMME = [], AUFGABEN = [];
+// Die drei Reiter aus Etappe 1. null = konnte nicht geladen werden; das zeigt
+// dann nur der betroffene Reiter an, die übrigen bleiben benutzbar.
+let ARBEITSPLAN = null, KATEGORIEN = null, DOKUMENTE = null, ANTRAEGE = null;
 const NAMEN = {};          // Nutzer-Kennung -> Anzeigename (nur die gebrauchten)
 const NOTIZEN = {};        // Programm-Kennung -> Notizliste; undefined = noch nicht geladen
 const NOTIZ_ENTWURF = {};  // Programm-Kennung -> getippter, noch nicht gespeicherter Text
@@ -426,10 +451,17 @@ function escapeHtml(s) {
   return LPR_Layout.escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-const TABS = ['fristen', 'programme', 'aufgaben', 'straenge'];
+// Den Reiter "Fristen" gibt es nicht mehr (kein Countdown, Entscheidung
+// 05.10.2026). Alte Lesezeichen auf #fristen landen im Arbeitsplan.
+const TABS = ['arbeitsplan', 'antraege', 'dokumente', 'programme', 'aufgaben', 'straenge'];
 
 async function laden() {
-  const [p, a] = await Promise.all([LPR.foerderListProgramme(), LPR.foerderListAufgaben()]);
+  const [p, a, ap, kat, dok, ant] = await Promise.all([
+    LPR.foerderListProgramme(), LPR.foerderListAufgaben(),
+    LPR.foerderArbeitsplan(), LPR.foerderDokumentKategorien(),
+    LPR.foerderDokumente(), LPR.foerderAntraege()
+  ]);
+  ARBEITSPLAN = ap; KATEGORIEN = kat; DOKUMENTE = dok; ANTRAEGE = ant;
   if (p === null || a === null) {
     document.getElementById('fm-inhalt').innerHTML =
       '<div class="fm-card" style="padding:24px;">Die Daten konnten nicht geladen werden. ' +
@@ -440,7 +472,11 @@ async function laden() {
   const juengster = PROGRAMME.map(x => x.stand).filter(Boolean).sort().at(-1);
   document.getElementById('fm-stand').textContent =
     juengster ? 'Wissensbasis · Stand ' + new Date(juengster).toLocaleDateString('de-DE') : '';
-  await namenNachladen(AUFGABEN.map(x => x.erledigt_von));
+  await namenNachladen([
+    ...AUFGABEN.map(x => x.erledigt_von),
+    ...(ARBEITSPLAN || []).map(x => x.zustaendig),
+    ...(ANTRAEGE || []).flatMap(x => [x.freigabe_finanzen_von, x.freigabe_vorstand_von])
+  ]);
   return true;
 }
 
@@ -454,8 +490,8 @@ async function namenNachladen(kennungen) {
 }
 
 function aktuellerTab() {
-  const t = (location.hash || '#fristen').slice(1).split('/')[0];
-  return TABS.includes(t) ? t : 'fristen';
+  const t = (location.hash || '#arbeitsplan').slice(1).split('/')[0];
+  return TABS.includes(t) ? t : 'arbeitsplan';
 }
 
 function zeichnen() {
@@ -463,13 +499,15 @@ function zeichnen() {
   document.querySelectorAll('.fm-tabs button').forEach(b =>
     b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
   const ziel = document.getElementById('fm-inhalt');
-  if (tab === 'fristen')   ziel.innerHTML = renderFristen();
+  if (tab === 'arbeitsplan') ziel.innerHTML = renderArbeitsplan();
+  if (tab === 'antraege')  ziel.innerHTML = renderAntraege();
+  if (tab === 'dokumente') ziel.innerHTML = renderDokumente();
   if (tab === 'programme') ziel.innerHTML = renderProgramme();
   if (tab === 'aufgaben')  ziel.innerHTML = renderAufgaben();
   if (tab === 'straenge')  ziel.innerHTML = renderStraenge();
 }
 
-/* ── Fristen ─────────────────────────────────────────────────────────────── */
+/* ── Fristen-Farbe ────────────────────────────────────────────────────────── */
 
 const TAG = 86400000;
 
@@ -478,96 +516,181 @@ function heute() {
 }
 
 // Reihenfolge der Prüfung ist bindend: überfällig schlägt alles.
+// Der Text nennt das Datum, nie die verbleibenden Tage — keine Countdowns
+// (Entscheidung 05.10.2026). Die Farbe bleibt als stiller Hinweis.
 function ampel(datumIso, erledigt) {
   if (!datumIso) return { stufe: 'offen', tage: null, text: 'ohne festes Datum' };
   const tage = Math.round((new Date(datumIso + 'T00:00:00') - heute()) / TAG);
-  if (tage < 0 && !erledigt) return { stufe: 'rot', tage, text: Math.abs(tage) + ' Tage überfällig' };
-  if (tage < 0)              return { stufe: 'grau', tage, text: 'vorbei' };
-  if (tage <= 30)            return { stufe: 'rot', tage, text: 'noch ' + tage + ' Tage' };
-  if (tage <= 90)            return { stufe: 'gelb', tage, text: 'noch ' + tage + ' Tage' };
-  return { stufe: 'gruen', tage, text: 'noch ' + tage + ' Tage' };
+  const datum = 'Frist ' + new Date(datumIso + 'T00:00:00').toLocaleDateString('de-DE');
+  if (tage < 0 && !erledigt) return { stufe: 'rot', tage, text: datum + ' (überschritten)' };
+  if (tage < 0)              return { stufe: 'grau', tage, text: datum };
+  if (tage <= 30)            return { stufe: 'rot', tage, text: datum };
+  if (tage <= 90)            return { stufe: 'gelb', tage, text: datum };
+  return { stufe: 'gruen', tage, text: datum };
 }
 
-function fristenEintraege() {
-  const eintraege = [];
+/* ── Arbeitsplan ─────────────────────────────────────────────────────────── */
+// Eine Sicht auf Cockpit-Aufgaben mit gesetzter Phase. Bearbeitet wird (bis
+// Etappe 2) im Cockpit — jede Zeile führt zu ihrem Vorgang.
 
-  for (const p of PROGRAMME) {
-    const offen  = AUFGABEN.filter(a => a.programm_id === p.id && a.status !== 'erledigt' && a.status !== 'entfaellt');
-    const gesamt = AUFGABEN.filter(a => a.programm_id === p.id);
-    eintraege.push({
-      art: 'programm',
-      titel: p.programm,
-      slug: p.slug,
-      datum: p.frist_datum,
-      hart: p.frist_hart,
-      fristText: p.frist_text,
-      status: p.status,
-      gate: p.gate_fuer || [],
-      zusatz: gesamt.length ? `${offen.length} von ${gesamt.length} Vorarbeiten offen` : null,
-      erledigt: ['eingereicht','bewilligt','abgelehnt','nicht_relevant'].includes(p.status)
-    });
+const PHASEN = {
+  1: 'Phase 1 · Nachweismappe',
+  2: 'Phase 2 · Laufende Anträge',
+  3: 'Phase 3 · Fördermittel',
+  4: 'Phase 4 · Struktur und Betrieb'
+};
+
+function ladefehler(was) {
+  return `<div class="fm-card" style="padding:24px;">${escapeHtml(was)} konnte nicht geladen werden. ` +
+    'Bitte neu anmelden; bleibt es dabei, steht der Fehler in der Browserkonsole.</div>';
+}
+
+function arbeitsplanZeile(a) {
+  const symbol = { offen: '☐', wartet: '⏸', erledigt: '☑', verworfen: '–' }[a.status] || '☐';
+  const zu = a.zustaendig && NAMEN[a.zustaendig] ? NAMEN[a.zustaendig] : null;
+  const v = a.vorgang;
+  const vorgang = v
+    ? `<a href="admin-cockpit.html?vorgang=${encodeURIComponent(v.id)}">${escapeHtml(v.titel)}</a>`
+    : 'ohne Vorgang';
+  return `
+    <li class="fm-ap fm-ap-${escapeHtml(a.status)}">
+      <span class="fm-ap-symbol" aria-label="${escapeHtml(a.status)}">${symbol}</span>
+      <div class="fm-ap-mitte">
+        <div class="fm-ap-titel">${escapeHtml(a.titel)}</div>
+        ${a.status === 'wartet' && a.wartet_auf
+          ? `<div class="fm-gate">wartet auf: ${escapeHtml(a.wartet_auf)}</div>` : ''}
+        <div class="fm-sub">${vorgang}${zu ? ' · ' + escapeHtml(zu) : ''}</div>
+      </div>
+    </li>`;
+}
+
+function renderArbeitsplan() {
+  if (ARBEITSPLAN === null) return ladefehler('Der Arbeitsplan');
+  if (!ARBEITSPLAN.length) {
+    return '<div class="fm-card"><div class="fm-empty">Noch keine Aufgabe einer Phase zugeordnet.</div></div>';
   }
-
-  for (const a of AUFGABEN) {
-    if (!a.faellig_am) continue;
-    const p = PROGRAMME.find(x => x.id === a.programm_id);
-    // Programm-Eigenfristen doppeln sich mit der gleichlautenden Aufgabe —
-    // gleiche Frist am selben Programm nur einmal zeigen.
-    if (p && p.frist_datum === a.faellig_am) continue;
-    eintraege.push({
-      art: 'aufgabe',
-      titel: a.titel,
-      slug: p ? p.slug : null,
-      datum: a.faellig_am,
-      hart: false,
-      fristText: null,
-      status: a.status,
-      gate: [],
-      zusatz: p ? p.programm : null,
-      erledigt: a.status === 'erledigt' || a.status === 'entfaellt'
-    });
-  }
-
-  return eintraege;
-}
-
-function renderFristen() {
-  const alle = fristenEintraege();
-  const mitDatum = alle.filter(e => e.datum).sort((a,b) => a.datum.localeCompare(b.datum));
-  const sofort   = alle.filter(e => !e.datum && /sofort/i.test(e.fristText || ''));
-  const unklar   = alle.filter(e => !e.datum && !/sofort/i.test(e.fristText || ''));
-
-  const html = [
-    gruppe('Sofort — ohne festen Termin', sofort),
-    gruppe('Terminiert', mitDatum),
-    gruppe('Frist noch zu verifizieren', unklar)
-  ].join('');
-
-  return html || '<div class="fm-card"><div class="fm-empty">Noch keine Fristen hinterlegt.</div></div>';
-}
-
-function gruppe(ueberschrift, eintraege) {
-  if (!eintraege.length) return '';
-  const zeilen = eintraege.map(e => {
-    const a = ampel(e.datum, e.erledigt);
-    const datum = e.datum ? new Date(e.datum).toLocaleDateString('de-DE') : '—';
-    const gate = e.gate.length
-      ? `<div class="fm-gate">Voraussetzung für: ${e.gate.map(escapeHtml).join(', ')}</div>` : '';
-    const link = e.slug
-      ? `<a href="#programme/${encodeURIComponent(e.slug)}">${escapeHtml(e.titel)}</a>`
-      : escapeHtml(e.titel);
-    return `
-      <li class="fm-frist fm-${a.stufe}">
-        <div class="fm-frist-datum">${datum}${e.hart ? ' <span title="harte Frist" aria-label="harte Frist">🔒</span>' : ''}</div>
-        <div class="fm-frist-mitte">
-          <div class="fm-frist-titel">${link}</div>
-          ${e.zusatz ? `<div class="fm-sub">${escapeHtml(e.zusatz)}</div>` : ''}
-          ${gate}
-        </div>
-        <div class="fm-frist-rest"><span class="fm-pill fm-${a.stufe}">${escapeHtml(a.text)}</span></div>
-      </li>`;
+  return [1, 2, 3, 4].map(ph => {
+    const liste = ARBEITSPLAN.filter(a => a.arbeitsplan_phase === ph);
+    if (!liste.length) return '';
+    const zaehlbar = liste.filter(a => a.status !== 'verworfen');
+    const fertig = zaehlbar.filter(a => a.status === 'erledigt').length;
+    // Offenes oben, Erledigtes und Verworfenes unten — die Reihenfolge innerhalb
+    // bleibt die aus der Datenbank (sortierung).
+    const rang = { wartet: 0, offen: 0, erledigt: 1, verworfen: 2 };
+    const sortiert = [...liste].sort((x, y) => (rang[x.status] ?? 0) - (rang[y.status] ?? 0));
+    return `<section class="fm-card">
+      <h2 class="fm-gruppe">${escapeHtml(PHASEN[ph])}
+        <span class="fm-sub fm-zaehler">${fertig} von ${zaehlbar.length} erledigt</span></h2>
+      <ul class="fm-liste">${sortiert.map(arbeitsplanZeile).join('')}</ul>
+    </section>`;
   }).join('');
-  return `<section class="fm-card"><h2 class="fm-gruppe">${escapeHtml(ueberschrift)}</h2><ul class="fm-liste">${zeilen}</ul></section>`;
+}
+
+/* ── Dokumente ───────────────────────────────────────────────────────────── */
+
+function datumDe(iso) {
+  return iso ? new Date(iso + (iso.length === 10 ? 'T00:00:00' : '')).toLocaleDateString('de-DE') : '';
+}
+
+function dokumentZeile(d, aktuell) {
+  const abgelaufen = d.valid_until && new Date(d.valid_until + 'T00:00:00') < heute();
+  const teile = [
+    'v' + d.version,
+    d.document_date ? datumDe(d.document_date) : null,
+    d.valid_until ? 'gültig bis ' + datumDe(d.valid_until) : null
+  ].filter(Boolean).join(' · ');
+  const quelle = [
+    d.drive_url ? `<a href="${escapeHtml(d.drive_url)}" target="_blank" rel="noopener">Drive</a>` : null,
+    d.storage_path ? '<span class="fm-sub">Datei im Speicher</span>' : null
+  ].filter(Boolean).join(' · ');
+  return `<li class="fm-dok${aktuell ? '' : ' fm-dok-alt'}">
+    <div class="fm-ap-mitte">
+      <div class="fm-ap-titel">${escapeHtml(d.title)}${aktuell ? '' : ' <span class="fm-sub">(ersetzt)</span>'}</div>
+      <div class="fm-sub">${escapeHtml(teile)}</div>
+    </div>
+    <div class="fm-frist-rest">
+      ${abgelaufen && aktuell ? '<span class="fm-pill fm-rot">abgelaufen</span> ' : ''}${quelle}
+    </div>
+  </li>`;
+}
+
+function renderDokumente() {
+  if (KATEGORIEN === null || DOKUMENTE === null) return ladefehler('Die Nachweismappe');
+  const hochladen = '<div class="fm-card fm-hinweis">Hochladen und Ersetzen kommen in Etappe 2. ' +
+    'Bis dahin zeigt dieser Reiter, was fehlt.</div>';
+  return hochladen + KATEGORIEN.map(k => {
+    const docs = DOKUMENTE.filter(d => d.category === k.key);
+    const aktuell = docs.filter(d => !d.replaced_by);
+    const alt = docs.filter(d => d.replaced_by);
+    const liste = aktuell.length || alt.length
+      ? aktuell.map(d => dokumentZeile(d, true)).join('') + alt.map(d => dokumentZeile(d, false)).join('')
+      : '<li class="fm-dok"><span class="fm-sub">— noch nichts abgelegt —</span></li>';
+    return `<section class="fm-card">
+      <h2 class="fm-gruppe">${escapeHtml(k.label)}</h2>
+      ${k.hinweis ? `<p class="fm-sub fm-kat-hinweis">${escapeHtml(k.hinweis)}</p>` : ''}
+      <ul class="fm-liste">${liste}</ul>
+    </section>`;
+  }).join('');
+}
+
+/* ── Anträge ─────────────────────────────────────────────────────────────── */
+
+const ANTRAG_STATUS = {
+  entwurf: 'Entwurf', in_freigabe: 'in Freigabe', versandfertig: 'versandfertig',
+  versendet: 'versendet', bewilligt: 'bewilligt', abgelehnt: 'abgelehnt'
+};
+
+function euro(n) {
+  return Number(n || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+}
+
+// Kollisionsregel: Programme, die für dasselbe Vorhaben nicht zusammen
+// beantragt werden dürfen. Abgelehnte Anträge zählen nicht.
+function kollisionen(antrag) {
+  const p = PROGRAMME.find(x => x.id === antrag.programm_id);
+  const sperre = (p && p.kollidiert_mit) || [];
+  if (!sperre.length) return [];
+  return (ANTRAEGE || []).filter(b => b.id !== antrag.id
+      && b.project_id === antrag.project_id && b.status !== 'abgelehnt')
+    .map(b => PROGRAMME.find(x => x.id === b.programm_id))
+    .filter(q => q && sperre.includes(q.slug));
+}
+
+function antragKarte(a) {
+  const p = PROGRAMME.find(x => x.id === a.programm_id);
+  const pos = a.positionen || [];
+  const kosten = pos.filter(x => x.kind === 'cost').reduce((s, x) => s + Number(x.amount), 0);
+  const finanz = pos.filter(x => x.kind === 'financing').reduce((s, x) => s + Number(x.amount), 0);
+  const diff = Math.round((kosten - finanz) * 100) / 100;
+  const freigabe = a.freigabe_finanzen_am
+    ? `Freigabe Finanzen ${datumDe(a.freigabe_finanzen_am.slice(0, 10))}` +
+      (NAMEN[a.freigabe_finanzen_von] ? ' · ' + escapeHtml(NAMEN[a.freigabe_finanzen_von]) : '')
+    : 'Freigabe Finanzen fehlt';
+  const koll = kollisionen(a);
+  return `<li class="fm-antrag">
+    <div class="fm-ap-mitte">
+      <div class="fm-ap-titel">${escapeHtml(a.projekt ? a.projekt.title : 'Vorhaben fehlt')}</div>
+      <div class="fm-sub">${p ? `<a href="#programme/${encodeURIComponent(p.slug)}">${escapeHtml(p.programm)}</a>` : 'Programm fehlt'}${
+        a.program_line ? ' · ' + escapeHtml(a.program_line) : ''}</div>
+      <div class="fm-sub">Kosten ${euro(kosten)} · Finanzierung ${euro(finanz)}${
+        diff ? ` · <strong>Differenz ${euro(diff)}</strong>` : ''} · ${(a.anlagen || []).length} Anlagen · ${freigabe}</div>
+      ${koll.length ? `<div class="fm-gate">Achtung: für dieses Vorhaben läuft schon ein Antrag bei ${
+        escapeHtml(koll.map(q => q.programm).join(', '))} — beide zusammen sind nicht zulässig.</div>` : ''}
+    </div>
+    <div class="fm-frist-rest">
+      <span class="fm-pill">${escapeHtml(ANTRAG_STATUS[a.status] || a.status)}</span>
+      ${a.amount_requested != null ? `<div class="fm-sub" style="text-align:right">${euro(a.amount_requested)}</div>` : ''}
+    </div>
+  </li>`;
+}
+
+function renderAntraege() {
+  if (ANTRAEGE === null) return ladefehler('Die Antragsliste');
+  if (!ANTRAEGE.length) {
+    return '<div class="fm-card"><div class="fm-empty">Noch kein Antrag erfasst. ' +
+      'Anlegen und Bearbeiten kommen in Etappe 2.</div></div>';
+  }
+  return `<section class="fm-card"><ul class="fm-liste">${ANTRAEGE.map(antragKarte).join('')}</ul></section>`;
 }
 
 /* ── Markdown ────────────────────────────────────────────────────────────── */

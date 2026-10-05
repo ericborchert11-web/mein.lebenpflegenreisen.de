@@ -5046,6 +5046,58 @@
   }
 
   /** Traegt eine bereits geleistete Buchung nach — ohne Benachrichtigung. */
+  /**
+   * Der Vorstand traegt eine Luecke nach: telefonisch gebucht, aber niemand
+   * verfuegbar. Zaehlt in die Besetzungsquote, gegen keine Person — ein No-Show
+   * waere falsch, weil nie jemand eingeteilt war.
+   *
+   * Direkt in unstaffed_requests: Die Policy unstaffed_board_all erlaubt dem
+   * Vorstand das Schreiben, source = 'board' ist in der Pruefregel vorgesehen.
+   * Danach wird zurueckgelesen, weil ein Trigger vor dem Einfuegen laeuft und
+   * Werte still veraendern koennte.
+   */
+  async function boardFehlbedarfNachtragen({ klinikId, datum, schicht, station, grund, notiz } = {}) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (!klinikId || !datum) return { ok: false, error: 'Klinik und Datum sind Pflicht.' };
+    if (!FEHLBEDARF_SCHICHTEN.includes(schicht)) return { ok: false, error: 'Bitte eine Schicht wählen.' };
+    if (!['no_volunteer', 'short_notice', 'other'].includes(grund)) return { ok: false, error: 'Bitte einen Grund wählen.' };
+    try {
+      const client = await sb();
+      // Gleiche Regel wie bei der Klinik-Meldung: ohne Klinikname kein Eintrag,
+      // eine Zeile ohne Klinik waere in der Auswertung niemandem zuzuordnen.
+      const { data: k, error: kErr } = await client
+        .from('clinic_details').select('id, clinic_name, linked_clinic_id').eq('id', klinikId).single();
+      if (kErr || !k || !k.clinic_name) return { ok: false, error: 'Die Klinik-Daten konnten nicht geladen werden.' };
+
+      const { data, error } = await client
+        .from('unstaffed_requests')
+        .insert({
+          reported_by:    s.id,
+          source:         'board',
+          care_level:     'A',   // Pflichtfeld ohne Bedeutung, siehe meldeFehlbedarf
+          clinic_id:      k.linked_clinic_id || null,
+          clinic_name:    k.clinic_name,
+          requested_date: datum,
+          shift:          schicht,
+          station:        (station || '').trim() || null,
+          reason:         grund,
+          notes:          (notiz || '').trim() || null
+        })
+        .select()
+        .single();
+      if (error) return { ok: false, error: error.message };
+      if (!data || data.source !== 'board' || data.requested_date !== datum || data.shift !== schicht) {
+        console.warn('[LPR] boardFehlbedarfNachtragen: gespeichert, aber verändert', data);
+        return { ok: true, warnung: 'Gespeichert, aber die Datenbank hat Angaben verändert. Bitte in der Fehlbedarf-Liste prüfen.' };
+      }
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] boardFehlbedarfNachtragen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function boardBuchungNachtragen(payload) {
     if (!payload || !payload.clinic_id || !payload.volunteer_id || !payload.date || !payload.shift) {
       return { ok: false, error: 'Klinik, Person, Datum und Schicht sind Pflicht.' };
@@ -6987,6 +7039,7 @@
     // Fördermittel-Cockpit
     playbookKapitel,
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,
+    boardFehlbedarfNachtragen,
     foerderArbeitsplan, foerderDokumentKategorien, foerderDokumente, foerderAntraege,
     foerderCreateAufgabe, foerderUpdateAufgabe, foerderCreateNotiz, foerderNamen,
     // Cockpit — Assistenz der Geschäftsführung (Etappe A: lesend)

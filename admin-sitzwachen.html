@@ -810,6 +810,7 @@ async function nfSpeichern() {
 
 // ═══ Buchung nachtragen ═══
 let _nbPersonen = [];
+const NB_UNBESETZT = '__unbesetzt';
 
 async function nbOeffnen() {
   document.getElementById('nb-fehler').hidden = true;
@@ -829,9 +830,13 @@ async function nbOeffnen() {
   _nbPersonen = pe.personen || [];
   // Die BZR-Angabe steht am Namen und nicht in einer Fussnote: Beim Auswaehlen
   // faellt sie auf, danach nicht mehr.
-  selP.innerHTML = _nbPersonen.map(p =>
-    `<option value="${p.id}">${p.name} · ${p.tarif}${p.bzr_ok ? '' : ' · ohne BZR-Abfrage'}</option>`).join('')
-    || '<option value="">— niemand freigegeben —</option>';
+  // Erste Option ist die Luecke: Wer eine telefonische Buchung nachtraegt,
+  // fuer die sich niemand fand, soll sie nicht als No-Show verbuchen muessen.
+  selP.innerHTML = `<option value="${NB_UNBESETZT}">— niemand verfügbar (unbesetzt) —</option>`
+    + _nbPersonen.map(p =>
+    `<option value="${p.id}">${p.name} · ${p.tarif}${p.bzr_ok ? '' : ' · ohne BZR-Abfrage'}</option>`).join('');
+  // Vorauswahl bleibt eine Person, falls es eine gibt — das ist der haeufigere Fall.
+  if (_nbPersonen.length) selP.value = _nbPersonen[0].id;
 
   nbBzrHinweis();
 }
@@ -840,6 +845,9 @@ function nbBzrHinweis() {
   const id = document.getElementById('nb-person').value;
   const p  = _nbPersonen.find(x => x.id === id);
   const box = document.getElementById('nb-bzr');
+  const unbesetzt = id === NB_UNBESETZT;
+  document.getElementById('nb-grund-feld').hidden = !unbesetzt;
+  document.getElementById('nb-ok').textContent = unbesetzt ? 'Als unbesetzt nachtragen' : 'Nachtragen';
   if (p && !p.bzr_ok) {
     box.innerHTML = '<strong>Für diese Person liegt keine gültige BZR-Abfrage vor.</strong> '
       + 'Das Nachtragen wird trotzdem gespeichert — ein geleisteter Dienst gehört dokumentiert. '
@@ -865,6 +873,29 @@ async function nbSpeichern() {
     station:      document.getElementById('nb-station').value.trim(),
     notes:        document.getElementById('nb-notiz').value.trim()
   };
+  if (nutzlast.volunteer_id === NB_UNBESETZT) {
+    if (!nutzlast.clinic_id || !nutzlast.date) {
+      fehler.textContent = 'Klinik und Datum sind Pflicht.';
+      fehler.hidden = false;
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Wird nachgetragen…';
+    const fr = await LPR.boardFehlbedarfNachtragen({
+      klinikId: nutzlast.clinic_id, datum: nutzlast.date, schicht: nutzlast.shift,
+      station: nutzlast.station, grund: document.getElementById('nb-grund').value,
+      notiz: nutzlast.notes
+    });
+    btn.disabled = false; btn.textContent = 'Als unbesetzt nachtragen';
+    if (!fr.ok) {
+      fehler.textContent = fr.error || 'Nachtragen fehlgeschlagen.';
+      fehler.hidden = false;
+      return;
+    }
+    nbSchliessen();
+    LPR.showToast(fr.warnung || 'Als unbesetzt (Fehlbedarf) nachgetragen. Es wurde niemand benachrichtigt.', 'warn');
+    if (typeof ladeFehlbedarf === 'function') ladeFehlbedarf();
+    return;
+  }
   if (!nutzlast.clinic_id || !nutzlast.volunteer_id || !nutzlast.date) {
     fehler.textContent = 'Klinik, Person und Datum sind Pflicht.';
     fehler.hidden = false;
@@ -1067,6 +1098,11 @@ init();
       normal für Auswertung, Ausgleich und Abrechnung, löst aber
       <strong>keine Benachrichtigung</strong> aus: Der Dienst liegt bereits hinter uns.
     </p>
+    <p class="ev-info">
+      Hat sich für eine telefonische Buchung <strong>niemand gefunden</strong>, bei der
+      Person „niemand verfügbar (unbesetzt)“ wählen. Das wird als Fehlbedarf gespeichert
+      und zählt in die Besetzungsquote — nicht gegen eine Person, also kein No-Show.
+    </p>
 
     <div class="nf-grid">
       <div>
@@ -1096,6 +1132,14 @@ init();
       <div>
         <label class="ev-label" for="nb-notiz">Notiz (optional)</label>
         <input type="text" id="nb-notiz" maxlength="200" placeholder="z. B. telefonisch am 08.09. gebucht">
+      </div>
+      <div id="nb-grund-feld" hidden>
+        <label class="ev-label" for="nb-grund">Warum unbesetzt?</label>
+        <select id="nb-grund">
+          <option value="no_volunteer">niemand verfügbar</option>
+          <option value="short_notice">zu kurzfristig angefragt (zählt nicht in die Quote)</option>
+          <option value="other">anderer Grund</option>
+        </select>
       </div>
     </div>
 

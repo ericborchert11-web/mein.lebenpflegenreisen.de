@@ -59,6 +59,15 @@
 .pc2 { display:inline-block; padding:1px 7px; border-radius:999px; font-size:11px;
        font-weight:700; background:#EDF6D3; color:#3D5A14; border:1px solid #C8D98A; }
 .pill.cancelled { background:#F0E5E1; color:#7A3A28; }
+.pill.offen     { background:#FFF4D6; color:#7A5B00; }
+.pill.unbesetzt { background:#FBEAEA; color:#9B2C2C; }
+.od-block { margin:0 0 18px; }
+.as-sub { display:block; font-size:12px; color:#7A8270; margin-top:2px; }
+.od-kopf { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+.od-kopf h3 { margin:0; font-size:15px; }
+.od-kopf .as-btn { margin-left:auto; }
+.od-aktionen { display:flex; gap:6px; flex-wrap:wrap; }
+@media (max-width:640px) { .od-tabelle thead { display:none; } .od-tabelle td { display:block; border-bottom:none; padding:4px 10px; } .od-tabelle tr { display:block; border-bottom:1px solid #EEE9DD; padding:6px 0; } }
 .as-actions { display:flex; gap:6px; flex-wrap:wrap; }
 .as-btn { padding:6px 12px; font-size:13px; font-weight:600; border-radius:7px; border:1px solid var(--green); background:#fff; color:var(--green); cursor:pointer; }
 .as-btn:hover { background:#F0F6EE; }
@@ -199,6 +208,16 @@ h1 { margin:0 0 4px; }
         <p class="as-push-fuss">Gilt nur für dieses Gerät. Auf dem Sperrbildschirm stehen nur Klinik, Tag und Schicht — keine Namen, weder von Patientinnen und Patienten noch von Ehrenamtlichen.</p>
       </div>
 
+      <!-- Offene Dienste: telefonisch gebucht, Person fehlt noch. Steht ueber
+           der Buchungsliste, weil genau hier jemand gesucht wird. -->
+      <div class="od-block">
+        <div class="od-kopf">
+          <h3>Offene Dienste</h3>
+          <button class="as-btn" id="od-neu">Offene Dienste anlegen</button>
+        </div>
+        <div id="od-liste"><div class="as-empty">Wird geladen…</div></div>
+      </div>
+
       <div class="as-filters">
         <label>Status:
           <select id="f-booking-status">
@@ -309,7 +328,7 @@ async function init() {
   // nach — ohne await, die Buchungsliste soll darauf nicht warten.
   if (LPR.pushAboAbgleichen) LPR.pushAboAbgleichen();
 
-  await Promise.all([loadBookings(), loadRates(), loadAmpeln()]);
+  await Promise.all([loadBookings(), loadRates(), loadAmpeln(), ladeOffeneDienste()]);
 }
 
 /**
@@ -808,6 +827,167 @@ async function nfSpeichern() {
   await loadBookings();
 }
 
+// ═══ Offene Dienste ═══
+// Telefonisch gebucht, Person fehlt noch. Zustaende: offen (keine Luecke),
+// unbesetzt (niemand verfuegbar, zaehlt als Luecke), besetzt (wird zur Buchung
+// und verschwindet aus dieser Liste).
+let _odDienste = [];
+let _odAktion = null;   // { art: 'besetzen' | 'unbesetzt', dienst }
+
+const OD_SCHICHT_KURZ = { morning: 'Früh', afternoon: 'Spät', night: 'Nacht' };
+
+async function ladeOffeneDienste() {
+  const el = document.getElementById('od-liste');
+  const res = await LPR.boardOffeneDienste(14);
+  if (!res.ok) { el.innerHTML = '<div class="as-empty">' + esc(res.error || 'Fehler.') + '</div>'; return; }
+  _odDienste = res.dienste;
+  if (!_odDienste.length) {
+    el.innerHTML = '<div class="as-empty">Keine offenen Dienste.</div>';
+    return;
+  }
+  el.innerHTML = '<table class="as-table od-tabelle"><thead><tr><th>Datum</th><th>Schicht</th><th>Klinik</th>'
+    + '<th>Zustand</th><th>Notiz</th><th></th></tr></thead><tbody>'
+    + _odDienste.map(d => {
+        const offen = d.status === 'offen';
+        const zustand = offen
+          ? '<span class="pill offen">offen</span>'
+          : '<span class="pill unbesetzt">niemand verfügbar</span>'
+            + (d.reason && d.reason !== 'no_volunteer' ? ' <span class="as-sub">' + esc(FB_GRUND_WORT[d.reason] || d.reason) + '</span>' : '');
+        const herkunft = d.source === 'clinic' ? ' · von der Klinik gemeldet' : '';
+        const aktionen = '<button class="as-btn" data-od="besetzen" data-id="' + d.id + '">Besetzen</button>'
+          + (offen
+              ? '<button class="as-btn warn" data-od="unbesetzt" data-id="' + d.id + '">Niemand verfügbar</button>'
+              : '<button class="as-btn" data-od="offen" data-id="' + d.id + '">Wieder offen</button>')
+          + '<button class="as-btn" data-od="loeschen" data-id="' + d.id + '" title="Falsch angelegt">Löschen</button>';
+        return '<tr><td>' + esc(fmtDate(d.requested_date)) + '</td><td>' + esc(OD_SCHICHT_KURZ[d.shift] || d.shift)
+          + '</td><td>' + esc(d.clinic_name || '—') + (d.station ? '<br><span class="as-sub">' + esc(d.station) + '</span>' : '')
+          + '</td><td>' + zustand + '<span class="as-sub">' + esc(herkunft) + '</span></td><td>' + esc(d.notes || '')
+          + '</td><td><div class="od-aktionen">' + aktionen + '</div></td></tr>';
+      }).join('')
+    + '</tbody></table>';
+}
+
+async function odNeuOeffnen() {
+  document.getElementById('od-fehler').hidden = true;
+  ['od-station', 'od-notiz', 'od-von', 'od-bis'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('od-overlay').hidden = false;
+  const kl = await LPR.boardKlinikKonten();
+  document.getElementById('od-klinik').innerHTML = (kl.kliniken || []).map(k =>
+    '<option value="' + esc(k.id) + '">' + esc(k.name) + (k.abteilung ? ' · ' + esc(k.abteilung) : '') + '</option>').join('')
+    || '<option value="">— kein Klinik-Konto —</option>';
+}
+
+function odNeuSchliessen() { document.getElementById('od-overlay').hidden = true; }
+
+async function odNeuSpeichern() {
+  const fehler = document.getElementById('od-fehler');
+  const btn = document.getElementById('od-ok');
+  fehler.hidden = true;
+  const von = document.getElementById('od-von').value;
+  const bis = document.getElementById('od-bis').value || von;
+  btn.disabled = true; btn.textContent = 'Wird angelegt…';
+  const res = await LPR.boardOffeneDiensteAnlegen({
+    klinikId: document.getElementById('od-klinik').value,
+    von, bis,
+    schicht:  document.getElementById('od-schicht').value,
+    station:  document.getElementById('od-station').value,
+    notiz:    document.getElementById('od-notiz').value,
+    status:   'offen'
+  });
+  btn.disabled = false; btn.textContent = 'Anlegen';
+  if (!res.ok) { fehler.textContent = res.error || 'Anlegen fehlgeschlagen.'; fehler.hidden = false; return; }
+  odNeuSchliessen();
+  toast(res.warnung || (res.anzahl === 1 ? 'Ein offener Dienst angelegt.' : res.anzahl + ' offene Dienste angelegt.'), res.warnung ? 'warn' : undefined);
+  ladeOffeneDienste();
+}
+
+async function odAktionOeffnen(art, dienst) {
+  _odAktion = { art, dienst };
+  const titel = esc(fmtDate(dienst.requested_date)) + ' · ' + esc(OD_SCHICHT_KURZ[dienst.shift] || dienst.shift)
+    + ' · ' + esc(dienst.clinic_name || '');
+  document.getElementById('oa-fehler').hidden = true;
+  document.getElementById('oa-bzr').hidden = true;
+  document.getElementById('oa-person-feld').hidden = art !== 'besetzen';
+  document.getElementById('oa-grund-feld').hidden = art !== 'unbesetzt';
+  document.getElementById('oa-titel').textContent = art === 'besetzen' ? 'Dienst besetzen' : 'Niemand verfügbar';
+  document.getElementById('oa-ok').textContent = art === 'besetzen' ? 'Besetzen' : 'Als unbesetzt markieren';
+  document.getElementById('oa-info').innerHTML = titel + '<br>' + (art === 'besetzen'
+    ? 'Daraus wird eine Buchung. Liegt der Dienst noch vor uns, bekommen die Person (mit Kalendereintrag) '
+      + 'und die Klinik die üblichen Mails. Liegt er schon zurück, wird still nachgetragen.'
+    : 'Zählt als Lücke in der Besetzungsquote, nicht gegen eine Person. '
+      + 'Meldet sich doch noch jemand: „Wieder offen“ oder direkt „Besetzen“.');
+  document.getElementById('oa-overlay').hidden = false;
+  if (art === 'besetzen') {
+    const pe = await LPR.boardEhrenamtlicheMitBzr();
+    _nbPersonen = pe.personen || [];
+    document.getElementById('oa-person').innerHTML = _nbPersonen.map(p =>
+      '<option value="' + esc(p.id) + '">' + esc(p.name) + ' · ' + esc(p.tarif)
+      + (p.bzr_ok ? '' : ' · ohne BZR-Abfrage') + '</option>').join('')
+      || '<option value="">— niemand freigegeben —</option>';
+  }
+}
+
+function odAktionSchliessen() { document.getElementById('oa-overlay').hidden = true; _odAktion = null; }
+
+async function odAktionBestaetigen() {
+  if (!_odAktion) return;
+  const { art, dienst } = _odAktion;
+  const fehler = document.getElementById('oa-fehler');
+  const btn = document.getElementById('oa-ok');
+  fehler.hidden = true;
+  btn.disabled = true;
+  const res = art === 'besetzen'
+    ? await LPR.boardOffenenDienstBesetzen(dienst.id, document.getElementById('oa-person').value)
+    : await LPR.boardOffenerDienstStatus(dienst.id, 'unbesetzt', document.getElementById('oa-grund').value);
+  btn.disabled = false;
+  if (!res.ok) { fehler.textContent = res.error || 'Fehlgeschlagen.'; fehler.hidden = false; return; }
+  odAktionSchliessen();
+  toast(art === 'besetzen' ? 'Dienst besetzt. Die Buchung steht jetzt in der Liste unten.' : 'Als „niemand verfügbar“ markiert.');
+  ladeOffeneDienste();
+  if (art === 'besetzen') loadBookings();
+  if (typeof ladeFehlbedarf === 'function') ladeFehlbedarf();
+}
+
+async function odZeilenAktion(btn) {
+  const d = _odDienste.find(x => x.id === btn.dataset.id);
+  if (!d) return;
+  const art = btn.dataset.od;
+  if (art === 'besetzen' || art === 'unbesetzt') { odAktionOeffnen(art, d); return; }
+  if (art === 'offen') {
+    btn.disabled = true;
+    const res = await LPR.boardOffenerDienstStatus(d.id, 'offen');
+    if (!res.ok) { toast(res.error || 'Fehler.', 'warn'); btn.disabled = false; return; }
+    toast('Wieder offen.');
+    ladeOffeneDienste();
+    if (typeof ladeFehlbedarf === 'function') ladeFehlbedarf();
+    return;
+  }
+  if (art === 'loeschen') {
+    if (!confirm('Diesen Eintrag löschen? Nur für falsch angelegte Dienste — '
+                 + 'eine echte Lücke bitte auf „niemand verfügbar“ lassen.')) return;
+    btn.disabled = true;
+    const res = await LPR.boardOffenerDienstLoeschen(d.id);
+    if (!res.ok) { toast(res.error || 'Fehler.', 'warn'); btn.disabled = false; return; }
+    toast('Gelöscht.');
+    ladeOffeneDienste();
+    if (typeof ladeFehlbedarf === 'function') ladeFehlbedarf();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('od-neu').onclick       = odNeuOeffnen;
+  document.getElementById('od-abbrechen').onclick = odNeuSchliessen;
+  document.getElementById('od-ok').onclick        = odNeuSpeichern;
+  document.getElementById('od-overlay').onclick   = e => { if (e.target.id === 'od-overlay') odNeuSchliessen(); };
+  document.getElementById('oa-abbrechen').onclick = odAktionSchliessen;
+  document.getElementById('oa-ok').onclick        = odAktionBestaetigen;
+  document.getElementById('oa-overlay').onclick   = e => { if (e.target.id === 'oa-overlay') odAktionSchliessen(); };
+  document.getElementById('od-liste').addEventListener('click', e => {
+    const b = e.target.closest('button[data-od]');
+    if (b) odZeilenAktion(b);
+  });
+});
+
 // ═══ Buchung nachtragen ═══
 let _nbPersonen = [];
 const NB_UNBESETZT = '__unbesetzt';
@@ -1089,6 +1269,77 @@ init();
 </div>
 
 <!-- ═══ Telefonisch gebuchten Dienst nachtragen ═══ -->
+<div id="od-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog breit" role="dialog" aria-labelledby="od-titel">
+    <h2 id="od-titel">Offene Dienste anlegen</h2>
+    <p class="ev-info">
+      Für Dienste, die eine Klinik <strong>telefonisch</strong> gebucht hat und für die noch
+      niemand feststeht. Ein Eintrag je Tag. Offene Dienste zählen <strong>nicht</strong> als
+      Lücke. Findet sich niemand, setzt du sie auf „niemand verfügbar“.
+    </p>
+    <div class="nf-grid">
+      <div>
+        <label class="ev-label" for="od-klinik">Klinik</label>
+        <select id="od-klinik"></select>
+      </div>
+      <div>
+        <label class="ev-label" for="od-schicht">Schicht</label>
+        <select id="od-schicht">
+          <option value="night">Nachtdienst 22–06</option>
+          <option value="morning">Frühdienst 06–14</option>
+          <option value="afternoon">Spätdienst 14–22</option>
+        </select>
+      </div>
+      <div>
+        <label class="ev-label" for="od-von">von</label>
+        <input type="date" id="od-von">
+      </div>
+      <div>
+        <label class="ev-label" for="od-bis">bis (einschließlich)</label>
+        <input type="date" id="od-bis">
+      </div>
+      <div>
+        <label class="ev-label" for="od-station">Station (optional)</label>
+        <input type="text" id="od-station" maxlength="60" placeholder="z. B. Station 4B">
+      </div>
+      <div>
+        <label class="ev-label" for="od-notiz">Notiz (optional)</label>
+        <input type="text" id="od-notiz" maxlength="200" placeholder="z. B. telefonisch am 06.10. gebucht">
+      </div>
+    </div>
+    <div class="ev-fehler" id="od-fehler" hidden></div>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="od-abbrechen">Abbrechen</button>
+      <button type="button" class="as-btn" id="od-ok">Anlegen</button>
+    </div>
+  </div>
+</div>
+
+<div id="oa-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog" role="dialog" aria-labelledby="oa-titel">
+    <h2 id="oa-titel"></h2>
+    <p class="ev-info" id="oa-info"></p>
+    <div id="oa-person-feld">
+      <label class="ev-label" for="oa-person">Wer übernimmt den Dienst?</label>
+      <select id="oa-person"></select>
+    </div>
+    <div id="oa-grund-feld">
+      <label class="ev-label" for="oa-grund">Warum unbesetzt?</label>
+      <select id="oa-grund">
+        <option value="no_volunteer">niemand verfügbar</option>
+        <option value="short_notice">zu kurzfristig angefragt (zählt nicht in die Quote)</option>
+        <option value="other">anderer Grund</option>
+      </select>
+    </div>
+    <div class="as-hint" id="oa-bzr" hidden></div>
+    <div class="ev-fehler" id="oa-fehler" hidden></div>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="oa-abbrechen">Abbrechen</button>
+      <button type="button" class="as-btn" id="oa-ok"></button>
+    </div>
+  </div>
+</div>
+
 <div id="nb-overlay" class="ev-overlay" hidden>
   <div class="ev-dialog breit" role="dialog" aria-labelledby="nb-titel">
     <h2 id="nb-titel">Buchung nachtragen</h2>

@@ -803,7 +803,7 @@ footer a { color: var(--lime); text-decoration: none; }
     </div>
 
     <p style="margin-top:20px; font-size:13px; color: var(--muted); max-width: 760px;">
-      <strong>Hinweis:</strong> Sobald eine Klinik einen deiner Dienste bucht, siehst du hier die Einsatzdetails (Ort, Patient-Kennung, Klinikkontakt). Deine Aufwandsentschädigung<span id="sitz-rate-hint"></span> (Übungsleiterfreibetrag § 3 Nr. 26 EStG) beantragst du nach dem Dienst mit wenigen Klicks im Abrechnungstool.
+      <strong>Hinweis:</strong> Sobald eine Klinik einen deiner Dienste bucht, siehst du hier die Einsatzdetails (Ort, Patient-Kennung, Klinikkontakt). Deine Aufwandsentschädigung<span id="sitz-rate-hint"></span> (Übungsleiterfreibetrag § 3 Nr. 26 EStG) wird automatisch zur Auszahlung freigegeben, sobald der Vorstand deinen Dienst abgeschlossen hat. Den Beleg findest du danach im Abrechnungstool.
     </p>
 
   </div>
@@ -1478,16 +1478,18 @@ async function sendeAbsage() {
 }
 
 // Betrag der Aufwandsentschädigung NIE fest verdrahten: dynamisch aus den
-// beschlossenen Sätzen. Solange keine sitz_*-Rate existiert, bleibt der
+// beschlossenen Sätzen. Solange keine sitz_t1/sitz_t2-Rate existiert, bleibt der
 // Betrag unerwähnt (Satz steht noch unter Vorstandsbeschluss).
 async function renderSitzRateHint() {
   const el = document.getElementById('sitz-rate-hint');
   if (!el || !(window.LPR && window.LPR.getRates)) return;
   try {
     const rates = await window.LPR.getRates();
-    const r = rates['sitz_morning'] || rates['sitz_afternoon'] || rates['sitz_night'];
-    el.textContent = (r && r.amount != null)
-      ? ' (' + window.LPR.formatEUR(Number(r.amount)) + ' pro 8-Stunden-Dienst)'
+    // Seit 06.10.2026 je Stufe (T1/T2) statt je Schicht
+    const t1 = rates['sitz_t1'], t2 = rates['sitz_t2'];
+    el.textContent = (t1 && t2 && t1.amount != null && t2.amount != null)
+      ? ' (' + window.LPR.formatEUR(Number(t1.amount)) + ' in Stufe T1, '
+          + window.LPR.formatEUR(Number(t2.amount)) + ' in Stufe T2 pro Dienst)'
       : '';
   } catch (e) { /* Betrag bleibt unerwähnt */ }
 }

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="theme-color" content="#1A3A2A">
+<title>Antrag</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+/* Druckvorlage fuer Foerderantraege. Briefkopf und Masse wie rechnung.html
+   (DIN 5008, Anschrift im Kuvertfenster). Bewusst ohne box-shadow: Chrome
+   exportiert Schatten als Soft-Mask, Vorschau und Keynote malen daraus graue
+   Kaesten. */
+body { background: #E9E6DF; }
+.dr-leiste {
+  max-width: 210mm; margin: 20px auto 12px; padding: 12px 16px; background: #fff;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 14px;
+}
+.dr-leiste .dr-text { flex: 1 1 260px; color: var(--muted); line-height: 1.45; }
+.dr-leiste strong { color: var(--text); }
+
+.blatt {
+  position: relative; width: 210mm; min-height: 285mm; margin: 0 auto 16px;
+  background: #fff; color: #1A1A18; font-size: 10pt; line-height: 1.45;
+  border: 1px solid var(--border);
+}
+.blatt-fluss { padding: 18mm 20mm 20mm 25mm; }
+
+/* Briefkopf (Seite 1) */
+.brief-kopf { position: absolute; top: 8mm; left: 25mm; right: 20mm; }
+.brief-logo { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+              font-size: 15pt; color: #1A3A2A; letter-spacing: -.01em; }
+.brief-logo em { font-style: normal; color: #6E9B1F; }
+.brief-kopf-sub { font-size: 8pt; color: #6B6B65; letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
+.brief-adresse { position: absolute; top: 39mm; left: 20mm; width: 85mm; height: 45mm; }
+.brief-ruecksende { font-size: 7pt; color: #6B6B65; padding-bottom: 2mm;
+                    border-bottom: .3mm solid #C9C6BE; margin-bottom: 4mm; }
+.brief-anschrift { font-size: 11pt; line-height: 1.5; white-space: pre-line; }
+.brief-info { position: absolute; top: 39mm; right: 20mm; width: 62mm; font-size: 9.5pt; }
+.brief-info div { display: flex; justify-content: space-between; gap: 8px; padding: 1.2mm 0; }
+.brief-info span { color: #6B6B65; }
+/* Abstand als padding, nicht margin — sonst faellt er im Druck mit dem Blattrand
+   zusammen und die Anschrift rutscht aus dem Fenster (Lehre aus rechnung.html). */
+.brief-body { margin: 0 20mm 0 25mm; padding-top: 92mm; }
+.brief-betreff { font-weight: 700; margin-bottom: 5mm; }
+.brief-body p { margin: 0 0 2.6mm; white-space: pre-line; }
+.brief-gruss { margin-top: 5mm; white-space: pre-line; }
+.brief-fuss { position: absolute; bottom: 8mm; left: 25mm; right: 20mm;
+              border-top: 1px solid #E4E2DC; padding-top: 2mm;
+              font-size: 8pt; line-height: 1.5; color: #6B6B65; }
+
+/* Folgeseiten */
+.kopfzeile { font-size: 8pt; color: #6B6B65; border-bottom: 1px solid #E4E2DC;
+             padding-bottom: 2mm; margin-bottom: 8mm; display: flex; justify-content: space-between; }
+.kicker { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 8.5pt;
+          letter-spacing: .16em; text-transform: uppercase; color: #6E9B1F; margin-bottom: 2mm; }
+h1.titel { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 19pt;
+           line-height: 1.15; color: #1A3A2A; margin: 0 0 6mm; letter-spacing: -.02em; }
+.eckdaten { width: 100%; border-collapse: collapse; margin-bottom: 6mm; font-size: 9.5pt; }
+.eckdaten th { text-align: left; font-weight: 600; color: #6B6B65; width: 38mm; padding: 1.2mm 0; vertical-align: top; }
+.eckdaten td { padding: 1.2mm 0; }
+.md h2, .md h3, .md h4, .md h5 { font-family: 'Bricolage Grotesque', sans-serif; color: #1A3A2A;
+  margin: 5mm 0 2mm; break-after: avoid; }
+.md h2 { font-size: 13pt; } .md h3 { font-size: 11.5pt; } .md h4, .md h5 { font-size: 10.5pt; }
+.md p { margin: 0 0 2.6mm; }
+.md ul, .md ol { margin: 0 0 3mm 6mm; padding: 0; }
+.md li { margin-bottom: 1mm; }
+.md table { border-collapse: collapse; width: 100%; margin: 2mm 0 4mm; }
+.md td { border: 1px solid #E4E2DC; padding: 1.5mm 2mm; vertical-align: top; }
+.md blockquote { border-left: 2px solid #C9C6BE; margin: 0 0 3mm; padding-left: 4mm; color: #3A3A36; }
+.md a { color: inherit; }
+
+.plan { width: 100%; border-collapse: collapse; margin-bottom: 7mm; font-size: 10pt; }
+.plan caption { text-align: left; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700;
+                font-size: 11.5pt; color: #1A3A2A; padding-bottom: 2mm; }
+.plan th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .05em;
+           color: #6B6B65; border-bottom: 1.5px solid #1A3A2A; padding: 1.5mm 2mm; }
+.plan td { border-bottom: 1px solid #E4E2DC; padding: 1.8mm 2mm; vertical-align: top; }
+.plan td.r, .plan th.r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.plan tr.summe td { font-weight: 700; border-bottom: none; border-top: 1.5px solid #1A3A2A; }
+.plan tr { break-inside: avoid; }
+.ausgleich { font-weight: 700; margin-top: -3mm; }
+
+.anlagen { margin: 0; padding: 0 0 0 6mm; }
+.anlagen li { margin-bottom: 2mm; }
+.anlagen .sub, .plan .sub { color: #6B6B65; font-size: 9pt; }
+
+/* Entwurf: Banner auf jeder Seite, Betraege gelb */
+.entwurf-banner { display: none; }
+body.ist-entwurf .entwurf-banner {
+  display: block; position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+  background: #B4231A; color: #fff; text-align: center; font-weight: 700;
+  font-size: 10pt; letter-spacing: .14em; padding: 1.6mm 0;
+}
+body.ist-entwurf .betrag { background: #FFE97A; }
+/* Das Banner liegt oben auf jeder Seite — der Briefkopf rueckt im Entwurf darunter.
+   Die Anschrift bleibt, wo sie ist: sie muss im Kuvertfenster sitzen. */
+body.ist-entwurf .brief-kopf { top: 13mm; }
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+.dr-fehler { max-width: 210mm; margin: 40px auto; background: #fff; padding: 24px; border-radius: var(--radius); }
+
+@media print {
+  /* Fast kein Seitenrand: dann laesst Chrome Datum, Titel und Dateipfad weg
+     (gemessen fuer rechnung.html, 23.08.2026). Der sichtbare Rand kommt aus
+     den Abstaenden der Blaetter. */
+  @page { size: A4; margin: 6mm 0; }
+  html, body { background: #fff !important; min-height: 0; margin: 0; }
+  .dr-leiste { display: none; }
+  .blatt { border: none; margin: 0; width: auto; min-height: 0; break-after: page; }
+  .blatt:last-of-type { break-after: auto; }
+  .blatt-brief { height: 285mm; }
+  body.ist-entwurf .entwurf-banner { top: 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="entwurf-banner" aria-hidden="true">ENTWURF · NOCH NICHT FREIGEGEBEN</div>
+
+<div class="dr-leiste" id="dr-leiste">
+  <div class="dr-text" id="dr-hinweis">Lädt …</div>
+  <button type="button" class="btn btn-primary" id="dr-drucken" disabled>Drucken / Als PDF sichern</button>
+</div>
+
+<main id="dr-inhalt"></main>
+
+<script src="app.js"></script>
+<script>
+'use strict';
+
+if (!LPR.requireRole('admin', 'login.html?next=' + encodeURIComponent('antrag-druck.html' + location.search))) {
+  throw new Error('kein Zugriff');
+}
+
+const V = LPR.VEREIN;
+// Bis zur Sitzverlegung: Registeranschrift, dazu das Buero (Briefing § 8).
+const BUERO = 'Büro: Turmstraße 10, 10559 Berlin';
+const TELEFON = '0174 3409116';
+
+function esc(s) {
+  const d = document.createElement('div'); d.textContent = s == null ? '' : String(s);
+  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function euro(n) { return Number(n || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }); }
+function datumDe(iso) { return iso ? new Date(String(iso).slice(0, 10) + 'T00:00:00').toLocaleDateString('de-DE') : ''; }
+function heuteIso() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// Dateiname: Antrag_<Geldgeber>_<Vorhaben>_<YYYY-MM-DD>. Chrome schlaegt beim
+// "Als PDF sichern" den Seitentitel vor — deshalb steht er dort.
+function teil(s) {
+  return String(s || '')
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+    .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue').replace(/ß/g, 'ss')
+    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'unbenannt';
+}
+
+/* Markdown — dieselben Regeln wie admin-foerdermittel.html: erst maskieren,
+   dann Bloecke, dann Inline. Es darf nie eine Ersetzung vor esc() treten. */
+function inline(s) {
+  return s
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1');
+}
+function markdown(text) {
+  const zeilen = esc(text || '').split('\n');
+  const aus = [];
+  let modus = null;
+  const schliessen = () => {
+    if (modus === 'ul') aus.push('</ul>');
+    if (modus === 'ol') aus.push('</ol>');
+    if (modus === 'p') aus.push('</p>');
+    if (modus === 'table') aus.push('</tbody></table>');
+    if (modus === 'quote') aus.push('</blockquote>');
+    modus = null;
+  };
+  for (const roh of zeilen) {
+    const z = roh.trimEnd();
+    if (!z.trim()) { schliessen(); continue; }
+    const ueber = z.match(/^(#{1,4})\s+(.*)$/);
+    if (ueber) { schliessen(); const n = Math.min(ueber[1].length + 1, 5);
+      aus.push(`<h${n}>${inline(ueber[2])}</h${n}>`); continue; }
+    if (/^\s*\|/.test(z)) {
+      const zellen = z.trim().replace(/^\||\|$/g, '').split('|').map(s => s.trim());
+      if (zellen.every(c => /^-*:?-*$/.test(c))) continue;
+      if (modus !== 'table') { schliessen(); modus = 'table'; aus.push('<table><tbody>'); }
+      aus.push('<tr>' + zellen.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>');
+      continue;
+    }
+    if (/^&gt;\s?/.test(z)) {
+      if (modus !== 'quote') { schliessen(); modus = 'quote'; aus.push('<blockquote>'); }
+      aus.push(inline(z.replace(/^&gt;\s?/, '')) + ' ');
+      continue;
+    }
+    const auf = z.match(/^\s*[-*]\s+(.*)$/);
+    if (auf) { if (modus !== 'ul') { schliessen(); modus = 'ul'; aus.push('<ul>'); }
+      aus.push(`<li>${inline(auf[1])}</li>`); continue; }
+    const num = z.match(/^\s*\d+\.\s+(.*)$/);
+    if (num) { if (modus !== 'ol') { schliessen(); modus = 'ol'; aus.push('<ol>'); }
+      aus.push(`<li>${inline(num[1])}</li>`); continue; }
+    if (modus === 'p' || modus === 'ul' || modus === 'ol') { aus.push(' ' + inline(z)); continue; }
+    schliessen(); modus = 'p'; aus.push(`<p>${inline(z)}`);
+  }
+  schliessen();
+  return aus.join('\n');
+}
+
+const ZWECK = { schulungen: 'Schulungen', reisen: 'Reisen', ausstattung: 'Ausstattung', personal: 'Personal', sonstiges: 'Sonstiges' };
+const FINANZ = { beantragt: 'Beantragte Förderung', eigenmittel: 'Eigenmittel', drittmittel: 'Drittmittel', einnahmen: 'Einnahmen' };
+
+function fehlerZeigen(text) {
+  document.getElementById('dr-leiste').hidden = true;
+  document.getElementById('dr-inhalt').innerHTML = '<div class="dr-fehler">' + esc(text) + '</div>';
+}
+
+async function laden() {
+  const id = new URLSearchParams(location.search).get('id');
+  if (!id) return fehlerZeigen('Kein Antrag angegeben.');
+  const [a, progs, doks, kats] = await Promise.all([
+    LPR.foerderAntrag(id), LPR.foerderListProgramme(), LPR.foerderDokumente(), LPR.foerderDokumentKategorien()
+  ]);
+  if (!a || progs === null || doks === null || kats === null) {
+    return fehlerZeigen('Der Antrag konnte nicht geladen werden. Bitte neu anmelden.');
+  }
+  zeichnen(a, progs.find(p => p.id === a.programm_id) || {}, doks, kats);
+}
+
+function zeichnen(a, prog, doks, kats) {
+  const pr = a.projekt || {};
+  const final = !!a.freigabe_finanzen_am;
+  document.body.classList.toggle('ist-entwurf', !final);
+
+  const geldgeber = prog.traeger || prog.programm || 'Geldgeber';
+  document.title = 'Antrag_' + teil(geldgeber.split(/[(/]/)[0]) + '_' + teil(pr.title) + '_' + heuteIso();
+
+  const pos = (a.positionen || []).slice().sort((x, y) => x.sortierung - y.sortierung);
+  const kosten = pos.filter(p => p.kind === 'cost');
+  const finanz = pos.filter(p => p.kind === 'financing');
+  const sK = kosten.reduce((s, p) => s + Number(p.amount), 0);
+  const sF = finanz.reduce((s, p) => s + Number(p.amount), 0);
+  const diff = Math.round((sK - sF) * 100) / 100;
+  const beantragt = finanz.filter(p => p.financing_type === 'beantragt').reduce((s, p) => s + Number(p.amount), 0);
+
+  const anlagen = (a.anlagen || []).slice().sort((x, y) => x.sort_order - y.sort_order)
+    .map(x => doks.find(d => d.id === x.document_id)).filter(Boolean);
+  const katLabel = k => (kats.find(x => x.key === k) || {}).label || k;
+
+  // Leiste (nur Bildschirm)
+  document.getElementById('dr-hinweis').innerHTML = final
+    ? `<strong>Freigegeben.</strong> Freigabe Finanzen am ${esc(datumDe(a.freigabe_finanzen_am))}. Im Druckdialog „Als PDF sichern“ wählen, Ränder: Standard.`
+    : `<strong>Entwurf.</strong> Ohne Freigabe Finanzen trägt jede Seite das rote Banner und die Beträge sind gelb markiert. So nicht verschicken.`;
+  const knopf = document.getElementById('dr-drucken');
+  knopf.disabled = false;
+  knopf.onclick = () => window.print();
+
+  // Seite 1: Anschreiben
+  const anschrift = a.recipient_address || geldgeber;
+  const linie = a.program_line ? ` – ${a.program_line}` : '';
+  const standard =
+    `hiermit beantragt der ${V.name} im Programm „${prog.programm || ''}“${linie} eine Förderung für das Vorhaben „${pr.title || ''}“.` +
+    (pr.short_description ? '\n\n' + pr.short_description : '') +
+    `\n\nDie Projektbeschreibung, den Kosten- und Finanzierungsplan und die im Anlagenverzeichnis aufgeführten Nachweise fügen wir bei. Für Rückfragen stehen wir gern zur Verfügung.`;
+  const text = a.cover_letter || standard;
+  const info = (k, v, betrag) => v ? `<div><span>${esc(k)}</span><strong${betrag ? ' class="betrag"' : ''}>${esc(v)}</strong></div>` : '';
+  const bank = a.show_bank_details ? ` · ${esc(V.iban)} · ${esc(V.bic)} · ${esc(V.bank)}` : '';
+
+  const brief = `
+  <section class="blatt blatt-brief">
+    <div class="brief-kopf">
+      <div class="brief-logo">Leben <em>Pflegen</em> Reisen e.V.</div>
+      <div class="brief-kopf-sub">Gemeinnütziger Verein · Berlin</div>
+    </div>
+    <div class="brief-adresse">
+      <div class="brief-ruecksende">${esc(V.name)} · ${esc(V.strasse)} · ${esc(V.ort)}</div>
+      <div class="brief-anschrift">${esc(anschrift)}</div>
+    </div>
+    <div class="brief-info">
+      ${info('Datum', datumDe(heuteIso()))}
+      ${info('Ihr Zeichen', a.external_reference)}
+      ${info('Beantragt', beantragt ? euro(beantragt) : '', true)}
+      ${info('Kontakt', V.email)}
+      ${info('Telefon', TELEFON)}
+    </div>
+    <div class="brief-body">
+      <div class="brief-betreff">Antrag auf Förderung: ${esc(pr.title || '')}${prog.programm ? ' · ' + esc(prog.programm) : ''}</div>
+      <p>Sehr geehrte Damen und Herren,</p>
+      ${text.split(/\n{2,}/).map(abs => `<p>${esc(abs)}</p>`).join('')}
+      <div class="brief-gruss">Mit freundlichen Grüßen
+
+${esc(V.vorstand)}
+Vorstand, ${esc(V.name)}</div>
+    </div>
+    <div class="brief-fuss">
+      <strong>${esc(V.name)}</strong> · ${esc(V.strasse)} · ${esc(V.ort)} · ${esc(BUERO)} ·
+      ${esc(V.email)} · ${esc(V.web)}<br>
+      Vereinsregister: ${esc(V.register)} · Gemeinnütziger Verein (§ 52 AO) ·
+      Vorstand: ${esc(V.vorstand)}${bank}
+    </div>
+  </section>`;
+
+  const kopfzeile = `<div class="kopfzeile"><span>${esc(V.name)}</span><span>Antrag · ${esc(pr.title || '')}</span></div>`;
+
+  // Seite 2: Projektbeschreibung
+  const eck = (k, v) => v ? `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>` : '';
+  const beschreibung = `
+  <section class="blatt blatt-fluss">
+    ${kopfzeile}
+    <div class="kicker">Projektbeschreibung</div>
+    <h1 class="titel">${esc(pr.title || '')}</h1>
+    <table class="eckdaten"><tbody>
+      ${eck('Antragsteller', V.name + ', ' + V.register)}
+      ${eck('Programm', (prog.programm || '') + (a.program_line ? ' – ' + a.program_line : ''))}
+      ${eck('Zweck', ZWECK[pr.purpose] || '')}
+      ${eck('Zielgruppe', pr.target_group)}
+      ${eck('Laufzeit', pr.duration_text)}
+      ${eck('Ort', pr.location)}
+    </tbody></table>
+    ${pr.short_description ? `<div class="md"><h3>Kurzbeschreibung</h3><p>${esc(pr.short_description)}</p></div>` : ''}
+    <div class="md">${markdown(pr.description_md || '')}</div>
+  </section>`;
+
+  // Seite 3: Kosten- und Finanzierungsplan
+  const zeile = (p, typ) => `<tr><td>${esc(p.label)}${p.note ? `<br><span class="sub">${esc(p.note)}</span>` : ''}</td>
+      ${typ ? `<td>${esc(FINANZ[p.financing_type] || '')}</td>` : ''}
+      <td class="r"><span class="betrag">${esc(euro(p.amount))}</span></td></tr>`;
+  const plan = `
+  <section class="blatt blatt-fluss">
+    ${kopfzeile}
+    <div class="kicker">Kosten- und Finanzierungsplan</div>
+    <h1 class="titel">${esc(pr.title || '')}</h1>
+    <table class="plan">
+      <caption>Kosten</caption>
+      <thead><tr><th>Position</th><th class="r">Betrag</th></tr></thead>
+      <tbody>${kosten.map(p => zeile(p, false)).join('')}
+        <tr class="summe"><td>Gesamtkosten</td><td class="r"><span class="betrag">${esc(euro(sK))}</span></td></tr></tbody>
+    </table>
+    <table class="plan">
+      <caption>Finanzierung</caption>
+      <thead><tr><th>Position</th><th>Art</th><th class="r">Betrag</th></tr></thead>
+      <tbody>${finanz.map(p => zeile(p, true)).join('')}
+        <tr class="summe"><td>Gesamtfinanzierung</td><td></td><td class="r"><span class="betrag">${esc(euro(sF))}</span></td></tr></tbody>
+    </table>
+    <p class="ausgleich">${diff ? 'Differenz zwischen Kosten und Finanzierung: ' + esc(euro(diff)) : 'Kosten und Finanzierung sind ausgeglichen.'}</p>
+  </section>`;
+
+  // Seite 4: Anlagenverzeichnis
+  const verzeichnis = `
+  <section class="blatt blatt-fluss">
+    ${kopfzeile}
+    <div class="kicker">Anlagenverzeichnis</div>
+    <h1 class="titel">Anlagen</h1>
+    ${anlagen.length ? `<ol class="anlagen">${anlagen.map(d => `<li>${esc(d.title)}
+      <div class="sub">${esc(katLabel(d.category))}${d.document_date ? ' · Stand ' + esc(datumDe(d.document_date)) : ''}${
+        d.valid_until ? ' · gültig bis ' + esc(datumDe(d.valid_until)) : ''}</div></li>`).join('')}</ol>`
+      : '<p>Keine Anlagen.</p>'}
+  </section>`;
+
+  document.getElementById('dr-inhalt').innerHTML = brief + beschreibung + plan + verzeichnis;
+}
+
+laden();
+</script>
+</body>
+</html>

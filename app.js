@@ -5046,54 +5046,149 @@
   }
 
   /** Traegt eine bereits geleistete Buchung nach — ohne Benachrichtigung. */
+  // ── Offene Dienste ──────────────────────────────────────────────────────
+  // Telefonisch gebuchte Dienste ohne Person liegen in unstaffed_requests mit
+  // einem Zustand: offen (Person fehlt noch, keine Luecke), unbesetzt (niemand
+  // verfuegbar, zaehlt als Luecke), besetzt (Buchung angelegt). Ein No-Show
+  // waere hier falsch: Er verlangt eine eingeteilte Person und senkt deren Ampel.
+  // Schreiben darf der Vorstand direkt (Policy unstaffed_board_all), nur das
+  // Besetzen laeuft ueber eine Funktion, weil daraus eine Buchung entsteht.
+
+  const OFFEN_GRUENDE = ['no_volunteer', 'short_notice', 'other'];
+
   /**
-   * Der Vorstand traegt eine Luecke nach: telefonisch gebucht, aber niemand
-   * verfuegbar. Zaehlt in die Besetzungsquote, gegen keine Person — ein No-Show
-   * waere falsch, weil nie jemand eingeteilt war.
-   *
-   * Direkt in unstaffed_requests: Die Policy unstaffed_board_all erlaubt dem
-   * Vorstand das Schreiben, source = 'board' ist in der Pruefregel vorgesehen.
-   * Danach wird zurueckgelesen, weil ein Trigger vor dem Einfuegen laeuft und
-   * Werte still veraendern koennte.
+   * Legt einen Dienst je Tag von `von` bis `bis` an (beide einschliesslich).
+   * status 'offen' oder 'unbesetzt', bei 'unbesetzt' ist grund Pflicht.
    */
-  async function boardFehlbedarfNachtragen({ klinikId, datum, schicht, station, grund, notiz } = {}) {
+  async function boardOffeneDiensteAnlegen({ klinikId, von, bis, schicht, station, notiz, status, grund } = {}) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
-    if (!klinikId || !datum) return { ok: false, error: 'Klinik und Datum sind Pflicht.' };
+    if (!klinikId || !von) return { ok: false, error: 'Klinik und Datum sind Pflicht.' };
     if (!FEHLBEDARF_SCHICHTEN.includes(schicht)) return { ok: false, error: 'Bitte eine Schicht wählen.' };
-    if (!['no_volunteer', 'short_notice', 'other'].includes(grund)) return { ok: false, error: 'Bitte einen Grund wählen.' };
+    if (!['offen', 'unbesetzt'].includes(status)) return { ok: false, error: 'Unbekannter Zustand.' };
+    if (status === 'unbesetzt' && !OFFEN_GRUENDE.includes(grund)) return { ok: false, error: 'Bitte einen Grund wählen.' };
+
+    // Tage aufzaehlen ueber setDate, nicht ueber Millisekunden — sonst wird aus
+    // dem Tag nach der Zeitumstellung der Tag davor.
+    const tage = [];
+    const d = new Date(von + 'T00:00:00');
+    const ende = new Date((bis || von) + 'T00:00:00');
+    if (isNaN(d) || isNaN(ende) || ende < d) return { ok: false, error: 'Der Zeitraum ist nicht lesbar.' };
+    while (d <= ende) {
+      tage.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+      d.setDate(d.getDate() + 1);
+      if (tage.length > 31) return { ok: false, error: 'Höchstens 31 Tage auf einmal.' };
+    }
+
     try {
       const client = await sb();
-      // Gleiche Regel wie bei der Klinik-Meldung: ohne Klinikname kein Eintrag,
-      // eine Zeile ohne Klinik waere in der Auswertung niemandem zuzuordnen.
+      // Ohne Klinikname kein Eintrag — eine Zeile ohne Klinik waere in der
+      // Auswertung niemandem zuzuordnen.
       const { data: k, error: kErr } = await client
         .from('clinic_details').select('id, clinic_name, linked_clinic_id').eq('id', klinikId).single();
       if (kErr || !k || !k.clinic_name) return { ok: false, error: 'Die Klinik-Daten konnten nicht geladen werden.' };
 
-      const { data, error } = await client
+      const zeilen = tage.map(t => ({
+        reported_by:    s.id,
+        source:         'board',
+        care_level:     'A',   // Pflichtfeld ohne Bedeutung, siehe meldeFehlbedarf
+        clinic_id:      k.linked_clinic_id || null,
+        clinic_account: k.id,
+        clinic_name:    k.clinic_name,
+        requested_date: t,
+        shift:          schicht,
+        station:        (station || '').trim() || null,
+        status,
+        reason:         status === 'unbesetzt' ? grund : null,
+        notes:          (notiz || '').trim() || null
+      }));
+      const { data, error } = await client.from('unstaffed_requests').insert(zeilen).select();
+      if (error) return { ok: false, error: error.message };
+      // Zuruecklesen: Ein Trigger laeuft vor dem Einfuegen und koennte Werte
+      // still veraendern.
+      const abweichend = (data || []).filter(r => r.source !== 'board' || r.status !== status);
+      if ((data || []).length !== zeilen.length || abweichend.length) {
+        console.warn('[LPR] boardOffeneDiensteAnlegen: gespeichert, aber verändert', data);
+        return { ok: true, anzahl: (data || []).length,
+                 warnung: 'Gespeichert, aber die Datenbank hat Angaben verändert. Bitte die Liste prüfen.' };
+      }
+      return { ok: true, anzahl: data.length };
+    } catch(e) {
+      console.error('[LPR] boardOffeneDiensteAnlegen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  // Bleibt fuer die Option "niemand verfuegbar" im Nachtragen-Dialog.
+  async function boardFehlbedarfNachtragen({ klinikId, datum, schicht, station, grund, notiz } = {}) {
+    return boardOffeneDiensteAnlegen({ klinikId, von: datum, bis: datum, schicht, station, notiz,
+                                       status: 'unbesetzt', grund });
+  }
+
+  /** Offene und unbesetzte Dienste ab `tageZurueck` Tagen vor heute. */
+  async function boardOffeneDienste(tageZurueck = 14) {
+    try {
+      const ab = new Date(); ab.setDate(ab.getDate() - tageZurueck);
+      const abIso = ab.getFullYear() + '-' + String(ab.getMonth() + 1).padStart(2, '0') + '-' + String(ab.getDate()).padStart(2, '0');
+      const { data, error } = await (await sb())
         .from('unstaffed_requests')
-        .insert({
-          reported_by:    s.id,
-          source:         'board',
-          care_level:     'A',   // Pflichtfeld ohne Bedeutung, siehe meldeFehlbedarf
-          clinic_id:      k.linked_clinic_id || null,
-          clinic_name:    k.clinic_name,
-          requested_date: datum,
-          shift:          schicht,
-          station:        (station || '').trim() || null,
-          reason:         grund,
-          notes:          (notiz || '').trim() || null
-        })
+        .select('*')
+        .in('status', ['offen', 'unbesetzt'])
+        .gte('requested_date', abIso)
+        .order('requested_date', { ascending: true })
+        .order('shift', { ascending: true });
+      if (error) return { ok: false, error: error.message, dienste: [] };
+      return { ok: true, dienste: data || [] };
+    } catch(e) {
+      console.error('[LPR] boardOffeneDienste:', e);
+      return { ok: false, error: 'Netzwerkfehler.', dienste: [] };
+    }
+  }
+
+  /** offen <-> unbesetzt. Bei 'unbesetzt' ist grund Pflicht, bei 'offen' faellt er weg. */
+  async function boardOffenerDienstStatus(id, status, grund) {
+    if (!['offen', 'unbesetzt'].includes(status)) return { ok: false, error: 'Unbekannter Zustand.' };
+    if (status === 'unbesetzt' && !OFFEN_GRUENDE.includes(grund)) return { ok: false, error: 'Bitte einen Grund wählen.' };
+    try {
+      const { data, error } = await (await sb())
+        .from('unstaffed_requests')
+        .update({ status, reason: status === 'unbesetzt' ? grund : null,
+                  status_geaendert_am: new Date().toISOString() })
+        .eq('id', id)
         .select()
         .single();
       if (error) return { ok: false, error: error.message };
-      if (!data || data.source !== 'board' || data.requested_date !== datum || data.shift !== schicht) {
-        console.warn('[LPR] boardFehlbedarfNachtragen: gespeichert, aber verändert', data);
-        return { ok: true, warnung: 'Gespeichert, aber die Datenbank hat Angaben verändert. Bitte in der Fehlbedarf-Liste prüfen.' };
-      }
+      if (!data || data.status !== status) return { ok: false, error: 'Die Änderung wurde nicht übernommen.' };
       return { ok: true };
     } catch(e) {
-      console.error('[LPR] boardFehlbedarfNachtragen:', e);
+      console.error('[LPR] boardOffenerDienstStatus:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function boardOffenerDienstLoeschen(id) {
+    try {
+      const { data, error } = await (await sb())
+        .from('unstaffed_requests').delete().eq('id', id).select('id');
+      if (error) return { ok: false, error: error.message };
+      // RLS loescht still nichts, statt einen Fehler zu werfen — deshalb zaehlen.
+      if (!data || !data.length) return { ok: false, error: 'Der Eintrag wurde nicht gelöscht.' };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] boardOffenerDienstLoeschen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /** Aus dem offenen Dienst wird eine Buchung. Benachrichtigung wie online gebucht. */
+  async function boardOffenenDienstBesetzen(id, volunteerId) {
+    try {
+      const { data, error } = await (await sb())
+        .rpc('board_offenen_dienst_besetzen', { p_request: id, p_volunteer: volunteerId });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, bookingId: data };
+    } catch(e) {
+      console.error('[LPR] boardOffenenDienstBesetzen:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
     }
   }
@@ -7039,7 +7134,8 @@
     // Fördermittel-Cockpit
     playbookKapitel,
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,
-    boardFehlbedarfNachtragen,
+    boardFehlbedarfNachtragen, boardOffeneDiensteAnlegen, boardOffeneDienste,
+    boardOffenerDienstStatus, boardOffenerDienstLoeschen, boardOffenenDienstBesetzen,
     foerderArbeitsplan, foerderDokumentKategorien, foerderDokumente, foerderAntraege,
     foerderCreateAufgabe, foerderUpdateAufgabe, foerderCreateNotiz, foerderNamen,
     // Cockpit — Assistenz der Geschäftsführung (Etappe A: lesend)

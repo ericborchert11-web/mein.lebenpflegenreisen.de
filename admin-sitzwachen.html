@@ -242,8 +242,8 @@ h1 { margin:0 0 4px; }
     <!-- ===== Tab: Sätze ===== -->
     <section class="as-panel" id="panel-saetze" role="tabpanel">
       <div class="as-hint" id="rate-lock-hint" hidden>
-        <strong>Noch kein Beschluss hinterlegt.</strong> Solange kein Satz eingetragen ist, bleibt die
-        Sitzwachen-Abrechnung für alle gesperrt. Trage hier den vom Vorstand beschlossenen Betrag ein.
+        <strong>Satz fehlt.</strong> Ohne Satz für T1 und T2 entsteht beim Abschließen eines
+        Klinikdienstes kein Auszahlungsantrag.
       </div>
       <div id="rate-cards"></div>
     </section>
@@ -1162,50 +1162,48 @@ async function onBookingAction(btn) {
   btn.disabled = true;
   const res = await LPR.adminSetBookingStatus(id, status, hours, null);
   if (!res.ok) { toast(res.error || 'Aktion fehlgeschlagen.', 'warn'); btn.disabled = false; return; }
-  if (status === 'completed' && res.booking && res.booking.compensation_eur == null) {
-    toast('Abgeschlossen. Hinweis: Es ist noch kein Sitz-Satz beschlossen – die Entschädigung bleibt offen, bis der Satz im Tab „Sätze" gesetzt ist.', 'warn');
+  if (status === 'completed') {
+    toast(await abschlussMeldung(id, b));
   } else {
     toast('Buchung aktualisiert.');
   }
   await loadBookings();
 }
 
-// ===================== Sätze =====================
-async function loadRates() {
-  const rates = (await LPR.getRates(true)) || {};
-  const shifts = ['morning', 'afternoon', 'night'];
-  const anyRate = shifts.some(s => rates['sitz_' + s] && rates['sitz_' + s].amount != null);
-  document.getElementById('rate-lock-hint').hidden = anyRate;
-
-  const cont = document.getElementById('rate-cards');
-  cont.innerHTML = shifts.map(s => {
-    const r = rates['sitz_' + s];
-    const cur = (r && r.amount != null)
-      ? ('Aktuell: <strong>' + eur(r.amount) + '</strong>' + (r.effective_from ? ' (gültig ab ' + esc(r.effective_from) + ')' : ''))
-      : 'Aktuell: <strong style="color:#9B2C2C">kein Satz</strong>';
-    return '<div class="rate-card">' +
-      '<div class="cur"><div style="font-weight:700;color:var(--green);margin-bottom:4px">' + esc(SHIFT_LABEL[s]) + '</div>' + cur + '</div>' +
-      '<div><label>Betrag (€)</label><input type="number" step="0.01" min="0" id="rate-amount-' + s + '" style="width:110px" placeholder="z. B. 125"></div>' +
-      '<div><label>gültig ab</label><input type="date" id="rate-from-' + s + '" value="' + todayISO() + '"></div>' +
-      '<div style="flex:1;min-width:180px"><label>Vorstandsbeschluss vom</label><input type="text" id="rate-beschluss-' + s + '" style="width:100%" placeholder="z. B. 25.07.2026"></div>' +
-      '<div><button class="as-btn" data-shift="' + s + '">Satz setzen</button></div>' +
-    '</div>';
-  }).join('');
-
-  cont.querySelectorAll('button[data-shift]').forEach(btn => btn.addEventListener('click', () => onSetRate(btn.dataset.shift)));
+// Was beim Abschliessen mit der Auszahlung passiert ist (Trigger, Migration AQ)
+async function abschlussMeldung(bookingId, b) {
+  // shift 'termin' <=> Privatkunde (Check bookings_termin_kunde_check)
+  if (b && b.shift === 'termin') return 'Abgeschlossen. Bei Privatkunden legt der Vorstand den Betrag selbst fest.';
+  try {
+    const { data } = await (await LPR.supabase()).from('claims')
+      .select('status, amount').eq('booking_id', bookingId).neq('status', 'rejected').limit(1);
+    const c = data && data[0];
+    if (!c) return 'Abgeschlossen. Es wurde kein Auszahlungsantrag angelegt (Satz fehlt oder Person gesperrt).';
+    if (c.status === 'approved') return 'Abgeschlossen. Auszahlung über ' + eur(c.amount) + ' freigegeben.';
+    if (c.status === 'submitted') return 'Abgeschlossen. Antrag über ' + eur(c.amount) + ' wartet auf Prüfung: der Freibetrag wäre überschritten.';
+    return 'Abgeschlossen.';
+  } catch (e) { return 'Abgeschlossen.'; }
 }
 
-async function onSetRate(shift) {
-  const amount = Number((document.getElementById('rate-amount-' + shift).value || '').replace(',', '.'));
-  const from = document.getElementById('rate-from-' + shift).value;
-  const beschluss = document.getElementById('rate-beschluss-' + shift).value.trim();
-  if (!(amount > 0)) { toast('Bitte einen gültigen Betrag angeben.', 'warn'); return; }
-  if (!from) { toast('Bitte ein Gültigkeitsdatum angeben.', 'warn'); return; }
-  if (!confirm('Satz für ' + SHIFT_SHORT[shift] + ' auf ' + eur(amount) + ' setzen (gültig ab ' + from + ')?')) return;
-  const res = await LPR.adminSetSitzRate(shift, amount, from, beschluss || null);
-  if (!res.ok) { toast(res.error || 'Konnte den Satz nicht setzen.', 'warn'); return; }
-  toast('Satz gesetzt.');
-  await loadRates();
+// ===================== Sätze =====================
+async function loadRates() {
+  // Seit 06.10.2026 je Stufe statt je Schicht. Die Datenbank liest die Saetze
+  // beim Abschliessen eines Klinikdienstes und legt daraus den Antrag an
+  // (Trigger trg_bookings_auto_antrag, Migration AQ).
+  const rates = (await LPR.getRates(true)) || {};
+  const stufen = [['t1', 'Stufe T1 (mit Ausbildung)'], ['t2', 'Stufe T2']];
+  const anyRate = stufen.every(([k]) => rates['sitz_' + k] && rates['sitz_' + k].amount != null);
+  document.getElementById('rate-lock-hint').hidden = anyRate;
+
+  document.getElementById('rate-cards').innerHTML = stufen.map(([k, label]) => {
+    const r = rates['sitz_' + k];
+    const cur = (r && r.amount != null)
+      ? ('<strong>' + eur(r.amount) + '</strong> pro Dienst' + (r.effective_from ? ' (gültig ab ' + esc(r.effective_from) + ')' : ''))
+      : '<strong style="color:#9B2C2C">kein Satz</strong>';
+    return '<div class="rate-card"><div class="cur"><div style="font-weight:700;color:var(--green);margin-bottom:4px">'
+      + esc(label) + '</div>' + cur + '</div></div>';
+  }).join('') + '<p class="as-sub" style="margin-top:12px">Abgeschlossene Klinikdienste werden mit diesem Satz '
+    + 'automatisch zur Auszahlung freigegeben. Bei Privatkunden legt der Vorstand den Betrag weiterhin selbst fest.</p>';
 }
 
 init();

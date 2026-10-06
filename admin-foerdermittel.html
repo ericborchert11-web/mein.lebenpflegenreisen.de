@@ -124,6 +124,15 @@
 .fm-zaehler { font-weight: 500; margin-left: 8px; }
 .fm-kat-hinweis { margin: 0 18px 4px; }
 .fm-hinweis { padding: 12px 18px; font-size: 13.5px; color: var(--muted); }
+.fm-mini {
+  flex: 0 0 auto; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  padding: 4px 10px; border-radius: 999px; border: 1.5px solid var(--border);
+  background: #fff; color: var(--green-deep);
+}
+.fm-mini:hover { border-color: var(--green-mute); }
+.fm-gruppe .fm-mini { float: right; margin-top: -2px; }
+.fm-ap-haken { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 2px; accent-color: var(--green-deep); }
+.fm-leiste { margin: 0 0 12px; }
 @media (max-width: 640px) {
   .fm-dok, .fm-antrag { flex-wrap: wrap; }
   .fm-dok .fm-frist-rest, .fm-antrag .fm-frist-rest { margin-left: 0; }
@@ -552,15 +561,20 @@ function arbeitsplanZeile(a) {
   const vorgang = v
     ? `<a href="admin-cockpit.html?vorgang=${encodeURIComponent(v.id)}">${escapeHtml(v.titel)}</a>`
     : 'ohne Vorgang';
+  // Der Haken kennt nur offen <-> erledigt. Wartend oder verworfen setzt man im Dialog.
+  const haken = (a.status === 'offen' || a.status === 'erledigt')
+    ? `<input type="checkbox" class="fm-ap-haken" aria-label="erledigt"${a.status === 'erledigt' ? ' checked' : ''}>`
+    : `<span class="fm-ap-symbol" aria-label="${escapeHtml(a.status)}">${symbol}</span>`;
   return `
-    <li class="fm-ap fm-ap-${escapeHtml(a.status)}">
-      <span class="fm-ap-symbol" aria-label="${escapeHtml(a.status)}">${symbol}</span>
+    <li class="fm-ap fm-ap-${escapeHtml(a.status)}" data-ap="${escapeHtml(a.id)}">
+      ${haken}
       <div class="fm-ap-mitte">
         <div class="fm-ap-titel">${escapeHtml(a.titel)}</div>
         ${a.status === 'wartet' && a.wartet_auf
           ? `<div class="fm-gate">wartet auf: ${escapeHtml(a.wartet_auf)}</div>` : ''}
         <div class="fm-sub">${vorgang}${zu ? ' · ' + escapeHtml(zu) : ''}</div>
       </div>
+      <button type="button" class="fm-mini fm-ap-bearbeiten">Bearbeiten</button>
     </li>`;
 }
 
@@ -571,7 +585,6 @@ function renderArbeitsplan() {
   }
   return [1, 2, 3, 4].map(ph => {
     const liste = ARBEITSPLAN.filter(a => a.arbeitsplan_phase === ph);
-    if (!liste.length) return '';
     const zaehlbar = liste.filter(a => a.status !== 'verworfen');
     const fertig = zaehlbar.filter(a => a.status === 'erledigt').length;
     // Offenes oben, Erledigtes und Verworfenes unten — die Reihenfolge innerhalb
@@ -580,7 +593,8 @@ function renderArbeitsplan() {
     const sortiert = [...liste].sort((x, y) => (rang[x.status] ?? 0) - (rang[y.status] ?? 0));
     return `<section class="fm-card">
       <h2 class="fm-gruppe">${escapeHtml(PHASEN[ph])}
-        <span class="fm-sub fm-zaehler">${fertig} von ${zaehlbar.length} erledigt</span></h2>
+        <span class="fm-sub fm-zaehler">${fertig} von ${zaehlbar.length} erledigt</span>
+        <button type="button" class="fm-mini fm-ap-neu" data-phase="${ph}">+ Aufgabe</button></h2>
       <ul class="fm-liste">${sortiert.map(arbeitsplanZeile).join('')}</ul>
     </section>`;
   }).join('');
@@ -601,8 +615,9 @@ function dokumentZeile(d, aktuell) {
   ].filter(Boolean).join(' · ');
   const quelle = [
     d.drive_url ? `<a href="${escapeHtml(d.drive_url)}" target="_blank" rel="noopener">Drive</a>` : null,
-    d.storage_path ? '<span class="fm-sub">Datei im Speicher</span>' : null
-  ].filter(Boolean).join(' · ');
+    d.storage_path ? `<button type="button" class="fm-mini fm-dok-oeffnen" data-pfad="${escapeHtml(d.storage_path)}">Öffnen</button>` : null,
+    aktuell ? `<button type="button" class="fm-mini fm-dok-version" data-id="${escapeHtml(d.id)}">Neue Version</button>` : null
+  ].filter(Boolean).join(' ');
   return `<li class="fm-dok${aktuell ? '' : ' fm-dok-alt'}">
     <div class="fm-ap-mitte">
       <div class="fm-ap-titel">${escapeHtml(d.title)}${aktuell ? '' : ' <span class="fm-sub">(ersetzt)</span>'}</div>
@@ -616,9 +631,7 @@ function dokumentZeile(d, aktuell) {
 
 function renderDokumente() {
   if (KATEGORIEN === null || DOKUMENTE === null) return ladefehler('Die Nachweismappe');
-  const hochladen = '<div class="fm-card fm-hinweis">Hochladen und Ersetzen kommen in Etappe 2. ' +
-    'Bis dahin zeigt dieser Reiter, was fehlt.</div>';
-  return hochladen + KATEGORIEN.map(k => {
+  return KATEGORIEN.map(k => {
     const docs = DOKUMENTE.filter(d => d.category === k.key);
     const aktuell = docs.filter(d => !d.replaced_by);
     const alt = docs.filter(d => d.replaced_by);
@@ -626,7 +639,8 @@ function renderDokumente() {
       ? aktuell.map(d => dokumentZeile(d, true)).join('') + alt.map(d => dokumentZeile(d, false)).join('')
       : '<li class="fm-dok"><span class="fm-sub">— noch nichts abgelegt —</span></li>';
     return `<section class="fm-card">
-      <h2 class="fm-gruppe">${escapeHtml(k.label)}</h2>
+      <h2 class="fm-gruppe">${escapeHtml(k.label)}
+        <button type="button" class="fm-mini fm-dok-neu" data-kat="${escapeHtml(k.key)}">+ Dokument</button></h2>
       ${k.hinweis ? `<p class="fm-sub fm-kat-hinweis">${escapeHtml(k.hinweis)}</p>` : ''}
       <ul class="fm-liste">${liste}</ul>
     </section>`;
@@ -669,7 +683,8 @@ function antragKarte(a) {
   const koll = kollisionen(a);
   return `<li class="fm-antrag">
     <div class="fm-ap-mitte">
-      <div class="fm-ap-titel">${escapeHtml(a.projekt ? a.projekt.title : 'Vorhaben fehlt')}</div>
+      <div class="fm-ap-titel"><a href="admin-foerderantrag.html?id=${encodeURIComponent(a.id)}">${
+        escapeHtml(a.projekt ? a.projekt.title : 'Vorhaben fehlt')}</a></div>
       <div class="fm-sub">${p ? `<a href="#programme/${encodeURIComponent(p.slug)}">${escapeHtml(p.programm)}</a>` : 'Programm fehlt'}${
         a.program_line ? ' · ' + escapeHtml(a.program_line) : ''}</div>
       <div class="fm-sub">Kosten ${euro(kosten)} · Finanzierung ${euro(finanz)}${
@@ -686,12 +701,195 @@ function antragKarte(a) {
 
 function renderAntraege() {
   if (ANTRAEGE === null) return ladefehler('Die Antragsliste');
+  const neu = '<div class="fm-leiste"><a class="btn btn-primary" href="admin-foerderantrag.html">+ Antrag anlegen</a></div>';
   if (!ANTRAEGE.length) {
-    return '<div class="fm-card"><div class="fm-empty">Noch kein Antrag erfasst. ' +
-      'Anlegen und Bearbeiten kommen in Etappe 2.</div></div>';
+    return neu + '<div class="fm-card"><div class="fm-empty">Noch kein Antrag erfasst.</div></div>';
   }
-  return `<section class="fm-card"><ul class="fm-liste">${ANTRAEGE.map(antragKarte).join('')}</ul></section>`;
+  return neu + `<section class="fm-card"><ul class="fm-liste">${ANTRAEGE.map(antragKarte).join('')}</ul></section>`;
 }
+
+/* ── Etappe 2: Bearbeiten ────────────────────────────────────────────────── */
+
+const AP_STATUS = { offen: 'offen', wartet: 'wartet', erledigt: 'erledigt', verworfen: 'verworfen' };
+let VORGAENGE = null;   // erst beim ersten "+ Aufgabe" geladen
+
+async function arbeitsplanNeuLaden() {
+  const ap = await LPR.foerderArbeitsplan();
+  if (ap !== null) ARBEITSPLAN = ap;
+  await namenNachladen((ARBEITSPLAN || []).map(x => x.zustaendig));
+  zeichnen();
+}
+
+async function apHaken(id, erledigt) {
+  const res = await LPR.cockpitSetAufgabeStatus(id, erledigt ? 'erledigt' : 'offen');
+  if (!res.ok) LPR.showToast(res.error || 'Konnte nicht gespeichert werden.', 'warn');
+  await arbeitsplanNeuLaden();
+}
+
+function dialogZeigen(html) {
+  document.getElementById('fm-dialog-inhalt').innerHTML = html;
+  document.getElementById('fm-dialog').showModal();
+}
+function dialogZu() { document.getElementById('fm-dialog').close(); }
+function dialogFehler(text) {
+  const f = document.getElementById('fmd-fehler');
+  f.textContent = text; f.hidden = false;
+}
+
+async function apDialog(id, phaseVorgabe) {
+  const a = id ? (ARBEITSPLAN || []).find(x => x.id === id) : null;
+  if (!a && VORGAENGE === null) VORGAENGE = await LPR.cockpitListVorgaenge(true);
+  const phase = a ? a.arbeitsplan_phase : Number(phaseVorgabe);
+  const phasen = [1, 2, 3, 4].map(p => `<option value="${p}"${p === phase ? ' selected' : ''}>${escapeHtml(PHASEN[p])}</option>`).join('')
+    + '<option value="">nicht im Arbeitsplan</option>';
+  const status = Object.keys(AP_STATUS).map(k =>
+    `<option value="${k}"${(a ? a.status : 'offen') === k ? ' selected' : ''}>${AP_STATUS[k]}</option>`).join('');
+  const vorgang = a ? '' : `<div class="field"><label for="fmd-vorgang">Vorgang <span class="req">*</span></label>
+      <select id="fmd-vorgang">${(VORGAENGE || []).map(v =>
+        `<option value="${escapeHtml(v.id)}">${escapeHtml(v.titel)}</option>`).join('')}</select></div>`;
+  dialogZeigen(`
+    <h2 class="fm-dialog-titel">${a ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}</h2>
+    ${vorgang}
+    <div class="field"><label for="fmd-titel">Titel <span class="req">*</span></label>
+      <input id="fmd-titel" type="text" maxlength="200" value="${a ? escapeHtml(a.titel) : ''}"></div>
+    <div class="field"><label for="fmd-beschreibung">Beschreibung</label>
+      <textarea id="fmd-beschreibung" rows="3">${a && a.beschreibung ? escapeHtml(a.beschreibung) : ''}</textarea></div>
+    <div class="fm-dialog-reihe">
+      <div class="field"><label for="fmd-phase">Phase</label><select id="fmd-phase">${phasen}</select></div>
+      <div class="field"><label for="fmd-status">Status</label><select id="fmd-status">${status}</select></div>
+    </div>
+    <div class="field"><label for="fmd-wartet">Wartet auf (Pflicht bei „wartet“)</label>
+      <input id="fmd-wartet" type="text" maxlength="200" value="${a && a.wartet_auf ? escapeHtml(a.wartet_auf) : ''}"
+             placeholder="z. B. Freigabe Sonja"></div>
+    ${a ? `<div class="field"><label for="fmd-notiz">Notiz (landet im Verlauf des Vorgangs)</label>
+      <textarea id="fmd-notiz" rows="2"></textarea></div>` : ''}
+    <p class="field-error" id="fmd-fehler" hidden></p>
+    <div class="fm-dialog-knoepfe">
+      <button type="button" class="btn btn-ghost" id="fmd-abbrechen">Abbrechen</button>
+      <button type="button" class="btn btn-primary" id="fmd-speichern">Speichern</button>
+    </div>`);
+  document.getElementById('fmd-abbrechen').onclick = dialogZu;
+  document.getElementById('fmd-speichern').onclick = () => apSpeichern(a);
+  document.getElementById('fmd-titel').focus();
+}
+
+async function apSpeichern(a) {
+  const knopf = document.getElementById('fmd-speichern');
+  const titel = document.getElementById('fmd-titel').value.trim();
+  const beschreibung = document.getElementById('fmd-beschreibung').value.trim() || null;
+  const phaseWert = document.getElementById('fmd-phase').value;
+  const phase = phaseWert ? Number(phaseWert) : null;
+  const status = document.getElementById('fmd-status').value;
+  const wartet = document.getElementById('fmd-wartet').value.trim();
+  if (titel.length < 2) return dialogFehler('Bitte einen Titel angeben.');
+  if (status === 'wartet' && !wartet) return dialogFehler('Worauf wird gewartet?');
+  knopf.disabled = true;
+
+  if (!a) {
+    const vorgangId = document.getElementById('fmd-vorgang').value;
+    if (!vorgangId) { knopf.disabled = false; return dialogFehler('Bitte einen Vorgang wählen.'); }
+    const neu = await LPR.cockpitCreateAufgabe({
+      vorgang_id: vorgangId, titel, beschreibung, arbeitsplan_phase: phase,
+      status: status === 'wartet' ? 'wartet' : 'offen', wartet_auf: status === 'wartet' ? wartet : null
+    });
+    if (!neu) { knopf.disabled = false; return dialogFehler('Konnte nicht angelegt werden.'); }
+    if (status === 'erledigt' || status === 'verworfen') await LPR.cockpitSetAufgabeStatus(neu.id, status);
+  } else {
+    const upd = await LPR.cockpitUpdateAufgabe(a.id, { titel, beschreibung, arbeitsplan_phase: phase });
+    if (!upd) { knopf.disabled = false; return dialogFehler('Konnte nicht gespeichert werden.'); }
+    if (status !== a.status || (status === 'wartet' && wartet !== (a.wartet_auf || ''))) {
+      const r = await LPR.cockpitSetAufgabeStatus(a.id, status, wartet);
+      if (!r.ok) { knopf.disabled = false; return dialogFehler(r.error || 'Status nicht gespeichert.'); }
+    }
+    const notiz = document.getElementById('fmd-notiz').value.trim();
+    if (notiz && a.vorgang_id) {
+      const n = await LPR.cockpitCreateNotiz(a.vorgang_id, notiz, a.id);
+      if (!n) LPR.showToast('Gespeichert, aber die Notiz nicht.', 'warn');
+    }
+  }
+  dialogZu();
+  LPR.showToast(a ? 'Aufgabe gespeichert.' : 'Aufgabe angelegt.', 'ok');
+  await arbeitsplanNeuLaden();
+}
+
+/* Dokumente */
+
+function dokDialog(kategorie, ersetztId) {
+  const alt = ersetztId ? (DOKUMENTE || []).find(d => d.id === ersetztId) : null;
+  const kat = (KATEGORIEN || []).find(k => k.key === (alt ? alt.category : kategorie));
+  dialogZeigen(`
+    <h2 class="fm-dialog-titel">${alt ? 'Neue Version' : 'Dokument ablegen'} · ${escapeHtml(kat ? kat.label : '')}</h2>
+    ${alt ? `<p class="fm-sub">Ersetzt v${alt.version} „${escapeHtml(alt.title)}“. Die alte Fassung bleibt sichtbar.</p>` : ''}
+    <div class="field"><label for="fmd-titel">Titel <span class="req">*</span></label>
+      <input id="fmd-titel" type="text" maxlength="200" value="${alt ? escapeHtml(alt.title) : escapeHtml(kat ? kat.label : '')}"></div>
+    <div class="field"><label for="fmd-datei">Datei (PDF, JPG oder PNG, höchstens 20 MB)</label>
+      <input id="fmd-datei" type="file" accept="application/pdf,image/jpeg,image/png"></div>
+    <div class="field"><label for="fmd-drive">oder Drive-Link</label>
+      <input id="fmd-drive" type="url" maxlength="500" placeholder="https://drive.google.com/…"></div>
+    <div class="fm-dialog-reihe">
+      <div class="field"><label for="fmd-datum">Datum des Dokuments</label><input id="fmd-datum" type="date"></div>
+      <div class="field"><label for="fmd-gueltig">gültig bis (optional)</label><input id="fmd-gueltig" type="date"></div>
+    </div>
+    <div class="field"><label for="fmd-notiz">Notiz</label><input id="fmd-notiz" type="text" maxlength="500"></div>
+    <p class="field-error" id="fmd-fehler" hidden></p>
+    <div class="fm-dialog-knoepfe">
+      <button type="button" class="btn btn-ghost" id="fmd-abbrechen">Abbrechen</button>
+      <button type="button" class="btn btn-primary" id="fmd-speichern">Speichern</button>
+    </div>`);
+  document.getElementById('fmd-abbrechen').onclick = dialogZu;
+  document.getElementById('fmd-speichern').onclick = async () => {
+    const knopf = document.getElementById('fmd-speichern');
+    knopf.disabled = true; knopf.textContent = 'Wird gespeichert…';
+    const res = await LPR.foerderDokumentSpeichern({
+      datei: document.getElementById('fmd-datei').files[0] || null,
+      category: alt ? alt.category : kategorie,
+      title: document.getElementById('fmd-titel').value,
+      document_date: document.getElementById('fmd-datum').value,
+      valid_until: document.getElementById('fmd-gueltig').value,
+      drive_url: document.getElementById('fmd-drive').value,
+      note: document.getElementById('fmd-notiz').value,
+      ersetzt: alt ? alt.id : null
+    });
+    knopf.disabled = false; knopf.textContent = 'Speichern';
+    if (!res.ok) return dialogFehler(res.error || 'Speichern fehlgeschlagen.');
+    dialogZu();
+    LPR.showToast(res.warnung || 'Dokument gespeichert.', res.warnung ? 'warn' : 'ok');
+    const d = await LPR.foerderDokumente();
+    if (d !== null) DOKUMENTE = d;
+    zeichnen();
+  };
+}
+
+async function dokOeffnen(pfad, knopf) {
+  // Fenster sofort oeffnen, sonst blockt der Browser es nach dem await als Popup.
+  const fenster = window.open('', '_blank');
+  knopf.disabled = true;
+  const res = await LPR.foerderDokumentOeffnen(pfad);
+  knopf.disabled = false;
+  if (!res.ok) {
+    if (fenster) fenster.close();
+    LPR.showToast(res.error || 'Datei konnte nicht geöffnet werden.', 'warn');
+    return;
+  }
+  if (fenster) fenster.location = res.url; else location.href = res.url;
+}
+
+document.getElementById('fm-inhalt').addEventListener('change', (e) => {
+  const haken = e.target.closest('.fm-ap-haken');
+  if (!haken) return;
+  const li = haken.closest('[data-ap]');
+  if (li) { haken.disabled = true; apHaken(li.dataset.ap, haken.checked); }
+});
+
+document.getElementById('fm-inhalt').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.classList.contains('fm-ap-bearbeiten')) { apDialog(b.closest('[data-ap]').dataset.ap, null); return; }
+  if (b.classList.contains('fm-ap-neu'))        { apDialog(null, b.dataset.phase); return; }
+  if (b.classList.contains('fm-dok-neu'))       { dokDialog(b.dataset.kat, null); return; }
+  if (b.classList.contains('fm-dok-version'))   { dokDialog(null, b.dataset.id); return; }
+  if (b.classList.contains('fm-dok-oeffnen'))   { dokOeffnen(b.dataset.pfad, b); return; }
+});
 
 /* ── Markdown ────────────────────────────────────────────────────────────── */
 // Reihenfolge ist bindend: erst maskieren (escapeHtml), dann Blöcke, dann Inline.

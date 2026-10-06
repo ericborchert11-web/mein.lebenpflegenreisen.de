@@ -5662,6 +5662,201 @@
     } catch(e) { console.error('[LPR] foerderAntraege failed:', e); return null; }
   }
 
+  // ── Fördermittel Etappe 2: Nachweismappe schreiben ─────────────────────
+  // Dateien liegen im PRIVATEN Bucket vereinsdokumente (Policies nur Vorstand).
+  // Abruf nur ueber kurzlebige signierte Adressen, nie ueber eine oeffentliche.
+
+  const DOK_BUCKET = 'vereinsdokumente';
+
+  function _dateiname(name) {
+    return String(name || 'datei')
+      .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+      .replace(/ß/g, 'ss').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-+/g, '-')
+      .slice(-80) || 'datei';
+  }
+
+  /**
+   * Legt ein Dokument an — oder eine neue Version, wenn `ersetzt` die id der
+   * bisherigen ist. Die alte Zeile bleibt stehen und zeigt per replaced_by auf
+   * die neue. Eine Datei wird nie ueberschrieben.
+   */
+  async function foerderDokumentSpeichern({ datei, category, title, document_date, valid_until, drive_url, note, ersetzt } = {}) {
+    if (!category || !String(title || '').trim()) return { ok: false, error: 'Kategorie und Titel sind Pflicht.' };
+    if (!datei && !String(drive_url || '').trim()) return { ok: false, error: 'Bitte eine Datei wählen oder einen Drive-Link angeben.' };
+    if (datei && datei.size > 20 * 1024 * 1024) return { ok: false, error: 'Die Datei ist größer als 20 MB.' };
+    try {
+      const client = await sb();
+      let version = 1, alt = null;
+      if (ersetzt) {
+        const r = await client.from('association_documents').select('id, version, replaced_by').eq('id', ersetzt).single();
+        if (r.error || !r.data) return { ok: false, error: 'Die bisherige Fassung wurde nicht gefunden.' };
+        if (r.data.replaced_by) return { ok: false, error: 'Diese Fassung wurde schon ersetzt.' };
+        alt = r.data; version = alt.version + 1;
+      }
+      let pfad = null;
+      if (datei) {
+        pfad = category + '/' + crypto.randomUUID() + '-' + _dateiname(datei.name);
+        const up = await client.storage.from(DOK_BUCKET).upload(pfad, datei, { upsert: false, contentType: datei.type || undefined });
+        if (up.error) return { ok: false, error: 'Hochladen fehlgeschlagen: ' + up.error.message };
+      }
+      const { data, error } = await client.from('association_documents').insert({
+        category,
+        title: String(title).trim(),
+        document_date: document_date || null,
+        valid_until: valid_until || null,
+        storage_path: pfad,
+        drive_url: String(drive_url || '').trim() || null,
+        note: String(note || '').trim() || null,
+        version
+      }).select().single();
+      if (error) {
+        // Die Datei ohne Zeile waere ein Waisenkind im Speicher.
+        if (pfad) await client.storage.from(DOK_BUCKET).remove([pfad]);
+        return { ok: false, error: error.message };
+      }
+      if (alt) {
+        const u = await client.from('association_documents').update({ replaced_by: data.id }).eq('id', alt.id).select('id');
+        if (u.error || !u.data || !u.data.length) {
+          return { ok: true, dokument: data, warnung: 'Neue Fassung gespeichert, aber die alte ist nicht als ersetzt markiert.' };
+        }
+      }
+      return { ok: true, dokument: data };
+    } catch(e) {
+      console.error('[LPR] foerderDokumentSpeichern:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function foerderDokumentOeffnen(pfad) {
+    try {
+      const { data, error } = await (await sb()).storage.from(DOK_BUCKET).createSignedUrl(pfad, 120);
+      if (error || !data) return { ok: false, error: error ? error.message : 'Keine Adresse erhalten.' };
+      return { ok: true, url: data.signedUrl };
+    } catch(e) {
+      console.error('[LPR] foerderDokumentOeffnen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  // ── Fördermittel Etappe 2: Anträge schreiben ───────────────────────────
+  // Freigabe, Vier-Augen-Regel und das Zuruecksetzen bei Betragsaenderung
+  // stehen in der Datenbank (Migration AO). Hier wird nur zugestellt.
+
+  const PROJEKT_FELDER = ['title','purpose','short_description','target_group','duration_text',
+                          'location','description_md','status'];
+  const ANTRAG_FELDER  = ['programm_id','project_id','program_line','external_reference','status',
+                          'amount_requested','show_bank_details','submitted_at','submitted_via',
+                          'submit_note','decision_at','decision_note','vorgang_id'];
+
+  async function foerderProjekte() {
+    try {
+      const { data, error } = await (await sb()).from('funding_projects').select('*').order('title');
+      if (error) { console.error('[LPR] foerderProjekte:', error); return null; }
+      return data || [];
+    } catch(e) { console.error('[LPR] foerderProjekte failed:', e); return null; }
+  }
+
+  async function foerderProjektSpeichern(id, felder) {
+    try {
+      const satz = _nurErlaubt(felder || {}, PROJEKT_FELDER);
+      const q = (await sb()).from('funding_projects');
+      const { data, error } = id
+        ? await q.update(satz).eq('id', id).select().single()
+        : await q.insert(satz).select().single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, projekt: data };
+    } catch(e) {
+      console.error('[LPR] foerderProjektSpeichern:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function foerderAntrag(id) {
+    try {
+      const { data, error } = await (await sb())
+        .from('funding_applications')
+        .select('*, projekt:funding_projects(*), positionen:funding_application_items(*), ' +
+                'anlagen:funding_application_documents(document_id, sort_order)')
+        .eq('id', id).single();
+      if (error) { console.error('[LPR] foerderAntrag:', error); return null; }
+      return data;
+    } catch(e) { console.error('[LPR] foerderAntrag failed:', e); return null; }
+  }
+
+  async function foerderAntragSpeichern(id, felder) {
+    try {
+      const satz = _nurErlaubt(felder || {}, ANTRAG_FELDER);
+      const q = (await sb()).from('funding_applications');
+      const { data, error } = id
+        ? await q.update(satz).eq('id', id).select().single()
+        : await q.insert(satz).select().single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, antrag: data };
+    } catch(e) {
+      console.error('[LPR] foerderAntragSpeichern:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /** an = true setzt die Freigabe (Person und Zeit vergibt die Datenbank), false nimmt sie zurueck. */
+  async function foerderAntragFreigabe(id, art, an) {
+    const spalte = art === 'finanzen' ? 'freigabe_finanzen_am' : art === 'vorstand' ? 'freigabe_vorstand_am' : null;
+    if (!spalte) return { ok: false, error: 'Unbekannte Freigabe.' };
+    try {
+      const { data, error } = await (await sb())
+        .from('funding_applications').update({ [spalte]: an ? new Date().toISOString() : null })
+        .eq('id', id).select().single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, antrag: data };
+    } catch(e) {
+      console.error('[LPR] foerderAntragFreigabe:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Ersetzt den Kosten- und Finanzierungsplan. Nur aufrufen, wenn sich etwas
+   * geaendert hat: Jede Aenderung nimmt eine erteilte Freigabe Finanzen zurueck.
+   */
+  async function foerderPositionenErsetzen(applicationId, positionen) {
+    try {
+      const client = await sb();
+      const del = await client.from('funding_application_items').delete().eq('application_id', applicationId);
+      if (del.error) return { ok: false, error: del.error.message };
+      if (!positionen.length) return { ok: true };
+      const { error } = await client.from('funding_application_items').insert(positionen.map((p, i) => ({
+        application_id: applicationId,
+        kind: p.kind,
+        financing_type: p.kind === 'financing' ? p.financing_type : null,
+        label: String(p.label || '').trim(),
+        amount: Number(p.amount) || 0,
+        note: String(p.note || '').trim() || null,
+        sortierung: (i + 1) * 10
+      })));
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] foerderPositionenErsetzen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  async function foerderAnlagenErsetzen(applicationId, dokumentIds) {
+    try {
+      const client = await sb();
+      const del = await client.from('funding_application_documents').delete().eq('application_id', applicationId);
+      if (del.error) return { ok: false, error: del.error.message };
+      if (!dokumentIds.length) return { ok: true };
+      const { error } = await client.from('funding_application_documents').insert(
+        dokumentIds.map((d, i) => ({ application_id: applicationId, document_id: d, sort_order: (i + 1) * 10 })));
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] foerderAnlagenErsetzen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   // ── Cockpit: Assistenz der Geschäftsführung ─────────────────────────────
   // Alle vier Zugänge sind board-only per RLS. Ein Nicht-Board bekommt keine
   // Fehlermeldung, sondern eine leere Liste — die Seite prüft deshalb zusätzlich
@@ -5764,7 +5959,7 @@
   // cockpitSetAufgabeStatus(), damit die Regeln an EINER Stelle stehen.
   const AUFGABE_FELDER = ['vorgang_id','titel','beschreibung','art','faellig_am',
                           'faellig_hart','zustaendig','wartet_auf','abhaengig_von',
-                          'erinnern','sortierung'];
+                          'erinnern','sortierung','arbeitsplan_phase'];
 
   function _nurErlaubt(felder, liste) {
     const raus = {};
@@ -7137,6 +7332,8 @@
     boardFehlbedarfNachtragen, boardOffeneDiensteAnlegen, boardOffeneDienste,
     boardOffenerDienstStatus, boardOffenerDienstLoeschen, boardOffenenDienstBesetzen,
     foerderArbeitsplan, foerderDokumentKategorien, foerderDokumente, foerderAntraege,
+    foerderDokumentSpeichern, foerderDokumentOeffnen, foerderProjekte, foerderProjektSpeichern,
+    foerderAntrag, foerderAntragSpeichern, foerderAntragFreigabe, foerderPositionenErsetzen, foerderAnlagenErsetzen,
     foerderCreateAufgabe, foerderUpdateAufgabe, foerderCreateNotiz, foerderNamen,
     // Cockpit — Assistenz der Geschäftsführung (Etappe A: lesend)
     cockpitPunkte, cockpitListVorgaenge, cockpitListAufgaben, cockpitVerlauf,

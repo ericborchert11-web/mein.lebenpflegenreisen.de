@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Antrag · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.fa-wrap { max-width: 900px; margin: 32px auto 80px; padding: 0 24px; }
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 0 14px;
+  font-size: 14px; font-weight: 600; color: #1A3A2A; text-decoration: none;
+}
+.back-link:hover { text-decoration: underline; }
+.fa-kopf {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.fa-kopf h1 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px;
+  color: var(--green-deep); margin: 0; letter-spacing: -.02em;
+}
+.fa-card {
+  background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+  border: 1px solid var(--border); margin-bottom: 16px; padding: 18px 22px;
+}
+.fa-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 16px;
+  color: var(--green-deep); margin: 0 0 12px;
+}
+.fa-reihe { display: flex; gap: 14px; flex-wrap: wrap; }
+.fa-reihe .field { flex: 1 1 200px; }
+.fa-card textarea, .fa-card input[type=text], .fa-card input[type=date], .fa-card input[type=number],
+.fa-card select { width: 100%; }
+.fa-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.fa-pill {
+  display: inline-flex; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 700;
+  background: #EFEDE8; color: #4A5450; white-space: nowrap;
+}
+.fa-pill.ok   { background: #EAF3EC; color: #2C6B45; }
+.fa-pill.warn { background: #FDE3E0; color: #B4231A; }
+.fa-warn {
+  background: #FFF3D6; border: 1px solid #E8D29A; border-radius: 8px;
+  padding: 9px 12px; margin: 10px 0 0; font-size: 13.5px; line-height: 1.5;
+}
+.fa-pos { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fa-pos th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 6px 4px; }
+.fa-pos td { padding: 4px; vertical-align: top; }
+.fa-pos td.betrag { width: 130px; }
+.fa-pos td.art { width: 150px; }
+.fa-pos td.weg { width: 36px; }
+.fa-summe { display: flex; justify-content: space-between; font-weight: 700; padding: 8px 4px 0; }
+.fa-diff { margin-top: 12px; font-weight: 700; }
+.fa-diff.ok { color: #2C6B45; }
+.fa-diff.warn { color: #B4231A; }
+.fa-mini {
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 4px 10px;
+  border-radius: 999px; border: 1.5px solid var(--border); background: #fff; color: var(--green-deep);
+}
+.fa-mini:disabled { opacity: .5; cursor: default; }
+.fa-anlagen { list-style: none; margin: 0; padding: 0; }
+.fa-anlagen li { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid #EFEDE8; }
+.fa-anlagen li:last-child { border-bottom: none; }
+.fa-anlagen label { flex: 1 1 auto; display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.fa-freigabe { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid #EFEDE8; }
+.fa-freigabe:last-child { border-bottom: none; }
+.fa-fristen { list-style: none; margin: 0 0 10px; padding: 0; }
+.fa-fristen li { padding: 4px 0; }
+.fa-leiste {
+  position: sticky; bottom: 0; background: #fff; border-top: 1px solid var(--border);
+  padding: 12px 0; display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; z-index: 5;
+}
+.fa-zaehler { text-align: right; }
+@media (max-width: 640px) {
+  .fa-pos thead { display: none; }
+  .fa-pos tr { display: flex; flex-wrap: wrap; border-bottom: 1px solid #EFEDE8; padding: 6px 0; }
+  .fa-pos td { display: block; flex: 1 1 100%; }
+  .fa-pos td.betrag, .fa-pos td.art { flex: 1 1 45%; width: auto; }
+  .fa-pos td.weg { flex: 0 0 auto; }
+}
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+
+<main id="main">
+<div class="fa-wrap">
+  <a href="admin-foerdermittel.html#antraege" class="back-link">← Alle Anträge</a>
+  <div class="fa-kopf">
+    <div>
+      <h1 id="fa-titel">Antrag</h1>
+      <div class="fa-sub" id="fa-unterzeile"></div>
+    </div>
+    <span class="fa-pill" id="fa-status-pill"></span>
+  </div>
+  <div id="fa-inhalt"><div class="fa-card">Lädt …</div></div>
+</div>
+</main>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+
+LPR_Layout.init({ page: 'foerdermittel' });
+if (!LPR.requireRole('admin', 'login.html?next=' + encodeURIComponent(location.pathname.split('/').pop() + location.search))) {
+  throw new Error('kein Zugriff');
+}
+
+// Wie in admin-foerdermittel.html: LPR_Layout.escapeHtml maskiert keine
+// Anfuehrungszeichen, hier landen Werte aber in Attributen.
+function escapeHtml(s) {
+  return LPR_Layout.escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function euro(n) { return Number(n || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }); }
+function datumDe(iso) { return iso ? new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString('de-DE') : ''; }
+function zahl(text) {
+  // "1.234,50" und "1234.50" beide lesen
+  const t = String(text || '').trim().replace(/\s/g, '');
+  if (!t) return 0;
+  const norm = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t;
+  const n = Number(norm);
+  return isFinite(n) ? Math.round(n * 100) / 100 : NaN;
+}
+
+const STATUS = {
+  entwurf: 'Entwurf', in_freigabe: 'in Freigabe', versandfertig: 'versandfertig',
+  versendet: 'versendet', bewilligt: 'bewilligt', abgelehnt: 'abgelehnt'
+};
+const NACH_VERSAND = ['versendet', 'bewilligt', 'abgelehnt'];
+const ZWECK = { schulungen: 'Schulungen', reisen: 'Reisen', ausstattung: 'Ausstattung', personal: 'Personal', sonstiges: 'Sonstiges' };
+const FINANZ = { beantragt: 'beantragte Summe', eigenmittel: 'Eigenmittel', drittmittel: 'Drittmittel', einnahmen: 'Einnahmen' };
+
+const ID = new URLSearchParams(location.search).get('id');
+let PROGRAMME = [], PROJEKTE = [], DOKUMENTE = [], KATEGORIEN = [], NAMEN = {}, FRISTEN = [];
+let ANTRAG = null;             // gespeicherter Stand
+let POS = [];                  // bearbeiteter Plan: {kind, financing_type, label, amount, note}
+let ANLAGEN = [];              // document_ids in Reihenfolge
+let POS_GELADEN = '[]', ANLAGEN_GELADEN = '[]';
+
+/* ── Laden ──────────────────────────────────────────────────────────────── */
+
+async function laden() {
+  const [p, pr, d, k] = await Promise.all([
+    LPR.foerderListProgramme(), LPR.foerderProjekte(), LPR.foerderDokumente(), LPR.foerderDokumentKategorien()
+  ]);
+  if (p === null || pr === null || d === null || k === null) {
+    document.getElementById('fa-inhalt').innerHTML =
+      '<div class="fa-card">Die Daten konnten nicht geladen werden. Bitte neu anmelden.</div>';
+    return false;
+  }
+  PROGRAMME = p; PROJEKTE = pr; DOKUMENTE = d; KATEGORIEN = k;
+  if (ID) {
+    ANTRAG = await LPR.foerderAntrag(ID);
+    if (!ANTRAG) {
+      document.getElementById('fa-inhalt').innerHTML = '<div class="fa-card">Antrag nicht gefunden.</div>';
+      return false;
+    }
+    POS = (ANTRAG.positionen || []).slice().sort((a, b) => a.sortierung - b.sortierung)
+      .map(x => ({ kind: x.kind, financing_type: x.financing_type, label: x.label, amount: Number(x.amount), note: x.note || '' }));
+    ANLAGEN = (ANTRAG.anlagen || []).slice().sort((a, b) => a.sort_order - b.sort_order).map(x => x.document_id);
+    NAMEN = await LPR.foerderNamen([ANTRAG.freigabe_finanzen_von, ANTRAG.freigabe_vorstand_von, ANTRAG.created_by]);
+    if (ANTRAG.vorgang_id) {
+      const auf = await LPR.cockpitListAufgaben(ANTRAG.vorgang_id);
+      FRISTEN = (auf || []).filter(a => a.art === 'frist');
+    }
+  } else {
+    POS = [{ kind: 'cost', financing_type: null, label: '', amount: 0, note: '' },
+           { kind: 'financing', financing_type: 'beantragt', label: 'Beantragte Förderung', amount: 0, note: '' }];
+  }
+  POS_GELADEN = JSON.stringify(POS);
+  ANLAGEN_GELADEN = JSON.stringify(ANLAGEN);
+  return true;
+}
+
+/* ── Zeichnen ───────────────────────────────────────────────────────────── */
+
+function kopf() {
+  const a = ANTRAG;
+  document.getElementById('fa-titel').textContent = a ? (a.projekt ? a.projekt.title : 'Antrag') : 'Neuer Antrag';
+  const prog = a ? PROGRAMME.find(x => x.id === a.programm_id) : null;
+  document.getElementById('fa-unterzeile').textContent = prog ? prog.programm : '';
+  const pill = document.getElementById('fa-status-pill');
+  pill.textContent = a ? STATUS[a.status] : 'noch nicht gespeichert';
+  pill.className = 'fa-pill' + (a && a.status === 'bewilligt' ? ' ok' : a && a.status === 'abgelehnt' ? ' warn' : '');
+  document.title = (a && a.projekt ? a.projekt.title : 'Antrag') + ' · Leben Pflegen Reisen e.V.';
+}
+
+function zeichnen() {
+  kopf();
+  const a = ANTRAG || {};
+  const pr = a.projekt || {};
+  const gesperrt = NACH_VERSAND.includes(a.status);
+  const progOpt = '<option value="">— Programm wählen —</option>' + PROGRAMME.map(p =>
+    `<option value="${escapeHtml(p.id)}"${a.programm_id === p.id ? ' selected' : ''}>${escapeHtml(p.programm)}${
+      p.traeger ? ' · ' + escapeHtml(p.traeger) : ''}</option>`).join('');
+  const projOpt = '<option value="">— neues Vorhaben —</option>' + PROJEKTE.map(p =>
+    `<option value="${escapeHtml(p.id)}"${a.project_id === p.id ? ' selected' : ''}>${escapeHtml(p.title)}</option>`).join('');
+  const zweckOpt = Object.keys(ZWECK).map(k =>
+    `<option value="${k}"${(pr.purpose || 'sonstiges') === k ? ' selected' : ''}>${ZWECK[k]}</option>`).join('');
+  const statusOpt = Object.keys(STATUS).map(k =>
+    `<option value="${k}"${(a.status || 'entwurf') === k ? ' selected' : ''}>${STATUS[k]}</option>`).join('');
+  const wegOpt = ['', 'portal', 'email', 'post'].map(k =>
+    `<option value="${k}"${(a.submitted_via || '') === k ? ' selected' : ''}>${
+      { '': '—', portal: 'Portal', email: 'E-Mail', post: 'Post' }[k]}</option>`).join('');
+
+  document.getElementById('fa-inhalt').innerHTML = `
+  <section class="fa-card">
+    <h2>1 · Geldgeber</h2>
+    <div class="field"><label for="f-programm">Programm <span class="req">*</span></label>
+      <select id="f-programm">${progOpt}</select></div>
+    <div id="f-programm-info"></div>
+    <div class="fa-reihe">
+      <div class="field"><label for="f-linie">Förderlinie</label>
+        <input id="f-linie" type="text" maxlength="200" value="${escapeHtml(a.program_line || '')}"></div>
+      <div class="field"><label for="f-referenz">Aktenzeichen des Geldgebers</label>
+        <input id="f-referenz" type="text" maxlength="120" value="${escapeHtml(a.external_reference || '')}"></div>
+    </div>
+  </section>
+
+  <section class="fa-card">
+    <h2>2 · Vorhaben</h2>
+    <div class="field"><label for="f-projekt">Vorhaben</label><select id="f-projekt">${projOpt}</select>
+      <div class="fa-sub">Ein Vorhaben kann in mehreren Anträgen stecken. Änderungen hier gelten für alle.</div></div>
+    <div class="fa-reihe">
+      <div class="field"><label for="p-titel">Titel <span class="req">*</span></label>
+        <input id="p-titel" type="text" maxlength="200" value="${escapeHtml(pr.title || '')}"></div>
+      <div class="field"><label for="p-zweck">Zweck</label><select id="p-zweck">${zweckOpt}</select></div>
+    </div>
+    <div class="field"><label for="p-kurz">Kurzbeschreibung</label>
+      <textarea id="p-kurz" rows="4" maxlength="1500">${escapeHtml(pr.short_description || '')}</textarea>
+      <div class="fa-sub fa-zaehler" id="p-kurz-zaehler"></div></div>
+    <div class="fa-reihe">
+      <div class="field"><label for="p-zielgruppe">Zielgruppe</label>
+        <input id="p-zielgruppe" type="text" maxlength="500" value="${escapeHtml(pr.target_group || '')}"></div>
+      <div class="field"><label for="p-laufzeit">Laufzeit</label>
+        <input id="p-laufzeit" type="text" maxlength="200" placeholder="z. B. Frühjahr bis Herbst 2027" value="${escapeHtml(pr.duration_text || '')}"></div>
+      <div class="field"><label for="p-ort">Ort</label>
+        <input id="p-ort" type="text" maxlength="200" value="${escapeHtml(pr.location || '')}"></div>
+    </div>
+  </section>
+
+  <section class="fa-card">
+    <h2>3 · Projektbeschreibung</h2>
+    <div class="fa-sub" style="margin-bottom:8px">Markdown. Gliederung: Ausgangslage, Ziel, Maßnahmen, Wirkung, Nachhaltigkeit.
+      Keine Klarnamen, keine Fallgeschichten, keine Preise des Vereins. Partner nur nach Freigabe nennen.</div>
+    <textarea id="p-beschreibung" rows="14" maxlength="40000">${escapeHtml(pr.description_md || '')}</textarea>
+  </section>
+
+  <section class="fa-card">
+    <h2>4 · Kosten- und Finanzierungsplan</h2>
+    ${gesperrt ? '<div class="fa-warn">Der Antrag ist versendet. Der Plan ist gesperrt.</div>' : ''}
+    <div id="f-plan"></div>
+  </section>
+
+  <section class="fa-card">
+    <h2>5 · Anlagen</h2>
+    <div class="fa-sub" style="margin-bottom:8px">Aus der Nachweismappe. Reihenfolge = Reihenfolge im Anlagenverzeichnis.</div>
+    <ul class="fa-anlagen" id="f-anlagen"></ul>
+  </section>
+
+  <section class="fa-card">
+    <h2>6 · Freigaben</h2>
+    <div id="f-freigaben"></div>
+  </section>
+
+  <section class="fa-card">
+    <h2>7 · Status, Versand und Frist</h2>
+    <div class="fa-reihe">
+      <div class="field"><label for="f-status">Status</label><select id="f-status">${statusOpt}</select></div>
+      <div class="field"><label for="f-bank">Bankverbindung im PDF</label>
+        <select id="f-bank"><option value="0">nein</option><option value="1"${a.show_bank_details ? ' selected' : ''}>ja</option></select></div>
+    </div>
+    <div class="fa-reihe">
+      <div class="field"><label for="f-versand-am">Versendet am</label>
+        <input id="f-versand-am" type="date" value="${escapeHtml(a.submitted_at || '')}"></div>
+      <div class="field"><label for="f-versand-weg">Weg</label><select id="f-versand-weg">${wegOpt}</select></div>
+    </div>
+    <div class="field"><label for="f-versand-notiz">Notiz zum Versand</label>
+      <input id="f-versand-notiz" type="text" maxlength="2000" value="${escapeHtml(a.submit_note || '')}"></div>
+    <div class="fa-reihe">
+      <div class="field"><label for="f-entscheid-am">Entscheidung am</label>
+        <input id="f-entscheid-am" type="date" value="${escapeHtml(a.decision_at || '')}"></div>
+      <div class="field"><label for="f-entscheid">Entscheidung / Begründung</label>
+        <input id="f-entscheid" type="text" maxlength="2000" value="${escapeHtml(a.decision_note || '')}"></div>
+    </div>
+    <h2 style="margin-top:14px">Fristen des Geldgebers</h2>
+    <div class="fa-sub" style="margin-bottom:8px">Nur Fristen, die der Geldgeber vorgibt. Sie erscheinen im Cockpit
+      und in der Wochenmail.</div>
+    <ul class="fa-fristen" id="f-fristen"></ul>
+    ${ANTRAG ? `<div class="fa-reihe">
+      <div class="field"><label for="f-frist-datum">Datum</label><input id="f-frist-datum" type="date"></div>
+      <div class="field"><label for="f-frist-text">Was ist fällig?</label>
+        <input id="f-frist-text" type="text" maxlength="150" placeholder="z. B. Antragsschluss"></div>
+    </div>
+    <button type="button" class="fa-mini" id="f-frist-neu">Frist eintragen</button>`
+    : '<div class="fa-sub">Erst speichern, dann Fristen eintragen.</div>'}
+  </section>
+
+  <p class="field-error" id="fa-fehler" hidden></p>
+  <div class="fa-leiste">
+    ${ANTRAG ? '<button type="button" class="btn btn-ghost" id="fa-pdf" disabled title="Kommt in Etappe 3">PDF</button>' : ''}
+    <button type="button" class="btn btn-primary" id="fa-speichern">Speichern</button>
+  </div>`;
+
+  programmInfo();
+  kurzZaehler();
+  planZeichnen();
+  anlagenZeichnen();
+  freigabenZeichnen();
+  fristenZeichnen();
+  binden();
+}
+
+function programmInfo() {
+  const el = document.getElementById('f-programm-info');
+  const id = document.getElementById('f-programm').value;
+  const p = PROGRAMME.find(x => x.id === id);
+  if (!p) { el.innerHTML = ''; return; }
+  // Kollisionsregel: pro Vorhaben nur einer der Geldgeber, die sich ausschliessen.
+  const projekt = document.getElementById('f-projekt') ? document.getElementById('f-projekt').value : '';
+  let koll = '';
+  if ((p.kollidiert_mit || []).length && projekt) {
+    koll = '<div class="fa-warn" id="f-koll" hidden></div>';
+    LPR.foerderAntraege().then(alle => {
+      const treffer = (alle || []).filter(b => b.project_id === projekt && b.id !== ID && b.status !== 'abgelehnt')
+        .map(b => PROGRAMME.find(q => q.id === b.programm_id)).filter(q => q && p.kollidiert_mit.includes(q.slug));
+      const box = document.getElementById('f-koll');
+      if (box && treffer.length) {
+        box.textContent = 'Für dieses Vorhaben läuft schon ein Antrag bei ' + treffer.map(q => q.programm).join(', ')
+          + '. Beide zusammen sind nicht zulässig.';
+        box.hidden = false;
+      }
+    });
+  }
+  el.innerHTML = `<div class="fa-sub" style="margin:-4px 0 10px">
+      <a href="admin-foerdermittel.html#programme/${encodeURIComponent(p.slug)}" target="_blank" rel="noopener">Programmtext und Voraussetzungen öffnen</a>
+      ${p.frist_text ? ' · Frist laut Wissensbasis: ' + escapeHtml(p.frist_text) : ''}</div>${koll}`;
+}
+
+function kurzZaehler() {
+  const t = document.getElementById('p-kurz');
+  document.getElementById('p-kurz-zaehler').textContent = t.value.length + ' / 1500 Zeichen';
+}
+
+function planZeichnen() {
+  const gesperrt = ANTRAG && NACH_VERSAND.includes(ANTRAG.status);
+  const dis = gesperrt ? ' disabled' : '';
+  const zeile = (p, i) => `<tr data-i="${i}">
+      <td><input type="text" class="pl-label" maxlength="300" value="${escapeHtml(p.label)}"
+                 placeholder="${p.kind === 'cost' ? 'z. B. Fahrzeugumbau' : 'Bezeichnung'}"${dis}></td>
+      ${p.kind === 'financing' ? `<td class="art"><select class="pl-typ"${dis}>${Object.keys(FINANZ).map(k =>
+        `<option value="${k}"${p.financing_type === k ? ' selected' : ''}>${FINANZ[k]}</option>`).join('')}</select></td>` : ''}
+      <td class="betrag"><input type="text" inputmode="decimal" class="pl-betrag" value="${
+        p.amount ? escapeHtml(String(p.amount).replace('.', ',')) : ''}" placeholder="0,00"${dis}></td>
+      <td class="weg"><button type="button" class="fa-mini pl-weg" aria-label="Zeile entfernen"${dis}>×</button></td>
+    </tr>`;
+  const teil = (kind, titel) => {
+    const zeilen = POS.map((p, i) => p.kind === kind ? zeile(p, i) : '').join('');
+    const summe = POS.filter(p => p.kind === kind).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    return `<h3 style="font-size:14px;margin:10px 0 4px">${titel}</h3>
+      <table class="fa-pos"><tbody>${zeilen}</tbody></table>
+      <button type="button" class="fa-mini pl-neu" data-kind="${kind}"${dis}>+ Position</button>
+      <div class="fa-summe"><span>Summe</span><span>${euro(summe)}</span></div>`;
+  };
+  const kosten = POS.filter(p => p.kind === 'cost').reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const finanz = POS.filter(p => p.kind === 'financing').reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const diff = Math.round((kosten - finanz) * 100) / 100;
+  document.getElementById('f-plan').innerHTML = teil('cost', 'Kosten') + teil('financing', 'Finanzierung')
+    + `<div class="fa-diff ${diff ? 'warn' : 'ok'}">${diff
+        ? 'Differenz ' + euro(diff) + ' — Kosten und Finanzierung müssen gleich sein, bevor der Antrag in die Freigabe geht.'
+        : 'Kosten = Finanzierung'}</div>`;
+}
+
+function planAusFormular() {
+  document.querySelectorAll('#f-plan tr[data-i]').forEach(tr => {
+    const p = POS[Number(tr.dataset.i)];
+    p.label = tr.querySelector('.pl-label').value;
+    const z = zahl(tr.querySelector('.pl-betrag').value);
+    p.amount = isNaN(z) ? NaN : z;
+    const typ = tr.querySelector('.pl-typ');
+    if (typ) p.financing_type = typ.value;
+  });
+}
+
+function anlagenZeichnen() {
+  const aktuell = DOKUMENTE.filter(d => !d.replaced_by || ANLAGEN.includes(d.id));
+  const katLabel = k => (KATEGORIEN.find(x => x.key === k) || {}).label || k;
+  const gewaehlt = ANLAGEN.map(id => aktuell.find(d => d.id === id)).filter(Boolean);
+  const rest = aktuell.filter(d => !ANLAGEN.includes(d.id) && !d.replaced_by);
+  const heute = new Date(); heute.setHours(0, 0, 0, 0);
+  const zeile = (d, an, i) => {
+    const abgelaufen = d.valid_until && new Date(d.valid_until + 'T00:00:00') < heute;
+    return `<li data-dok="${escapeHtml(d.id)}">
+      <label><input type="checkbox" class="an-haken"${an ? ' checked' : ''}>
+        <span>${an ? (i + 1) + '. ' : ''}${escapeHtml(d.title)} <span class="fa-sub">· ${escapeHtml(katLabel(d.category))} · v${d.version}${
+          d.document_date ? ' · ' + datumDe(d.document_date) : ''}${d.replaced_by ? ' · inzwischen ersetzt' : ''}</span>
+          ${abgelaufen ? '<span class="fa-pill warn">abgelaufen</span>' : ''}</span></label>
+      ${an ? `<button type="button" class="fa-mini an-hoch" aria-label="nach oben"${i === 0 ? ' disabled' : ''}>↑</button>
+              <button type="button" class="fa-mini an-runter" aria-label="nach unten"${i === gewaehlt.length - 1 ? ' disabled' : ''}>↓</button>` : ''}
+    </li>`;
+  };
+  document.getElementById('f-anlagen').innerHTML =
+    (gewaehlt.map((d, i) => zeile(d, true, i)).join('') + rest.map(d => zeile(d, false)).join(''))
+    || '<li class="fa-sub">Die Nachweismappe ist noch leer. Dokumente legst du im Reiter Dokumente ab.</li>';
+}
+
+function freigabenZeichnen() {
+  const el = document.getElementById('f-freigaben');
+  if (!ANTRAG) { el.innerHTML = '<div class="fa-sub">Erst speichern, dann freigeben.</div>'; return; }
+  const s = LPR.getSession();
+  const a = ANTRAG;
+  const vierAugen = s && s.id === a.created_by;
+  const zeile = (art, titel, am, von, hinweis) => `<div class="fa-freigabe">
+      <div><strong>${titel}</strong><div class="fa-sub">${am
+        ? 'erteilt am ' + datumDe(am) + (NAMEN[von] ? ' von ' + escapeHtml(NAMEN[von]) : '')
+        : 'noch nicht erteilt'}${hinweis ? ' · ' + hinweis : ''}</div></div>
+      <button type="button" class="fa-mini fg-knopf" data-art="${art}" data-an="${am ? '0' : '1'}"${
+        !am && art === 'finanzen' && vierAugen ? ' disabled title="Vier Augen: nicht durch die Person, die den Antrag angelegt hat"' : ''}>${
+        am ? 'Zurücknehmen' : 'Freigeben'}</button>
+    </div>`;
+  el.innerHTML = zeile('finanzen', 'Freigabe Finanzen (Sonja)', a.freigabe_finanzen_am, a.freigabe_finanzen_von,
+      'Pflicht vor „versandfertig“. Fällt weg, sobald sich ein Betrag ändert.'
+      + (vierAugen ? ' Du hast den Antrag angelegt, also gibt jemand anderes frei.' : ''))
+    + zeile('vorstand', 'Freigabe Vorstand', a.freigabe_vorstand_am, a.freigabe_vorstand_von, '');
+}
+
+function fristenZeichnen() {
+  const el = document.getElementById('f-fristen');
+  el.innerHTML = FRISTEN.length
+    ? FRISTEN.map(f => `<li>${f.status === 'erledigt' ? '☑' : '☐'} <strong>${datumDe(f.faellig_am)}</strong> · ${escapeHtml(f.titel)}</li>`).join('')
+    : '<li class="fa-sub">Keine Frist eingetragen.</li>';
+}
+
+/* ── Bedienung ──────────────────────────────────────────────────────────── */
+
+function fehler(text) {
+  const f = document.getElementById('fa-fehler');
+  f.textContent = text; f.hidden = !text;
+  if (text) f.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+function binden() {
+  document.getElementById('f-programm').onchange = programmInfo;
+  document.getElementById('f-projekt').onchange = () => {
+    const p = PROJEKTE.find(x => x.id === document.getElementById('f-projekt').value) || {};
+    document.getElementById('p-titel').value = p.title || '';
+    document.getElementById('p-zweck').value = p.purpose || 'sonstiges';
+    document.getElementById('p-kurz').value = p.short_description || '';
+    document.getElementById('p-zielgruppe').value = p.target_group || '';
+    document.getElementById('p-laufzeit').value = p.duration_text || '';
+    document.getElementById('p-ort').value = p.location || '';
+    document.getElementById('p-beschreibung').value = p.description_md || '';
+    kurzZaehler(); programmInfo();
+  };
+  document.getElementById('p-kurz').oninput = kurzZaehler;
+
+  const plan = document.getElementById('f-plan');
+  plan.oninput = () => {
+    planAusFormular();
+    // Nur Summen neu, nicht die Felder — sonst springt der Cursor.
+    const kosten = POS.filter(p => p.kind === 'cost').reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const finanz = POS.filter(p => p.kind === 'financing').reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const summen = plan.querySelectorAll('.fa-summe span:last-child');
+    if (summen[0]) summen[0].textContent = euro(kosten);
+    if (summen[1]) summen[1].textContent = euro(finanz);
+    const diff = Math.round((kosten - finanz) * 100) / 100;
+    const d = plan.querySelector('.fa-diff');
+    d.className = 'fa-diff ' + (diff ? 'warn' : 'ok');
+    d.textContent = diff ? 'Differenz ' + euro(diff) + ' — Kosten und Finanzierung müssen gleich sein, bevor der Antrag in die Freigabe geht.'
+                         : 'Kosten = Finanzierung';
+  };
+  plan.onchange = plan.oninput;
+  plan.onclick = (e) => {
+    const neu = e.target.closest('.pl-neu');
+    if (neu) {
+      planAusFormular();
+      POS.push({ kind: neu.dataset.kind, financing_type: neu.dataset.kind === 'financing' ? 'eigenmittel' : null,
+                 label: '', amount: 0, note: '' });
+      planZeichnen();
+      return;
+    }
+    const weg = e.target.closest('.pl-weg');
+    if (weg) { planAusFormular(); POS.splice(Number(weg.closest('tr').dataset.i), 1); planZeichnen(); }
+  };
+
+  const an = document.getElementById('f-anlagen');
+  an.onchange = (e) => {
+    const h = e.target.closest('.an-haken'); if (!h) return;
+    const id = h.closest('[data-dok]').dataset.dok;
+    ANLAGEN = h.checked ? ANLAGEN.concat(id) : ANLAGEN.filter(x => x !== id);
+    anlagenZeichnen();
+  };
+  an.onclick = (e) => {
+    const b = e.target.closest('.an-hoch, .an-runter'); if (!b) return;
+    const id = b.closest('[data-dok]').dataset.dok;
+    const i = ANLAGEN.indexOf(id), j = i + (b.classList.contains('an-hoch') ? -1 : 1);
+    if (i < 0 || j < 0 || j >= ANLAGEN.length) return;
+    [ANLAGEN[i], ANLAGEN[j]] = [ANLAGEN[j], ANLAGEN[i]];
+    anlagenZeichnen();
+  };
+
+  document.getElementById('f-freigaben').onclick = async (e) => {
+    const b = e.target.closest('.fg-knopf'); if (!b) return;
+    if (ungespeichert()) { fehler('Bitte erst speichern, dann freigeben — sonst gälte die Freigabe einem anderen Stand.'); return; }
+    b.disabled = true;
+    const res = await LPR.foerderAntragFreigabe(ID, b.dataset.art, b.dataset.an === '1');
+    if (!res.ok) { b.disabled = false; fehler(res.error); return; }
+    LPR.showToast(b.dataset.an === '1' ? 'Freigabe erteilt.' : 'Freigabe zurückgenommen.', 'ok');
+    await neuLaden();
+  };
+
+  const fristKnopf = document.getElementById('f-frist-neu');
+  if (fristKnopf) fristKnopf.onclick = fristEintragen;
+  document.getElementById('fa-speichern').onclick = speichern;
+}
+
+function ungespeichert() {
+  planAusFormular();
+  return JSON.stringify(POS) !== POS_GELADEN || JSON.stringify(ANLAGEN) !== ANLAGEN_GELADEN;
+}
+
+async function neuLaden() {
+  if (await laden()) zeichnen();
+}
+
+async function speichern() {
+  fehler('');
+  planAusFormular();
+  const knopf = document.getElementById('fa-speichern');
+  const programmId = document.getElementById('f-programm').value;
+  const titel = document.getElementById('p-titel').value.trim();
+  if (!programmId) return fehler('Bitte ein Programm wählen.');
+  if (titel.length < 2) return fehler('Bitte dem Vorhaben einen Titel geben.');
+  if (POS.some(p => isNaN(p.amount) || p.amount < 0)) return fehler('Ein Betrag ist nicht lesbar. Bitte nur Zahlen, z. B. 1.250,00.');
+  if (POS.some(p => !String(p.label).trim())) return fehler('Jede Position braucht eine Bezeichnung.');
+
+  const status = document.getElementById('f-status').value;
+  const kosten = POS.filter(p => p.kind === 'cost').reduce((s, p) => s + p.amount, 0);
+  const finanz = POS.filter(p => p.kind === 'financing').reduce((s, p) => s + p.amount, 0);
+  if (status !== 'entwurf' && Math.round((kosten - finanz) * 100)) {
+    return fehler('Kosten und Finanzierung sind nicht ausgeglichen. Bitte ausgleichen oder den Status auf „Entwurf“ setzen.');
+  }
+  const beantragt = POS.filter(p => p.kind === 'financing' && p.financing_type === 'beantragt')
+    .reduce((s, p) => s + p.amount, 0);
+
+  const planNeu = JSON.stringify(POS) !== POS_GELADEN;
+  const betragNeu = ANTRAG && Number(ANTRAG.amount_requested || 0) !== beantragt;
+  if (ANTRAG && ANTRAG.freigabe_finanzen_am && (planNeu || betragNeu)
+      && !confirm('Der Plan hat sich geändert. Die Freigabe Finanzen fällt damit weg und der Antrag geht zurück auf Entwurf. Speichern?')) {
+    return;
+  }
+
+  knopf.disabled = true; knopf.textContent = 'Wird gespeichert…';
+  try {
+    // 1. Vorhaben
+    const projektId = document.getElementById('f-projekt').value || null;
+    const pr = await LPR.foerderProjektSpeichern(projektId, {
+      title: titel,
+      purpose: document.getElementById('p-zweck').value,
+      short_description: document.getElementById('p-kurz').value.trim() || null,
+      target_group: document.getElementById('p-zielgruppe').value.trim() || null,
+      duration_text: document.getElementById('p-laufzeit').value.trim() || null,
+      location: document.getElementById('p-ort').value.trim() || null,
+      description_md: document.getElementById('p-beschreibung').value.trim() || null
+    });
+    if (!pr.ok) return fehler('Vorhaben nicht gespeichert: ' + pr.error);
+
+    // 2. Antrag. Status zuletzt setzen: erst muss der Plan stehen, sonst setzt
+    // die Datenbank eine eben erteilte Freigabe beim Plan-Speichern zurueck.
+    const felder = {
+      programm_id: programmId,
+      project_id: pr.projekt.id,
+      program_line: document.getElementById('f-linie').value.trim() || null,
+      external_reference: document.getElementById('f-referenz').value.trim() || null,
+      amount_requested: beantragt,
+      show_bank_details: document.getElementById('f-bank').value === '1',
+      submitted_at: document.getElementById('f-versand-am').value || null,
+      submitted_via: document.getElementById('f-versand-weg').value || null,
+      submit_note: document.getElementById('f-versand-notiz').value.trim() || null,
+      decision_at: document.getElementById('f-entscheid-am').value || null,
+      decision_note: document.getElementById('f-entscheid').value.trim() || null
+    };
+    const ar = await LPR.foerderAntragSpeichern(ANTRAG ? ANTRAG.id : null, felder);
+    if (!ar.ok) return fehler('Antrag nicht gespeichert: ' + ar.error);
+    const id = ar.antrag.id;
+
+    // 3. Plan und Anlagen nur, wenn sich etwas geaendert hat
+    if (!ANTRAG || planNeu) {
+      const r = await LPR.foerderPositionenErsetzen(id, POS);
+      if (!r.ok) return fehler('Plan nicht gespeichert: ' + r.error);
+    }
+    if (!ANTRAG || JSON.stringify(ANLAGEN) !== ANLAGEN_GELADEN) {
+      const r = await LPR.foerderAnlagenErsetzen(id, ANLAGEN);
+      if (!r.ok) return fehler('Anlagen nicht gespeichert: ' + r.error);
+    }
+
+    // 4. Status
+    if (status !== (ar.antrag.status)) {
+      const st = await LPR.foerderAntragSpeichern(id, { status });
+      if (!st.ok) {
+        const grund = /freigabe_vor_versand/.test(st.error)
+          ? 'Ohne Freigabe Finanzen kann der Antrag nicht weiter als „in Freigabe“.'
+          : st.error;
+        LPR.showToast('Gespeichert, aber der Status nicht: ' + grund, 'warn');
+      }
+    }
+
+    if (!ANTRAG) {
+      history.replaceState(null, '', 'admin-foerderantrag.html?id=' + encodeURIComponent(id));
+      location.reload();
+      return;
+    }
+    LPR.showToast('Antrag gespeichert.', 'ok');
+    await neuLaden();
+  } finally {
+    const k = document.getElementById('fa-speichern');
+    if (k) { k.disabled = false; k.textContent = 'Speichern'; }
+  }
+}
+
+async function fristEintragen() {
+  const datum = document.getElementById('f-frist-datum').value;
+  const text = document.getElementById('f-frist-text').value.trim();
+  if (!datum || text.length < 2) return fehler('Für eine Frist braucht es Datum und Beschreibung.');
+  const knopf = document.getElementById('f-frist-neu');
+  knopf.disabled = true;
+  let vorgangId = ANTRAG.vorgang_id;
+  if (!vorgangId) {
+    // Jeder Antrag bekommt beim ersten Bedarf einen eigenen Vorgang im Cockpit.
+    const prog = PROGRAMME.find(x => x.id === ANTRAG.programm_id);
+    const v = await LPR.cockpitCreateVorgang({
+      titel: ('Antrag ' + (prog ? prog.programm : '') + ' · ' + (ANTRAG.projekt ? ANTRAG.projekt.title : '')).slice(0, 200),
+      bereich: 'foerdermittel', status: 'aktiv',
+      link: 'admin-foerderantrag.html?id=' + ANTRAG.id
+    });
+    if (!v) { knopf.disabled = false; return fehler('Der Vorgang im Cockpit konnte nicht angelegt werden.'); }
+    const u = await LPR.foerderAntragSpeichern(ANTRAG.id, { vorgang_id: v.id });
+    if (!u.ok) { knopf.disabled = false; return fehler('Vorgang angelegt, aber nicht mit dem Antrag verbunden: ' + u.error); }
+    vorgangId = v.id;
+  }
+  const f = await LPR.cockpitCreateAufgabe({
+    vorgang_id: vorgangId, titel: text, art: 'frist', faellig_am: datum, faellig_hart: true
+  });
+  knopf.disabled = false;
+  if (!f) return fehler('Die Frist konnte nicht gespeichert werden.');
+  LPR.showToast('Frist eingetragen. Sie steht jetzt auch im Cockpit.', 'ok');
+  await neuLaden();
+}
+
+laden().then(ok => { if (ok) zeichnen(); });
+</script>
+</body>
+</html>

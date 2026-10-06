@@ -274,6 +274,16 @@ function zeichnen() {
   </section>
 
   <section class="fa-card">
+    <h2>Anschreiben</h2>
+    <div class="field"><label for="f-anschrift">Anschrift des Geldgebers</label>
+      <textarea id="f-anschrift" rows="4" maxlength="500" placeholder="Name der Stiftung&#10;z. Hd. …&#10;Straße Nr.&#10;PLZ Ort">${escapeHtml(a.recipient_address || '')}</textarea></div>
+    <div class="field"><label for="f-anschreiben">Text des Anschreibens</label>
+      <textarea id="f-anschreiben" rows="7" maxlength="4000" placeholder="Leer lassen für den Standardtext">${escapeHtml(a.cover_letter || '')}</textarea>
+      <div class="fa-sub">Leer = Standardtext: Programm, Vorhaben, beantragte Summe, Hinweis auf die Anlagen.
+        Anrede und Gruß setzt das PDF selbst. Beträge nur im Kosten- und Finanzierungsplan.</div></div>
+  </section>
+
+  <section class="fa-card">
     <h2>7 · Status, Versand und Frist</h2>
     <div class="fa-reihe">
       <div class="field"><label for="f-status">Status</label><select id="f-status">${statusOpt}</select></div>
@@ -308,7 +318,7 @@ function zeichnen() {
 
   <p class="field-error" id="fa-fehler" hidden></p>
   <div class="fa-leiste">
-    ${ANTRAG ? '<button type="button" class="btn btn-ghost" id="fa-pdf" disabled title="Kommt in Etappe 3">PDF</button>' : ''}
+    ${ANTRAG ? '<button type="button" class="btn btn-ghost" id="fa-pdf">PDF ansehen</button>' : ''}
     <button type="button" class="btn btn-primary" id="fa-speichern">Speichern</button>
   </div>`;
 
@@ -522,6 +532,12 @@ function binden() {
   const fristKnopf = document.getElementById('f-frist-neu');
   if (fristKnopf) fristKnopf.onclick = fristEintragen;
   document.getElementById('fa-speichern').onclick = speichern;
+  const pdf = document.getElementById('fa-pdf');
+  if (pdf) pdf.onclick = () => {
+    // Das PDF zeigt den gespeicherten Stand. Ungespeichertes waere darin nicht.
+    if (ungespeichert()) { fehler('Bitte erst speichern — das PDF zeigt den gespeicherten Stand.'); return; }
+    window.open('antrag-druck.html?id=' + encodeURIComponent(ID), '_blank');
+  };
 }
 
 function ungespeichert() {
@@ -588,7 +604,9 @@ async function speichern() {
       submitted_via: document.getElementById('f-versand-weg').value || null,
       submit_note: document.getElementById('f-versand-notiz').value.trim() || null,
       decision_at: document.getElementById('f-entscheid-am').value || null,
-      decision_note: document.getElementById('f-entscheid').value.trim() || null
+      decision_note: document.getElementById('f-entscheid').value.trim() || null,
+      recipient_address: document.getElementById('f-anschrift').value.trim() || null,
+      cover_letter: document.getElementById('f-anschreiben').value.trim() || null
     };
     const ar = await LPR.foerderAntragSpeichern(ANTRAG ? ANTRAG.id : null, felder);
     if (!ar.ok) return fehler('Antrag nicht gespeichert: ' + ar.error);

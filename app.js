@@ -5746,7 +5746,8 @@
                           'location','description_md','status'];
   const ANTRAG_FELDER  = ['programm_id','project_id','program_line','external_reference','status',
                           'amount_requested','show_bank_details','submitted_at','submitted_via',
-                          'submit_note','decision_at','decision_note','vorgang_id'];
+                          'submit_note','decision_at','decision_note','vorgang_id',
+                          'recipient_address','cover_letter'];
 
   async function foerderProjekte() {
     try {

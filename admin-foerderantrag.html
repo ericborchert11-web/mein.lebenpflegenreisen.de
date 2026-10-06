@@ -318,6 +318,8 @@ function zeichnen() {
 
   <p class="field-error" id="fa-fehler" hidden></p>
   <div class="fa-leiste">
+    ${ANTRAG && ['entwurf', 'in_freigabe'].includes(ANTRAG.status)
+      ? '<button type="button" class="btn btn-ghost" id="fa-loeschen" style="margin-right:auto;color:#B4231A">Antrag löschen</button>' : ''}
     ${ANTRAG ? '<button type="button" class="btn btn-ghost" id="fa-pdf">PDF ansehen</button>' : ''}
     <button type="button" class="btn btn-primary" id="fa-speichern">Speichern</button>
   </div>`;
@@ -532,6 +534,15 @@ function binden() {
   const fristKnopf = document.getElementById('f-frist-neu');
   if (fristKnopf) fristKnopf.onclick = fristEintragen;
   document.getElementById('fa-speichern').onclick = speichern;
+  const loeschen = document.getElementById('fa-loeschen');
+  if (loeschen) loeschen.onclick = async () => {
+    if (!confirm('Diesen Antrag endgültig löschen? Plan und Anlagen-Verweise gehen mit. '
+                 + 'Die Dokumente in der Nachweismappe bleiben.')) return;
+    loeschen.disabled = true;
+    const res = await LPR.foerderAntragLoeschen(ID);
+    if (!res.ok) { loeschen.disabled = false; fehler(res.error); return; }
+    location.href = 'admin-foerdermittel.html#antraege';
+  };
   const pdf = document.getElementById('fa-pdf');
   if (pdf) pdf.onclick = () => {
     // Das PDF zeigt den gespeicherten Stand. Ungespeichertes waere darin nicht.

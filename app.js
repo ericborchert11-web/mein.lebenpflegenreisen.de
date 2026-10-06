@@ -5816,6 +5816,34 @@
   }
 
   /**
+   * Loescht einen Antrag im Entwurf samt Plan und Anlagen-Verweisen (cascade).
+   * Das Vorhaben geht mit, wenn kein anderer Antrag daran haengt; der Vorgang im
+   * Cockpit wird verworfen statt geloescht, sein Verlauf bleibt lesbar.
+   * Versandfertige und verschickte Antraege weist die Datenbank ab.
+   */
+  async function foerderAntragLoeschen(id) {
+    try {
+      const client = await sb();
+      const { data: a, error: lErr } = await client
+        .from('funding_applications').select('id, project_id, vorgang_id, status').eq('id', id).single();
+      if (lErr || !a) return { ok: false, error: 'Der Antrag wurde nicht gefunden.' };
+      const { data, error } = await client.from('funding_applications').delete().eq('id', id).select('id');
+      if (error) return { ok: false, error: error.message };
+      // RLS loescht still nichts, statt einen Fehler zu werfen — deshalb zaehlen.
+      if (!data || !data.length) return { ok: false, error: 'Der Antrag wurde nicht gelöscht.' };
+
+      const { count } = await client.from('funding_applications')
+        .select('id', { count: 'exact', head: true }).eq('project_id', a.project_id);
+      if (count === 0) await client.from('funding_projects').delete().eq('id', a.project_id);
+      if (a.vorgang_id) await client.from('vorgaenge').update({ status: 'verworfen' }).eq('id', a.vorgang_id);
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] foerderAntragLoeschen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
    * Ersetzt den Kosten- und Finanzierungsplan. Nur aufrufen, wenn sich etwas
    * geaendert hat: Jede Aenderung nimmt eine erteilte Freigabe Finanzen zurueck.
    */
@@ -7334,7 +7362,7 @@
     boardOffenerDienstStatus, boardOffenerDienstLoeschen, boardOffenenDienstBesetzen,
     foerderArbeitsplan, foerderDokumentKategorien, foerderDokumente, foerderAntraege,
     foerderDokumentSpeichern, foerderDokumentOeffnen, foerderProjekte, foerderProjektSpeichern,
-    foerderAntrag, foerderAntragSpeichern, foerderAntragFreigabe, foerderPositionenErsetzen, foerderAnlagenErsetzen,
+    foerderAntrag, foerderAntragSpeichern, foerderAntragFreigabe, foerderAntragLoeschen, foerderPositionenErsetzen, foerderAnlagenErsetzen,
     foerderCreateAufgabe, foerderUpdateAufgabe, foerderCreateNotiz, foerderNamen,
     // Cockpit — Assistenz der Geschäftsführung (Etappe A: lesend)
     cockpitPunkte, cockpitListVorgaenge, cockpitListAufgaben, cockpitVerlauf,

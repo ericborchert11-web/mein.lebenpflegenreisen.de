@@ -454,6 +454,7 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
 
 <div class="toast" id="toast"></div>
 
+<script src="unterlagen-regel.js?v20261007"></script>
 <script src="app.js?v20260911a"></script>
 <script src="layout.js"></script>
 <script>
@@ -741,8 +742,10 @@ async function render() {
     const prefs = m._prefs || { qualifications: [], activityTypes: [], clinicPrefs: {}, homePlz: '' };
 
     let cmpExpired = 0, cmpExpiringSoon = 0, cmpMissingOrSubmitted = 0;
+    const fzDurchBzr = UnterlagenRegel.fzErsetzt(records);
     for (const item of COMPLIANCE_ITEMS) {
       if (item.optional) continue;   // siehe Kommentar an COMPLIANCE_ITEMS
+      if (item.id === 'fuehrungszeugnis' && fzDurchBzr) continue;   // BZR ersetzt FZ (seit 07.10.2026)
       const rec = records.find(r => r.document_type === item.id);
       const eff = complianceEffectiveStatus(rec);
       if      (eff === 'expired')        cmpExpired++;
@@ -949,6 +952,7 @@ async function renderCompliance(userId) {
   const byType = {};
   for (const r of result.records) byType[r.document_type] = r;
 
+  const fzDurchBzr = UnterlagenRegel.fzErsetzt(result.records);
   container.innerHTML = COMPLIANCE_ITEMS.map(item => {
     const record = byType[item.id];
     const status = complianceEffectiveStatus(record);
@@ -967,6 +971,7 @@ async function renderCompliance(userId) {
         <div class="cmp-name">${item.label}
           <span class="cmp-status-pill ${status}">${COMPLIANCE_STATUS_LABELS[status]}</span>
         </div>
+        ${item.id === 'fuehrungszeugnis' && fzDurchBzr ? '<div class="cmp-meta">ersetzt durch BZR-Abfrage</div>' : ''}
         ${meta.length ? '<div class="cmp-meta">' + escape(meta.join(' · ')) + '</div>' : ''}
       </div>
       <select data-cmp-status="${escape(recordId)}"

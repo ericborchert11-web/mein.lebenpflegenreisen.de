@@ -959,7 +959,6 @@
   async function isComplianceComplete(userId) {
     const id = userId || (getSession() && getSession().id);
     if (!id) return { ok: false, complete: false, missing: [] };
-    const REQUIRED = ['fuehrungszeugnis','ifsg43','erste_hilfe','dsgvo','schweigepflicht'];
     try {
       const client = await sb();
       const [cmp, prof] = await Promise.all([
@@ -968,8 +967,10 @@
       ]);
       if (cmp.error) return { ok: false, complete: false, missing: [] };
       const data = cmp.data;
-      const approved = new Set((data || []).filter(r => r.status === 'approved' && (!r.valid_until || new Date(r.valid_until).setHours(0,0,0,0) >= new Date().setHours(0,0,0,0))).map(r => r.document_type));
-      const missing = REQUIRED.filter(t => !approved.has(t));
+      // Regel steht in unterlagen-regel.js (FZ ODER gueltige BZR). Wird bei
+      // Bedarf nachgeladen, damit nicht jede Seite das Skript einbinden muss.
+      if (!global.UnterlagenRegel) await loadScript('unterlagen-regel.js?v20261007');
+      const missing = global.UnterlagenRegel.fehlendeUnterlagen(data || []);
 
       // Ein Lesefehler darf hier NICHT als "Nachweis liegt vor" durchgehen.
       // Im Zweifel fehlt er — das ist die Richtung, in die ein Irrtum bei

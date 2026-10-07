@@ -119,3 +119,51 @@ Nach D7 kommt die Kleinunternehmer-Ampel also auch als Kachel dorthin.
    späteren Wechsel in die Regelbesteuerung aufheben?
 5. **Altbestand-Liste:** Der Abfrage-Entwurf zeigt alle Eingänge 2026 mit Empfänger
    und Vorschlag; Eric ordnet Reisen und Unklares zu, bevor die Migration läuft.
+
+## 4. Entscheidungen (Eric, 07.10.2026)
+
+1. **Stichtag:** alle Eingänge 2026 werden zugeordnet und zählen.
+2. **Sammelüberweisungen** gibt es nicht; eine Kontozeile = eine Rechnung bleibt.
+3. **Kassenprüfung** liest die neuen Felder mit.
+4. **`vat` im Editor:** ausblenden, nicht aus der Datenbank entfernen — für den
+   späteren Wechsel in die Regelbesteuerung (Etappe 3).
+5. **Konto + Flag nur bei Eingängen**, Ausgaben bleiben leer.
+
+## 5. Etappe 1 — Datenmodell (Migration AS)
+
+Dateien lokal: `sql/2026-10-07-vorpruefung-erloeskonten.sql`,
+`sql/2026-10-07-as-erloeskonten.sql`, `sql/2026-10-07-test-as.sql`.
+
+- Typ `erloeskonto`; Spalten `erloeskonto` + `ust_pflichtig` auf `invoices` und
+  `bank_buchungen`, alle nullable.
+- Ableitung in einer Funktion `ust_pflichtig_ableiten()`, aufgerufen von je
+  einem Trigger pro Tabelle. Reisen: Vorgabe true; wer erst auf Reisen umstellt,
+  bekommt true — der mitgebrachte Wert des alten Kontos zählt nicht als Wahl.
+- Kontozeile mit Rechnung oder Antrag, oder Ausgabe: eigenes Konto wird vom
+  Trigger geleert (sonst scheiterte die bestehende Zuordnung im Kassenbuch).
+  Checks sichern das zusätzlich ab.
+- Storno erbt das Konto der stornierten Rechnung per Insert-Trigger;
+  `cancel_invoice()` bleibt unberührt.
+- `tg_invoice_locked()` bleibt unberührt: Das Konto ist Einordnung, nicht
+  Rechnungsinhalt, und muss für den Altbestand auch nach dem Festschreiben
+  nachziehbar sein. Der gedruckte Hinweis (`tax_note`) bleibt gesperrt.
+- **Kein Pflichtfeld in Etappe 1.** Ein `not null` auf Eingängen würde den
+  CSV-Import brechen (Zeilen kommen ohne Konto herein), eins auf Rechnungen das
+  Festschreiben, solange der Editor das Feld noch nicht hat. Die Pflicht kommt
+  mit der Oberfläche (Etappe 2 Dialog, Etappe 3 Editor); bis dahin zählt die
+  Sicht die Lücken.
+- **Altbestand:** Klinik-Empfänger → `erloes_klinik`. Alles andere bleibt leer und
+  steht auf der Liste am Ende der Migration. Abweichung vom Briefing: nicht
+  `sonstige`, weil das nicht gegen die Grenze zählt — ein stiller Fehler in die
+  günstige Richtung.
+- Schwellen in `app_settings`: `ust.grenze_vorjahr`, `ust.grenze_laufend`,
+  `ust.gruendungsjahr`.
+- Sicht `v_ust_umsatz` (security_invoker, anon ohne Recht) je Jahr ab 2026:
+  steuerpflichtig, ausgenommen, Summe je Konto, Eingänge ohne Konto, Rechnungen
+  ohne Konto, offene Rechnungen ohne Kontozeile, bezahlte Rechnungen ohne
+  Kontozeile (am Kassenbuch vorbei), Grenzen, Vorjahr. Eingänge mit Antrag sind
+  Rückflüsse und zählen nicht.
+- RLS: keine neue Policy nötig — die bestehenden (board schreibt, Kassenprüfung
+  liest) gelten für neue Spalten automatisch.
+- Geprüft vor dem Ausrollen in PGlite gegen ein nachgebautes Mini-Schema:
+  Migration zweimal hintereinander fehlerfrei, Test „TEST BESTANDEN".

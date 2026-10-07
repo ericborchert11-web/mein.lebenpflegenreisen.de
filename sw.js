@@ -16,7 +16,7 @@
  * diesen Worker gibt: eine Schicht, die in einer halben Stunde beginnt,
  * erreicht per E-Mail niemanden, der schon unterwegs ist.
  */
-const CACHE = 'lpr-shell-v4';
+const CACHE = 'lpr-shell-v5';
 
 const SHELL = [
   '/einsatz.html',
@@ -24,6 +24,7 @@ const SHELL = [
   '/shared.css',
   '/app.js',
   '/layout.js',
+  '/unterlagen-regel.js',
   '/favicon.svg',
   '/favicon-192.png',
   '/favicon-512.png'

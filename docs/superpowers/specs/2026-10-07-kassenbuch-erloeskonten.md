@@ -234,3 +234,21 @@ Plan: `docs/superpowers/plans/2026-10-07-erloeskonten-e3.md`.
 - Migration AU: Default von `invoices.tax_note` leer statt § 4 Nr. 18.
 - **Gate:** Muster-PDFs (Klinik, 45a, Reise steuerpflichtig) liegen in
   `~/Downloads/Rechnungshinweise-Muster/` zur Freigabe durch Sonja. Push erst danach.
+
+## 8. Reisen steuerfrei nach § 4 Nr. 16 Satz 1 Buchst. n (07.10.2026)
+
+Ergebnis der Steuerprüfung (Claude-App-Analyse, von Eric/Steuerberaterin
+geprüft): Reisen, deren Betreuungskosten vollständig über die
+Verhinderungspflege von der Pflegekasse getragen werden, sind steuerfrei nach
+Buchst. n — ohne Anerkennungsbescheid, unabhängig vom 06.10.2026. Sie zählen
+nicht gegen die Kleinunternehmergrenze. Die Ferienfreizeit (RE-2026-0006, ohne
+Kassenfinanzierung) bleibt steuerpflichtig.
+
+- Neuer Text `TEXT_N` in `rechnung-hinweise.js`; Reisen mit „steuerfrei“ bekommen
+  ihn statt des 45a-Textes. Schalter heißt jetzt „steuerfrei – Betreuungskosten
+  trägt die Pflegekasse (§ 4 Nr. 16 Buchst. n)“.
+- Daten (sql/2026-10-07-av-…): 0004, 0007, 0014, 0018, 0019 auf
+  `ust_pflichtig = false`. Erwartet danach: steuerpflichtig 2.400 € (0006 +
+  0011), ausgenommen 18.891,94 €.
+- Je Reise sollten für die Steuerberaterin Nachweise vorliegen (Pflegegrad,
+  Zeitraum, Betreuungskosten, Erstattung durch die Pflegekasse).

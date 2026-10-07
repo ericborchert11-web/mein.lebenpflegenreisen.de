@@ -173,3 +173,13 @@ kein Trigger. Kein einziger Rechnungsempfänger trägt eine `clinic_id` — die
 automatische Klinik-Zuordnung greift also bei keiner Rechnung, alle kommen auf
 die Liste. Storno-Paare ohne Geldfluss sind daraufhin aus Liste und Warnzahl
 genommen (sie heben sich auf).
+
+**Ausgerollt 07.10.2026:** Migration AT auf PROD (Buchstabe AS war von der
+Onboarding-Arbeit belegt). Altbestand zugeordnet: Reisen 0004/0006/0007/0014/0018,
+Klinik 0011/0012/0013 (privat gebuchte Sitzwachen, D4), Spende → sonstige, Eingang
+„2026-0018" der Rechnung RE-2026-0018 zugeordnet. Stand der Sicht 2026:
+steuerpflichtig 21.291,94 € von 25.000 € (85 %, gelb), 0 ohne Konto, 2 Rechnungen
+offen (0012/0013, zusammen 1.700 € Klinik). Alle Reisen stehen auf der vorsichtigen
+Vorgabe „steuerpflichtig" — ob das so bleibt, ist eine Frage an Sonja.
+Kopierfallen dabei: `create view … with (…) as` und `'§ …'` im Literal — SQL geht
+seither ASCII-rein per Zwischenablage.

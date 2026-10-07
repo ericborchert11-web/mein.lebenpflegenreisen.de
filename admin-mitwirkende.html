@@ -615,8 +615,14 @@ async function renderPending() {
         <div style="font-size: 11px; color: #aaa; margin-top: 4px;">Registriert: ${dateStr}</div>
         ${isRejected ? `<div style="font-size: 12px; color: #c00; margin-top: 4px;">❌ Abgelehnt${u.rejectedReason ? ': ' + escape(u.rejectedReason) : ''}</div>` : ''}
       </div>
-      <div style="display: flex; gap: 8px; flex-shrink: 0; align-items: center; flex-wrap: wrap;">
-        ${!isRejected
+      <div style="display: flex; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 100%; align-items: center; flex-wrap: wrap;">
+        ${u.role === 'ehrenamt'
+          // Ehrenamtliche werden nur noch ueber das Onboarding freigeschaltet
+          // (onboarding_abschliessen), nie direkt per approveUser.
+          ? `${!isRejected ? `<span style="font-size: 14px; font-weight: 700; color: #1A3A2A;">Im Onboarding</span>
+             <a href="admin-onboarding.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; color: #1A3A2A; font-weight: 700; font-size: 14px;">Zur Onboarding-Seite →</a>
+             <button class="btn-reject"  data-email="${escape(u.email)}" style="background: transparent; color: #c00; border: 1px solid #c00; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; min-height: 44px;">Ablehnen</button>` : ''}`
+          : !isRejected
           ? `<button class="btn-approve" data-email="${escape(u.email)}" style="background: #1A3A2A; color: #C8F135; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px;">✓ Freigeben</button>
              <button class="btn-reject"  data-email="${escape(u.email)}" style="background: transparent; color: #c00; border: 1px solid #c00; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Ablehnen</button>`
           : `<button class="btn-approve" data-email="${escape(u.email)}" style="background: #1A3A2A; color: #C8F135; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px;">✓ Doch freigeben</button>`}

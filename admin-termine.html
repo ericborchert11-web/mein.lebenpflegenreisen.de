@@ -310,9 +310,19 @@ function istPlatzhalter(mail) {
 }
 
 async function ladeMitglieder() {
-  const alle = await LPR.listUsersByStatus('approved');
-  mitglieder = alle
+  // Dazu Ehrenamtliche im Onboarding (status pending): Sie werden zu
+  // Kennenlernen, Einfuehrung und Einarbeitung eingeladen. Die RPC
+  // termin_mitglieder_hinzufuegen nimmt sie seit Migration onb4 an.
+  const [alle, wartend] = await Promise.all([
+    LPR.listUsersByStatus('approved'),
+    LPR.listUsersByStatus('pending')
+  ]);
+  const imOnboarding = (wartend || [])
+    .filter(u => u.role === 'ehrenamt')
+    .map(u => Object.assign({}, u, { imOnboarding: true }));
+  mitglieder = (alle || [])
     .filter(u => u.role !== 'klinik')
+    .concat(imOnboarding)
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
 }
 
@@ -331,7 +341,7 @@ function zeigeMitglieder() {
       const drin = drinIds.has(u._id) || drinMail.has((u.email || '').toLowerCase());
       if (drin) gewaehlt.delete(u._id);
       const info = [
-        u.vereinsnummer ? 'Nr. ' + u.vereinsnummer : 'kein Mitglied',
+        u.vereinsnummer ? 'Nr. ' + u.vereinsnummer : (u.imOnboarding ? null : 'kein Mitglied'),
         u.role === 'admin' ? 'Vorstand' : null,
         istPlatzhalter(u.email) ? 'keine Mailadresse' : null,
         drin ? 'schon auf der Liste' : null,
@@ -339,7 +349,7 @@ function zeigeMitglieder() {
       return '<label' + (drin ? ' class="drin"' : '') + '>' +
         '<input type="checkbox" data-mid="' + esc(u._id) + '"' +
           (drin ? ' disabled checked' : (gewaehlt.has(u._id) ? ' checked' : '')) + '>' +
-        '<span style="flex:1;">' + esc(u.name || 'Ohne Namen') + '</span>' +
+        '<span style="flex:1;">' + esc(u.name || 'Ohne Namen') + (u.imOnboarding ? ' (im Onboarding)' : '') + '</span>' +
         '<span class="tm-mini">' + esc(info) + '</span>' +
       '</label>';
     }).join('');

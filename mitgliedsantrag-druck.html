@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="theme-color" content="#1A3A2A">
+<title>Mitgliedsantrag</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+/* Druckvorlage fuer den eigenen Aufnahmeantrag. Muster antrag-druck.html.
+   Bewusst ohne box-shadow: Chrome exportiert Schatten als Soft-Mask. */
+body { background: #E9E6DF; }
+.dr-leiste {
+  max-width: 210mm; margin: 20px auto 12px; padding: 12px 16px; background: #fff;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 14px;
+}
+.dr-leiste .dr-text { flex: 1 1 260px; color: var(--muted); line-height: 1.45; }
+.dr-leiste strong { color: var(--text); }
+.blatt {
+  position: relative; width: 210mm; margin: 0 auto 16px; padding: 14mm 20mm 14mm 25mm;
+  background: #fff; color: #1A1A18; font-size: 10pt; line-height: 1.45;
+  border: 1px solid var(--border);
+}
+.brief-logo { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+              font-size: 15pt; color: #1A3A2A; letter-spacing: -.01em; }
+.brief-logo em { font-style: normal; color: #6E9B1F; }
+.brief-kopf-sub { font-size: 8pt; color: #6B6B65; letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
+.kopf-adr { font-size: 8.5pt; color: #6B6B65; margin: 2mm 0 8mm; padding-bottom: 3mm; border-bottom: 1px solid #E4E2DC; }
+.kicker { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 8.5pt;
+          letter-spacing: .16em; text-transform: uppercase; color: #6E9B1F; margin-bottom: 2mm; }
+h1.titel { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 17pt;
+           line-height: 1.15; color: #1A3A2A; margin: 0 0 6mm; letter-spacing: -.02em; }
+.eckdaten { width: 100%; border-collapse: collapse; margin-bottom: 5mm; font-size: 10pt; }
+.eckdaten th { text-align: left; font-weight: 600; color: #6B6B65; width: 42mm; padding: 1.4mm 0;
+               vertical-align: top; border-bottom: 1px solid #E4E2DC; }
+.eckdaten td { padding: 1.4mm 0; border-bottom: 1px solid #E4E2DC; }
+h2.abschnitt { font-family: 'Bricolage Grotesque', sans-serif; font-size: 11pt; color: #1A3A2A; margin: 5mm 0 2mm; }
+.erklaerung { font-size: 9pt; line-height: 1.4; white-space: pre-line; color: #3A3A36; }
+.fuss { margin-top: 7mm; border-top: 1px solid #E4E2DC; padding-top: 2mm;
+        font-size: 8pt; line-height: 1.5; color: #6B6B65; }
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.dr-fehler { max-width: 210mm; margin: 40px auto; background: #fff; padding: 24px; border-radius: var(--radius); line-height: 1.5; }
+@media print {
+  @page { size: A4; margin: 6mm 0; }
+  html, body { background: #fff !important; min-height: 0; margin: 0; }
+  .dr-leiste { display: none; }
+  .blatt { border: none; margin: 0; width: auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="dr-leiste" id="dr-leiste">
+  <div class="dr-text" id="dr-hinweis">Lädt …</div>
+  <button type="button" class="btn btn-primary" id="dr-drucken" disabled>Drucken / Als PDF sichern</button>
+</div>
+
+<main id="dr-inhalt"></main>
+
+<script src="app.js?v20261007b"></script>
+<script>
+'use strict';
+
+const V = LPR.VEREIN;
+
+function esc(s) {
+  const d = document.createElement('div'); d.textContent = s == null ? '' : String(s);
+  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function euro(n) { return Number(n || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }); }
+function datumDe(iso) { return iso ? new Date(String(iso).slice(0, 10) + 'T00:00:00').toLocaleDateString('de-DE') : ''; }
+function datumZeitDe(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('de-DE') + ', ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+}
+const STATUS = { eingereicht: 'Eingereicht', angenommen: 'Angenommen', abgelehnt: 'Abgelehnt' };
+const INTERVALL = { monatlich: 'monatlich', jaehrlich: 'jährlich' };
+
+function fehlerZeigen(html) {
+  document.getElementById('dr-leiste').hidden = true;
+  document.getElementById('dr-inhalt').innerHTML = '<div class="dr-fehler">' + html + '</div>';
+}
+
+async function laden() {
+  const s = await LPR.refreshSessionCache();
+  if (!s) { location.href = 'login.html?next=' + encodeURIComponent('mitgliedsantrag-druck.html'); return; }
+  const r = await LPR.getMeinMitgliedsantrag();
+  if (!r || !r.ok) return fehlerZeigen(esc((r && r.error) || 'Der Antrag konnte nicht geladen werden.') + ' <a href="onboarding.html">Zurück zu deinem Weg</a>');
+  if (!r.antrag) return fehlerZeigen('Du hast noch keinen Mitgliedsantrag eingereicht. <a href="onboarding.html">Zurück zu deinem Weg</a>');
+  zeichnen(s, r.antrag);
+}
+
+function zeichnen(s, a) {
+  document.title = 'Mitgliedsantrag ' + (s.name || '');
+  document.getElementById('dr-hinweis').innerHTML =
+    '<strong>Dein Mitgliedsantrag.</strong> Im Druckdialog „Als PDF sichern“ wählen. <a href="onboarding.html">Zurück zu deinem Weg</a>';
+  const knopf = document.getElementById('dr-drucken');
+  knopf.disabled = false;
+  knopf.onclick = () => window.print();
+
+  const eck = (k, v) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`;
+  const anschrift = (a.strasse || '') + ', ' + (a.plz || '') + ' ' + (a.ort || '');
+  const beitrag = euro(a.beitrag_eur) + ' ' + (INTERVALL[a.beitrag_intervall] || a.beitrag_intervall || '');
+
+  document.getElementById('dr-inhalt').innerHTML = `
+  <section class="blatt">
+    <div class="brief-logo">Leben <em>Pflegen</em> Reisen e.V.</div>
+    <div class="brief-kopf-sub">Gemeinnütziger Verein · Berlin</div>
+    <div class="kopf-adr">${esc(V.name)} · ${esc(V.strasse)} · ${esc(V.ort)} · ${esc(V.register)}</div>
+    <div class="kicker">Aufnahmeantrag</div>
+    <h1 class="titel">Aufnahmeantrag · Ordentliche Mitgliedschaft (online eingereicht)</h1>
+    <table class="eckdaten"><tbody>
+      ${eck('Name', s.name)}
+      ${eck('E-Mail', s.email)}
+      ${eck('Anschrift', anschrift)}
+      ${eck('Geburtsdatum', datumDe(a.geburtsdatum))}
+      ${eck('Mitgliedsbeitrag', beitrag)}
+      ${eck('Satzung', 'Fassung ' + (a.satzung_fassung || ''))}
+      ${eck('Online eingereicht am', datumZeitDe(a.eingereicht_am))}
+      ${eck('Status', STATUS[a.status] || a.status)}
+    </tbody></table>
+    <h2 class="abschnitt">Erklärungen</h2>
+    <div class="erklaerung">${esc(a.text_fassung || '')}</div>
+    <div class="fuss">Elektronisch eingereicht über mein.lebenpflegenreisen.de — ohne Unterschrift gültig als Antrag in Textform.</div>
+  </section>`;
+}
+
+laden();
+</script>
+</body>
+</html>

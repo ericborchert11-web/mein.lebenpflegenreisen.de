@@ -19,6 +19,12 @@
   var TEXT_45A = 'Umsatzsteuerfrei nach § 4 Nr. 16 Satz 1 Buchst. g UStG – nach § 45a SGB XI '
     + 'landesrechtlich anerkanntes Angebot zur Unterstützung im Alltag (Bescheid SenWGP vom 06.10.2026).';
 
+  // Reisen, deren Betreuungskosten die Pflegekasse traegt (Verhinderungspflege):
+  // Buchst. n verlangt keinen Anerkennungsbescheid, deshalb nennt der Text
+  // auch keinen. Mit der Steuerberaterin geprueft am 07.10.2026.
+  var TEXT_N = 'Umsatzsteuerfrei nach § 4 Nr. 16 Satz 1 Buchst. n UStG – Betreuungsleistung für '
+    + 'pflegebedürftige Personen, deren Kosten von der Pflegekasse getragen werden.';
+
   /**
    * Der Hinweis zu Konto und USt-Kennzeichen.
    * '' = bewusst kein Hinweis (sonstige Einnahmen), null = Konto fehlt noch.
@@ -27,9 +33,11 @@
     if (!konto) return null;
     if (konto === 'erloes_klinik') return TEXT_19;
     if (konto === 'erloes_45a') return TEXT_45A;
-    // Reisen: nur wenn der Vorstand die Reise ausdruecklich als 45a-gedeckt
-    // markiert hat. Ohne Wahl die vorsichtige Seite.
-    if (konto === 'erloes_reisen') return ustPflichtig === false ? TEXT_45A : TEXT_19;
+    // Reisen: steuerfrei nur, wenn der Vorstand die Reise ausdruecklich so
+    // markiert hat (Pflegekasse traegt die Betreuungskosten). Ohne Wahl die
+    // vorsichtige Seite — eine Ferienfreizeit ohne Kassenfinanzierung bleibt
+    // steuerpflichtig.
+    if (konto === 'erloes_reisen') return ustPflichtig === false ? TEXT_N : TEXT_19;
     return '';
   }
 
@@ -62,7 +70,7 @@
     return { fehler: f, warnungen: w };
   }
 
-  var RechnungHinweise = { TEXT_19: TEXT_19, TEXT_45A: TEXT_45A, hinweisFuer: hinweisFuer, pruefe: pruefe };
+  var RechnungHinweise = { TEXT_19: TEXT_19, TEXT_45A: TEXT_45A, TEXT_N: TEXT_N, hinweisFuer: hinweisFuer, pruefe: pruefe };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = RechnungHinweise;
   else if (typeof window !== 'undefined') window.RechnungHinweise = RechnungHinweise;

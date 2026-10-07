@@ -180,7 +180,7 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
       <label for="dlg-konto">Erlöskonto</label>
       <select id="dlg-konto" onchange="kontoGewaehlt()"></select>
       <label class="kb-check" id="dlg-45a-zeile" hidden>
-        <input type="checkbox" id="dlg-45a"> vom 45a-Bescheid gedeckt (steuerfrei)</label>
+        <input type="checkbox" id="dlg-45a"> steuerfrei – Betreuungskosten trägt die Pflegekasse (§ 4 Nr. 16 Buchst. n)</label>
     </div>
 
     <p class="kb-trenner" id="dlg-kosten-trenner">oder eigener Kostenbeleg</p>
@@ -206,7 +206,7 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
 <script src="kassenbuch-zuordnung.js?v20261007a"></script>
 <script src="kassenbuch-auswertung.js?v20261007b"></script>
 <script src="ust-ampel.js?v20261007a"></script>
-<script src="app.js?v20261007b"></script>
+<script src="app.js?v20261007c"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -531,7 +531,7 @@ function kontoZelle(b) {
   if (k === undefined) return '';
   if (k === null) return '<span class="kb-konto kb-offen">fehlt</span>';
   const r = b.invoice_id ? rechnungenNachId()[b.invoice_id] : b;
-  const zusatz = k === 'erloes_reisen' && r && r.ust_pflichtig === false ? ' · 45a' : '';
+  const zusatz = k === 'erloes_reisen' && r && r.ust_pflichtig === false ? ' · steuerfrei' : '';
   return '<span class="kb-konto">' + escapeHtml(UstAmpel.kontoName(k)) + zusatz + '</span>';
 }
 

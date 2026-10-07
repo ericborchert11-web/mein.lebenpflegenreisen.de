@@ -129,10 +129,10 @@ Nach D7 kommt die Kleinunternehmer-Ampel also auch als Kachel dorthin.
    späteren Wechsel in die Regelbesteuerung (Etappe 3).
 5. **Konto + Flag nur bei Eingängen**, Ausgaben bleiben leer.
 
-## 5. Etappe 1 — Datenmodell (Migration AS)
+## 5. Etappe 1 — Datenmodell (Migration AT)
 
 Dateien lokal: `sql/2026-10-07-vorpruefung-erloeskonten.sql`,
-`sql/2026-10-07-as-erloeskonten.sql`, `sql/2026-10-07-test-as.sql`.
+`sql/2026-10-07-at-erloeskonten.sql`, `sql/2026-10-07-test-at-erloeskonten.sql`.
 
 - Typ `erloeskonto`; Spalten `erloeskonto` + `ust_pflichtig` auf `invoices` und
   `bank_buchungen`, alle nullable.

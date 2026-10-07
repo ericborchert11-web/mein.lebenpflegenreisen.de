@@ -1,6 +1,6 @@
 # Änderungen
 
-## (unveröffentlicht) — Pflichthinweis auf Rechnungen folgt dem Erlöskonto
+## 07.10.2026 — Pflichthinweis auf Rechnungen folgt dem Erlöskonto
 
 Im Rechnungseditor wird kein Befreiungsgrund mehr getippt. Man wählt das
 Erlöskonto, und die Rechnung bekommt den mit der Steuerberaterin abgestimmten

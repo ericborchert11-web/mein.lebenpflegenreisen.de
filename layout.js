@@ -91,7 +91,15 @@
 
     let navItems = '';
     if (session) {
-      if (session.role === 'ehrenamt') {
+      if (session.role === 'ehrenamt' && session.status === 'pending') {
+        // Noch nicht freigegeben (Onboarding): nur der eigene Weg.
+        navItems =
+          punkt('onboarding.html', 'onboarding', 'Mein Weg') +
+          punkt('profil.html', 'profil', 'Profil') +
+          punkt('anleitungen.html', 'anleitungen', 'Anleitungen') +
+          abmelden;
+
+      } else if (session.role === 'ehrenamt') {
         // Schulung und Praeferenzen hingen bisher nur an Kacheln auf
         // mein-bereich. Wer die Kachel einmal weggescrollt hatte, fand sie
         // nicht wieder — dabei ist die Schulung eine der drei Saeulen, mit
@@ -307,8 +315,31 @@
     document.body.appendChild(footer);
   }
 
+  // Onboarding (seit 07.10.2026): Ehrenamtliche mit status 'pending' sind
+  // noch nicht freigegeben. Sie sehen nur diese Seiten, alles andere fuehrt
+  // zurueck zu ihrem Weg. Die eigentliche Sperre sitzt in der Datenbank
+  // (Masern-Trigger, Buchungssperre) — das hier ist Fuehrung, kein Schutz.
+  const ONBOARDING_ERLAUBT = ['onboarding.html', 'mitgliedsantrag-druck.html', 'profil.html',
+    'anleitungen.html', 'passwort-neu.html', 'login.html', 'termin.html', 'index.html', ''];
+
+  function imOnboarding() {
+    const s = window.LPR && LPR.getSession && LPR.getSession();
+    return !!(s && s.role === 'ehrenamt' && s.status === 'pending');
+  }
+
+  // Liefert true, wenn umgeleitet wird -- init() bricht dann ab, damit die
+  // gesperrte Seite nicht noch Kopf, Fuss und Chatbot aufbaut.
+  function halteImOnboarding() {
+    if (!imOnboarding()) return false;
+    const seite = (location.pathname.split('/').pop() || '').toLowerCase();
+    if (ONBOARDING_ERLAUBT.includes(seite)) return false;
+    location.replace('onboarding.html');
+    return true;
+  }
+
   window.LPR_Layout = {
     init: function(opts) {
+      if (halteImOnboarding()) return;
       opts = opts || {};
       renderA11y();
       if (opts.header !== false) renderHeader(opts.page || '');

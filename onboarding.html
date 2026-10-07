@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Mein Weg ins Ehrenamt · LPR</title>
+<meta name="description" content="Dein Weg ins Ehrenamt bei Leben Pflegen Reisen e.V.: Schritte, Termine, Mitgliedsantrag.">
+<meta name="robots" content="noindex, follow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+[hidden] { display: none !important; }
+.ob-wrap { max-width: 680px; margin: 24px auto 60px; padding: 0 16px; }
+.ob-wrap h1 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+  font-size: 30px; line-height: 1.15; color: var(--green-deep);
+  margin: 0 0 4px; letter-spacing: -0.02em; overflow-wrap: anywhere;
+}
+.ob-sub { color: #4F6B5C; font-size: 16px; margin-bottom: 20px; }
+.ob-wrap h2 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700;
+  font-size: 21px; line-height: 1.25; color: var(--green-deep); margin: 0 0 8px;
+}
+.ob-wrap h3 { font-size: 15px; font-weight: 700; color: var(--green-deep); margin: 14px 0 4px; }
+.ob-karte {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px 18px; margin-bottom: 16px;
+}
+.ob-karte p { margin: 0 0 8px; }
+.ob-karte ul { margin: 4px 0 0 20px; }
+
+/* Schrittleiste */
+.ob-leiste {
+  list-style: none; display: flex; justify-content: space-between;
+  position: relative; margin: 0 0 20px; padding: 0;
+}
+.ob-leiste::before {
+  content: ''; position: absolute; left: 8%; right: 8%; top: 16px;
+  height: 2px; background: var(--border);
+}
+.ob-s { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.ob-n {
+  position: relative; z-index: 1;
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 15px; border: 2px solid transparent;
+}
+.ob-erledigt .ob-n { background: var(--green); color: #fff; }
+.ob-aktuell .ob-n { background: var(--lime); color: var(--green-deep); border-color: var(--green-deep); }
+.ob-offen .ob-n { background: var(--sand); color: var(--green-deep); border-color: var(--border); }
+.ob-t { font-size: 12px; line-height: 1.3; color: var(--green-deep); margin-top: 6px; padding: 0 2px; overflow-wrap: anywhere; }
+.ob-aktuell .ob-t { font-weight: 700; }
+@media (max-width: 640px) {
+  .ob-leiste { padding-bottom: 30px; }
+  .ob-t { display: none; }
+  .ob-aktuell .ob-t {
+    display: block; position: absolute; left: 0; right: 0; bottom: 0;
+    font-size: 14px; margin: 0;
+  }
+}
+
+/* Jetzt dran */
+.ob-jetzt { border: 2px solid var(--green-deep); }
+.ob-wer {
+  display: inline-block; font-size: 13px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 6px; margin-bottom: 10px; color: var(--green-deep);
+}
+.ob-wer-dich { background: var(--lime-soft); border: 1px solid var(--lime); }
+.ob-wer-verein { background: var(--sand); border: 1px solid var(--border); }
+
+/* Termine */
+.ob-termin { border-top: 1px solid var(--border); padding: 12px 0 4px; }
+.ob-termin:first-of-type { border-top: none; }
+.ob-termin-wann { color: #4F6B5C; font-size: 15px; }
+.ob-knoepfe { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ob-knoepfe .btn, .ob-wrap .btn { min-height: 44px; }
+.ob-knoepfe .btn { padding: 10px 14px; font-size: 15px; background: #fff; color: var(--green-deep); border: 1.5px solid var(--green); }
+.ob-knoepfe .btn.btn-primary { background: var(--lime); border-color: var(--green-deep); }
+
+/* Formular */
+.ob-feld { margin-bottom: 14px; }
+.ob-feld label, .ob-feld legend { display: block; font-weight: 600; font-size: 15px; color: var(--green-deep); margin-bottom: 4px; }
+.ob-feld input[type=text], .ob-feld input[type=date], .ob-feld input[type=number] {
+  width: 100%; max-width: 100%; font: inherit; font-size: 16px;
+  padding: 10px 12px; min-height: 44px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: #fff; color: var(--text);
+}
+.ob-feld input:focus { outline: 3px solid var(--lime); outline-offset: 1px; border-color: var(--green); }
+.ob-reihe { display: grid; grid-template-columns: 7.5em 1fr; gap: 10px; }
+.ob-reihe > div { min-width: 0; }
+fieldset.ob-feld { border: none; padding: 0; min-width: 0; }
+.ob-wahl { display: flex; flex-wrap: wrap; gap: 8px; }
+.ob-wahl label {
+  display: inline-flex; align-items: center; gap: 8px; margin: 0;
+  min-height: 44px; padding: 8px 12px; font-weight: 500;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: #fff; cursor: pointer;
+}
+.ob-wahl label:has(input:checked) { border-color: var(--green-deep); background: var(--lime-soft); }
+.ob-wahl input { width: 18px; height: 18px; accent-color: var(--green); }
+.ob-hinweis { font-size: 14px; color: #4F6B5C; margin-top: 6px; }
+.ob-person { background: var(--white); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 14px; font-size: 15px; overflow-wrap: anywhere; }
+.ob-wrap details { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; background: var(--white); }
+.ob-wrap summary { cursor: pointer; padding: 12px 14px; min-height: 44px; font-weight: 600; color: var(--green-deep); }
+.ob-recht { padding: 4px 14px 14px; font-size: 14px; line-height: 1.55; color: var(--text); }
+.ob-recht h4 { font-size: 14px; font-weight: 700; color: var(--green-deep); margin: 12px 0 4px; }
+.ob-recht p, .ob-recht li { margin: 0 0 6px; }
+.ob-recht ol, .ob-recht ul { margin: 0 0 6px 20px; }
+.ob-recht a { color: var(--green); font-weight: 600; }
+.ob-check { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; font-size: 15px; cursor: pointer; }
+.ob-check input { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 2px; accent-color: var(--green); }
+
+/* Unterlagen */
+.ob-unterlage { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.ob-unterlage:first-of-type { border-top: none; }
+.ob-unterlage span:last-child { color: #4F6B5C; font-size: 15px; }
+.ob-unterlage .ok { color: var(--green-deep); font-weight: 700; }
+
+.ob-meldung { background: var(--lime-soft); border: 1px solid var(--lime); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 16px; color: var(--green-deep); font-weight: 600; }
+.ob-meldung.warn { background: #FCEADA; border-color: var(--warn); }
+.ob-kontakt { font-size: 15px; color: #4F6B5C; margin-top: 24px; }
+.ob-kontakt a { color: var(--green-deep); font-weight: 600; }
+.ob-wrap a { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+
+<main class="ob-wrap">
+  <h1 id="ob-gruss">Hallo!</h1>
+  <p class="ob-sub">Hier siehst du, wie es weitergeht.</p>
+
+  <ol class="ob-leiste" id="ob-leiste" aria-label="Deine Schritte"></ol>
+
+  <div id="ob-meldung" class="ob-meldung" role="status" aria-live="polite" hidden></div>
+
+  <section class="ob-karte ob-jetzt" id="ob-jetzt" aria-label="Jetzt dran"><p>Dein Stand wird geladen …</p></section>
+
+  <section class="ob-karte" id="ob-fertig" hidden>
+    <h2>Willkommen im Team!</h2>
+    <p>Du bist freigeschaltet und kannst dich jetzt für Sitzwachen und Reisen eintragen.</p>
+    <a class="btn btn-primary" href="mein-bereich.html">Sitzwachen-Zeiten eintragen</a>
+  </section>
+
+  <section class="ob-karte" id="ob-termine" hidden></section>
+
+  <section class="ob-karte" id="ob-antrag" hidden></section>
+
+  <section class="ob-karte" id="ob-antrag-fertig" hidden></section>
+
+  <section class="ob-karte" id="ob-unterlagen" hidden></section>
+
+  <p class="ob-kontakt">Fragen? Schreib uns an <a href="mailto:ehrenamt@lebenpflegenreisen.de">ehrenamt@lebenpflegenreisen.de</a> oder per <a href="https://wa.me/491743409116" target="_blank" rel="noopener">WhatsApp 0174 3409116</a>.</p>
+</main>
+
+<template id="ob-recht-satzung">
+  <p>Hiermit beantrage ich die Aufnahme als ordentliches Mitglied bei Leben Pflegen Reisen e.V. Ich erkenne die Vereinssatzung in ihrer jeweils gültigen Fassung an (derzeit die von der Mitgliederversammlung am 01.08.2026 beschlossene Fassung, einsehbar unter <a href="https://www.lebenpflegenreisen.de" target="_blank" rel="noopener">www.lebenpflegenreisen.de</a>).</p>
+  <p><strong>Beitragsordnung:</strong> Höhe und Fälligkeit des Mitgliedsbeitrags richten sich nach der von der Mitgliederversammlung beschlossenen Beitragsordnung in der jeweils gültigen Fassung. Der Mindestbeitrag beträgt derzeit 1,00 € pro Monat (12,00 € jährlich). Ein höherer Beitrag ist freiwillig und kann jederzeit formlos in Textform geändert werden. Die Beitragsordnung wird auf Wunsch ausgehändigt und ist unter <a href="https://www.lebenpflegenreisen.de" target="_blank" rel="noopener">www.lebenpflegenreisen.de</a> einsehbar.</p>
+  <p><strong>Gemeinnützigkeit:</strong> Der Verein verfolgt ausschließlich und unmittelbar gemeinnützige Zwecke im Sinne der §§ 51 ff. AO. Die Anerkennung der Gemeinnützigkeit ist beim Finanzamt beantragt; Zuwendungsbestätigungen können erst nach Erteilung des Freistellungsbescheids ausgestellt werden.</p>
+</template>
+
+<template id="ob-recht-dsgvo">
+  <p><strong>Verpflichtung auf das Datengeheimnis</strong><br>Verpflichtung zur Vertraulichkeit nach Art. 5 Abs. 1 lit. f und Art. 32 DSGVO sowie zur Wahrung des Datengeheimnisses</p>
+  <h4>2 · Hintergrund</h4>
+  <p>Im Rahmen Ihres ehrenamtlichen Engagements für Leben Pflegen Reisen e.V. (nachfolgend „der Verein") erhalten Sie zwangsläufig Zugang zu personenbezogenen Daten von Mitwirkenden, Gästen, Patientinnen und Patienten, Klinikpersonal sowie Angehörigen. Diese Daten unterliegen einem besonderen Schutz nach der Datenschutz-Grundverordnung (DSGVO) und dem Bundesdatenschutzgesetz (BDSG). Häufig handelt es sich dabei um besonders sensible Gesundheitsdaten im Sinne von Art. 9 Abs. 1 DSGVO.</p>
+  <h4>3 · Ihre Verpflichtungen</h4>
+  <p>Mit Ihrer Unterschrift verpflichten Sie sich auf die nachstehenden Pflichten:</p>
+  <ol>
+    <li><strong>Vertraulichkeit.</strong> Sie verpflichten sich, alle personenbezogenen Daten, von denen Sie im Rahmen Ihrer ehrenamtlichen Tätigkeit Kenntnis erlangen, vertraulich zu behandeln. Dies umfasst insbesondere Namen, Adressen, Geburtsdaten, Gesundheitsdaten, Diagnosen, Pflege- und Therapieinformationen sowie Angaben zu familiären, finanziellen oder beruflichen Verhältnissen.</li>
+    <li><strong>Zweckbindung.</strong> Sie dürfen personenbezogene Daten ausschließlich zu den Zwecken erheben, verarbeiten oder nutzen, die für die ordnungsgemäße Erfüllung Ihrer Aufgaben für den Verein erforderlich sind (Art. 5 Abs. 1 lit. b DSGVO).</li>
+    <li><strong>Datenminimierung.</strong> Sie beschränken sich auf die Daten, die zur Erfüllung Ihrer konkreten Tätigkeit erforderlich sind. Sie sehen, hören und merken sich nur, was Sie tatsächlich brauchen (Art. 5 Abs. 1 lit. c DSGVO).</li>
+    <li><strong>Verbot der unbefugten Weitergabe.</strong> Sie geben personenbezogene Daten nicht an Dritte weiter, weder mündlich noch schriftlich noch elektronisch — auch nicht an Familienangehörige oder befreundete Mitglieder. Dies gilt insbesondere auch für Soziale Medien, Messenger-Dienste und private Nachrichten.</li>
+    <li><strong>Sichere Aufbewahrung.</strong> Sie schützen Unterlagen, Notizen, mobile Endgeräte und Zugangsdaten vor unbefugtem Zugriff. Notizen mit personenbezogenen Daten werden nach Erledigung der Aufgabe vernichtet oder dem Vorstand übergeben.</li>
+    <li><strong>Meldepflicht bei Datenpannen.</strong> Sie melden jeden tatsächlichen oder vermuteten Verlust oder die unbefugte Offenlegung personenbezogener Daten unverzüglich an den Vorstand (datenschutz@lebenpflegenreisen.de) — spätestens innerhalb von 24 Stunden. Auch der Verlust eines Mobilgeräts mit dienstlichen Daten ist meldepflichtig (Art. 33 DSGVO).</li>
+    <li><strong>Fortbestehen nach Ende der Tätigkeit.</strong> Diese Verpflichtungen gelten unbefristet und insbesondere auch nach dem Ende Ihrer ehrenamtlichen Tätigkeit für den Verein fort.</li>
+  </ol>
+  <h4>4 · Mögliche Folgen bei Verstößen</h4>
+  <ul>
+    <li><strong>Vereinsrechtlich:</strong> Beendigung der ehrenamtlichen Tätigkeit; ggf. Ausschluss aus dem Verein gemäß Vereinssatzung.</li>
+    <li><strong>Zivilrechtlich:</strong> Schadensersatzansprüche der betroffenen Person nach Art. 82 DSGVO; Unterlassungsansprüche.</li>
+    <li><strong>Aufsichtsrechtlich:</strong> Bußgelder gegen den Verein bis zu 20 Mio. € oder 4 % des weltweiten Umsatzes (Art. 83 DSGVO).</li>
+    <li><strong>Strafrechtlich:</strong> Bei vorsätzlicher unbefugter Datenweitergabe gegen Entgelt oder mit Schädigungsabsicht: Geldstrafe oder Freiheitsstrafe bis zu drei Jahren (§ 42 BDSG).</li>
+  </ul>
+  <h4>5 · Erklärung</h4>
+  <p>Ich erkläre, dass ich die vorstehenden Pflichten zur Kenntnis genommen, verstanden habe und einhalten werde. Bei Unklarheiten wende ich mich an den Vorstand des Vereins (datenschutz@lebenpflegenreisen.de). Ich bestätige, dass ich eine Kopie dieser Erklärung erhalten habe.</p>
+  <p>Rechtsgrundlagen: Art. 5, 9, 28, 32, 33, 82 DSGVO · § 42 BDSG · Vorlage erstellt 29.04.2026 · gilt unbefristet ab Unterschrift</p>
+  <p><a href="dokumente/lpr-dsgvo-verpflichtung.pdf" target="_blank" rel="noopener">Als PDF ansehen</a></p>
+</template>
+
+<template id="ob-recht-schweigepflicht">
+  <p><strong>Verschwiegenheitserklärung</strong><br>Verpflichtung zur Verschwiegenheit nach § 203 StGB sowie zur Wahrung der Privat- und Intimsphäre der von uns begleiteten Menschen</p>
+  <h4>2 · Hintergrund</h4>
+  <p>Im Rahmen Ihres ehrenamtlichen Engagements für Leben Pflegen Reisen e.V. begleiten Sie Menschen in besonders verletzlichen Lebenssituationen — auf Reisen, bei Sitzwachen in Krankenhäusern, in der Begleitung von Menschen mit Pflegebedarf. Sie erfahren dabei Dinge, die für die betroffenen Personen oft sehr persönlich, manchmal beschämend, nicht selten existenziell sind: Krankheiten, Ängste, Lebensumstände, familiäre Konflikte, körperliche und seelische Not.</p>
+  <p>Was Sie hören, sehen und erleben, ist anvertraut. Es bleibt bei Ihnen. Diese Haltung ist nicht nur ein Gebot des Anstands, sondern auch eine rechtliche Pflicht — und sie kann strafrechtliche Folgen haben, wenn sie verletzt wird.</p>
+  <p><strong>§ 203 StGB · Strafrechtliche Schweigepflicht</strong><br>Wer als ehrenamtlich Tätige/r in einer Klinik, in der häuslichen Pflege oder auf einer begleiteten Reise ein fremdes Geheimnis erfährt, das ihm/ihr in dieser Funktion anvertraut oder bekannt geworden ist, handelt nach § 203 Abs. 4 StGB als „mitwirkende Person" — und macht sich strafbar, wenn er oder sie dieses Geheimnis unbefugt offenbart.</p>
+  <p><strong>Strafrahmen:</strong> Geldstrafe oder Freiheitsstrafe bis zu einem Jahr; bei gewerbsmäßigem Handeln oder Bereicherungsabsicht bis zu zwei Jahre Freiheitsstrafe.</p>
+  <h4>3 · Was Sie verschwiegen behandeln</h4>
+  <p>Mit Ihrer Unterschrift verpflichten Sie sich, über alles zu schweigen, was Sie im Rahmen Ihrer ehrenamtlichen Tätigkeit erfahren — gegenüber jedem, der nicht selbst zur Erfüllung der Aufgabe Kenntnis benötigt. Das umfasst insbesondere:</p>
+  <ol>
+    <li><strong>Identitäten.</strong> Namen, Adressen, Geburtsdaten, persönliche Identifikatoren der von Ihnen begleiteten Personen, ihrer Angehörigen und ihres sozialen Umfelds.</li>
+    <li><strong>Gesundheitsdaten.</strong> Diagnosen, Medikamente, Therapien, körperliche und seelische Verfassung, Krankheitsgeschichte, Pflegebedarf — auch wenn Sie diese Information nur beiläufig erfahren oder selbst erschließen.</li>
+    <li><strong>Lebensumstände.</strong> Wohnverhältnisse, finanzielle Lage, familiäre Konflikte, Lebensgeschichte, religiöse oder sexuelle Orientierung, Migrationshintergrund.</li>
+    <li><strong>Beobachtungen aus dem Krankenhaus.</strong> Identitäten anderer Patientinnen und Patienten, die Sie während einer Sitzwache zufällig wahrnehmen; Gespräche zwischen Klinikpersonal und Angehörigen, die Sie mithören; medizinische Maßnahmen, die Sie beobachten.</li>
+    <li><strong>Beobachtungen unter Mitwirkenden.</strong> Persönliche Umstände anderer Ehrenamtlicher oder Mitarbeitender des Vereins, die Sie im Rahmen der Zusammenarbeit erfahren.</li>
+    <li><strong>Verein-Interna.</strong> Vorstandsangelegenheiten, Personalfragen, finanzielle Details des Vereins, Klinik-Verträge, sofern sie Ihnen anvertraut werden.</li>
+  </ol>
+  <h4>4 · Was Sie nicht tun</h4>
+  <ul>
+    <li>Sie sprechen mit niemandem über Details Ihrer Einsätze — auch nicht mit Familie, Freunden oder anderen Mitwirkenden, die nicht selbst beteiligt waren.</li>
+    <li>Sie veröffentlichen keine Informationen über die begleiteten Personen, weder in Sozialen Medien, Messenger-Diensten noch in privater Korrespondenz — auch nicht anonymisiert oder als „Geschichte aus dem Ehrenamt".</li>
+    <li>Sie fotografieren oder filmen niemanden ohne ausdrückliche schriftliche Einwilligung. Auch das Aufnehmen von Klinikfluren, Patientenzimmern oder Begleitsituationen ist untersagt.</li>
+    <li>Sie nutzen Kenntnisse aus Ihrer Tätigkeit nicht für eigene Zwecke — weder für private Vorteile, journalistische Verarbeitung, noch für wissenschaftliche Studien ohne ausdrückliche Genehmigung des Vorstands.</li>
+    <li>Sie geben keine Informationen an Dritte weiter — auch nicht an die Polizei, Behörden oder Versicherungen. Solche Anfragen leiten Sie unverzüglich an den Vorstand weiter.</li>
+  </ul>
+  <h4>5 · Wenn Schweigen nicht richtig wäre</h4>
+  <p>Die Schweigepflicht ist nicht absolut. Es gibt Situationen, in denen Sie nicht nur reden dürfen, sondern reden müssen:</p>
+  <ol>
+    <li><strong>Akute Gefahr für Leib und Leben.</strong> Wenn Sie konkret und unmittelbar erkennen, dass eine begleitete Person, eine andere Person oder Sie selbst in akuter Lebens- oder Gesundheitsgefahr ist, alarmieren Sie umgehend den Notruf 112 und informieren Sie anschließend den Vorstand.</li>
+    <li><strong>Verdacht auf Kindeswohlgefährdung.</strong> Wenn Sie konkrete Anhaltspunkte für Gewalt, Missbrauch oder Vernachlässigung eines Kindes wahrnehmen, informieren Sie umgehend den Vorstand. Der Vorstand entscheidet über das weitere Vorgehen unter Wahrung der Pflichten nach § 8a SGB VIII.</li>
+    <li><strong>Strafverfolgungsbehörden mit richterlichem Beschluss.</strong> Wenn ein gerichtlicher Beschluss zur Auskunft vorliegt, informieren Sie den Vorstand vor jeder Auskunftserteilung. Spontane Aussagen ohne richterliche Anordnung verweigern Sie höflich, aber bestimmt.</li>
+    <li><strong>Schutz Ihrer eigenen Rechte.</strong> Wenn Sie selbst von einem Vorwurf betroffen sind und sich verteidigen müssen, dürfen Sie die hierfür unbedingt notwendigen Informationen gegenüber Ihren Rechtsbeiständen offenlegen.</li>
+  </ol>
+  <h4>6 · Wie lange diese Pflicht gilt</h4>
+  <p>Die Schweigepflicht gilt unbefristet — auch nach dem Ende Ihrer ehrenamtlichen Tätigkeit, auch nach dem Tod der von Ihnen begleiteten Person, auch nach Ihrem Ausscheiden aus dem Verein. Der Schutz dieser Menschen endet nicht mit dem Einsatz.</p>
+  <h4>7 · Erklärung</h4>
+  <p>Ich erkläre, dass ich die vorstehenden Pflichten zur Kenntnis genommen, verstanden habe und einhalten werde. Ich bin mir bewusst, dass eine Verletzung der Schweigepflicht strafbar sein kann (§ 203 StGB) und vereinsrechtliche Konsequenzen bis zum Ausschluss aus dem Verein hat. Ich weiß, an wen ich mich bei Fragen oder Zweifeln wenden kann (Vorstand: vorstand@lebenpflegenreisen.de). Ich bestätige, dass ich eine Kopie dieser Erklärung erhalten habe.</p>
+  <p>Rechtsgrundlagen: § 203 Abs. 1 und 4 StGB · §§ 1, 8 BDSG · Art. 9 DSGVO · § 8a SGB VIII · Vorlage erstellt 29.04.2026 · gilt unbefristet ab Unterschrift</p>
+  <p><a href="dokumente/lpr-schweigepflicht.pdf" target="_blank" rel="noopener">Als PDF ansehen</a></p>
+</template>
+
+<script src="onboarding-schritte.js?v20261007b"></script>
+<script src="app.js?v20261007b"></script>
+<script src="layout.js"></script>
+<script>
+LPR_Layout.init({ page: 'onboarding' });
+
+const ENTWURF_KEY = 'lpr-mitgliedsantrag-entwurf';
+// Genau die Werte aus mein-bereich.html renderMeineTermine (data-antwort).
+const ANTWORT_JA = 'zusage';
+const ANTWORT_NEIN = 'absage';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const datum = (d) => d ? new Date(d + (String(d).length === 10 ? 'T12:00:00' : '')).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+let SESSION = null;
+
+function melde(text, warn) {
+  const el = $('ob-meldung');
+  el.textContent = text;
+  el.classList.toggle('warn', !!warn);
+  el.hidden = false;
+  try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+}
+
+(async function start() {
+  let s = null;
+  try { s = await LPR.refreshSessionCache(); } catch (e) {}
+  if (!s) { location.replace('login.html?next=onboarding.html'); return; }
+  if (s.role !== 'ehrenamt') { location.replace(LPR.roleTarget(s.role)); return; }
+  // Freigegeben (z. B. gerade abgeschlossen): ab in den normalen Bereich.
+  if (s.status === 'approved') { location.replace('mein-bereich.html?willkommen=1'); return; }
+  SESSION = s;
+  $('ob-gruss').textContent = 'Hallo ' + ((s.name || '').split(' ')[0] || '') + '!';
+  await zeichne();
+})();
+
+async function zeichne() {
+  const r = await LPR.getMeinOnboarding();
+  if (!r.ok) { $('ob-jetzt').innerHTML = '<p>Dein Stand konnte gerade nicht geladen werden. Bitte lade die Seite neu.</p>'; return; }
+  const st = r.stand;
+  const liste = OnboardingSchritte.schritte(st);
+  const akt = OnboardingSchritte.aktueller(st);
+
+  $('ob-leiste').innerHTML = liste.map(x =>
+    `<li class="ob-s ob-${x.zustand}" aria-current="${x.zustand === 'aktuell' ? 'step' : 'false'}">
+       <span class="ob-n" aria-hidden="true">${x.zustand === 'erledigt' ? '✓' : x.nr}</span>
+       <span class="ob-t">${esc(x.titel)}</span>
+       <span class="sr-only">Schritt ${x.nr}, ${x.zustand === 'erledigt' ? 'erledigt' : x.zustand === 'aktuell' ? 'jetzt dran' : 'kommt noch'}</span></li>`).join('');
+
+  if (OnboardingSchritte.fertig(st)) {
+    $('ob-jetzt').hidden = true; $('ob-fertig').hidden = false;
+  } else if (akt) {
+    $('ob-jetzt').hidden = false; $('ob-fertig').hidden = true;
+    $('ob-jetzt').innerHTML = `
+      <div class="ob-wer ob-wer-${akt.wartetAuf}">${akt.wartetAuf === 'dich' ? 'Du bist dran' : 'Wir sind dran'}</div>
+      <h2>Schritt ${akt.nr}: ${esc(akt.titel)}</h2>
+      <p>${esc(akt.text)}</p>
+      ${akt.bringMit.length ? '<h3>Bring mit</h3><ul>' + akt.bringMit.map(b => '<li>' + esc(b) + '</li>').join('') + '</ul>' : ''}`;
+  }
+
+  await zeichneTermine(akt);
+  zeichneAntrag(st, akt);
+  await zeichneUnterlagen(st);
+}
+
+async function zeichneTermine(akt) {
+  const r = await LPR.listMeineTermine();
+  const termine = (r.ok && r.termine) || [];
+  if (!termine.length) {
+    $('ob-termine').hidden = !(akt && akt.aktion === 'termine');
+    $('ob-termine').innerHTML = '<h2>Deine Termine</h2><p>Sobald wir einen Termin für dich haben, steht er hier. Du bekommst dazu auch eine Mail.</p>';
+    return;
+  }
+  $('ob-termine').hidden = false;
+  $('ob-termine').innerHTML = '<h2>Deine Termine</h2>' + termine.map(t => `
+    <div class="ob-termin">
+      <strong>${esc(t.titel)}</strong>
+      <div class="ob-termin-wann">${esc(datum(t.datum))}${t.uhrzeit ? ', ' + esc(String(t.uhrzeit).slice(0,5)) + ' Uhr' : ''}${t.ort ? ' · ' + esc(t.ort) : ''}</div>
+      <div class="ob-termin-wann">${t.antwort === ANTWORT_JA ? 'Du hast zugesagt.' : t.antwort === ANTWORT_NEIN ? 'Du hast abgesagt.' : 'Du hast noch nicht geantwortet.'}</div>
+      <div class="ob-knoepfe">
+        <button type="button" class="btn ${t.antwort === ANTWORT_JA ? 'btn-primary' : ''}" data-termin="${esc(t.id)}" data-antwort="${ANTWORT_JA}">Ich komme</button>
+        <button type="button" class="btn ${t.antwort === ANTWORT_NEIN ? 'btn-primary' : ''}" data-termin="${esc(t.id)}" data-antwort="${ANTWORT_NEIN}">Ich kann nicht</button>
+        <button type="button" class="btn" data-ics="${esc(t.id)}">In Kalender</button>
+      </div>
+    </div>`).join('');
+  $('ob-termine').querySelectorAll('[data-antwort]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const a = await LPR.setMeinTerminAntwort(b.dataset.termin, b.dataset.antwort);
+    if (!a.ok) melde(a.error || 'Das hat nicht geklappt.', true);
+    await zeichneTermine(akt);
+  });
+  $('ob-termine').querySelectorAll('[data-ics]').forEach(b => b.onclick = () => {
+    const t = termine.find(x => String(x.id) === b.dataset.ics); if (t) ladeIcs(t);
+  });
+}
+
+// ── Kalenderdatei (Muster klinik-buchen.html) ─────────────────────────────
+function pad2(n) { return String(n).padStart(2, '0'); }
+function icsText(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
+// URL ist kein TEXT-Wert (Komma und Semikolon gehoeren zur Adresse), darum
+// nicht icsText(), sondern nur Zeilenumbrueche und Steuerzeichen entfernen --
+// sonst koennte ein Link im Termin eigene Kalenderzeilen einschleusen.
+function icsUrl(s) { return String(s || '').replace(/[\u0000-\u001f\u007f]/g, ''); }
+// RFC 5545 3.1: Zeilen hoechstens 75 Oktette, Fortsetzung mit CRLF + Leerzeichen.
+// Gezaehlt wird in UTF-8-Bytes, getrennt nur zwischen ganzen Zeichen.
+function icsFalte(zeile) {
+  const enc = new TextEncoder();
+  const teile = [];
+  let akt = '', laenge = 0, grenze = 75;
+  for (const z of zeile) {
+    const n = enc.encode(z).length;
+    if (laenge + n > grenze) { teile.push(akt); akt = ''; laenge = 0; grenze = 74; }
+    akt += z; laenge += n;
+  }
+  teile.push(akt);
+  return teile.join('\r\n ');
+}
+function icsLokal(dateISO, hhmm, plusMin) {
+  const [y, m, d] = dateISO.split('-').map(Number);
+  const [h, mi] = String(hhmm).split(':').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, h || 0, (mi || 0) + (plusMin || 0)));
+  return `${dt.getUTCFullYear()}${pad2(dt.getUTCMonth()+1)}${pad2(dt.getUTCDate())}T${pad2(dt.getUTCHours())}${pad2(dt.getUTCMinutes())}00`;
+}
+function icsTag(dateISO, plusTage) {
+  const [y, m, d] = dateISO.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + (plusTage || 0)));
+  return `${dt.getUTCFullYear()}${pad2(dt.getUTCMonth()+1)}${pad2(dt.getUTCDate())}`;
+}
+function ladeIcs(t) {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  let zeit;
+  if (t.uhrzeit) {
+    const start = icsLokal(t.datum, t.uhrzeit, 0);
+    let ende = t.ende_uhrzeit ? icsLokal(t.datum, t.ende_uhrzeit, 0) : icsLokal(t.datum, t.uhrzeit, 120);
+    if (ende <= start) ende = icsLokal(t.datum, t.uhrzeit, 120);
+    zeit = [`DTSTART;TZID=Europe/Berlin:${start}`, `DTEND;TZID=Europe/Berlin:${ende}`];
+  } else {
+    zeit = [`DTSTART;VALUE=DATE:${icsTag(t.datum, 0)}`, `DTEND;VALUE=DATE:${icsTag(t.datum, 1)}`];
+  }
+  const ics = [
+    'BEGIN:VCALENDAR','PRODID:-//Leben Pflegen Reisen//Termine//DE','VERSION:2.0','CALSCALE:GREGORIAN','METHOD:PUBLISH',
+    'BEGIN:VTIMEZONE','TZID:Europe/Berlin',
+    'BEGIN:DAYLIGHT','TZOFFSETFROM:+0100','TZOFFSETTO:+0200','TZNAME:CEST','DTSTART:19700329T020000','RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU','END:DAYLIGHT',
+    'BEGIN:STANDARD','TZOFFSETFROM:+0200','TZOFFSETTO:+0100','TZNAME:CET','DTSTART:19701025T030000','RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU','END:STANDARD',
+    'END:VTIMEZONE',
+    'BEGIN:VEVENT',
+    `UID:termin-${t.id}@lebenpflegenreisen.de`,
+    `DTSTAMP:${stamp}`,
+    ...zeit,
+    `SUMMARY:${icsText(t.titel || 'Termin Leben Pflegen Reisen')}`,
+    `LOCATION:${icsText(t.ort)}`,
+    ...(t.online_link ? [`URL:${icsUrl(t.online_link)}`] : []),
+    'STATUS:CONFIRMED','END:VEVENT','END:VCALENDAR'
+  ].map(icsFalte).join('\r\n');
+  const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'termin.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ── Mitgliedsantrag ───────────────────────────────────────────────────────
+function leseEntwurf() {
+  try { return JSON.parse(localStorage.getItem(ENTWURF_KEY) || 'null') || {}; } catch (e) { return {}; }
+}
+function speichereEntwurf(f) {
+  try { localStorage.setItem(ENTWURF_KEY, JSON.stringify(f)); } catch (e) {}
+}
+function loescheEntwurf() {
+  try { localStorage.removeItem(ENTWURF_KEY); } catch (e) {}
+}
+
+function zeichneAntrag(st, akt) {
+  const box = $('ob-antrag'), fertigBox = $('ob-antrag-fertig');
+  box.hidden = true; fertigBox.hidden = true;
+
+  if (!(akt && akt.aktion === 'antrag')) {
+    if (st.antrag_status && st.antrag_status !== 'abgelehnt') {
+      fertigBox.innerHTML = `<h2>Dein Mitgliedsantrag</h2>
+        <p>Antrag eingereicht am ${esc(datum(st.antrag_am))}.</p>
+        <a class="btn btn-primary" href="mitgliedsantrag-druck.html">Als PDF speichern</a>`;
+      fertigBox.hidden = false;
+    }
+    return;
+  }
+
+  const heute = new Date().toLocaleDateString('sv-SE');
+  const s = SESSION || {};
+  box.innerHTML = `
+    <h2>Dein Mitgliedsantrag</h2>
+    <form id="ob-form" novalidate>
+      <div class="ob-person"><strong>${esc(s.name || '')}</strong><br>${esc(s.email || '')}</div>
+      <div class="ob-feld">
+        <label for="f-strasse">Straße und Hausnummer</label>
+        <input type="text" id="f-strasse" name="strasse" autocomplete="street-address" required>
+      </div>
+      <div class="ob-feld ob-reihe">
+        <div>
+          <label for="f-plz">PLZ</label>
+          <input type="text" id="f-plz" name="plz" inputmode="numeric" autocomplete="postal-code" pattern="[0-9]{5}" maxlength="5" required>
+        </div>
+        <div>
+          <label for="f-ort">Ort</label>
+          <input type="text" id="f-ort" name="ort" autocomplete="address-level2" required>
+        </div>
+      </div>
+      <div class="ob-feld">
+        <label for="f-geb">Geburtsdatum</label>
+        <input type="date" id="f-geb" name="geburtsdatum" max="${heute}" autocomplete="bday" required>
+      </div>
+      <fieldset class="ob-feld">
+        <legend>Monatlicher Beitrag</legend>
+        <div class="ob-wahl">
+          <label><input type="radio" name="beitragWahl" value="1" required> 1 € (Mindestbeitrag)</label>
+          <label><input type="radio" name="beitragWahl" value="3"> 3 €</label>
+          <label><input type="radio" name="beitragWahl" value="5"> 5 €</label>
+          <label><input type="radio" name="beitragWahl" value="10"> 10 €</label>
+          <label><input type="radio" name="beitragWahl" value="anders"> anderer Betrag</label>
+        </div>
+        <div class="ob-feld" id="f-anders-feld" hidden style="margin-top:10px;">
+          <label for="f-anders">Anderer Betrag in € pro Monat</label>
+          <input type="number" id="f-anders" name="beitragAnders" min="1" step="0.01" inputmode="decimal">
+        </div>
+        <p class="ob-hinweis">Den Beitrag überweist du, bis wir das Lastschriftverfahren eingerichtet haben. Die Bankverbindung bekommst du mit der Aufnahmebestätigung.</p>
+      </fieldset>
+      <fieldset class="ob-feld">
+        <legend>Zahlweise</legend>
+        <div class="ob-wahl">
+          <label><input type="radio" name="intervall" value="monatlich" required> monatlich</label>
+          <label><input type="radio" name="intervall" value="jaehrlich"> jährlich (12 × der Betrag)</label>
+        </div>
+      </fieldset>
+
+      <h3>Bitte lies vor dem Absenden</h3>
+      <details><summary>Satzung und Beitrag</summary><div class="ob-recht" data-recht="ob-recht-satzung"></div></details>
+      <details><summary>Datenschutz-Verpflichtung (Version 1.0, 29.04.2026)</summary><div class="ob-recht" data-recht="ob-recht-dsgvo"></div></details>
+      <details><summary>Schweigepflichterklärung (Version 1.0, 29.04.2026)</summary><div class="ob-recht" data-recht="ob-recht-schweigepflicht"></div></details>
+
+      <label class="ob-check"><input type="checkbox" name="ok_satzung" required> <span>Ich beantrage die Aufnahme als ordentliches Mitglied und erkenne die Satzung (Fassung 01.08.2026) an.</span></label>
+      <label class="ob-check"><input type="checkbox" name="ok_dsgvo" required> <span>Ich habe die Datenschutz-Verpflichtung gelesen und verpflichte mich darauf.</span></label>
+      <label class="ob-check"><input type="checkbox" name="ok_schweigepflicht" required> <span>Ich habe die Schweigepflichterklärung gelesen und verpflichte mich darauf.</span></label>
+
+      <div style="margin-top:14px;"><button type="submit" class="btn btn-primary" id="f-senden">Antrag einreichen</button></div>
+    </form>`;
+  box.querySelectorAll('[data-recht]').forEach(d => d.appendChild($(d.dataset.recht).content.cloneNode(true)));
+  box.hidden = false;
+
+  const form = $('ob-form');
+  const anders = () => { const w = form.querySelector('input[name=beitragWahl]:checked'); return !!w && w.value === 'anders'; };
+  const zeigeAnders = () => { $('f-anders-feld').hidden = !anders(); $('f-anders').required = anders(); };
+
+  // Entwurf wiederherstellen
+  const e = leseEntwurf();
+  ['strasse', 'plz', 'ort', 'geburtsdatum', 'beitragAnders'].forEach(k => { if (e[k] != null) form.elements[k].value = e[k]; });
+  ['beitragWahl', 'intervall'].forEach(k => {
+    const r = e[k] && form.querySelector(`input[name=${k}][value="${CSS.escape(String(e[k]))}"]`);
+    if (r) r.checked = true;
+  });
+  zeigeAnders();
+
+  const felder = () => {
+    const w = form.querySelector('input[name=beitragWahl]:checked');
+    const i = form.querySelector('input[name=intervall]:checked');
+    return {
+      strasse: form.elements.strasse.value, plz: form.elements.plz.value, ort: form.elements.ort.value,
+      geburtsdatum: form.elements.geburtsdatum.value, beitragWahl: w ? w.value : null,
+      beitragAnders: form.elements.beitragAnders.value, intervall: i ? i.value : null
+    };
+  };
+  form.addEventListener('input', () => { zeigeAnders(); speichereEntwurf(felder()); });
+  form.addEventListener('change', () => { zeigeAnders(); speichereEntwurf(felder()); });
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      melde('Bitte fülle alle Felder aus und setze die drei Häkchen.', true);
+      return;
+    }
+    const f = felder();
+    const beitrag = f.beitragWahl === 'anders' ? Number(String(f.beitragAnders).replace(',', '.')) : Number(f.beitragWahl);
+    if (!(beitrag >= 1)) { melde('Der Beitrag muss mindestens 1 € im Monat sein.', true); return; }
+    const knopf = $('f-senden');
+    knopf.disabled = true; knopf.textContent = 'Wird eingereicht …';
+    const r = await LPR.mitgliedsantragEinreichen({
+      strasse: f.strasse.trim(), plz: f.plz.trim(), ort: f.ort.trim(),
+      geburtsdatum: f.geburtsdatum, beitrag, intervall: f.intervall
+    });
+    if (!r.ok) {
+      knopf.disabled = false; knopf.textContent = 'Antrag einreichen';
+      melde(r.error || 'Das hat nicht geklappt. Bitte versuch es noch einmal.', true);
+      return;
+    }
+    loescheEntwurf();
+    await zeichne();
+    melde('Danke! Dein Mitgliedsantrag ist eingegangen.');
+  });
+}
+
+// ── Unterlagen, die man früh besorgen kann ─────────────────────────────────
+async function zeichneUnterlagen(st) {
+  const box = $('ob-unterlagen');
+  if (!OnboardingSchritte.zeigeUnterlagen(st)) { box.hidden = true; return; }
+  const [c, m] = await Promise.all([LPR.getMyCompliance(), LPR.getMyMasern()]);
+  const recs = (c && c.ok && c.records) || [];
+  const status = (typ) => { const r = recs.find(x => x.document_type === typ); return r ? r.status : null; };
+  const zeile = (titel, st2) => {
+    const rechts = st2 === 'ok' ? '<span class="ok">✓ liegt uns vor</span>'
+      : st2 === 'erledigt' ? '<span class="ok">✓ erledigt</span>'
+      : st2 === 'geprueft' ? '<span>ist bei uns, wir prüfen es</span>'
+      : '<span>bring es zur Einführung mit</span>';
+    return `<div class="ob-unterlage"><span>${esc(titel)}</span>${rechts}</div>`;
+  };
+  const doc = (typ) => { const s = status(typ); return s === 'approved' ? 'ok' : s === 'submitted' ? 'geprueft' : null; };
+  const ms = m && m.ok ? m.status : null;
+  const masern = ms === 'liegt_vor' ? 'ok' : (ms && ms !== 'offen') ? 'erledigt' : null;
+  box.innerHTML = '<h2>Das kannst du schon besorgen</h2>'
+    + zeile('Lebensmittelpass (Bescheinigung nach § 43 IfSG)', doc('ifsg43'))
+    + zeile('Erste-Hilfe-Nachweis', doc('erste_hilfe'))
+    + zeile('Masernnachweis', masern);
+  box.hidden = false;
+}
+</script>
+</body>
+</html>

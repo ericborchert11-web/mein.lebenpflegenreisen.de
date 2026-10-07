@@ -246,13 +246,22 @@ const _urlParams = new URLSearchParams(window.location.search);
 const _preRole = _urlParams.get('role');
 const _nextUrl = _urlParams.get('next');
 
+// Nur Ziele auf derselben Seite zulassen. Die Zeichenliste allein reichte
+// nicht: '//evil.example/x' besteht nur aus erlaubten Zeichen und ist fuer
+// den Browser trotzdem eine fremde Adresse (protokollrelativ). Darum zusaetzlich
+// kein '//' irgendwo, kein ':' (Schema) und kein Backslash.
+function sicheresZiel(ziel) {
+  if (!ziel || typeof ziel !== 'string') return null;
+  if (!/^[a-zA-Z0-9_\-./?=&]+$/.test(ziel)) return null;
+  if (ziel.includes('//') || ziel.includes(':') || ziel.includes('\\')) return null;
+  return ziel;
+}
+
 // Bereits eingeloggt?
 (function() {
   const s = LPR.getSession();
   if (s) {
-    const target = _nextUrl && /^[a-zA-Z0-9_\-./?=&]+$/.test(_nextUrl)
-      ? _nextUrl
-      : LPR.roleTarget(s.role);
+    const target = sicheresZiel(_nextUrl) || LPR.roleTarget(s.role);
     const note = document.createElement('div');
     note.style.cssText = 'max-width:960px; margin:20px auto 0; padding:16px; background:#EEF6F0; border:1px solid #9FC0A8; border-radius:14px; text-align:center; font-size:14px;';
     note.innerHTML = `Sie sind bereits als <strong>${LPR.escape(s.name)}</strong> (${s.role}) angemeldet. <a href="${target}" style="color:var(--green-deep); font-weight:700; margin-left:8px;">→ Zu Ihrem Bereich</a> &nbsp;|&nbsp; <a href="#" onclick="LPR.logout(); location.reload(); return false;" style="color:var(--warn); font-weight:700;">Abmelden</a>`;
@@ -266,6 +275,15 @@ const _nextUrl = _urlParams.get('next');
   const regModus = _preRole === 'ehrenamt' || _preRole === 'klinik' || location.hash === '#register';
   document.getElementById('register').hidden = !regModus;
   document.getElementById('neu-hier').hidden = regModus;
+})();
+
+// Vorbelegung aus /mitmachen/ (?name=, ?email=); die Rolle waehlt
+// preselectRoleFromUrl() weiter unten bei ?role=ehrenamt.
+(function vorbelegen() {
+  const n = _urlParams.get('name');
+  const m = _urlParams.get('email');
+  if (n) document.getElementById('rg-name').value = n.slice(0, 120);
+  if (m) document.getElementById('rg-email').value = m.slice(0, 200);
 })();
 
 let selectedRole = null;
@@ -324,9 +342,7 @@ async function doLogin() {
   errEl.hidden = true;
   const res = await LPR.loginWithPassword({ email, password });
   if (!res.ok) { errEl.textContent = res.error; errEl.hidden = false; return; }
-  const target = (_nextUrl && /^[a-zA-Z0-9_\-./?=&]+$/.test(_nextUrl))
-    ? _nextUrl
-    : LPR.roleTarget(res.user.role);
+  const target = sicheresZiel(_nextUrl) || LPR.roleTarget(res.user.role);
   window.location.href = target;
 }
 
@@ -446,6 +462,17 @@ function showErr(msg) {
   }
 })();
 
+// Wer darf ueber einen Link aus der Mail direkt herein? Kliniken immer (das ist
+// ihr Anmeldelink). Dazu Ehrenamtliche, die gerade ihre Registrierung
+// bestaetigt haben (type=signup): Die Bestaetigungsmail fuehrt seit dem
+// Onboarding hierher, und sie sofort wieder abzumelden hiesse, den ersten
+// Schritt mit einer Fehlermeldung zu beginnen. Der Anmeldelink
+// (type=magiclink) bleibt fuer Ehrenamt und Vorstand gesperrt, siehe unten.
+function linkFuehrtWeiter(linkTyp, rolle) {
+  if (rolle === 'klinik') return true;
+  return linkTyp === 'signup' && rolle === 'ehrenamt';
+}
+
 // Rueckkehr aus dem Anmeldelink. Der Client loest den Hash selbst ein, wir
 // pruefen danach nur noch den Kontostatus — mit derselben Funktion wie der
 // Passwortweg, damit beide Wege nicht auseinanderlaufen.
@@ -489,7 +516,7 @@ function showErr(msg) {
         history.replaceState(null, '', location.pathname);
         return;
       }
-      if (res.user.role !== 'klinik') {
+      if (!linkFuehrtWeiter(hashDaten.get('type'), res.user.role)) {
         // Der Anmeldelink gilt nur fuer Klinik-Konten. Ehrenamtliche und Admins
         // melden sich mit Passwort an: Das Admin-Konto sieht den gesamten
         // Vorstandsbereich, und ein Zugang, der allein am Postfach haengt, waere

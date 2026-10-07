@@ -183,3 +183,11 @@ offen (0012/0013, zusammen 1.700 € Klinik). Alle Reisen stehen auf der vorsich
 Vorgabe „steuerpflichtig" — ob das so bleibt, ist eine Frage an Sonja.
 Kopierfallen dabei: `create view … with (…) as` und `'§ …'` im Literal — SQL geht
 seither ASCII-rein per Zwischenablage.
+
+**Nebenbefund Heilpraxis-Rechnung (07.10.2026, bereinigt):** Für die Reise
+25.05.–05.06. war nach Stornos am 21.09. keine gültige Rechnung mehr übrig, die
+Zahlung vom 19.08. hing an der Gutschrift 0004. Ursache der Fehlzuordnung:
+`gleicherBetrag()` in `kassenbuch-zuordnung.js` vergleicht Beträge ohne
+Vorzeichen, ein Eingang passt so auf eine Gutschrift — Fix in Etappe 2.
+Ersatzrechnung RE-2026-0019 (10.569 €, § 19-Hinweis) ausgestellt, Zahlung
+umgehängt, 0004 wieder offen.

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Onboarding · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+[hidden] { display: none !important; }
+.seite { max-width: 1080px; margin: 32px auto 60px; padding: 0 16px; }
+.seite h1 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+  font-size: 30px; color: var(--green); margin-bottom: 6px;
+}
+.seite .lead { color: var(--muted); font-size: 15px; margin-bottom: 20px; max-width: 720px; line-height: 1.6; }
+.seite .btn:hover:not(:disabled) { box-shadow: none; }
+.seite .btn { min-height: 44px; padding: 10px 16px; font-size: 15px; }
+.btn-rand { background: #fff; color: var(--green-deep); border: 1.5px solid var(--green); }
+.btn-rand:hover:not(:disabled) { background: var(--lime-soft); }
+
+.filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.filter button {
+  min-height: 44px; padding: 8px 16px; border: 1.5px solid var(--border); border-radius: 22px;
+  background: #fff; cursor: pointer; font-family: inherit; font-size: 15px;
+  color: var(--green-deep);
+}
+.filter button.aktiv { background: var(--green); color: var(--lime); border-color: var(--green); font-weight: 700; }
+
+.meldung {
+  background: var(--lime-soft); border: 1px solid var(--lime); border-radius: var(--radius-sm);
+  padding: 12px 14px; margin-bottom: 16px; color: var(--green-deep); font-weight: 600;
+}
+.meldung.warn { background: #FCEADA; border-color: var(--warn); color: #8A2E0E; }
+
+.karte {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px 18px; margin-bottom: 14px;
+}
+.karte.ueberfaellig { border: 2px solid #B23A12; }
+.karte-kopf { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; justify-content: space-between; }
+.karte-name { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 19px; color: var(--green-deep); overflow-wrap: anywhere; }
+.karte-info { font-size: 14px; color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
+.karte-info a { color: var(--green); font-weight: 600; }
+.marke {
+  display: inline-block; padding: 3px 10px; border-radius: 12px;
+  font-size: 13px; font-weight: 700;
+}
+.marke-verein { background: var(--lime-soft); color: var(--green-deep); border: 1px solid var(--lime); }
+.marke-rot    { background: #FCEADA; color: #8A2E0E; border: 1px solid #B23A12; }
+.marke-person { background: #EEF2EC; color: var(--green-deep); }
+
+/* Schrittleiste, kompakt (Optik wie onboarding.html) */
+.ob-leiste {
+  list-style: none; display: flex; justify-content: space-between;
+  position: relative; margin: 14px 0 6px; padding: 0;
+}
+.ob-leiste::before {
+  content: ''; position: absolute; left: 8%; right: 8%; top: 13px;
+  height: 2px; background: var(--border);
+}
+.ob-s { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.ob-n {
+  position: relative; z-index: 1;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px; border: 2px solid transparent;
+}
+.ob-erledigt .ob-n { background: var(--green); color: #fff; }
+.ob-aktuell .ob-n { background: var(--lime); color: var(--green-deep); border-color: var(--green-deep); }
+.ob-offen .ob-n { background: var(--sand); color: var(--green-deep); border-color: var(--border); }
+.ob-t { font-size: 12px; line-height: 1.3; color: var(--green-deep); margin-top: 4px; padding: 0 2px; overflow-wrap: anywhere; }
+.ob-aktuell .ob-t { font-weight: 700; }
+@media (max-width: 640px) {
+  .ob-leiste { padding-bottom: 24px; }
+  .ob-t { display: none; }
+  .ob-aktuell .ob-t {
+    display: block; position: absolute; left: 0; right: 0; bottom: 0;
+    font-size: 13px; margin: 0;
+  }
+}
+
+/* Checkliste */
+.liste-cl { margin-top: 10px; border-top: 1px solid var(--border); }
+.cl {
+  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid #EEE9DD;
+}
+.cl-titel { flex: 1 1 220px; font-weight: 600; color: var(--green-deep); font-size: 15px; }
+.cl-titel small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
+.cl-tun { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cl-ok { color: var(--green-deep); font-weight: 700; font-size: 15px; }
+.cl-offen { color: var(--muted); font-size: 14px; }
+.cl input[type=date], .cl select, .cl textarea {
+  font-family: inherit; font-size: 16px; min-height: 44px; padding: 8px 10px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: #fff; color: var(--text);
+  max-width: 100%;
+}
+.cl textarea { width: 100%; min-height: 70px; resize: vertical; }
+.cl-voll { flex: 1 1 100%; }
+.antrag-daten {
+  flex: 1 1 100%; background: var(--white); border-radius: var(--radius-sm);
+  padding: 10px 12px; font-size: 15px; line-height: 1.7; color: var(--text);
+}
+.antrag-daten dt { font-weight: 600; color: var(--green-deep); }
+.antrag-daten dl { display: grid; grid-template-columns: 10em 1fr; gap: 0 10px; margin: 0; }
+.antrag-daten dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .antrag-daten dl { grid-template-columns: 1fr; } .antrag-daten dd { margin-bottom: 6px; } }
+.karten-fehler { margin-top: 8px; color: #8A2E0E; font-size: 14px; font-weight: 600; }
+
+.abschluss { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+.btn-frei { background: var(--green); color: #fff; }
+.btn-frei.frage { background: #8A2E0E; color: #fff; }
+.abschluss-hinweis { font-size: 14px; color: var(--muted); }
+.leer { background: #fff; border: 1px dashed var(--border); border-radius: var(--radius); padding: 40px 24px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Zum Hauptinhalt</a>
+
+<main id="main">
+<div class="seite">
+  <h1>Onboarding</h1>
+  <p class="lead">Alle, die gerade ins Ehrenamt starten. Rot markiert: Der Verein ist seit mehr als 14 Tagen am Zug.</p>
+
+  <div class="filter" id="filter"></div>
+  <div id="meldung" class="meldung" role="status" hidden></div>
+  <div id="liste"><p class="lead">Wird geladen …</p></div>
+</div>
+</main>
+
+<script src="onboarding-schritte.js?v20261007b"></script>
+<script src="app.js?v20261007c"></script>
+<script src="layout.js?v20261007c"></script>
+<script>
+if (!LPR.requireRole('admin', 'login.html?next=admin-onboarding.html')) throw new Error('kein Zugriff');
+LPR_Layout.init({ page: 'onboarding-admin' });
+
+const $ = (id) => document.getElementById(id);
+// Eigenes Escaping: LPR.escape laesst Anfuehrungszeichen stehen, hier landen
+// Werte auch in Attributen.
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const datum = (d) => d ? new Date(String(d).length === 10 ? d + 'T12:00:00' : d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+const heute = () => new Date().toLocaleDateString('sv-SE');
+// Zwei Jahre kalendarisch (setFullYear), nicht 730 Tage.
+function inZweiJahren() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 2);
+  return d.toLocaleDateString('sv-SE');
+}
+const TITEL = (window.OnboardingSchritte && OnboardingSchritte.TITEL) ||
+  ['Registrieren', 'Kennenlernen', 'Mitgliedsantrag', 'Einführung & Unterlagen', 'Einarbeitungstag', 'Alles da'];
+const INTERVALL_TEXT = { monatlich: 'monatlich', jaehrlich: 'jährlich' };
+
+let personen = [];
+let filter = 'verein';
+// Welche Antraege aufgeklappt sind und welche Ablehnung gerade geschrieben
+// wird — ueberlebt ein Neuzeichnen, nicht ein Neuladen der Seite.
+const offeneAntraege = {};
+const antragCache = {};
+let ablehnenFuer = null;
+let freischaltenFrage = null;
+
+function melde(text, warn) {
+  const el = $('meldung');
+  el.textContent = text;
+  el.classList.toggle('warn', !!warn);
+  el.hidden = false;
+}
+
+function tageSeit(iso) {
+  if (!iso) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
+}
+
+async function laden() {
+  const r = await LPR.getOnboardingUebersicht();
+  if (!r.ok) {
+    $('liste').innerHTML = '<div class="leer"><strong>Die Liste ließ sich nicht laden.</strong><br>' + esc(r.error) + '</div>';
+    return;
+  }
+  personen = r.personen;
+  zeichne();
+}
+
+function zeichne() {
+  const amZug = personen.filter(p => p.verein_dran).length;
+  $('filter').innerHTML =
+    `<button type="button" class="${filter === 'verein' ? 'aktiv' : ''}" data-filter="verein" aria-pressed="${filter === 'verein'}">Verein am Zug (${amZug})</button>` +
+    `<button type="button" class="${filter === 'alle' ? 'aktiv' : ''}" data-filter="alle" aria-pressed="${filter === 'alle'}">Alle (${personen.length})</button>`;
+
+  const zeilen = filter === 'alle' ? personen : personen.filter(p => p.verein_dran);
+  if (!zeilen.length) {
+    $('liste').innerHTML = '<div class="leer">' +
+      (filter === 'alle' ? 'Gerade ist niemand im Onboarding.' : 'Der Verein ist bei niemandem am Zug.') + '</div>';
+    return;
+  }
+  $('liste').innerHTML = zeilen.map(karte).join('');
+}
+
+function leiste(schritt) {
+  return '<ol class="ob-leiste" aria-label="Schritte">' + TITEL.map((t, i) => {
+    const nr = i + 1;
+    const z = nr < schritt ? 'erledigt' : (nr === schritt ? 'aktuell' : 'offen');
+    return `<li class="ob-s ob-${z}"${z === 'aktuell' ? ' aria-current="step"' : ''}>
+      <span class="ob-n" aria-hidden="true">${z === 'erledigt' ? '✓' : nr}</span>
+      <span class="ob-t">${esc(t)}</span>
+      <span class="sr-only">Schritt ${nr}, ${z === 'erledigt' ? 'erledigt' : z === 'aktuell' ? 'aktuell' : 'kommt noch'}</span></li>`;
+  }).join('') + '</ol>';
+}
+
+/** Zeile mit Datumsfeld: erledigt = Haken mit Datum, sonst Feld + Eintragen. */
+function datumZeile(p, feld, titel, hinweis) {
+  const wert = p[feld];
+  const id = `d-${feld}-${p.user_id}`;
+  return `<div class="cl">
+    <div class="cl-titel"><label for="${esc(id)}">${esc(titel)}</label>${hinweis ? `<small>${esc(hinweis)}</small>` : ''}</div>
+    <div class="cl-tun">${wert
+      ? `<span class="cl-ok">✓ ${esc(datum(wert))}</span>`
+      : `<input type="date" id="${esc(id)}" value="${heute()}" max="${heute()}">
+         <button type="button" class="btn btn-primary" data-aktion="datum" data-user="${esc(p.user_id)}" data-feld="${esc(feld)}">Eintragen</button>`}
+    </div></div>`;
+}
+
+/** Zeile mit Genehmigen-Knopf fuer eine Unterlage. */
+function unterlageZeile(p, ok, typ, titel) {
+  return `<div class="cl">
+    <div class="cl-titel">${esc(titel)}</div>
+    <div class="cl-tun">${ok
+      ? '<span class="cl-ok">✓ genehmigt</span>'
+      : `<span class="cl-offen">noch nicht genehmigt</span>
+         <button type="button" class="btn btn-rand" data-aktion="unterlage" data-user="${esc(p.user_id)}" data-typ="${esc(typ)}">Genehmigen</button>`}
+    </div></div>`;
+}
+
+function antragZeile(p) {
+  const st = p.antrag_status;
+  let tun;
+  if (!st) tun = '<span class="cl-offen">noch nicht eingereicht</span>';
+  else if (st === 'angenommen') tun = '<span class="cl-ok">✓ angenommen</span>';
+  else if (st === 'abgelehnt') tun = '<span class="cl-offen">abgelehnt — die Person kann neu einreichen</span>';
+  else {
+    const offen = !!offeneAntraege[p.antrag_id];
+    tun = `<span class="cl-offen">eingereicht am ${esc(datum(p.antrag_am))}</span>
+      <button type="button" class="btn btn-rand" data-aktion="ansehen" data-antrag="${esc(p.antrag_id)}" aria-expanded="${offen}">${offen ? 'Zuklappen' : 'Ansehen'}</button>
+      <button type="button" class="btn btn-primary" data-aktion="annehmen" data-antrag="${esc(p.antrag_id)}">Annehmen</button>
+      <button type="button" class="btn btn-danger" data-aktion="ablehnen-fragen" data-antrag="${esc(p.antrag_id)}">Ablehnen</button>`;
+  }
+  let extra = '';
+  if (st === 'eingereicht' && offeneAntraege[p.antrag_id]) extra += antragDaten(p.antrag_id);
+  if (st === 'eingereicht' && ablehnenFuer === p.antrag_id) {
+    const id = 'grund-' + p.antrag_id;
+    extra += `<div class="cl-voll">
+      <label for="${esc(id)}" style="display:block;font-weight:600;margin-bottom:4px;">Grund der Ablehnung (sieht die Person)</label>
+      <textarea id="${esc(id)}"></textarea>
+      <div class="cl-tun" style="margin-top:8px;">
+        <button type="button" class="btn btn-danger" data-aktion="ablehnen" data-antrag="${esc(p.antrag_id)}">Ablehnung senden</button>
+        <button type="button" class="btn btn-rand" data-aktion="ablehnen-abbrechen">Abbrechen</button>
+      </div></div>`;
+  }
+  return `<div class="cl">
+    <div class="cl-titel">Mitgliedsantrag</div>
+    <div class="cl-tun">${tun}</div>${extra}</div>`;
+}
+
+function antragDaten(antragId) {
+  const a = antragCache[antragId];
+  if (!a) return '<div class="antrag-daten">Wird geladen …</div>';
+  if (a.fehler) return `<div class="antrag-daten">Der Antrag ließ sich nicht laden: ${esc(a.fehler)}</div>`;
+  const betrag = a.beitrag_eur != null ? Number(a.beitrag_eur).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : '';
+  return `<div class="antrag-daten"><dl>
+    <dt>Anschrift</dt><dd>${esc(a.strasse)}, ${esc(a.plz)} ${esc(a.ort)}</dd>
+    <dt>Geburtsdatum</dt><dd>${esc(datum(a.geburtsdatum))}</dd>
+    <dt>Beitrag</dt><dd>${esc(betrag)}</dd>
+    <dt>Intervall</dt><dd>${esc(INTERVALL_TEXT[a.beitrag_intervall] || a.beitrag_intervall)}</dd>
+    <dt>Eingereicht am</dt><dd>${esc(datum(a.eingereicht_am))}</dd>
+  </dl></div>`;
+}
+
+function masernZeile(p) {
+  const st = p.masern_status || 'offen';
+  const id = 'm-' + p.user_id;
+  return `<div class="cl">
+    <div class="cl-titel"><label for="${esc(id)}">Masernnachweis</label></div>
+    <div class="cl-tun">
+      ${st !== 'offen' ? '<span class="cl-ok">✓</span>' : ''}
+      <select id="${esc(id)}">${LPR.MASERN_STATUS.map(w =>
+        `<option value="${esc(w)}"${w === st ? ' selected' : ''}>${esc(LPR.MASERN_TEXT[w] || w)}</option>`).join('')}</select>
+      <button type="button" class="btn btn-rand" data-aktion="masern" data-user="${esc(p.user_id)}">Speichern</button>
+    </div></div>`;
+}
+
+function karte(p) {
+  const schritt = Number(p.schritt) || 2;
+  const tage = tageSeit(p.seit);
+  const rot = p.verein_dran && tage >= 14; // rot ab 14 Tagen
+  const marke = p.verein_dran
+    ? `<span class="marke ${rot ? 'marke-rot' : 'marke-verein'}">Verein am Zug seit ${tage} ${tage === 1 ? 'Tag' : 'Tagen'}</span>`
+    : '<span class="marke marke-person">Person am Zug</span>';
+  const frage = freischaltenFrage === p.user_id;
+  return `<article class="karte${rot ? ' ueberfaellig' : ''}" aria-label="${esc(p.name)}">
+    <div class="karte-kopf">
+      <span class="karte-name">${esc(p.name)}</span>
+      ${marke}
+    </div>
+    <div class="karte-info">
+      <a href="mailto:${esc(p.email)}">${esc(p.email)}</a> · registriert am ${esc(datum(p.registriert_am))} · Schritt ${schritt} von 6
+    </div>
+    ${leiste(schritt)}
+    <div class="liste-cl">
+      ${datumZeile(p, 'kennenlernen_am', 'Kennenlernen am')}
+      ${datumZeile(p, 'bzr_beantragt_am', 'BZR beantragt am')}
+      ${unterlageZeile(p, p.bzr_ok, 'bzr', 'BZR-Abfrage liegt vor')}
+      ${antragZeile(p)}
+      ${datumZeile(p, 'einfuehrung_am', 'Einführung am')}
+      ${datumZeile(p, 'ifsg_belehrung_am', 'IfSG-Belehrung vor Ort am')}
+      ${unterlageZeile(p, p.ifsg43_ok, 'ifsg43', 'Lebensmittelpass (§ 43 IfSG)')}
+      ${unterlageZeile(p, p.erste_hilfe_ok, 'erste_hilfe', 'Erste Hilfe')}
+      ${masernZeile(p)}
+      ${datumZeile(p, 'einarbeitung_am', 'Einarbeitung am')}
+    </div>
+    <div class="abschluss">
+      <button type="button" class="btn btn-frei${frage ? ' frage' : ''}" data-aktion="abschliessen" data-user="${esc(p.user_id)}"${schritt === 6 ? '' : ' disabled'}>${frage ? 'Wirklich freischalten?' : 'Onboarding abschließen'}</button>
+      ${frage ? '<button type="button" class="btn btn-rand" data-aktion="abschliessen-abbrechen">Abbrechen</button>' : ''}
+      ${schritt === 6 ? '' : '<span class="abschluss-hinweis">Geht erst, wenn alles da ist (Schritt 6).</span>'}
+    </div>
+    <div class="karten-fehler" id="fe-${esc(p.user_id)}" role="alert" hidden></div>
+  </article>`;
+}
+
+function name(userId) {
+  const p = personen.find(x => x.user_id === userId);
+  return p ? p.name : 'Die Person';
+}
+
+function nameZumAntrag(antragId) {
+  const p = personen.find(x => x.antrag_id === antragId);
+  return p ? p.name : 'Die Person';
+}
+
+/** Ergebnis einer Aktion melden und neu laden. */
+async function nachAktion(res, okText) {
+  if (!res || !res.ok) {
+    melde('Das hat nicht geklappt: ' + ((res && res.error) || 'Unbekannter Fehler.'), true);
+    await laden();
+    return;
+  }
+  melde(okText, false);
+  await laden();
+}
+
+$('filter').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button[data-filter]');
+  if (!b) return;
+  filter = b.dataset.filter;
+  zeichne();
+});
+
+$('liste').addEventListener('click', async (ev) => {
+  const b = ev.target.closest('button[data-aktion]');
+  if (!b || b.disabled) return;
+  const a = b.dataset.aktion;
+  const user = b.dataset.user;
+  const antrag = b.dataset.antrag;
+
+  if (a === 'ansehen') {
+    offeneAntraege[antrag] = !offeneAntraege[antrag];
+    zeichne();
+    if (offeneAntraege[antrag] && !antragCache[antrag]) {
+      const r = await LPR.getMitgliedsantragVorstand(antrag);
+      antragCache[antrag] = r.ok ? r.antrag : { fehler: r.error };
+      zeichne();
+    }
+    return;
+  }
+  if (a === 'ablehnen-fragen') { ablehnenFuer = antrag; zeichne(); const t = $('grund-' + antrag); if (t) t.focus(); return; }
+  if (a === 'ablehnen-abbrechen') { ablehnenFuer = null; zeichne(); return; }
+  if (a === 'abschliessen-abbrechen') { freischaltenFrage = null; zeichne(); return; }
+
+  if (a === 'abschliessen' && freischaltenFrage !== user) {
+    // Erster Klick fragt im Knopf selbst nach; erst der zweite schaltet frei.
+    freischaltenFrage = user;
+    zeichne();
+    return;
+  }
+
+  b.disabled = true;
+  const vorher = b.textContent;
+  b.textContent = '…';
+
+  if (a === 'datum') {
+    const feld = b.dataset.feld;
+    const wert = ($(`d-${feld}-${user}`) || {}).value;
+    if (!wert) { b.disabled = false; b.textContent = vorher; melde('Bitte ein Datum wählen.', true); return; }
+    await nachAktion(await LPR.onboardingSetzen(user, feld, wert), `${name(user)}: ${datum(wert)} eingetragen.`);
+  } else if (a === 'unterlage') {
+    const typ = b.dataset.typ;
+    const upd = { status: 'approved' };
+    if (typ === 'bzr' || typ === 'erste_hilfe') upd.valid_until = inZweiJahren();
+    const texte = { bzr: 'BZR-Abfrage', ifsg43: 'Lebensmittelpass', erste_hilfe: 'Erste Hilfe' };
+    await nachAktion(await LPR.setComplianceStatus({ userId: user, documentType: typ }, upd),
+      `${name(user)}: ${texte[typ] || typ} genehmigt.`);
+  } else if (a === 'annehmen') {
+    const n = nameZumAntrag(antrag);
+    await nachAktion(await LPR.mitgliedsantragEntscheiden(antrag, true, null), `${n}: Mitgliedsantrag angenommen.`);
+  } else if (a === 'ablehnen') {
+    const grund = (($('grund-' + antrag) || {}).value || '').trim();
+    if (!grund) { b.disabled = false; b.textContent = vorher; melde('Bitte einen Grund angeben — die Person sieht ihn.', true); return; }
+    const n = nameZumAntrag(antrag);
+    ablehnenFuer = null;
+    await nachAktion(await LPR.mitgliedsantragEntscheiden(antrag, false, grund), `${n}: Mitgliedsantrag abgelehnt.`);
+  } else if (a === 'masern') {
+    const st = ($('m-' + user) || {}).value;
+    await nachAktion(await LPR.setUserMasern(user, st), `${name(user)}: Masernnachweis gespeichert (${LPR.MASERN_TEXT[st] || st}).`);
+  } else if (a === 'abschliessen') {
+    const n = name(user);
+    freischaltenFrage = null;
+    await nachAktion(await LPR.onboardingAbschliessen(user), `${n} ist freigeschaltet.`);
+  }
+});
+
+laden();
+</script>
+</body>
+</html>

@@ -160,9 +160,12 @@
           // Nachschlagewerk fuer alle drei Sparten, nicht Teil einer davon.
           punkt('admin-playbook.html', 'playbook', 'Playbook') +
           gruppe('Menschen',
-            ['admin', 'ehrenamt-interesse', 'termine-admin'],
+            ['admin', 'ehrenamt-interesse', 'onboarding-admin', 'termine-admin'],
             punkt('admin-mitwirkende.html', 'admin', 'Mitwirkende') +
             punkt('admin-ehrenamt-interesse.html', 'ehrenamt-interesse', 'Interessenten') +
+            // Zahl am Eintrag: wie viele Bewerbende gerade auf den Verein warten.
+            punkt('admin-onboarding.html', 'onboarding-admin', 'Onboarding',
+                  ' <span id="nav-onboarding-zahl" class="nav-badge" hidden></span>') +
             punkt('admin-termine.html', 'termine-admin', 'Termine'),
             zahl) +
           gruppe('Einsätze',
@@ -346,6 +349,7 @@
       if (opts.footer !== false) renderFooter();
       if (opts.chatbot !== false) loadChatbot();
       zeigeOffeneInteressenten();
+      zeigeOnboardingOffen();
       zeigeAuswertungPunkt();
     },
     escapeHtml
@@ -372,6 +376,25 @@
     try {
       const sb = await LPR.supabase();
       const { data, error } = await sb.rpc('ehrenamt_interesse_offen');
+      if (error || !data) return;
+      el.textContent = data;
+      el.hidden = false;
+    } catch (_) { /* still */ }
+  }
+
+  /**
+   * Zahl der Bewerbenden im Onboarding, bei denen der Verein am Zug ist
+   * (RPC onboarding_offen_anzahl). Scheitert still wie die Interessenten-Zahl;
+   * bei 0 bleibt das Abzeichen verborgen.
+   */
+  async function zeigeOnboardingOffen() {
+    const el = document.getElementById('nav-onboarding-zahl');
+    if (!el || !window.LPR || !LPR.getSession) return;
+    const s = LPR.getSession();
+    if (!s || s.role !== 'admin') return;
+    try {
+      const sb = await LPR.supabase();
+      const { data, error } = await sb.rpc('onboarding_offen_anzahl');
       if (error || !data) return;
       el.textContent = data;
       el.hidden = false;

@@ -2824,9 +2824,11 @@
    */
   /**
    * VORSTAND: Nach dem Kennenlernen ins Portal einladen. Die Function
-   * ehrenamt-einladen legt das Konto an (oder nimmt das vorhandene), gibt es
-   * frei und schickt der Person einen Link, mit dem sie nur noch ihr Passwort
-   * vergibt. Erneut aufrufen verschickt einen frischen Link.
+   * ehrenamt-einladen legt das Konto an (oder nimmt das vorhandene),
+   * vermerkt das Kennenlernen im Onboarding (keine Freigabe — freigeschaltet
+   * wird erst mit onboarding_abschliessen) und schickt der Person einen Link,
+   * mit dem sie nur noch ihr Passwort vergibt. Erneut aufrufen verschickt
+   * einen frischen Link.
    */
   async function interessentEinladen(id) {
     const s = getSession();
@@ -7145,6 +7147,56 @@
     } catch (e) { console.error('[LPR] getMeinOnboarding:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
 
+  // ── Onboarding: Vorstand ──────────────────────────────────────────────
+  // Die Rechte prueft die Datenbank (is_board() in jeder RPC); hier nur Aufruf.
+
+  /** Alle Bewerbenden im Onboarding mit Schritt und Checkliste (RPC onboarding_uebersicht). */
+  async function getOnboardingUebersicht() {
+    try {
+      const { data, error } = await (await sb()).rpc('onboarding_uebersicht');
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, personen: data || [] };
+    } catch (e) { console.error('[LPR] getOnboardingUebersicht:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Ein Datum der Checkliste setzen. Erlaubte Felder prueft die RPC onboarding_setzen. */
+  async function onboardingSetzen(userId, feld, datum) {
+    try {
+      const { error } = await (await sb()).rpc('onboarding_setzen', { p_user: userId, p_feld: feld, p_datum: datum });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch (e) { console.error('[LPR] onboardingSetzen:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Mitgliedsantrag annehmen oder (mit Grund) ablehnen. */
+  async function mitgliedsantragEntscheiden(antragId, annehmen, grund) {
+    try {
+      const { error } = await (await sb()).rpc('mitgliedsantrag_entscheiden',
+        { p_antrag: antragId, p_annehmen: !!annehmen, p_grund: grund || null });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch (e) { console.error('[LPR] mitgliedsantragEntscheiden:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Onboarding abschliessen = freischalten. Die RPC laesst das nur bei Schritt 6 zu. */
+  async function onboardingAbschliessen(userId) {
+    try {
+      const { error } = await (await sb()).rpc('onboarding_abschliessen', { p_user: userId });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch (e) { console.error('[LPR] onboardingAbschliessen:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Einen Mitgliedsantrag fuer den Vorstand lesen (RLS: Vorstand sieht alle). */
+  async function getMitgliedsantragVorstand(antragId) {
+    try {
+      const { data, error } = await (await sb())
+        .from('mitgliedsantraege').select('*').eq('id', antragId).single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, antrag: data };
+    } catch (e) { console.error('[LPR] getMitgliedsantragVorstand:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
   /** Onboarding: Mitgliedsantrag einreichen. Die DB prueft BZR und Doppelantrag. */
   async function mitgliedsantragEinreichen(a) {
     try {
@@ -7377,6 +7429,8 @@
     terminAenderungVerschicken, terminAbsagen, setTerminAntwortAdmin,
     terminAnsehen, terminAntworten, setMeinTerminAntwort, listMeineTermine,
     getMeinOnboarding, mitgliedsantragEinreichen, getMeinMitgliedsantrag,
+    getOnboardingUebersicht, onboardingSetzen, mitgliedsantragEntscheiden, onboardingAbschliessen,
+    getMitgliedsantragVorstand,
     listTerminDateien, addTerminDatei, deleteTerminDatei, uploadTerminDatei,
     terminPunktEinreichen, setTerminPunktStatus, listTerminPunkte,
     interessentUebernehmen, interessentEinladen, getEhrenamtQuellen, meinEinladungslink,

@@ -167,3 +167,9 @@ Dateien lokal: `sql/2026-10-07-vorpruefung-erloeskonten.sql`,
   liest) gelten für neue Spalten automatisch.
 - Geprüft vor dem Ausrollen in PGlite gegen ein nachgebautes Mini-Schema:
   Migration zweimal hintereinander fehlerfrei, Test „TEST BESTANDEN".
+
+**Vorprüfung PROD (07.10.2026):** keine Namenskonflikte, auf `bank_buchungen`
+kein Trigger. Kein einziger Rechnungsempfänger trägt eine `clinic_id` — die
+automatische Klinik-Zuordnung greift also bei keiner Rechnung, alle kommen auf
+die Liste. Storno-Paare ohne Geldfluss sind daraufhin aus Liste und Warnzahl
+genommen (sie heben sich auf).

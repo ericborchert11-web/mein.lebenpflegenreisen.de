@@ -233,6 +233,15 @@ LPR_Layout.init({ page: 'registrierung' });
 
   // Kennenlern-Hinweis + Popup nur für Ehrenamtliche
   if (role === 'ehrenamt') {
+    document.querySelector('.conf-card h1').textContent = 'Willkommen! Dein Konto ist angelegt.';
+    document.querySelector('.conf-card .subtitle').textContent =
+      'Bitte bestätige zuerst deine E-Mail-Adresse — wir haben dir dafür eine Mail geschickt. '
+      + 'Danach meldest du dich an und siehst Schritt für Schritt, wie es weitergeht.';
+    document.querySelector('.conf-steps').hidden = true;
+    const aktionen = document.querySelector('.conf-actions');
+    aktionen.innerHTML = '<a href="login.html" class="btn btn-dark">Zur Anmeldung</a>';
+    document.querySelector('.conf-contact').innerHTML =
+      'Fragen? Schreib an <a href="mailto:vorstand@lebenpflegenreisen.de">vorstand@lebenpflegenreisen.de</a>';
     const box = document.getElementById('kennenlern-box');
     if (box) box.hidden = false;
     const modal = document.getElementById('kennenlern-modal');

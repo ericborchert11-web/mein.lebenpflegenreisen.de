@@ -547,6 +547,8 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
         <p>Wir melden uns innerhalb von zwei Werktagen bei dir.</p>
         <p class="sub">Noch eine Frage vorab? Schreib an
           <a href="mailto:ehrenamt@lebenpflegenreisen.de">ehrenamt@lebenpflegenreisen.de</a>.</p>
+        <p>Du kannst dir jetzt schon dein Konto anlegen und sehen, wie es weitergeht.</p>
+        <p><a class="knopf knopf-haupt" id="konto-anlegen" href="/login.html?role=ehrenamt#register">Jetzt Konto anlegen</a></p>
       </div>
     </div>
   </div>
@@ -686,6 +688,10 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
       erstesFeld = erstesFeld || 'dsgvo';
     }
     if (erstesFeld) { document.getElementById(erstesFeld).focus(); return; }
+
+    // Knopf "Jetzt Konto anlegen" in der Erfolgsanzeige: Name und E-Mail mitgeben.
+    document.getElementById('konto-anlegen').href = '/login.html?role=ehrenamt&name=' +
+      encodeURIComponent(name) + '&email=' + encodeURIComponent(email) + '#register';
 
     // Zeitsperre. Kein Fehler nach aussen: wer hier haengen bleibt, soll es
     // nicht merken und keinen zweiten Weg suchen — genau wie beim Honigtopf.

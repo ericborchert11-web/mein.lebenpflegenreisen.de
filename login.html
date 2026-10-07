@@ -268,6 +268,15 @@ const _nextUrl = _urlParams.get('next');
   document.getElementById('neu-hier').hidden = regModus;
 })();
 
+// Vorbelegung aus /mitmachen/ (?name=, ?email=); die Rolle waehlt
+// preselectRoleFromUrl() weiter unten bei ?role=ehrenamt.
+(function vorbelegen() {
+  const n = _urlParams.get('name');
+  const m = _urlParams.get('email');
+  if (n) document.getElementById('rg-name').value = n.slice(0, 120);
+  if (m) document.getElementById('rg-email').value = m.slice(0, 200);
+})();
+
 let selectedRole = null;
 
 function pickRole(btn) {

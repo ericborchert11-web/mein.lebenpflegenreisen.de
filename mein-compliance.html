@@ -174,6 +174,7 @@
 
 <div class="cp-toast" id="cp-toast"></div>
 
+<script src="unterlagen-regel.js?v20261007"></script>
 <script src="app.js"></script>
 <script src="layout.js"></script>
 <script>
@@ -358,7 +359,8 @@ async function render() {
   list.innerHTML = ITEMS.map(item => {
     const record = byType[item.id];
     const status = effectiveStatus(record);
-    if (status === 'approved' && !item.optional) completed++;
+    const ersetzt = item.id === 'fuehrungszeugnis' && UnterlagenRegel.fzErsetzt(result.records);
+    if ((status === 'approved' || ersetzt) && !item.optional) completed++;
     const meta = record && (record.submitted_at || record.approved_at || record.valid_until)
       ? `<div class="cp-meta">
           ${record.submitted_at ? `<div><strong>Eingereicht:</strong> ${new Date(record.submitted_at).toLocaleDateString('de-DE')}</div>` : ''}
@@ -396,6 +398,7 @@ async function render() {
         <span class="cp-badge ${statusClass(status)}">${statusLabel(status)}</span>
       </div>
       <p>${escapeHTML(item.desc)} <span style="color: #888;">Gültigkeit: ${escapeHTML(item.validity)}.</span></p>
+      ${ersetzt ? '<div class="cp-meta">Ersetzt durch deine BZR-Abfrage.</div>' : ''}
       ${meta}
       ${actions}
     </div>`;

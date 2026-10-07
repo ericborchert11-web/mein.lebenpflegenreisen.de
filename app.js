@@ -463,8 +463,13 @@
 
       if (profile.role !== 'board') {
         if (profile.status === 'pending') {
-          await (await sb()).auth.signOut();
-          return { ok: false, error: 'Ihr Konto wurde noch nicht vom Vorstand freigeschaltet. Die Freischaltung erfolgt in der Regel innerhalb von 1–2 Werktagen.' };
+          // Seit 07.10.2026 (Onboarding): Ehrenamtliche duerfen im Onboarding
+          // herein und landen auf onboarding.html. layout.js haelt sie dort.
+          // Kliniken warten weiter auf die Freigabe.
+          if (profile.role !== 'volunteer') {
+            await (await sb()).auth.signOut();
+            return { ok: false, error: 'Ihr Konto wurde noch nicht vom Vorstand freigeschaltet. Die Freischaltung erfolgt in der Regel innerhalb von 1–2 Werktagen.' };
+          }
         }
         if (profile.status === 'rejected') {
           // Kliniken dürfen mit rejected-Status einloggen, damit sie ihre
@@ -1050,6 +1055,8 @@
   function roleTarget(role) {
     if (role === 'klinik') return 'kliniken.html';
     if (role === 'admin')  return 'admin-cockpit.html';
+    const s = getSession();
+    if (s && s.status === 'pending') return 'onboarding.html';
     return 'mein-bereich.html';
   }
 
@@ -7078,6 +7085,42 @@
   const setMeinTerminAntwort = (terminId, antwort) =>
     rpcTermin('termin_antwort_im_portal', { p_termin: terminId, p_antwort: antwort });
 
+  /** Onboarding: eigener Stand (RPC mein_onboarding, legt die Zeile bei Bedarf an). */
+  async function getMeinOnboarding() {
+    try {
+      const { data, error } = await (await sb()).rpc('mein_onboarding');
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, stand: data || {} };
+    } catch (e) { console.error('[LPR] getMeinOnboarding:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Onboarding: Mitgliedsantrag einreichen. Die DB prueft BZR und Doppelantrag. */
+  async function mitgliedsantragEinreichen(a) {
+    try {
+      const { data, error } = await (await sb()).rpc('mitgliedsantrag_einreichen', {
+        p_strasse: a.strasse, p_plz: a.plz, p_ort: a.ort, p_geburtsdatum: a.geburtsdatum,
+        p_beitrag: a.beitrag, p_intervall: a.intervall });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, id: data };
+    } catch (e) { console.error('[LPR] mitgliedsantragEinreichen:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Onboarding: der eigene juengste Antrag (RLS: nur eigene Zeilen). */
+  async function getMeinMitgliedsantrag() {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht angemeldet.' };
+    try {
+      const { data, error } = await (await sb())
+        .from('mitgliedsantraege')
+        .select('id, strasse, plz, ort, geburtsdatum, beitrag_eur, beitrag_intervall, satzung_fassung, text_fassung, status, eingereicht_am')
+        .eq('user_id', s.id)
+        .order('eingereicht_am', { ascending: false })
+        .limit(1);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, antrag: (data && data[0]) || null };
+    } catch (e) { console.error('[LPR] getMeinMitgliedsantrag:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
   /** Die eigenen kommenden Termine samt eigener Antwort. */
   async function listMeineTermine() {
     const s = getSession();
@@ -7282,6 +7325,7 @@
     terminEingeladenenHinzufuegen, terminMitgliederHinzufuegen, terminEinladungVerschicken, terminProbeVerschicken,
     terminAenderungVerschicken, terminAbsagen, setTerminAntwortAdmin,
     terminAnsehen, terminAntworten, setMeinTerminAntwort, listMeineTermine,
+    getMeinOnboarding, mitgliedsantragEinreichen, getMeinMitgliedsantrag,
     listTerminDateien, addTerminDatei, deleteTerminDatei, uploadTerminDatei,
     terminPunktEinreichen, setTerminPunktStatus, listTerminPunkte,
     interessentUebernehmen, interessentEinladen, getEhrenamtQuellen, meinEinladungslink,

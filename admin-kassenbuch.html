@@ -90,8 +90,27 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
   letter-spacing: .06em; color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px;
 }
 .kb-dlg-meldung { margin-top: 12px; font-size: 13.5px; font-weight: 600; color: #8A3A22; }
+/* Kleinunternehmer-Ampel. Kein box-shadow im Balken — siehe Druckfallen. */
+.kb-ampel { border-left: 6px solid #2C6B45; }
+.kb-ampel.gelb { border-left-color: #B7791F; }
+.kb-ampel.rot  { border-left-color: #B4231A; }
+.kb-ampel-zahl { font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 800; color: var(--green-deep); }
+.kb-ampel-balken { height: 10px; background: #EFEDE8; border-radius: 6px; overflow: hidden; margin: 10px 0 6px; }
+.kb-ampel-balken > div { height: 100%; background: #2C6B45; }
+.kb-ampel.gelb .kb-ampel-balken > div { background: #B7791F; }
+.kb-ampel.rot  .kb-ampel-balken > div { background: #B4231A; }
+.kb-ampel-alarm { margin: 10px 0 0; font-weight: 700; color: #B4231A; }
+.kb-ampel ul { margin: 10px 0 0; padding-left: 18px; font-size: 13px; color: #8A3A22; line-height: 1.6; }
+.kb-konto { font-size: 12.5px; white-space: nowrap; }
+.kb-check { display: flex !important; gap: 8px; align-items: center; font-weight: 600; }
+.kb-check input { width: auto !important; display: inline !important; margin: 0 !important; }
 @media (max-width: 720px) {
   .kb-table th:nth-child(2), .kb-table td:nth-child(2) { display: none; }
+  /* Die Liste ist auf dem Handy breiter als der Bildschirm (schon vor der
+     Konto-Spalte). Statt sie in der Karte abzuschneiden, scrollt sie seitlich —
+     die Seite selbst bleibt fest. */
+  #liste-wrap, #vorschau .kb-card { overflow-x: auto; }
+  .kb-table th, .kb-table td { padding: 10px 10px; }
 }
 </style>
 </head>
@@ -121,8 +140,12 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
             <option value="offen">nur offene</option>
             <option value="fertig">nur zugeordnete</option>
           </select></label>
+        <label style="font-size:13px;font-weight:600;color:var(--muted);">Erlöskonto<br>
+          <select id="f-konto" class="f-in" style="width:210px;" onchange="ladeListe()"></select></label>
       </div>
     </div>
+
+    <div class="kb-card kb-pad kb-ampel" id="ampel-wrap" style="margin-bottom:14px;" hidden></div>
 
     <div class="kb-card kb-pad">
       <div class="kb-drop">
@@ -152,7 +175,15 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
     <label for="dlg-vorgang">Gehört zu einem Vorgang im Portal</label>
     <select id="dlg-vorgang" onchange="vorgangGewaehlt()"></select>
 
-    <p class="kb-trenner">oder eigener Kostenbeleg</p>
+    <div id="dlg-konto-block">
+      <p class="kb-trenner">oder Einnahme ohne Rechnung</p>
+      <label for="dlg-konto">Erlöskonto</label>
+      <select id="dlg-konto" onchange="kontoGewaehlt()"></select>
+      <label class="kb-check" id="dlg-45a-zeile" hidden>
+        <input type="checkbox" id="dlg-45a"> vom 45a-Bescheid gedeckt (steuerfrei)</label>
+    </div>
+
+    <p class="kb-trenner" id="dlg-kosten-trenner">oder eigener Kostenbeleg</p>
     <label for="dlg-kostenart">Kostenart</label>
     <select id="dlg-kostenart" onchange="kostenartGewaehlt()"></select>
     <label for="dlg-sphaere">Sphäre</label>
@@ -172,9 +203,10 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
 </main>
 
 <script src="kassenbuch-csv.js?v20260921a"></script>
-<script src="kassenbuch-zuordnung.js?v20260921b"></script>
-<script src="kassenbuch-auswertung.js?v20260921b"></script>
-<script src="app.js?v20260921e"></script>
+<script src="kassenbuch-zuordnung.js?v20261007a"></script>
+<script src="kassenbuch-auswertung.js?v20261007a"></script>
+<script src="ust-ampel.js?v20261007a"></script>
+<script src="app.js?v20261007a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -187,6 +219,16 @@ let _buchungen = [];
 let _offen = null;   // die Buchung, die gerade im Dialog liegt
 let _staende = [];
 let _alle = [];      // alle Jahre — der Kontostand darf nicht am Jahresfilter haengen
+let _ust = [];       // Zeilen aus v_ust_umsatz, je Jahr eine
+
+// Rechnungen nach id — das Konto einer Buchung mit Rechnung steht an der Rechnung.
+function rechnungenNachId() {
+  const m = {};
+  _vorgaenge.rechnungen.forEach(r => { m[r.id] = r; });
+  return m;
+}
+function kontoVon(b) { return KassenbuchAuswertung.kontoVon(b, rechnungenNachId()); }
+const istEingang = b => Number(b.betrag_cents) > 0;
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 // Fuer Werte, die in value="…" landen: das obige escapt KEINE Anfuehrungszeichen.
@@ -205,6 +247,9 @@ async function init() {
     [jahr, jahr - 1, jahr - 2].map(j => `<option value="${j}"${j === jahr ? ' selected' : ''}>${j}</option>`).join('');
 
   fuelleDialogListen();
+  document.getElementById('f-konto').innerHTML = '<option value="">alle</option>'
+    + UstAmpel.KONTEN.map(k => `<option value="${escapeAttr(k.wert)}">${escapeHtml(k.name)}</option>`).join('')
+    + '<option value="ohne">Einnahmen ohne Konto</option>';
   const v = await LPR.kassenbuchVorgaenge();
   if (v.ok) { _vorgaenge = { rechnungen: v.rechnungen, antraege: v.antraege }; fuelleVorgangsListe(); }
   await ladeAlles();
@@ -285,12 +330,22 @@ function vorgangName(b) {
   return null;
 }
 
-function istZugeordnet(b) { return !!(b.invoice_id || b.claim_id || b.kostenart); }
+// Ein Eingang ohne Rechnung ist erst mit Erloeskonto erledigt — sonst fehlte
+// er still in der Kleinunternehmer-Ampel. Eine Kostenart allein reicht dafuer
+// nicht mehr.
+function istZugeordnet(b) {
+  if (b.invoice_id || b.claim_id) return true;
+  return istEingang(b) ? !!b.erloeskonto : !!b.kostenart;
+}
 function belegFehlt(b) { return !!b.kostenart && !b.beleg_url; }
 
 function belegZelle(b) {
   const name = vorgangName(b);
   if (name) return '<span class="kb-beleg">' + escapeHtml(name) + '</span>';
+  if (istEingang(b) && b.erloeskonto && !b.kostenart) {
+    return '<span class="kb-beleg">Einnahme</span>'
+      + (b.beleg_url ? ' <a class="kb-beleg" href="' + escapeAttr(b.beleg_url) + '" target="_blank" rel="noopener">Beleg ↗</a>' : '');
+  }
   if (b.kostenart) {
     return '<span class="kb-beleg">' + escapeHtml(b.kostenart) + '</span>'
       + (b.beleg_url
@@ -307,6 +362,9 @@ function fuelleDialogListen() {
   document.getElementById('dlg-kostenart').innerHTML = '<option value="">— keine —</option>'
     + KassenbuchZuordnung.KOSTENARTEN.map(k =>
         `<option value="${escapeAttr(k.name)}">${escapeHtml(k.name)}</option>`).join('');
+  document.getElementById('dlg-konto').innerHTML = '<option value="">— keins —</option>'
+    + UstAmpel.KONTEN.map(k =>
+        `<option value="${escapeAttr(k.wert)}">${escapeHtml(k.name)}</option>`).join('');
   document.getElementById('dlg-sphaere').innerHTML = '<option value="">— keine —</option>'
     + KassenbuchZuordnung.SPHAEREN.map(s =>
         `<option value="${escapeAttr(s.wert)}">${escapeHtml(s.name)}</option>`).join('');
@@ -339,6 +397,12 @@ function oeffneDialog(id) {
                 : b.claim_id   ? 'c:' + b.claim_id
                 : vorschlag.art === 'invoice' ? 'i:' + vorschlag.id
                 : vorschlag.art === 'claim'   ? 'c:' + vorschlag.id : '';
+  // Das Erloeskonto gibt es nur fuer Eingaenge; bei Ausgaengen bleibt der
+  // Dialog, wie er war.
+  document.getElementById('dlg-konto-block').hidden = !istEingang(b);
+  document.getElementById('dlg-konto').value = b.erloeskonto || '';
+  document.getElementById('dlg-45a').checked = b.erloeskonto === 'erloes_reisen' && b.ust_pflichtig === false;
+  document.getElementById('dlg-45a-zeile').hidden = b.erloeskonto !== 'erloes_reisen';
   document.getElementById('dlg-kostenart').value = b.kostenart || '';
   document.getElementById('dlg-sphaere').value   = b.sphaere || '';
   document.getElementById('dlg-beleg').value     = b.beleg_url || '';
@@ -354,6 +418,16 @@ function vorgangGewaehlt() {
   if (!document.getElementById('dlg-vorgang').value) return;
   document.getElementById('dlg-kostenart').value = '';
   document.getElementById('dlg-sphaere').value = '';
+  // Mit Rechnung gilt deren Konto — ein eigenes daneben waere eine zweite Wahrheit.
+  document.getElementById('dlg-konto').value = '';
+  document.getElementById('dlg-45a-zeile').hidden = true;
+}
+
+function kontoGewaehlt() {
+  const k = document.getElementById('dlg-konto').value;
+  document.getElementById('dlg-45a-zeile').hidden = k !== 'erloes_reisen';
+  if (k !== 'erloes_reisen') document.getElementById('dlg-45a').checked = false;
+  if (k) document.getElementById('dlg-vorgang').value = '';
 }
 
 function kostenartGewaehlt() {
@@ -372,8 +446,23 @@ async function speichern(btn, loesen) {
   if (!loesen) {
     const v = document.getElementById('dlg-vorgang').value;
     const k = document.getElementById('dlg-kostenart').value;
+    const konto = istEingang(_offen) ? document.getElementById('dlg-konto').value : '';
     if (v) {
       z = v.slice(0,2) === 'i:' ? { invoice_id: v.slice(2) } : { claim_id: v.slice(2) };
+    } else if (istEingang(_offen)) {
+      if (!konto) {
+        m.textContent = 'Bitte eine Rechnung wählen oder ein Erlöskonto angeben.';
+        m.hidden = false;
+        return;
+      }
+      z = {
+        erloeskonto:   konto,
+        ust_pflichtig: konto === 'erloes_reisen' ? !document.getElementById('dlg-45a').checked : undefined,
+        kostenart:     k || null,
+        sphaere:       document.getElementById('dlg-sphaere').value || (k ? KassenbuchZuordnung.sphaereZu(k) : null),
+        beleg_url:     document.getElementById('dlg-beleg').value.trim(),
+        notiz:         document.getElementById('dlg-notiz').value.trim()
+      };
     } else if (k) {
       z = {
         kostenart: k,
@@ -396,7 +485,7 @@ async function speichern(btn, loesen) {
   if (!res.ok) { m.textContent = res.error; m.hidden = false; return; }
   document.getElementById('dlg').close();
   LPR.showToast(loesen ? 'Zuordnung gelöst.' : 'Zuordnung gespeichert.');
-  await ladeListe();
+  await ladeAlles();
 }
 
 // Wendet alle eindeutigen Treffer auf einmal an. Mehrdeutiges und
@@ -416,7 +505,7 @@ async function vorschlaegeUebernehmen(btn) {
   }
   LPR.showToast(geschrieben + ' zugeordnet' + (misslungen ? ', ' + misslungen + ' fehlgeschlagen' : '') + '.',
     misslungen ? 'warn' : undefined);
-  await ladeListe();
+  await ladeAlles();
 }
 
 // ── Liste ────────────────────────────────────────────────────────────────
@@ -429,12 +518,21 @@ function tabelle(buchungen, mitBeleg) {
         <div class="kb-zweck">${escapeHtml((b.verwendungszweck || '').slice(0, 120))}</div>
       </td>
       <td class="num ${b.betrag_cents < 0 ? 'kb-aus' : 'kb-ein'}">${eur(b.betrag_cents)}</td>
-      ${mitBeleg ? '<td>' + belegZelle(b) + '</td>' : ''}
+      ${mitBeleg ? '<td>' + kontoZelle(b) + '</td><td>' + belegZelle(b) + '</td>' : ''}
     </tr>`).join('');
   return `<table class="kb-table">
-      <thead><tr><th>Datum</th><th>Art</th><th>Gegenpartei / Zweck</th><th class="num">Betrag</th>${mitBeleg ? '<th>Beleg</th>' : ''}</tr></thead>
+      <thead><tr><th>Datum</th><th>Art</th><th>Gegenpartei / Zweck</th><th class="num">Betrag</th>${mitBeleg ? '<th>Konto</th><th>Beleg</th>' : ''}</tr></thead>
       <tbody>${zeilen}</tbody>
     </table>`;
+}
+
+function kontoZelle(b) {
+  const k = kontoVon(b);
+  if (k === undefined) return '';
+  if (k === null) return '<span class="kb-konto kb-offen">fehlt</span>';
+  const r = b.invoice_id ? rechnungenNachId()[b.invoice_id] : b;
+  const zusatz = k === 'erloes_reisen' && r && r.ust_pflichtig === false ? ' · 45a' : '';
+  return '<span class="kb-konto">' + escapeHtml(UstAmpel.kontoName(k)) + zusatz + '</span>';
 }
 
 async function ladeListe() {
@@ -467,6 +565,10 @@ async function ladeListe() {
   const sichtbar = stand === 'offen'  ? _buchungen.filter(b => !istZugeordnet(b))
                  : stand === 'fertig' ? _buchungen.filter(istZugeordnet)
                  : _buchungen;
+  const kontoWahl = document.getElementById('f-konto').value;
+  const gefiltert = !kontoWahl ? sichtbar
+    : kontoWahl === 'ohne' ? sichtbar.filter(b => kontoVon(b) === null)
+    : sichtbar.filter(b => kontoVon(b) === kontoWahl);
 
   const arbeit = ohneZuordnung || ohneBeleg
     ? `<div style="flex:1;min-width:220px;text-align:right;">
@@ -493,15 +595,49 @@ async function ladeListe() {
        ${standBlock}
        ${arbeit}
      </div>`
-    + (sichtbar.length ? tabelle(sichtbar, true)
+    + (gefiltert.length ? tabelle(gefiltert, true)
         : '<div class="kb-empty">Keine Buchung in dieser Auswahl.</div>');
 }
 
 // Die Kopfzeile zeigt den Kontostand, der aus den Kontostaenden folgt — also
 // erst laden, dann die Liste zeichnen.
 async function ladeAlles() {
+  const u = await LPR.ustUmsatz();
+  _ust = u.ok ? u.zeilen : [];
   await zeigeSaldo();
   await ladeListe();
+  zeigeAmpel(u.ok ? null : u.error);
+}
+
+// ── Kleinunternehmer-Ampel (§ 19 UStG) ───────────────────────────────────
+// Die Zahlen kommen aus v_ust_umsatz: Zahlungseingang, Konto je Buchung,
+// Grenzen aus app_settings. Hier wird nur angezeigt.
+function zeigeAmpel(fehler) {
+  const wrap = document.getElementById('ampel-wrap');
+  const jahr = Number(document.getElementById('f-jahr').value);
+  wrap.hidden = false;
+  wrap.className = 'kb-card kb-pad kb-ampel';
+  if (fehler) {
+    wrap.innerHTML = '<p class="kb-meldung warn">Kleinunternehmer-Ampel nicht ladbar: ' + escapeHtml(fehler) + '</p>';
+    return;
+  }
+  const s = UstAmpel.stand(_ust.find(z => Number(z.jahr) === jahr));
+  if (s.leer) {
+    wrap.innerHTML = '<div class="kb-zweck">Kleinunternehmergrenze ' + jahr + '</div>'
+      + '<strong>Für ' + jahr + ' gibt es noch keine Einnahmen.</strong>';
+    return;
+  }
+  wrap.classList.add(s.farbe);
+  const breite = Math.min(100, s.prozent);
+  wrap.innerHTML =
+    `<div class="kb-zweck">Kleinunternehmergrenze (§ 19 UStG)</div>
+     <div class="kb-ampel-zahl">Steuerpflichtiger Umsatz ${s.jahr}: ${eur(s.umsatz_cents)} von ${eur(s.grenze_cents)}
+       <span style="font-size:15px;color:var(--muted);font-weight:600;">· ${s.prozent} %</span></div>
+     <div class="kb-ampel-balken" role="img" aria-label="${s.prozent} Prozent der Grenze"><div style="width:${breite}%;"></div></div>
+     ${s.vorjahr ? `<div>Vorjahr ${s.vorjahr.jahr}: <strong>${eur(s.vorjahr.umsatz_cents)}</strong> von ${eur(s.vorjahr.grenze_cents)}</div>` : ''}
+     <div class="kb-zweck">Davon ausgenommen (steuerfrei 45a/Reisen): ${eur(s.ausgenommen_cents)}</div>
+     ${s.ueberschritten ? '<p class="kb-ampel-alarm">Grenze überschritten – Steuerberaterin informieren.</p>' : ''}
+     ${s.warnungen.length ? '<ul>' + s.warnungen.map(w => '<li>' + escapeHtml(w) + '</li>').join('') + '</ul>' : ''}`;
 }
 
 // ── Auswertung ───────────────────────────────────────────────────────────
@@ -542,6 +678,10 @@ function zeigeAuswertung() {
           </tbody>
         </table>
         <table class="kb-table">
+          <thead><tr><th>Einnahmen nach Erlöskonto</th><th class="num">Betrag</th></tr></thead>
+          <tbody>${erloesZeilen()}</tbody>
+        </table>
+        <table class="kb-table">
           <thead><tr><th>Eigene Kostenbelege</th><th class="num">Betrag</th></tr></thead>
           <tbody>${kosten}</tbody>
         </table>
@@ -560,6 +700,14 @@ function zeigeAuswertung() {
     </div>`;
 }
 
+function erloesZeilen() {
+  const jk = KassenbuchAuswertung.jeKonto(_buchungen, rechnungenNachId());
+  const z = UstAmpel.KONTEN.map(k =>
+    `<tr><td>${escapeHtml(k.name)}</td><td class="num kb-ein">${eur(jk[k.wert])}</td></tr>`);
+  if (jk.ohne) z.push(`<tr><td><span class="kb-offen">ohne Konto</span></td><td class="num kb-offen">${eur(jk.ohne)}</td></tr>`);
+  return z.join('');
+}
+
 function sphaereVon(kostenart) {
   const b = _buchungen.find(x => x.kostenart === kostenart && x.sphaere);
   return b ? (SPHAERE_NAME[b.sphaere] || b.sphaere) : '—';
@@ -569,7 +717,7 @@ function exportiere() {
   const namen = {};
   _vorgaenge.rechnungen.forEach(r => { namen[r.id] = r.invoice_no; });
   _vorgaenge.antraege.forEach(a => { namen[a.id] = a.beleg_nr || ('Antrag ' + String(a.id).slice(0,8).toUpperCase()); });
-  const csv = KassenbuchAuswertung.alsCsv(_buchungen, namen);
+  const csv = KassenbuchAuswertung.alsCsv(_buchungen, namen, rechnungenNachId());
   // Mit BOM, sonst zeigt Excel die Umlaute falsch an.
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');

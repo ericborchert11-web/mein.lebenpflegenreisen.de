@@ -78,6 +78,15 @@ v = KZ.vorschlagFuer(buchung(-105000, 'LPR-AZB-2026-0020 DATUM'), welt);
 pruefe('Belegnummer wird nicht als Rechnungsnummer gelesen',
   v && v.art === 'claim' && v.id === antraege[2].id, JSON.stringify(v));
 
+// 7b — Eingang gegen Gutschrift: gleicher Betrag, anderes Vorzeichen. Genau so
+//      hing am 21.09.2026 die Zahlung der Heilpraxis an der Gutschrift 0004.
+const mitGutschrift = { rechnungen: rechnungen.concat([
+  { id: 'r-04', invoice_no: 'RE-2026-0004', total_cents: -1056900, recipient_name: 'Heilpraxis' }
+]), antraege };
+v = KZ.vorschlagFuer(buchung(1056900, '2026-0004'), mitGutschrift);
+pruefe('Eingang wird keiner Gutschrift zugeordnet', v && v.art === null, JSON.stringify(v));
+pruefe('Gutschrift wird benannt', v && /Gutschrift/.test(v.hinweis || ''), JSON.stringify(v));
+
 // 8 — Kostenarten bringen einen Sphaerenvorschlag mit
 pruefe('Kostenarten vorhanden', Array.isArray(KZ.KOSTENARTEN) && KZ.KOSTENARTEN.length >= 8,
   `bekommen: ${KZ.KOSTENARTEN && KZ.KOSTENARTEN.length}`);

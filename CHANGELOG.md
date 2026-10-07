@@ -1,5 +1,24 @@
 # Änderungen
 
+## 07.10.2026 — Erlöskonten und Kleinunternehmer-Ampel im Kassenbuch
+
+Seit der Anerkennung nach § 45a SGB XI müssen die Einnahmen nach drei
+Erlöskonten getrennt sein — 45a (steuerfrei), Klinik (steuerpflichtig), Reisen
+(je nach Bescheid) — und die Kleinunternehmergrenze nach § 19 UStG muss laufend
+sichtbar sein. Gezählt wird nach Zahlungseingang, also aus dem Kassenbuch.
+
+Jede Rechnung und jeder Eingang ohne Rechnung trägt jetzt ein Erlöskonto; ob
+der Betrag steuerpflichtig ist, leitet die Datenbank daraus ab, nur bei Reisen
+wählt der Vorstand („vom 45a-Bescheid gedeckt"). Ein Eingang ohne Rechnung gilt
+erst mit Konto als zugeordnet — sonst fehlte er still in der Ampel. Die Ampel
+steht oben im Kassenbuch und als Kachel im Cockpit: grün unter 80 %, gelb bis
+100 %, rot darüber, mit Hinweis auf Eingänge ohne Konto und Rechnungen ohne
+Zahlungseingang. Die Grenzen stehen in den Einstellungen, nicht im Code.
+
+Nebenbei behoben: Die Zuordnung verglich Rechnungsbeträge ohne Vorzeichen. Ein
+Eingang konnte dadurch auf eine Gutschrift fallen — genau so hing die Zahlung
+der Heilpraxis vom 19.08. an der Gutschrift RE-2026-0004.
+
 ## 13.09.2026 — Cockpit: der Vorstand wird erinnert
 
 Das Cockpit sagt seit heute auch dann Bescheid, wenn niemand sich anmeldet. Die

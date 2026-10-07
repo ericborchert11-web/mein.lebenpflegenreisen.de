@@ -6281,7 +6281,9 @@
   const INVOICE_COLS_BASIS = 'id, invoice_no, status, recipient_id, recipient_snapshot, invoice_date, ' +
     'service_from, service_to, due_date, tax_mode, tax_rate, tax_note, intro_text, ' +
     'subtotal_cents, tax_cents, total_cents, care_share_cents, paid_on, ' +
-    'cancels_invoice_id, cancelled_by_invoice_id, created_at, issued_at';
+    'cancels_invoice_id, cancelled_by_invoice_id, created_at, issued_at, ' +
+    // Migration AT (07.10.2026) — auf PROD, bevor dieser Code live ging.
+    'erloeskonto, ust_pflichtig';
 
   // Felder aus der Migration vom 23.08.2026 (Betreff, Kostenvoranschlag,
   // Begleitschreiben). Sie stehen getrennt, weil sie fehlen koennen — siehe
@@ -6563,7 +6565,7 @@
   const KASSENBUCH_COLS =
     'id, konto_iban, buchungstag, valuta, buchungstext, verwendungszweck, ' +
     'gegenpartei, betrag_cents, fingerabdruck, invoice_id, claim_id, ' +
-    'kostenart, sphaere, beleg_url, notiz, importiert_am';
+    'kostenart, sphaere, beleg_url, notiz, importiert_am, erloeskonto, ust_pflichtig';
 
   async function kassenbuchListe(filter) {
     // Kein Rollencheck ueber "eingeloggt" hinaus: Wer die Zeilen sehen darf,
@@ -6662,7 +6664,8 @@
       ok: true,
       rechnungen: r.invoices.filter(i => i.invoice_no).map(i => ({
         id: i.id, invoice_no: i.invoice_no, invoice_date: i.invoice_date,
-        total_cents: i.total_cents, recipient_name: i.recipient_name, status: i.status
+        total_cents: i.total_cents, recipient_name: i.recipient_name, status: i.status,
+        erloeskonto: i.erloeskonto, ust_pflichtig: i.ust_pflichtig
       })),
       antraege: c.claims.map(a => ({
         id: a.id, beleg_nr: a.beleg_nr, amount: a.amount,
@@ -6687,21 +6690,55 @@
       kostenart:  z.kostenart  || null,
       sphaere:    z.sphaere    || null,
       beleg_url:  z.beleg_url  || null,
-      notiz:      z.notiz      || null
+      notiz:      z.notiz      || null,
+      // Das Flag leitet der Trigger aus dem Konto ab; gewaehlt wird es nur bei
+      // Reisen ("vom 45a-Bescheid gedeckt" = false).
+      erloeskonto:   z.erloeskonto || null,
+      ust_pflichtig: z.erloeskonto === 'erloes_reisen' ? z.ust_pflichtig !== false : null
     };
     if (patch.invoice_id && patch.claim_id) {
       return { ok: false, error: 'Eine Buchung gehört zu höchstens einem Vorgang.' };
     }
     try {
-      const { data, error } = await (await sb()).from('bank_buchungen')
+      const client = await sb();
+      let { data, error } = await client.from('bank_buchungen')
         .update(patch).eq('id', id).select(KASSENBUCH_COLS).maybeSingle();
       if (error) return { ok: false, error: error.message };
+      // Wer AUF Reisen umstellt, bringt den abgeleiteten Wert des alten Kontos
+      // mit — der Trigger wertet ihn bewusst nicht als Wahl und setzt true.
+      // Ist "45a-gedeckt" gewaehlt, deshalb einmal nachschreiben: jetzt steht
+      // das Konto schon auf Reisen, und der Wert gilt als gewaehlt.
+      if (data && patch.erloeskonto === 'erloes_reisen' && data.ust_pflichtig !== patch.ust_pflichtig) {
+        ({ data, error } = await client.from('bank_buchungen')
+          .update({ ust_pflichtig: patch.ust_pflichtig }).eq('id', id)
+          .select(KASSENBUCH_COLS).maybeSingle());
+        if (error) return { ok: false, error: error.message };
+      }
       // Zurueckgelesen statt auf "1 Zeile" vertraut: in diesem Projekt setzen
       // stille Schutztrigger schon oefter Werte zurueck, ohne zu meckern.
       return { ok: true, buchung: data };
     } catch(e) {
       console.error('[LPR] kassenbuchZuordnen:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Kleinunternehmer-Ampel: je Jahr eine Zeile aus v_ust_umsatz.
+   *
+   * Die Sicht laeuft als Aufrufer — Vorstand und Kassenpruefung sehen dieselben
+   * Zahlen wie im Kassenbuch, alle anderen eine leere Liste.
+   */
+  async function ustUmsatz() {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht angemeldet.', zeilen: [] };
+    try {
+      const { data, error } = await (await sb()).from('v_ust_umsatz').select('*').order('jahr');
+      if (error) return { ok: false, error: error.message, zeilen: [] };
+      return { ok: true, zeilen: data || [] };
+    } catch(e) {
+      console.error('[LPR] ustUmsatz:', e);
+      return { ok: false, error: 'Netzwerkfehler.', zeilen: [] };
     }
   }
 
@@ -7304,7 +7341,7 @@
     deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid, getInvoiceRef,
     // Kassenbuch
     kassenbuchListe, kassenbuchBekannteAbdruecke, kassenbuchImport,
-    kassenbuchVorgaenge, kassenbuchZuordnen,
+    kassenbuchVorgaenge, kassenbuchZuordnen, ustUmsatz,
     kassenbuchStaende, kassenbuchStandSetzen, kassenbuchStandLoeschen,
     // Kassenpruefung
     pruefRecht, pruefungDaten,

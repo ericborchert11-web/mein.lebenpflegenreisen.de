@@ -117,7 +117,45 @@
     };
   }
 
+  /**
+   * Das Erloeskonto einer Buchung — dieselbe Regel wie in v_ust_umsatz.
+   *
+   * Mit Rechnung: das Konto der Rechnung (auch fuer Rueckzahlungen, die
+   * mindern). Eingang ohne Vorgang: das eigene Konto, sonst null = "fehlt".
+   * Ausgang ohne Rechnung und Rueckfluss eines Antrags: undefined — die
+   * gehoeren gar nicht zu den Erloesen und sollen nie als Luecke zaehlen.
+   */
+  function kontoVon(b, rechnungenNachId) {
+    if (b.invoice_id) {
+      var r = (rechnungenNachId || {})[b.invoice_id];
+      return (r && r.erloeskonto) || null;
+    }
+    if (b.claim_id || cents(b) <= 0) return undefined;
+    return b.erloeskonto || null;
+  }
+
+  function ustVon(b, rechnungenNachId) {
+    if (b.invoice_id) {
+      var r = (rechnungenNachId || {})[b.invoice_id];
+      return r ? r.ust_pflichtig : null;
+    }
+    return b.ust_pflichtig;
+  }
+
+  /** Summen je Konto; `ohne` sammelt Erloese, denen das Konto noch fehlt. */
+  function jeKonto(buchungen, rechnungenNachId) {
+    var summe = { erloes_45a: 0, erloes_klinik: 0, erloes_reisen: 0, sonstige: 0, ohne: 0 };
+    (buchungen || []).forEach(function (b) {
+      var k = kontoVon(b, rechnungenNachId);
+      if (k === undefined) return;
+      summe[k || 'ohne'] += cents(b);
+    });
+    return summe;
+  }
+
   function deBetrag(c) { return (Number(c || 0) / 100).toFixed(2).replace('.', ','); }
+
+  function jaNein(w) { return w === true ? 'ja' : w === false ? 'nein' : ''; }
 
   function feld(wert) {
     var s = String(wert === null || wert === undefined ? '' : wert);
@@ -125,17 +163,19 @@
   }
 
   /** Export fuer den Kassenpruefer: dieselben Spalten wie die Ansicht. */
-  function alsCsv(buchungen, namen) {
+  function alsCsv(buchungen, namen, rechnungenNachId) {
     var n = namen || {};
     var kopf = ['Datum', 'Art', 'Gegenpartei', 'Verwendungszweck', 'Betrag',
-                'Zuordnung', 'Kostenart', 'Sphäre', 'Beleg', 'Notiz'];
+                'Zuordnung', 'Kostenart', 'Sphäre', 'Beleg', 'Notiz',
+                'Erlöskonto', 'USt-pflichtig'];
     var zeilen = (buchungen || []).map(function (b) {
       var zuordnung = b.invoice_id ? (n[b.invoice_id] || 'Rechnung')
                     : b.claim_id   ? (n[b.claim_id]   || 'Antrag')
                     : b.kostenart  ? 'Kostenbeleg' : 'offen';
       return [
         b.buchungstag, b.buchungstext, b.gegenpartei, b.verwendungszweck,
-        deBetrag(b.betrag_cents), zuordnung, b.kostenart, b.sphaere, b.beleg_url, b.notiz
+        deBetrag(b.betrag_cents), zuordnung, b.kostenart, b.sphaere, b.beleg_url, b.notiz,
+        kontoVon(b, rechnungenNachId) || '', jaNein(ustVon(b, rechnungenNachId))
       ].map(feld).join(';');
     });
     return [kopf.join(';')].concat(zeilen).join('\r\n') + '\r\n';
@@ -146,6 +186,8 @@
     saldoReihe: saldoReihe,
     aktuellerStand: aktuellerStand,
     alsCsv: alsCsv,
+    kontoVon: kontoVon,
+    jeKonto: jeKonto,
     deBetrag: deBetrag
   };
 

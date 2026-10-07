@@ -76,8 +76,17 @@
       var nummer = 'RE-' + mRe[1] + '-' + mRe[2];
       var treffer = rechnungen.filter(function (r) { return r.invoice_no === nummer; });
       if (treffer.length === 1) {
-        if (gleicherBetrag(cents, treffer[0].total_cents)) {
+        // Rechnungen MIT Vorzeichen vergleichen: ein Eingang gehoert zu einer
+        // Forderung, nie zu einer Gutschrift. Am 21.09.2026 landete so die
+        // Zahlung der Heilpraxis auf der Gutschrift RE-2026-0004. Antraege
+        // bleiben beim Betrag ohne Vorzeichen — dort ist die Auszahlung
+        // negativ, der Antrag positiv.
+        if (cents === Number(treffer[0].total_cents)) {
           return { art: 'invoice', id: treffer[0].id, bezeichnung: nummer, hinweis: '' };
+        }
+        if (gleicherBetrag(cents, treffer[0].total_cents)) {
+          return { art: null, id: null, bezeichnung: nummer,
+                   hinweis: nummer + ' ist eine Gutschrift — ein Eingang gehört nicht dazu.' };
         }
         return { art: null, id: null, bezeichnung: nummer,
                  hinweis: 'Rechnung ' + nummer + ' gefunden, aber der Betrag weicht ab.' };

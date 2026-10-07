@@ -75,5 +75,38 @@ pruefe('Semikolon im Text wird eingepackt', /"Notar; mit Semikolon"/.test(csv),
   'Der Zweck mit Semikolon steht ohne Anfuehrungszeichen in der Datei');
 pruefe('Betrag deutsch formatiert', /-534,02/.test(csv), 'Betrag steht nicht als -534,02');
 
+// ── Erloeskonten ─────────────────────────────────────────────────────────
+// Das Konto einer Buchung mit Rechnung kommt aus der Rechnung, sonst aus der
+// Buchung selbst. Ausgaenge ohne Rechnung und Rueckfluesse von Antraegen
+// gehoeren gar nicht zu den Erloesen — undefined, nicht 'ohne Konto'.
+const rech = { 'r-19': { id: 'r-19', erloeskonto: 'erloes_reisen', ust_pflichtig: true },
+               'r-12': { id: 'r-12', erloeskonto: null, ust_pflichtig: null } };
+const kb = [
+  { id: 'k1', betrag_cents: 1056900, invoice_id: 'r-19' },
+  { id: 'k2', betrag_cents:   26150, erloeskonto: 'sonstige', ust_pflichtig: false },
+  { id: 'k3', betrag_cents:   -5000 },
+  { id: 'k4', betrag_cents:   15000, claim_id: 'c-1' },
+  { id: 'k5', betrag_cents:   40000 },
+  { id: 'k6', betrag_cents:  -10000, invoice_id: 'r-19' },
+  { id: 'k7', betrag_cents:  130000, invoice_id: 'r-12' }
+];
+pruefe('Konto aus der Rechnung', KA.kontoVon(kb[0], rech) === 'erloes_reisen', KA.kontoVon(kb[0], rech));
+pruefe('Konto der Buchung selbst', KA.kontoVon(kb[1], rech) === 'sonstige', KA.kontoVon(kb[1], rech));
+pruefe('Ausgang ohne Rechnung gehoert nicht dazu', KA.kontoVon(kb[2], rech) === undefined, KA.kontoVon(kb[2], rech));
+pruefe('Rueckfluss eines Antrags gehoert nicht dazu', KA.kontoVon(kb[3], rech) === undefined, KA.kontoVon(kb[3], rech));
+pruefe('Eingang ohne alles ist ohne Konto', KA.kontoVon(kb[4], rech) === null, KA.kontoVon(kb[4], rech));
+pruefe('Rechnung ohne Konto ist ohne Konto', KA.kontoVon(kb[6], rech) === null, KA.kontoVon(kb[6], rech));
+
+const jk = KA.jeKonto(kb, rech);
+pruefe('Reisen mit Rueckzahlung gemindert', jk.erloes_reisen === 1046900, JSON.stringify(jk));
+pruefe('Sonstige', jk.sonstige === 26150, JSON.stringify(jk));
+pruefe('ohne Konto zaehlt Eingang und Rechnung ohne Konto', jk.ohne === 170000, JSON.stringify(jk));
+pruefe('Klinik leer', jk.erloes_klinik === 0 && jk.erloes_45a === 0, JSON.stringify(jk));
+
+const csvK = KA.alsCsv(kb, {}, rech);
+const kopfK = csvK.split('\r\n')[0];
+pruefe('CSV kennt Erloeskonto und USt', /Erlöskonto;USt-pflichtig$/.test(kopfK), kopfK);
+pruefe('CSV schreibt Konto aus der Rechnung', /;erloes_reisen;ja\r\n/.test(csvK), csvK.split('\r\n')[1]);
+
 if (fehler.length) { console.error('FEHLER:\n- ' + fehler.join('\n- ')); process.exit(1); }
 console.log('Kassenbuch-Auswertung: alle Pruefungen bestanden.');

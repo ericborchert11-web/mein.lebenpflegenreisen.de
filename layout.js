@@ -327,15 +327,19 @@
     return !!(s && s.role === 'ehrenamt' && s.status === 'pending');
   }
 
+  // Liefert true, wenn umgeleitet wird -- init() bricht dann ab, damit die
+  // gesperrte Seite nicht noch Kopf, Fuss und Chatbot aufbaut.
   function halteImOnboarding() {
-    if (!imOnboarding()) return;
+    if (!imOnboarding()) return false;
     const seite = (location.pathname.split('/').pop() || '').toLowerCase();
-    if (!ONBOARDING_ERLAUBT.includes(seite)) location.replace('onboarding.html');
+    if (ONBOARDING_ERLAUBT.includes(seite)) return false;
+    location.replace('onboarding.html');
+    return true;
   }
 
   window.LPR_Layout = {
     init: function(opts) {
-      halteImOnboarding();
+      if (halteImOnboarding()) return;
       opts = opts || {};
       renderA11y();
       if (opts.header !== false) renderHeader(opts.page || '');

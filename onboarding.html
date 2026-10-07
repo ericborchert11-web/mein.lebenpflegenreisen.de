@@ -331,6 +331,24 @@ async function zeichneTermine(akt) {
 // ── Kalenderdatei (Muster klinik-buchen.html) ─────────────────────────────
 function pad2(n) { return String(n).padStart(2, '0'); }
 function icsText(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
+// URL ist kein TEXT-Wert (Komma und Semikolon gehoeren zur Adresse), darum
+// nicht icsText(), sondern nur Zeilenumbrueche und Steuerzeichen entfernen --
+// sonst koennte ein Link im Termin eigene Kalenderzeilen einschleusen.
+function icsUrl(s) { return String(s || '').replace(/[\u0000-\u001f\u007f]/g, ''); }
+// RFC 5545 3.1: Zeilen hoechstens 75 Oktette, Fortsetzung mit CRLF + Leerzeichen.
+// Gezaehlt wird in UTF-8-Bytes, getrennt nur zwischen ganzen Zeichen.
+function icsFalte(zeile) {
+  const enc = new TextEncoder();
+  const teile = [];
+  let akt = '', laenge = 0, grenze = 75;
+  for (const z of zeile) {
+    const n = enc.encode(z).length;
+    if (laenge + n > grenze) { teile.push(akt); akt = ''; laenge = 0; grenze = 74; }
+    akt += z; laenge += n;
+  }
+  teile.push(akt);
+  return teile.join('\r\n ');
+}
 function icsLokal(dateISO, hhmm, plusMin) {
   const [y, m, d] = dateISO.split('-').map(Number);
   const [h, mi] = String(hhmm).split(':').map(Number);
@@ -365,9 +383,9 @@ function ladeIcs(t) {
     ...zeit,
     `SUMMARY:${icsText(t.titel || 'Termin Leben Pflegen Reisen')}`,
     `LOCATION:${icsText(t.ort)}`,
-    ...(t.online_link ? [`URL:${t.online_link}`] : []),
+    ...(t.online_link ? [`URL:${icsUrl(t.online_link)}`] : []),
     'STATUS:CONFIRMED','END:VEVENT','END:VCALENDAR'
-  ].join('\r\n');
+  ].map(icsFalte).join('\r\n');
   const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
   const a = document.createElement('a');
   a.href = url; a.download = 'termin.ics';
@@ -435,7 +453,7 @@ function zeichneAntrag(st, akt) {
         </div>
         <div class="ob-feld" id="f-anders-feld" hidden style="margin-top:10px;">
           <label for="f-anders">Anderer Betrag in € pro Monat</label>
-          <input type="number" id="f-anders" name="beitragAnders" min="1" step="0.5" inputmode="decimal">
+          <input type="number" id="f-anders" name="beitragAnders" min="1" step="0.01" inputmode="decimal">
         </div>
         <p class="ob-hinweis">Den Beitrag überweist du, bis wir das Lastschriftverfahren eingerichtet haben. Die Bankverbindung bekommst du mit der Aufnahmebestätigung.</p>
       </fieldset>

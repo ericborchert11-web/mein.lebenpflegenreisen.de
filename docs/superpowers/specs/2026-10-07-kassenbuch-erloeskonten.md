@@ -191,3 +191,5 @@ Zahlung vom 19.08. hing an der Gutschrift 0004. Ursache der Fehlzuordnung:
 Vorzeichen, ein Eingang passt so auf eine Gutschrift — Fix in Etappe 2.
 Ersatzrechnung RE-2026-0019 (10.569 €, § 19-Hinweis) ausgestellt, Zahlung
 umgehängt, 0004 wieder offen.
+
+**Test AT auf PROD bestanden (07.10.2026).** Etappe 1 abgeschlossen.

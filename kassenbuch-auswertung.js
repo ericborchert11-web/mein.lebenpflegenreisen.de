@@ -181,6 +181,60 @@
     return [kopf.join(';')].concat(zeilen).join('\r\n') + '\r\n';
   }
 
+  /**
+   * Erloese eines Jahres fuer die Steuerberaterin.
+   *
+   * Gezaehlt wird wie in der Ampel nach Zahlungseingang (Buchungstag). Dazu
+   * kommen festgeschriebene Rechnungen des Jahres, zu denen noch kein Geld auf
+   * dem Konto liegt — mit leerem Zahlungseingang, damit sie nicht verloren
+   * gehen. Storno-Paare heben sich auf und fehlen; Ausgaben sowieso.
+   */
+  function erloeseCsv(buchungen, rechnungenNachId, jahr) {
+    var rech = rechnungenNachId || {};
+    var j = String(jahr);
+    var zeilen = [];
+    var bezahlt = {};
+
+    (buchungen || []).forEach(function (b) {
+      if (b.invoice_id) bezahlt[b.invoice_id] = true;
+      if (String(b.buchungstag || '').slice(0, 4) !== j) return;
+      var konto = kontoVon(b, rech);
+      if (konto === undefined) return;
+      var r = b.invoice_id ? rech[b.invoice_id] : null;
+      zeilen.push({
+        datum: r ? (r.invoice_date || b.buchungstag) : b.buchungstag,
+        eingang: b.buchungstag,
+        nr: r ? r.invoice_no : '',
+        text: r ? (r.betreff || 'Rechnung an ' + (r.recipient_name || '—')) : (b.verwendungszweck || ''),
+        konto: konto || '',
+        ust: jaNein(ustVon(b, rech)),
+        cents: cents(b),
+        zahler: b.gegenpartei || (r && r.recipient_name) || ''
+      });
+    });
+
+    Object.keys(rech).forEach(function (id) {
+      var r = rech[id];
+      if (bezahlt[id] || String(r.invoice_date || '').slice(0, 4) !== j) return;
+      if (r.status !== 'issued' && r.status !== 'paid') return;
+      if (r.cancels_invoice_id || r.cancelled_by_invoice_id) return;
+      zeilen.push({
+        datum: r.invoice_date, eingang: r.paid_on || '', nr: r.invoice_no,
+        text: r.betreff || 'Rechnung an ' + (r.recipient_name || '—'),
+        konto: r.erloeskonto || '', ust: jaNein(r.ust_pflichtig),
+        cents: Number(r.total_cents || 0), zahler: r.recipient_name || ''
+      });
+    });
+
+    zeilen.sort(function (a, b) {
+      return String(a.eingang || a.datum).localeCompare(String(b.eingang || b.datum));
+    });
+    var kopf = ['Datum', 'Zahlungseingang', 'Belegnr.', 'Beschreibung', 'Erlöskonto', 'USt-pflichtig', 'Betrag', 'Zahler'];
+    return [kopf.join(';')].concat(zeilen.map(function (z) {
+      return [z.datum, z.eingang, z.nr, z.text, z.konto, z.ust, deBetrag(z.cents), z.zahler].map(feld).join(';');
+    })).join('\r\n') + '\r\n';
+  }
+
   var KassenbuchAuswertung = {
     auswertung: auswertung,
     saldoReihe: saldoReihe,
@@ -188,6 +242,7 @@
     alsCsv: alsCsv,
     kontoVon: kontoVon,
     jeKonto: jeKonto,
+    erloeseCsv: erloeseCsv,
     deBetrag: deBetrag
   };
 

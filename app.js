@@ -6665,7 +6665,10 @@
       rechnungen: r.invoices.filter(i => i.invoice_no).map(i => ({
         id: i.id, invoice_no: i.invoice_no, invoice_date: i.invoice_date,
         total_cents: i.total_cents, recipient_name: i.recipient_name, status: i.status,
-        erloeskonto: i.erloeskonto, ust_pflichtig: i.ust_pflichtig
+        erloeskonto: i.erloeskonto, ust_pflichtig: i.ust_pflichtig,
+        // fuer den Export an die Steuerberaterin
+        betreff: i.betreff, paid_on: i.paid_on,
+        cancels_invoice_id: i.cancels_invoice_id, cancelled_by_invoice_id: i.cancelled_by_invoice_id
       })),
       antraege: c.claims.map(a => ({
         id: a.id, beleg_nr: a.beleg_nr, amount: a.amount,

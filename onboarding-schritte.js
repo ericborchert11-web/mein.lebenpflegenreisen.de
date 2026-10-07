@@ -7,11 +7,47 @@
  * Eingabe ist das Ergebnis der RPC mein_onboarding(). Der Schritt selbst
  * wird in der Datenbank berechnet (onboarding_schritt) — hier wird nur
  * entschieden, WAS die Person dazu liest. Ehrenamtliche werden geduzt.
+ *
+ * Termine (kennenlernen_am, einfuehrung_am, einarbeitung_am) nach heute
+ * gelten als geplant und werden mit Datum genannt. Optional st.heute
+ * ('YYYY-MM-DD'), sonst das lokale Datum.
  */
 (function () {
   'use strict';
 
   var TITEL = ['Registrieren', 'Kennenlernen', 'Mitgliedsantrag', 'Einführung & Unterlagen', 'Einarbeitungstag', 'Alles da'];
+
+  var WOCHENTAGE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+
+  function zwei(n) { return (n < 10 ? '0' : '') + n; }
+
+  // Heutiges Datum lokal als 'YYYY-MM-DD' (ohne Umweg ueber UTC).
+  function heuteLokal() {
+    var d = new Date();
+    return d.getFullYear() + '-' + zwei(d.getMonth() + 1) + '-' + zwei(d.getDate());
+  }
+
+  // Nur der Tagesteil zaehlt; 'YYYY-MM-DD' laesst sich als Text vergleichen.
+  function tag(wert) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(wert || ''));
+    return m ? m[0] : null;
+  }
+
+  // Termin liegt nach heute = geplant (heute selbst gilt als gewesen).
+  function geplant(wert, st) {
+    var t = tag(wert);
+    return !!t && t > (tag(st.heute) || heuteLokal());
+  }
+
+  // 'YYYY-MM-DD' -> 'Mittwoch, 14.10.2026'. Von Hand zerlegt, Wochentag ueber
+  // Date.UTC: keine Zeitzonen-Verschiebung, keine Locale-Daten noetig.
+  function datumLang(wert) {
+    var t = tag(wert);
+    if (!t) return '';
+    var j = +t.slice(0, 4), m = +t.slice(5, 7), d = +t.slice(8, 10);
+    var wt = WOCHENTAGE[new Date(Date.UTC(j, m - 1, d)).getUTCDay()];
+    return wt + ', ' + zwei(d) + '.' + zwei(m) + '.' + j;
+  }
 
   function fertig(st) {
     if (!st) return false;
@@ -29,6 +65,9 @@
       case 1:
         return { text: 'Dein Konto ist angelegt.', bringMit: [], wartetAuf: null, aktion: null };
       case 2:
+        if (geplant(st.kennenlernen_am, st)) return {
+          text: 'Dein Kennenlernen ist am ' + datumLang(st.kennenlernen_am) + '. Bring bitte deinen Personalausweis mit — dabei füllen wir zusammen den Antrag für die BZR-Abfrage aus.',
+          bringMit: ['Personalausweis'], wartetAuf: 'dich', aktion: 'termine' };
         if (!st.kennenlernen_am) return {
           text: 'Wir melden uns innerhalb von zwei Werktagen und machen mit dir einen Termin zum Kennenlernen aus. Dabei füllen wir zusammen den Antrag für die BZR-Abfrage aus.',
           bringMit: ['Personalausweis'], wartetAuf: 'verein', aktion: 'termine' };
@@ -45,10 +84,14 @@
           bringMit: [], wartetAuf: 'dich', aktion: 'antrag' };
       case 4:
         return {
-          text: 'Melde dich zur Einführungsveranstaltung an. Dort gibt es auch die Belehrung nach dem Infektionsschutzgesetz, und wir schauen uns deine Unterlagen an.',
+          text: (geplant(st.einfuehrung_am, st) ? 'Deine Einführungsveranstaltung ist am ' + datumLang(st.einfuehrung_am) + '. ' : '')
+            + 'Melde dich zur Einführungsveranstaltung an. Dort gibt es auch die Belehrung nach dem Infektionsschutzgesetz, und wir schauen uns deine Unterlagen an.',
           bringMit: ['Lebensmittelpass (Bescheinigung nach § 43 IfSG)', 'Impfausweis oder Nachweis zum Masernschutz', 'Erste-Hilfe-Nachweis'],
           wartetAuf: 'dich', aktion: 'termine' };
       case 5:
+        if (geplant(st.einarbeitung_am, st)) return {
+          text: 'Dein Einarbeitungstag ist am ' + datumLang(st.einarbeitung_am) + '. Für den Tag bekommst du die halbe Sitzwachen-Pauschale.',
+          bringMit: [], wartetAuf: 'dich', aktion: 'termine' };
         return {
           text: 'Fast geschafft: Melde dich zu deinem Einarbeitungstag an. Für den Tag bekommst du die halbe Sitzwachen-Pauschale.',
           bringMit: [], wartetAuf: 'dich', aktion: 'termine' };
@@ -81,7 +124,7 @@
     return !fertig(st) && aktuellNr(st) <= 4;
   }
 
-  var OnboardingSchritte = { TITEL: TITEL, schritte: schritte, aktueller: aktueller, fertig: fertig, zeigeUnterlagen: zeigeUnterlagen };
+  var OnboardingSchritte = { TITEL: TITEL, schritte: schritte, aktueller: aktueller, fertig: fertig, zeigeUnterlagen: zeigeUnterlagen, datumLang: datumLang };
   if (typeof module !== 'undefined' && module.exports) module.exports = OnboardingSchritte;
   else if (typeof window !== 'undefined') window.OnboardingSchritte = OnboardingSchritte;
 })();

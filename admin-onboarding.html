@@ -135,7 +135,7 @@
 </div>
 </main>
 
-<script src="onboarding-schritte.js?v20261007b"></script>
+<script src="onboarding-schritte.js?v20261007c"></script>
 <script src="app.js?v20261007d"></script>
 <script src="layout.js?v20261007d"></script>
 <script>
@@ -222,16 +222,27 @@ function leiste(schritt) {
   }).join('') + '</ol>';
 }
 
-/** Zeile mit Datumsfeld: erledigt = Haken mit Datum, sonst Feld + Eintragen. */
+// Diese Termine darf der Vorstand vorausplanen; erledigt erst, wenn der Tag da ist.
+const PLANBAR = ['kennenlernen_am', 'einfuehrung_am', 'ifsg_belehrung_am', 'einarbeitung_am'];
+
+/**
+ * Zeile mit Datumsfeld: gewesen = Haken mit Datum; geplant (nach heute) =
+ * Hinweis plus Feld zum Verschieben; leer = Feld + Eintragen.
+ */
 function datumZeile(p, feld, titel, hinweis) {
-  const wert = p[feld];
+  const wert = p[feld] ? String(p[feld]).slice(0, 10) : '';
   const id = `d-${feld}-${p.user_id}`;
+  const planbar = PLANBAR.includes(feld);
+  const geplant = planbar && wert && wert > heute();
+  const feldHtml = `<input type="date" id="${esc(id)}" value="${esc(geplant ? wert : heute())}"${planbar ? '' : ` max="${heute()}"`}>
+         <button type="button" class="btn btn-primary" data-aktion="datum" data-user="${esc(p.user_id)}" data-feld="${esc(feld)}">Eintragen</button>`;
+  let tun;
+  if (geplant) tun = `<span class="cl-offen">geplant am ${esc(datum(wert))}</span> ${feldHtml}`;
+  else if (wert) tun = `<span class="cl-ok">✓ am ${esc(datum(wert))}</span>`;
+  else tun = feldHtml;
   return `<div class="cl">
     <div class="cl-titel"><label for="${esc(id)}">${esc(titel)}</label>${hinweis ? `<small>${esc(hinweis)}</small>` : ''}</div>
-    <div class="cl-tun">${wert
-      ? `<span class="cl-ok">✓ ${esc(datum(wert))}</span>`
-      : `<input type="date" id="${esc(id)}" value="${heute()}" max="${heute()}">
-         <button type="button" class="btn btn-primary" data-aktion="datum" data-user="${esc(p.user_id)}" data-feld="${esc(feld)}">Eintragen</button>`}
+    <div class="cl-tun">${tun}
     </div></div>`;
 }
 

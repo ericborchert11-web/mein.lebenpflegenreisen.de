@@ -26,7 +26,11 @@ pruefe('Text 45a', RH.TEXT_45A === 'Umsatzsteuerfrei nach § 4 Nr. 16 Satz 1 Buc
 // 2 — Zuordnung
 pruefe('Klinik → § 19', RH.hinweisFuer('erloes_klinik', true) === RH.TEXT_19, RH.hinweisFuer('erloes_klinik', true));
 pruefe('45a → 45a', RH.hinweisFuer('erloes_45a', false) === RH.TEXT_45A, '');
-pruefe('Reisen gedeckt → 45a', RH.hinweisFuer('erloes_reisen', false) === RH.TEXT_45A, '');
+// Reisen sind steuerfrei, wenn die Pflegekasse die Betreuungskosten traegt
+// (Verhinderungspflege) — § 4 Nr. 16 S. 1 Buchst. n, OHNE Anerkennungsbescheid.
+// Geprueft mit der Steuerberaterin am 07.10.2026.
+pruefe('Text Buchst. n', /§ 4 Nr\. 16 Satz 1 Buchst\. n UStG/.test(RH.TEXT_N) && !/Bescheid/.test(RH.TEXT_N), RH.TEXT_N);
+pruefe('Reisen steuerfrei → Buchst. n', RH.hinweisFuer('erloes_reisen', false) === RH.TEXT_N, RH.hinweisFuer('erloes_reisen', false));
 pruefe('Reisen steuerpflichtig → § 19', RH.hinweisFuer('erloes_reisen', true) === RH.TEXT_19, '');
 pruefe('Reisen ohne Wahl → § 19 (vorsichtig)', RH.hinweisFuer('erloes_reisen', null) === RH.TEXT_19, '');
 pruefe('sonstige → kein Hinweis', RH.hinweisFuer('sonstige', false) === '', JSON.stringify(RH.hinweisFuer('sonstige', false)));

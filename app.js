@@ -6463,7 +6463,7 @@
         .from('invoices').update(row).eq('id', id).select(invoiceCols()).single();
       if (error) return { ok: false, error: error.message };
       // Dieselbe Falle wie im Kassenbuch: Wer AUF Reisen umstellt und sofort
-      // "45a-gedeckt" waehlt, bringt den abgeleiteten Wert des alten Kontos mit;
+      // "steuerfrei" waehlt, bringt den abgeleiteten Wert des alten Kontos mit;
       // der Trigger setzt dann true. Einmal nachschreiben.
       if (row.erloeskonto === 'erloes_reisen' && 'ust_pflichtig' in row && data.ust_pflichtig !== row.ust_pflichtig) {
         ({ data, error } = await client.from('invoices')
@@ -6713,7 +6713,7 @@
       beleg_url:  z.beleg_url  || null,
       notiz:      z.notiz      || null,
       // Das Flag leitet der Trigger aus dem Konto ab; gewaehlt wird es nur bei
-      // Reisen ("vom 45a-Bescheid gedeckt" = false).
+      // Reisen ("steuerfrei, Pflegekasse traegt die Kosten" = false).
       erloeskonto:   z.erloeskonto || null,
       ust_pflichtig: z.erloeskonto === 'erloes_reisen' ? z.ust_pflichtig !== false : null
     };
@@ -6727,7 +6727,7 @@
       if (error) return { ok: false, error: error.message };
       // Wer AUF Reisen umstellt, bringt den abgeleiteten Wert des alten Kontos
       // mit — der Trigger wertet ihn bewusst nicht als Wahl und setzt true.
-      // Ist "45a-gedeckt" gewaehlt, deshalb einmal nachschreiben: jetzt steht
+      // Ist "steuerfrei" gewaehlt, deshalb einmal nachschreiben: jetzt steht
       // das Konto schon auf Reisen, und der Wert gilt als gewaehlt.
       if (data && patch.erloeskonto === 'erloes_reisen' && data.ust_pflichtig !== patch.ust_pflichtig) {
         ({ data, error } = await client.from('bank_buchungen')

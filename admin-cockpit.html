@@ -50,6 +50,10 @@
 .ck-kachel.alarm { border-left-color: #9B2C2C; }
 .ck-kachel.alarm .zahl { color: #9B2C2C; }
 .ck-kachel.ruhig .zahl { color: var(--muted); }
+/* Die USt-Kachel ist ein Link ins Kassenbuch, keine Filtertaste. */
+a.ck-kachel { text-decoration: none; }
+.ck-kachel.gelb { border-left-color: #B7791F; }
+.ck-kachel.gelb .zahl { color: #8A5A12; }
 
 .ck-card {
   background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
@@ -424,7 +428,8 @@ textarea.ck-feld { min-height: 84px; resize: vertical; line-height: 1.5; }
   </form>
 </div>
 
-<script src="app.js?v20260913b"></script>
+<script src="ust-ampel.js?v20261007a"></script>
+<script src="app.js?v20261007a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'cockpit' });
@@ -439,6 +444,7 @@ function escAttr(s) {
 }
 
 let VORGAENGE = [], AUFGABEN = [], PUNKTE = [], NAMEN = {}, ZUSTAENDIGE = [];
+let UST = null;   // Kleinunternehmer-Ampel des laufenden Jahres, oder null
 
 // Mit ?vorgang=… zeigt dieselbe Seite die Vorgangsansicht. Eine zweite Datei
 // waere ein zweites Geruest, das mit dem ersten auseinanderlaeuft.
@@ -820,7 +826,7 @@ function zeichneZahlen() {
       ' data-kachel="' + k.id + '">' +
       '<span class="zahl">' + zahl + '</span>' +
       '<span class="wort">' + esc(k.wort) + '</span></button>';
-  }).join('');
+  }).join('') + ustKachel();
 
   document.querySelectorAll('[data-kachel]').forEach(b => {
     b.addEventListener('click', () => {
@@ -839,6 +845,18 @@ function zeichneZahlen() {
       document.getElementById('block-jetzt').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
+}
+
+// Kleinunternehmergrenze: die Zahlen und die Erklaerung stehen im Kassenbuch,
+// hier nur der Hinweis, dass es eng wird. Gruen bleibt ruhig.
+function ustKachel() {
+  if (!UST) return '';
+  const klasse = UST.farbe === 'rot' ? ' alarm' : UST.farbe === 'gelb' ? ' gelb' : ' ruhig';
+  return '<a class="ck-kachel' + klasse + '" href="admin-kassenbuch.html"' +
+    ' title="Steuerpflichtiger Umsatz ' + UST.jahr + ' gegen die Kleinunternehmergrenze">' +
+    '<span class="zahl">' + UST.prozent + ' %</span>' +
+    '<span class="wort">' + esc('USt-Grenze ' + UST.jahr + (UST.ueberschritten ? ' – überschritten' : '')) +
+    '</span></a>';
 }
 
 // ── Vorgangsansicht ─────────────────────────────────────────────────────
@@ -1240,12 +1258,19 @@ async function ladeEinstellungen() {
 
 // ── Laden ───────────────────────────────────────────────────────────────
 async function laden() {
-  const [v, a, p, z] = await Promise.all([
+  const [v, a, p, z, u] = await Promise.all([
     LPR.cockpitListVorgaenge(),
     LPR.cockpitListAufgaben(VORGANG_ID || undefined),
     VORGANG_ID ? Promise.resolve([]) : LPR.cockpitPunkte(),
-    LPR.cockpitZustaendige()
+    LPR.cockpitZustaendige(),
+    VORGANG_ID ? Promise.resolve(null) : LPR.ustUmsatz()
   ]);
+  // Ohne Zahlen keine Kachel — eine "0 %" waere eine falsche Entwarnung.
+  if (u && u.ok) {
+    const jahr = new Date().getFullYear();
+    const st = UstAmpel.stand(u.zeilen.find(x => Number(x.jahr) === jahr));
+    UST = st.leer ? null : st;
+  }
 
   // null heisst Fehler, [] heisst leer. Der Unterschied muss sichtbar bleiben,
   // sonst sieht ein abgelaufenes Token aus wie ein aufgeraeumter Schreibtisch.

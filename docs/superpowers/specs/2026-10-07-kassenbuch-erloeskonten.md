@@ -193,3 +193,24 @@ Ersatzrechnung RE-2026-0019 (10.569 €, § 19-Hinweis) ausgestellt, Zahlung
 umgehängt, 0004 wieder offen.
 
 **Test AT auf PROD bestanden (07.10.2026).** Etappe 1 abgeschlossen.
+
+## 6. Etappe 2 — Kassenbuch-Oberfläche (07.10.2026)
+
+Plan: `docs/superpowers/plans/2026-10-07-erloeskonten-e2.md`.
+
+- `ust-ampel.js`: reine Bewertung einer Zeile aus `v_ust_umsatz` (Prozent,
+  Farbe, Vorjahr, Warnungen), Prüfskript `scripts/pruefe-ust-ampel.mjs`.
+- `kassenbuch-auswertung.js`: `kontoVon()` nach derselben Regel wie die Sicht,
+  `jeKonto()`, CSV um „Erlöskonto" und „USt-pflichtig" erweitert.
+- `kassenbuch-zuordnung.js`: Rechnungen mit Vorzeichen vergleichen; ein Eingang
+  gegen eine Gutschrift wird als Hinweis gemeldet statt zugeordnet.
+- Kassenbuch: Ampel-Karte, Konto-Block im Dialog (nur bei Eingängen, Schalter
+  45a nur bei Reisen), Spalte und Filter „Erlöskonto", Summen je Konto in der
+  Auswertung. Ein Eingang ohne Rechnung ist erst mit Konto zugeordnet. Auf dem
+  Handy scrollt die Liste seitlich in ihrer Karte (war schon vorher zu breit).
+- Cockpit: Kachel „USt-Grenze {Jahr}" mit Prozent, gelb/rot, Link ins Kassenbuch.
+- `kassenbuchZuordnen`: Wechsel von einem anderen Konto auf „Reisen, 45a-gedeckt"
+  schreibt das Flag ein zweites Mal — beim ersten Mal wertet der Trigger den
+  mitgebrachten Wert als abgeleitet und setzt true.
+- Geprüft ohne Login an einer Wegwerf-Kopie mit Stub (Desktop + 390 px):
+  Ampel, Summen, Filter, Dialogregeln, Cockpit-Kachel.

@@ -419,6 +419,8 @@ function zeichneAntrag(st, akt) {
   }
 
   const heute = new Date().toLocaleDateString('sv-SE');
+  // Mitglied ab 18 (Eric, 07.10.2026). Die DB prueft dasselbe in mitgliedsantrag_einreichen.
+  const vor18 = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 18); return d.toLocaleDateString('sv-SE'); })();
   const s = SESSION || {};
   box.innerHTML = `
     <h2>Dein Mitgliedsantrag</h2>
@@ -440,7 +442,7 @@ function zeichneAntrag(st, akt) {
       </div>
       <div class="ob-feld">
         <label for="f-geb">Geburtsdatum</label>
-        <input type="date" id="f-geb" name="geburtsdatum" max="${heute}" autocomplete="bday" required>
+        <input type="date" id="f-geb" name="geburtsdatum" max="${vor18}" autocomplete="bday" required>
       </div>
       <fieldset class="ob-feld">
         <legend>Monatlicher Beitrag</legend>
@@ -506,6 +508,10 @@ function zeichneAntrag(st, akt) {
 
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    if (form.elements.geburtsdatum.value && form.elements.geburtsdatum.value > vor18) {
+      melde('Mitglied werden kannst du ab 18 Jahren.', true);
+      return;
+    }
     if (!form.checkValidity()) {
       form.reportValidity();
       melde('Bitte fülle alle Felder aus und setze die drei Häkchen.', true);

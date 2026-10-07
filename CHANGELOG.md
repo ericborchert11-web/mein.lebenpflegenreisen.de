@@ -1,5 +1,15 @@
 # Änderungen
 
+## (unveröffentlicht) — Pflichthinweis auf Rechnungen folgt dem Erlöskonto
+
+Im Rechnungseditor wird kein Befreiungsgrund mehr getippt. Man wählt das
+Erlöskonto, und die Rechnung bekommt den mit der Steuerberaterin abgestimmten
+Hinweis: § 19 UStG für Klinik und steuerpflichtige Reisen, § 4 Nr. 16 Buchst. g
+für 45a-Leistungen und 45a-gedeckte Reisen, keinen bei sonstigen Einnahmen.
+Ohne Konto, mit § 4 Nr. 18 oder mit „Personalgestellung“ auf einer
+Klinik-Rechnung lässt sich nichts festschreiben. Im Kassenbuch gibt es dazu den
+Jahresexport der Erlöse für die Steuerberaterin.
+
 ## 07.10.2026 — Erlöskonten und Kleinunternehmer-Ampel im Kassenbuch
 
 Seit der Anerkennung nach § 45a SGB XI müssen die Einnahmen nach drei

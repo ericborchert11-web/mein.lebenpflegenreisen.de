@@ -149,7 +149,8 @@
         // Die Zahl offener Interessenten sitzt auf der GRUPPE, nicht auf dem
         // Eintrag: eingeklappt waere sie unsichtbar, und dann koennte man sie
         // sich sparen. Sie ist das eine Signal in diesem Menue, das sagt
-        // "hier wartet jemand auf dich".
+        // "hier wartet jemand auf dich". Seit dem Onboarding zaehlen dort auch
+        // die Bewerbenden mit, bei denen der Verein am Zug ist (zeigeMenschenZahl).
         const zahl = `<span id="nav-interesse-zahl" class="nav-badge" hidden></span>`;
         navItems =
           // Das Cockpit steht VOR den Gruppen und in keiner: es ist die
@@ -377,9 +378,27 @@
       const sb = await LPR.supabase();
       const { data, error } = await sb.rpc('ehrenamt_interesse_offen');
       if (error || !data) return;
-      el.textContent = data;
-      el.hidden = false;
+      menschenZahlen.interesse = Number(data) || 0;
+      zeigeMenschenZahl();
     } catch (_) { /* still */ }
+  }
+
+  // Die Zahl an der Gruppe "Menschen" ist die Summe aus offenen Interessenten
+  // und Onboarding-Faellen, bei denen der Verein am Zug ist: Eingeklappt waere
+  // die Zahl am Eintrag "Onboarding" sonst unsichtbar. Der Titel sagt, woraus
+  // sich die Summe zusammensetzt.
+  const menschenZahlen = { interesse: 0, onboarding: 0 };
+  function zeigeMenschenZahl() {
+    const el = document.getElementById('nav-interesse-zahl');
+    if (!el) return;
+    const summe = menschenZahlen.interesse + menschenZahlen.onboarding;
+    if (!summe) { el.hidden = true; return; }
+    const teile = [];
+    if (menschenZahlen.interesse) teile.push(menschenZahlen.interesse + ' offene Interessenten');
+    if (menschenZahlen.onboarding) teile.push(menschenZahlen.onboarding + ' im Onboarding, Verein am Zug');
+    el.textContent = summe;
+    el.title = teile.join(', ');
+    el.hidden = false;
   }
 
   /**
@@ -398,6 +417,8 @@
       if (error || !data) return;
       el.textContent = data;
       el.hidden = false;
+      menschenZahlen.onboarding = Number(data) || 0;
+      zeigeMenschenZahl();
     } catch (_) { /* still */ }
   }
 

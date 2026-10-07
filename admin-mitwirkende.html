@@ -455,7 +455,7 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
 <div class="toast" id="toast"></div>
 
 <script src="unterlagen-regel.js?v20261007"></script>
-<script src="app.js?v20260911a"></script>
+<script src="app.js?v20261007d"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: '', chatbot: false });
@@ -621,7 +621,10 @@ async function renderPending() {
           // (onboarding_abschliessen), nie direkt per approveUser.
           ? `${!isRejected ? `<span style="font-size: 14px; font-weight: 700; color: #1A3A2A;">Im Onboarding</span>
              <a href="admin-onboarding.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; color: #1A3A2A; font-weight: 700; font-size: 14px;">Zur Onboarding-Seite →</a>
-             <button class="btn-reject"  data-email="${escape(u.email)}" style="background: transparent; color: #c00; border: 1px solid #c00; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; min-height: 44px;">Ablehnen</button>` : ''}`
+             <button class="btn-reject"  data-email="${escape(u.email)}" style="background: transparent; color: #c00; border: 1px solid #c00; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; min-height: 44px;">Ablehnen</button>`
+            // Abgelehnte Ehrenamtliche: einziger Weg zurueck ist das Onboarding
+            // (status wieder pending), nicht die Direktfreigabe.
+            : `<button class="btn-zurueck" data-id="${escape(u._id)}" data-name="${escape(u.name || u.email)}" style="background: #1A3A2A; color: #C8F135; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px; min-height: 44px;">Zurück ins Onboarding</button>`}`
           : !isRejected
           ? `<button class="btn-approve" data-email="${escape(u.email)}" style="background: #1A3A2A; color: #C8F135; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px;">✓ Freigeben</button>
              <button class="btn-reject"  data-email="${escape(u.email)}" style="background: transparent; color: #c00; border: 1px solid #c00; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Ablehnen</button>`
@@ -675,6 +678,40 @@ async function renderPending() {
         const res = await LPR.deleteRegistration(email);
         if (res.ok) {
           showToast('Registrierung gelöscht: ' + email);
+          await render();
+        } else {
+          showToast('Fehler: ' + res.error);
+          leiste.innerHTML = vorher;
+          renderPending();
+        }
+      });
+    });
+  });
+
+  // Zurueck ins Onboarding: wie Loeschen mit Rueckfrage in der Karte und
+  // zweitem Klick, kein Browser-Dialog.
+  list.querySelectorAll('.btn-zurueck').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id   = btn.getAttribute('data-id');
+      const name = btn.getAttribute('data-name');
+      const leiste = btn.parentElement;
+      const vorher = leiste.innerHTML;
+
+      leiste.innerHTML =
+        `<span style="font-size:13px; color:#1A3A2A; font-weight:700;">${escape(name)} wirklich zurück ins Onboarding?</span>
+         <button class="btn-zurueck-ja" style="background:#1A3A2A; color:#C8F135; border:none; padding:8px 14px; border-radius:6px; font-weight:700; cursor:pointer; font-size:13px; min-height:44px;">Ja, zurück ins Onboarding</button>
+         <button class="btn-zurueck-nein" style="background:transparent; color:#1A3A2A; border:1px solid #ddd; padding:8px 14px; border-radius:6px; font-weight:600; cursor:pointer; font-size:13px; min-height:44px;">Abbrechen</button>`;
+
+      leiste.querySelector('.btn-zurueck-nein').addEventListener('click', () => {
+        leiste.innerHTML = vorher;
+        renderPending();
+      });
+
+      leiste.querySelector('.btn-zurueck-ja').addEventListener('click', async () => {
+        leiste.innerHTML = '<span style="font-size:13px; color:#666;">Wird zurückgesetzt …</span>';
+        const res = await LPR.zurueckInsOnboarding(id);
+        if (res.ok) {
+          showToast(name + ' ist wieder im Onboarding.');
           await render();
         } else {
           showToast('Fehler: ' + res.error);

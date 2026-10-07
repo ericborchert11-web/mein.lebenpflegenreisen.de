@@ -599,6 +599,37 @@
   }
 
   /**
+   * Abgelehnte Registrierung zurueck ins Onboarding (Vorstand).
+   *
+   * Gegenstueck zu rejectUser: status wieder 'pending', Grund und Zeitpunkt
+   * der Ablehnung leer. Danach steht die Person wieder auf der
+   * Onboarding-Seite (onboarding_uebersicht liest status = 'pending').
+   *
+   * Der Spaltenschutz auf profiles setzt eine Statusaenderung STILL zurueck,
+   * wenn der Aufrufer kein Vorstand ist — ohne Fehler. Deshalb wird der Status
+   * zurueckgelesen und nur 'pending' gilt als Erfolg.
+   */
+  async function zurueckInsOnboarding(userId) {
+    if (!userId) return { ok: false, error: 'Keine Person angegeben.' };
+    try {
+      const client = await sb();
+      const { error } = await client
+        .from('profiles')
+        .update({ status: 'pending', rejected_reason: null, rejected_at: null })
+        .eq('id', userId);
+      if (error) return { ok: false, error: error.message };
+      const { data, error: leseErr } = await client
+        .from('profiles').select('id, email, full_name, status').eq('id', userId).maybeSingle();
+      if (leseErr) return { ok: false, error: leseErr.message };
+      if (!data) return { ok: false, error: 'Benutzer nicht gefunden.' };
+      if (data.status !== 'pending') {
+        return { ok: false, error: 'Der Status wurde nicht geändert (nur der Vorstand darf das).' };
+      }
+      return { ok: true, user: { email: data.email, name: data.full_name, status: data.status } };
+    } catch(e) { console.error('[LPR] zurueckInsOnboarding:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /**
    * Wartende oder abgelehnte Registrierung endgueltig loeschen.
    *
    * Laeuft ueber die RPC registrierung_loeschen, weil an einer Registrierung
@@ -7439,7 +7470,7 @@
     setUserMasern, getMyMasern, MASERN_STATUS, MASERN_TEXT,
     register, loginWithPassword, pruefeUndSetzeSession, requireRole,
     requestPasswordReset, setNewPassword, requestMagicLink, hatPasswort, setzePasswort,
-    listUsersByStatus, approveUser, rejectUser, deleteRegistration,
+    listUsersByStatus, approveUser, rejectUser, zurueckInsOnboarding, deleteRegistration,
     listKunden, saveKunde, setKundeAktiv, createTermin, finishTermin,
     listTermine, cancelTermin,
     getMyCompliance, getComplianceForUser, setComplianceStatus, isComplianceComplete,

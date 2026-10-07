@@ -136,8 +136,8 @@
 </main>
 
 <script src="onboarding-schritte.js?v20261007b"></script>
-<script src="app.js?v20261007c"></script>
-<script src="layout.js?v20261007c"></script>
+<script src="app.js?v20261007d"></script>
+<script src="layout.js?v20261007d"></script>
 <script>
 if (!LPR.requireRole('admin', 'login.html?next=admin-onboarding.html')) throw new Error('kein Zugriff');
 LPR_Layout.init({ page: 'onboarding-admin' });
@@ -166,6 +166,12 @@ const offeneAntraege = {};
 const antragCache = {};
 let ablehnenFuer = null;
 let freischaltenFrage = null;
+// Entwurf des Ablehnungsgrunds je Antrag: ueberlebt jedes Neuzeichnen und
+// wird erst nach erfolgreicher Ablehnung verworfen.
+const grundEntwurf = {};
+// Eine Aktion laeuft gerade: Das Neuzeichnen gibt die Knoepfe wieder frei,
+// ein zweiter Klick darf trotzdem nichts doppelt abschicken.
+let laeuft = false;
 
 function melde(text, warn) {
   const el = $('meldung');
@@ -183,10 +189,11 @@ async function laden() {
   const r = await LPR.getOnboardingUebersicht();
   if (!r.ok) {
     $('liste').innerHTML = '<div class="leer"><strong>Die Liste ließ sich nicht laden.</strong><br>' + esc(r.error) + '</div>';
-    return;
+    return false;
   }
   personen = r.personen;
   zeichne();
+  return true;
 }
 
 function zeichne() {
@@ -258,7 +265,7 @@ function antragZeile(p) {
     const id = 'grund-' + p.antrag_id;
     extra += `<div class="cl-voll">
       <label for="${esc(id)}" style="display:block;font-weight:600;margin-bottom:4px;">Grund der Ablehnung (sieht die Person)</label>
-      <textarea id="${esc(id)}"></textarea>
+      <textarea id="${esc(id)}" data-antrag="${esc(p.antrag_id)}">${esc(grundEntwurf[p.antrag_id] || '')}</textarea>
       <div class="cl-tun" style="margin-top:8px;">
         <button type="button" class="btn btn-danger" data-aktion="ablehnen" data-antrag="${esc(p.antrag_id)}">Ablehnung senden</button>
         <button type="button" class="btn btn-rand" data-aktion="ablehnen-abbrechen">Abbrechen</button>
@@ -344,22 +351,49 @@ function nameZumAntrag(antragId) {
   return p ? p.name : 'Die Person';
 }
 
-/** Ergebnis einer Aktion melden und neu laden. */
-async function nachAktion(res, okText) {
-  if (!res || !res.ok) {
-    melde('Das hat nicht geklappt: ' + ((res && res.error) || 'Unbekannter Fehler.'), true);
-    await laden();
-    return;
-  }
-  melde(okText, false);
+function userZumAntrag(antragId) {
+  const p = personen.find(x => x.antrag_id === antragId);
+  return p ? p.user_id : null;
+}
+
+/** Fehler an der Karte zeigen, an der geklickt wurde (nach dem Neuzeichnen). */
+function karteFehler(userId, text) {
+  if (!userId) return;
+  const el = $('fe-' + userId);
+  if (!el) return;
+  el.textContent = text;
+  el.hidden = false;
+}
+
+/**
+ * Ergebnis einer Aktion melden und neu laden. Fehler stehen oben UND an der
+ * Karte, an der geklickt wurde (die gibt es erst nach dem Neuzeichnen).
+ * beiErfolg raeumt Zustand auf, bevor neu gezeichnet wird.
+ */
+async function nachAktion(res, okText, userId, beiErfolg) {
+  const ok = !!(res && res.ok);
+  const fehler = ok ? '' : 'Das hat nicht geklappt: ' + ((res && res.error) || 'Unbekannter Fehler.');
+  melde(ok ? okText : fehler, !ok);
+  if (ok && beiErfolg) beiErfolg();
+  // Nach jeder Aktion ist eine offene Freischalt-Frage hinfaellig. Waehrend
+  // die Aktion laeuft, laesst sich keine neue stellen (laeuft-Sperre).
+  freischaltenFrage = null;
   await laden();
+  if (!ok) karteFehler(userId, fehler);
 }
 
 $('filter').addEventListener('click', (ev) => {
   const b = ev.target.closest('button[data-filter]');
   if (!b) return;
   filter = b.dataset.filter;
+  freischaltenFrage = null;
   zeichne();
+});
+
+// Ablehnungsgrund beim Tippen mitschreiben, damit ihn kein Neuzeichnen loescht.
+$('liste').addEventListener('input', (ev) => {
+  const t = ev.target;
+  if (t && t.tagName === 'TEXTAREA' && t.dataset.antrag) grundEntwurf[t.dataset.antrag] = t.value;
 });
 
 $('liste').addEventListener('click', async (ev) => {
@@ -368,6 +402,17 @@ $('liste').addEventListener('click', async (ev) => {
   const a = b.dataset.aktion;
   const user = b.dataset.user;
   const antrag = b.dataset.antrag;
+  // Eingaben VOR jedem Neuzeichnen lesen — danach stuenden wieder die Vorgaben drin.
+  const datumWert = a === 'datum' ? (($(`d-${b.dataset.feld}-${user}`) || {}).value || '') : '';
+  const masernWert = a === 'masern' ? ($('m-' + user) || {}).value : '';
+  const grundWert = a === 'ablehnen' ? ((($('grund-' + antrag) || {}).value || '').trim()) : '';
+
+  // Jede andere Aktion als Freischalten nimmt die offene Freischalt-Frage
+  // zurueck: Sonst schaltet ein spaeterer Klick mit nur EINEM Klick frei.
+  if (a !== 'abschliessen' && freischaltenFrage !== null) {
+    freischaltenFrage = null;
+    zeichne();
+  }
 
   if (a === 'ansehen') {
     offeneAntraege[antrag] = !offeneAntraege[antrag];
@@ -383,6 +428,8 @@ $('liste').addEventListener('click', async (ev) => {
   if (a === 'ablehnen-abbrechen') { ablehnenFuer = null; zeichne(); return; }
   if (a === 'abschliessen-abbrechen') { freischaltenFrage = null; zeichne(); return; }
 
+  if (laeuft) return;
+
   if (a === 'abschliessen' && freischaltenFrage !== user) {
     // Erster Klick fragt im Knopf selbst nach; erst der zweite schaltet frei.
     freischaltenFrage = user;
@@ -390,38 +437,58 @@ $('liste').addEventListener('click', async (ev) => {
     return;
   }
 
+  // Pflichtangaben vor dem Sperren pruefen, damit ein Hinweis nichts blockiert.
+  if (a === 'datum' && !datumWert) {
+    melde('Bitte ein Datum wählen.', true); karteFehler(user, 'Bitte ein Datum wählen.'); return;
+  }
+  if (a === 'ablehnen' && !grundWert) {
+    melde('Bitte einen Grund angeben — die Person sieht ihn.', true);
+    karteFehler(userZumAntrag(antrag), 'Bitte einen Grund angeben — die Person sieht ihn.');
+    return;
+  }
+
+  laeuft = true;
   b.disabled = true;
-  const vorher = b.textContent;
   b.textContent = '…';
 
-  if (a === 'datum') {
-    const feld = b.dataset.feld;
-    const wert = ($(`d-${feld}-${user}`) || {}).value;
-    if (!wert) { b.disabled = false; b.textContent = vorher; melde('Bitte ein Datum wählen.', true); return; }
-    await nachAktion(await LPR.onboardingSetzen(user, feld, wert), `${name(user)}: ${datum(wert)} eingetragen.`);
-  } else if (a === 'unterlage') {
-    const typ = b.dataset.typ;
-    const upd = { status: 'approved' };
-    if (typ === 'bzr' || typ === 'erste_hilfe') upd.valid_until = inZweiJahren();
-    const texte = { bzr: 'BZR-Abfrage', ifsg43: 'Lebensmittelpass', erste_hilfe: 'Erste Hilfe' };
-    await nachAktion(await LPR.setComplianceStatus({ userId: user, documentType: typ }, upd),
-      `${name(user)}: ${texte[typ] || typ} genehmigt.`);
-  } else if (a === 'annehmen') {
-    const n = nameZumAntrag(antrag);
-    await nachAktion(await LPR.mitgliedsantragEntscheiden(antrag, true, null), `${n}: Mitgliedsantrag angenommen.`);
-  } else if (a === 'ablehnen') {
-    const grund = (($('grund-' + antrag) || {}).value || '').trim();
-    if (!grund) { b.disabled = false; b.textContent = vorher; melde('Bitte einen Grund angeben — die Person sieht ihn.', true); return; }
-    const n = nameZumAntrag(antrag);
-    ablehnenFuer = null;
-    await nachAktion(await LPR.mitgliedsantragEntscheiden(antrag, false, grund), `${n}: Mitgliedsantrag abgelehnt.`);
-  } else if (a === 'masern') {
-    const st = ($('m-' + user) || {}).value;
-    await nachAktion(await LPR.setUserMasern(user, st), `${name(user)}: Masernnachweis gespeichert (${LPR.MASERN_TEXT[st] || st}).`);
-  } else if (a === 'abschliessen') {
-    const n = name(user);
-    freischaltenFrage = null;
-    await nachAktion(await LPR.onboardingAbschliessen(user), `${n} ist freigeschaltet.`);
+  try {
+    if (a === 'datum') {
+      const feld = b.dataset.feld;
+      const wert = datumWert;
+      await nachAktion(await LPR.onboardingSetzen(user, feld, wert), `${name(user)}: ${datum(wert)} eingetragen.`, user);
+    } else if (a === 'unterlage') {
+      const typ = b.dataset.typ;
+      const upd = { status: 'approved' };
+      // Lebensmittelpass ohne Ablauf: null ausdruecklich mitschicken, damit
+      // ein altes Ablaufdatum nicht stehen bleibt.
+      upd.valid_until = (typ === 'bzr' || typ === 'erste_hilfe') ? inZweiJahren() : null;
+      const texte = { bzr: 'BZR-Abfrage', ifsg43: 'Lebensmittelpass', erste_hilfe: 'Erste Hilfe' };
+      await nachAktion(await LPR.setComplianceStatus({ userId: user, documentType: typ }, upd),
+        `${name(user)}: ${texte[typ] || typ} genehmigt.`, user);
+    } else if (a === 'annehmen') {
+      const n = nameZumAntrag(antrag);
+      await nachAktion(await LPR.mitgliedsantragEntscheiden(antrag, true, null), `${n}: Mitgliedsantrag angenommen.`, userZumAntrag(antrag));
+    } else if (a === 'ablehnen') {
+      const grund = grundWert;
+      const n = nameZumAntrag(antrag);
+      const u = userZumAntrag(antrag);
+      // Formular und Entwurf erst nach Erfolg schliessen: Bei einem Fehler
+      // bleibt der getippte Grund stehen.
+      await nachAktion(await LPR.mitgliedsantragEntscheiden(antrag, false, grund), `${n}: Mitgliedsantrag abgelehnt.`, u,
+        () => { ablehnenFuer = null; delete grundEntwurf[antrag]; });
+    } else if (a === 'masern') {
+      const st = masernWert;
+      await nachAktion(await LPR.setUserMasern(user, st), `${name(user)}: Masernnachweis gespeichert (${LPR.MASERN_TEXT[st] || st}).`, user);
+    } else if (a === 'abschliessen') {
+      const n = name(user);
+      freischaltenFrage = null;
+      await nachAktion(await LPR.onboardingAbschliessen(user), `${n} ist freigeschaltet.`, user);
+    }
+  } catch (e) {
+    console.error('[onboarding] Aktion fehlgeschlagen:', e);
+    await nachAktion({ ok: false, error: 'Netzwerkfehler.' }, '', user || userZumAntrag(antrag));
+  } finally {
+    laeuft = false;
   }
 });
 

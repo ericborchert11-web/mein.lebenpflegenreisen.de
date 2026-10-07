@@ -204,9 +204,9 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
 
 <script src="kassenbuch-csv.js?v20260921a"></script>
 <script src="kassenbuch-zuordnung.js?v20261007a"></script>
-<script src="kassenbuch-auswertung.js?v20261007a"></script>
+<script src="kassenbuch-auswertung.js?v20261007b"></script>
 <script src="ust-ampel.js?v20261007a"></script>
-<script src="app.js?v20261007a"></script>
+<script src="app.js?v20261007b"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -663,7 +663,10 @@ function zeigeAuswertung() {
   document.getElementById('auswertung-wrap').innerHTML = `
     <div class="kb-pad" style="border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;">
       <strong style="font-family:'Bricolage Grotesque',sans-serif;font-size:17px;color:var(--green-deep);">Auswertung ${escapeHtml(jahr)}</strong>
-      <button class="btn" onclick="exportiere()">Als CSV exportieren</button>
+      <span style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" onclick="exportiere()">Als CSV exportieren</button>
+        <button class="btn" onclick="exportiereErloese()">Erlöse für die Steuerberaterin (CSV)</button>
+      </span>
     </div>
     <div style="display:flex;flex-wrap:wrap;">
       <div style="flex:1;min-width:280px;">
@@ -723,6 +726,19 @@ function exportiere() {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'kassenbuch-' + document.getElementById('f-jahr').value + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+// Je Jahr alle Erloese mit Konto und USt-Kennzeichen — dazu festgeschriebene
+// Rechnungen ohne Zahlungseingang. Grundlage wie die Ampel: nach Zahlung.
+function exportiereErloese() {
+  const jahr = document.getElementById('f-jahr').value;
+  const csv = KassenbuchAuswertung.erloeseCsv(_alle, rechnungenNachId(), jahr);
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'erloese-' + jahr + '.csv';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }

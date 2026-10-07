@@ -6440,18 +6440,29 @@
 
   async function updateInvoiceDraft(id, patch) {
     const allowed = ['recipient_id','invoice_date','service_from','service_to','due_date',
-                     'tax_mode','tax_rate','tax_note','intro_text','care_share_cents']
+                     'tax_mode','tax_rate','tax_note','intro_text','care_share_cents',
+                     'erloeskonto','ust_pflichtig']
                      // Nur mitschicken, wenn die Migration durch ist — sonst
                      // wiese PostgREST das ganze Update zurueck und der Entwurf
                      // liesse sich gar nicht mehr speichern.
                      .concat(hatBriefFelder() ? ['betreff','kv_datum','mit_brief','brief'] : []);
     const row = {};
-    allowed.forEach(k => { if (patch && k in patch) row[k] = patch[k] === '' ? null : patch[k]; });
+    // Leerer Hinweis ist Absicht (sonstige Einnahmen) — tax_note ist not null.
+    allowed.forEach(k => { if (patch && k in patch) row[k] = patch[k] === '' && k !== 'tax_note' ? null : patch[k]; });
     if (!Object.keys(row).length) return { ok: true };
     try {
-      const { data, error } = await (await sb())
+      const client = await sb();
+      let { data, error } = await client
         .from('invoices').update(row).eq('id', id).select(invoiceCols()).single();
       if (error) return { ok: false, error: error.message };
+      // Dieselbe Falle wie im Kassenbuch: Wer AUF Reisen umstellt und sofort
+      // "45a-gedeckt" waehlt, bringt den abgeleiteten Wert des alten Kontos mit;
+      // der Trigger setzt dann true. Einmal nachschreiben.
+      if (row.erloeskonto === 'erloes_reisen' && 'ust_pflichtig' in row && data.ust_pflichtig !== row.ust_pflichtig) {
+        ({ data, error } = await client.from('invoices')
+          .update({ ust_pflichtig: row.ust_pflichtig }).eq('id', id).select(invoiceCols()).single());
+        if (error) return { ok: false, error: error.message };
+      }
       return { ok: true, invoice: data };
     } catch(e) {
       console.error('[LPR] updateInvoiceDraft:', e);
@@ -6665,7 +6676,10 @@
       rechnungen: r.invoices.filter(i => i.invoice_no).map(i => ({
         id: i.id, invoice_no: i.invoice_no, invoice_date: i.invoice_date,
         total_cents: i.total_cents, recipient_name: i.recipient_name, status: i.status,
-        erloeskonto: i.erloeskonto, ust_pflichtig: i.ust_pflichtig
+        erloeskonto: i.erloeskonto, ust_pflichtig: i.ust_pflichtig,
+        // fuer den Export an die Steuerberaterin
+        betreff: i.betreff, paid_on: i.paid_on,
+        cancels_invoice_id: i.cancels_invoice_id, cancelled_by_invoice_id: i.cancelled_by_invoice_id
       })),
       antraege: c.claims.map(a => ({
         id: a.id, beleg_nr: a.beleg_nr, amount: a.amount,

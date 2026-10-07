@@ -232,7 +232,9 @@
 </div>
 </main>
 
-<script src="app.js?v20260924a"></script>
+<script src="ust-ampel.js?v20261007a"></script>
+<script src="rechnung-hinweise.js?v20261007a"></script>
+<script src="app.js?v20261007b"></script>
 <script src="druck-anpassen.js?v20260823a"></script>
 <script src="layout.js"></script>
 <script>
@@ -288,6 +290,9 @@ async function reload() {
     if (b.ok) _bezug = b.invoice;
   }
   if (!_items.length && _inv.status === 'draft') _items = [emptyItem()];
+  // Ein Entwurf mit Konto bekommt immer den aktuellen Pflichthinweis — auch
+  // wenn er noch mit dem alten Standardtext (§ 4 Nr. 18) angelegt wurde.
+  if (_inv.status === 'draft' && _inv.erloeskonto) hinweisNachziehen();
   render();
 }
 
@@ -450,6 +455,8 @@ function renderBar() {
     bits.push('<button class="btn" onclick="removeDraft()">Verwerfen</button>');
     bits.push('<button class="btn btn-primary" onclick="issue()">Festschreiben</button>');
   } else {
+    bits.push('<span style="font-size:12.5px;color:var(--muted);">' + escapeHtml(UstAmpel.kontoName(_inv.erloeskonto))
+      + (_inv.erloeskonto === 'erloes_reisen' && _inv.ust_pflichtig === false ? ' · 45a' : '') + '</span>');
     bits.push('<button class="btn btn-primary" onclick="printInvoice()">Drucken / Als PDF sichern</button>');
     // Eine Storno-Gutschrift ist ein Gegenbuchungsbeleg, keine Forderung: sie
     // wird nie bezahlt, nicht wieder geoeffnet (das laesst reopen_invoice
@@ -520,16 +527,23 @@ function renderEditor() {
           <input class="f-in" type="date" value="${_inv.service_from || ''}" onchange="setField('service_from', this.value)"></label>
         <label class="f-lbl" style="flex:1;min-width:150px;">Leistung bis
           <input class="f-in" type="date" value="${_inv.service_to || ''}" onchange="setField('service_to', this.value)"></label>
-        <label class="f-lbl" style="flex:2;min-width:220px;">Umsatzsteuer
-          <select class="f-in" onchange="setTaxMode(this.value)">
-            <option value="exempt"${_inv.tax_mode === 'exempt' ? ' selected' : ''}>steuerfrei</option>
-            <option value="vat"${_inv.tax_mode === 'vat' ? ' selected' : ''}>steuerpflichtig</option>
+        <label class="f-lbl" style="flex:2;min-width:220px;">Erlöskonto
+          <select class="f-in" onchange="setKonto(this.value)">
+            <option value="">— bitte wählen —</option>
+            ${UstAmpel.KONTEN.map(k => `<option value="${k.wert}"${_inv.erloeskonto === k.wert ? ' selected' : ''}>${escapeHtml(k.name)}</option>`).join('')}
           </select></label>
       </div>
-      <label class="f-lbl">${_inv.tax_mode === 'vat' ? 'Steuersatz in Prozent' : 'Befreiungsgrund (steht so auf der Rechnung)'}
-        ${_inv.tax_mode === 'vat'
-          ? `<input class="f-in" value="${_inv.tax_rate}" onchange="setField('tax_rate', this.value)">`
-          : `<input class="f-in" value="${escapeHtml(_inv.tax_note)}" onchange="setField('tax_note', this.value)">`}</label>
+      ${_inv.erloeskonto === 'erloes_reisen' ? `
+      <label class="f-lbl" style="display:flex;gap:8px;align-items:center;">
+        <input type="checkbox" style="width:auto;margin:0;"${_inv.ust_pflichtig === false ? ' checked' : ''}
+               onchange="setReise45a(this.checked)"> vom 45a-Bescheid gedeckt (steuerfrei)</label>` : ''}
+      <div class="f-lbl">Hinweis auf der Rechnung (ergibt sich aus dem Erlöskonto)
+        <div style="margin-top:6px;padding:10px 12px;border-radius:8px;background:#F6F8F0;font-weight:400;color:var(--text);">
+          ${!_inv.erloeskonto ? '<span style="color:#8A3A22;">Erst ein Erlöskonto wählen — ohne Konto lässt sich die Rechnung nicht festschreiben.</span>'
+            : _inv.tax_note ? escapeHtml(_inv.tax_note)
+            : '<span style="color:var(--muted);">kein Hinweis — sonstige Einnahmen sind keine Rechnung im Sinne der Umsatzsteuer</span>'}
+        </div></div>
+      ${_inv.tax_mode === 'vat' ? '<p style="font-size:12.5px;color:#8A3A22;margin:-6px 0 14px;">Dieser Entwurf stand auf „steuerpflichtig“. Mit dem Erlöskonto wird er steuerfrei gestellt — Kleinunternehmer weisen keine Umsatzsteuer aus.</p>' : ''}
       ${!neueFelderDa() ? '' : `
       <label class="f-lbl">Betreff (steht fett über der Rechnung)
         <input class="f-in" value="${escapeHtml(_inv.betreff || '')}"
@@ -787,7 +801,7 @@ function renderBeleg() {
     : `<table class="beleg-sum">
          <tr><td>Entgelt (Nettobetrag / Summe der Leistungen)</td><td class="num">${LPR.centsToEUR(sub)}</td></tr>
        </table>
-       <div class="beleg-tax">${escapeHtml(_inv.tax_note)}</div>
+       ${_inv.tax_note ? `<div class="beleg-tax">${escapeHtml(_inv.tax_note)}</div>` : ''}
        <table class="beleg-sum">
          <tr class="total"><td>Rechnungsbetrag</td><td class="num">${LPR.centsToEUR(total)}</td></tr>
        </table>`;
@@ -918,7 +932,30 @@ function setCareShare(value) {
   _inv.care_share_cents = String(value).trim() === '' ? null : LPR.eurToCents(value);
   renderBeleg();
 }
-function setTaxMode(mode) { _inv.tax_mode = mode; renderEditor(); renderBeleg(); }
+// Das Konto bestimmt den Pflichthinweis — der Text wird nicht mehr getippt,
+// sondern kommt aus rechnung-hinweise.js (abgestimmt mit der Steuerberaterin).
+const UST_JE_KONTO = { erloes_klinik: true, erloes_45a: false, sonstige: false, erloes_reisen: true };
+
+function hinweisNachziehen() {
+  const h = RechnungHinweise.hinweisFuer(_inv.erloeskonto, _inv.ust_pflichtig);
+  if (h === null) return;
+  _inv.tax_mode = 'exempt';
+  _inv.tax_rate = 0;
+  _inv.tax_note = h;
+}
+
+function setKonto(k) {
+  _inv.erloeskonto = k || null;
+  _inv.ust_pflichtig = k ? UST_JE_KONTO[k] : null;
+  hinweisNachziehen();
+  renderEditor(); renderBeleg();
+}
+
+function setReise45a(gedeckt) {
+  _inv.ust_pflichtig = !gedeckt;
+  hinweisNachziehen();
+  renderEditor(); renderBeleg();
+}
 
 // Waehrend des Tippens wird nur der Zustand fortgeschrieben und die abgeleiteten
 // Zellen werden nachgezogen — die Eingabefelder selbst bleiben unangetastet.
@@ -1083,7 +1120,10 @@ async function issue() {
   if (!_items.some(i => String(i.description || '').trim())) {
     LPR.showToast('Mindestens eine Position mit Beschreibung.', 'warn'); return;
   }
-  if (!confirm('Festschreiben? Danach ist die Rechnung nicht mehr änderbar — Korrekturen laufen über eine Storno-Rechnung.')) return;
+  const p = RechnungHinweise.pruefe(_inv, _items);
+  if (p.fehler.length) { LPR.showToast(p.fehler.join(' '), 'warn'); return; }
+  const warn = p.warnungen.length ? '\n\nBitte prüfen:\n– ' + p.warnungen.join('\n– ') + '\n' : '';
+  if (!confirm('Festschreiben? Danach ist die Rechnung nicht mehr änderbar — Korrekturen laufen über eine Storno-Rechnung.' + warn)) return;
   if (!await saveDraft(true)) return;
   const res = await LPR.issueInvoice(INV_ID);
   if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }

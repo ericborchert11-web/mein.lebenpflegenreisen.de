@@ -108,5 +108,39 @@ const kopfK = csvK.split('\r\n')[0];
 pruefe('CSV kennt Erloeskonto und USt', /Erlöskonto;USt-pflichtig$/.test(kopfK), kopfK);
 pruefe('CSV schreibt Konto aus der Rechnung', /;erloes_reisen;ja\r\n/.test(csvK), csvK.split('\r\n')[1]);
 
+// ── Export fuer die Steuerberaterin ─────────────────────────────────────
+// Erloese nach Zahlungseingang, dazu festgeschriebene Rechnungen ohne
+// Zahlung (Zahlungseingang leer). Storno-Paare und Ausgaben fehlen.
+const rechE = {
+  'r-19': { id: 'r-19', invoice_no: 'RE-2026-0019', invoice_date: '2026-10-07', status: 'paid', total_cents: 1056900,
+            erloeskonto: 'erloes_reisen', ust_pflichtig: true, betreff: 'Betreute Reise Rerik', recipient_name: 'Heilpraxis' },
+  'r-12': { id: 'r-12', invoice_no: 'RE-2026-0012', invoice_date: '2026-09-09', status: 'issued', total_cents: 130000,
+            erloeskonto: 'erloes_klinik', ust_pflichtig: true, betreff: null, recipient_name: 'Unger' },
+  'r-03': { id: 'r-03', invoice_no: 'RE-2026-0003', invoice_date: '2026-08-17', status: 'cancelled', total_cents: 1056900,
+            erloeskonto: null, cancelled_by_invoice_id: 'r-04', recipient_name: 'Heilpraxis' },
+  'r-04': { id: 'r-04', invoice_no: 'RE-2026-0004', invoice_date: '2026-08-17', status: 'issued', total_cents: -1056900,
+            erloeskonto: 'erloes_reisen', cancels_invoice_id: 'r-03', recipient_name: 'Heilpraxis' },
+  'r-25': { id: 'r-25', invoice_no: 'RE-2025-0001', invoice_date: '2025-12-30', status: 'issued', total_cents: 100,
+            erloeskonto: 'erloes_klinik', recipient_name: 'Alt' }
+};
+const kbE = [
+  { id: 'e1', buchungstag: '2026-08-19', betrag_cents: 1056900, invoice_id: 'r-19', gegenpartei: 'Frommholz Simeon', verwendungszweck: '2026-0004' },
+  { id: 'e2', buchungstag: '2026-09-25', betrag_cents: 26150, erloeskonto: 'sonstige', ust_pflichtig: false, gegenpartei: 'Steglich', verwendungszweck: 'SPENDE; RERIK' },
+  { id: 'e3', buchungstag: '2026-09-01', betrag_cents: -53402, kostenart: 'Versicherung', gegenpartei: 'Allianz' },
+  { id: 'e4', buchungstag: '2025-12-31', betrag_cents: 5000, erloeskonto: 'sonstige', ust_pflichtig: false, gegenpartei: 'Vorjahr' }
+];
+const ex = KA.erloeseCsv(kbE, rechE, 2026).split('\r\n').filter(Boolean);
+pruefe('Export-Kopf', ex[0] === 'Datum;Zahlungseingang;Belegnr.;Beschreibung;Erlöskonto;USt-pflichtig;Betrag;Zahler', ex[0]);
+pruefe('Export: 2 Zahlungen + 1 offene Rechnung', ex.length === 4, ex.join(' | '));
+pruefe('Rechnung mit Rechnungsdatum und Zahlungseingang',
+  ex.some(z => z === '2026-10-07;2026-08-19;RE-2026-0019;Betreute Reise Rerik;erloes_reisen;ja;10569,00;Frommholz Simeon'),
+  ex.join(' | '));
+pruefe('Einnahme ohne Rechnung',
+  ex.some(z => z === '2026-09-25;2026-09-25;;"SPENDE; RERIK";sonstige;nein;261,50;Steglich'), ex.join(' | '));
+pruefe('Offene Rechnung ohne Zahlungseingang',
+  ex.some(z => z === '2026-09-09;;RE-2026-0012;Rechnung an Unger;erloes_klinik;ja;1300,00;Unger'), ex.join(' | '));
+pruefe('Storno-Paar, Ausgabe und Vorjahr fehlen',
+  !/RE-2026-000[34]|Allianz|Vorjahr|RE-2025/.test(ex.join('\n')), ex.join(' | '));
+
 if (fehler.length) { console.error('FEHLER:\n- ' + fehler.join('\n- ')); process.exit(1); }
 console.log('Kassenbuch-Auswertung: alle Pruefungen bestanden.');

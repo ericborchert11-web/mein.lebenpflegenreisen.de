@@ -214,3 +214,23 @@ Plan: `docs/superpowers/plans/2026-10-07-erloeskonten-e2.md`.
   mitgebrachten Wert als abgeleitet und setzt true.
 - Geprüft ohne Login an einer Wegwerf-Kopie mit Stub (Desktop + 390 px):
   Ampel, Summen, Filter, Dialogregeln, Cockpit-Kachel.
+
+## 7. Etappe 3 — Rechnungshinweise und Export (07.10.2026, Branch feat/erloeskonten-e3)
+
+Plan: `docs/superpowers/plans/2026-10-07-erloeskonten-e3.md`.
+
+- `rechnung-hinweise.js`: die beiden Texte aus Briefing Abschnitt 5 an einer
+  Stelle, `hinweisFuer(konto, ust)` und `pruefe()` (Sperren: kein Konto,
+  USt-Ausweis, § 4 Nr. 18, § 4 Nr. 16 auf Klinik, Personalgestellung; Warnung:
+  Klinik-Position ohne „Betreuung des Patienten/der Patientin …").
+- Editor: Erlöskonto statt Steuermodus und Freitext-Befreiungsgrund; der
+  Hinweis wird angezeigt, nicht getippt. Entwürfe mit Konto ziehen den Hinweis
+  beim Öffnen nach. Leerer Hinweis (sonstige) → kein Kasten. Festschreiben nur
+  nach `pruefe()`; festgeschriebene Rechnungen zeigen ihr Konto im Kopf.
+- Export „Erlöse für die Steuerberaterin (CSV)" im Kassenbuch: Datum,
+  Zahlungseingang, Belegnr., Beschreibung, Erlöskonto, USt-pflichtig, Betrag,
+  Zahler — Erlöse nach Zahlungseingang plus festgeschriebene Rechnungen ohne
+  Zahlung; Storno-Paare und Ausgaben fehlen.
+- Migration AU: Default von `invoices.tax_note` leer statt § 4 Nr. 18.
+- **Gate:** Muster-PDFs (Klinik, 45a, Reise steuerpflichtig) liegen in
+  `~/Downloads/Rechnungshinweise-Muster/` zur Freigabe durch Sonja. Push erst danach.

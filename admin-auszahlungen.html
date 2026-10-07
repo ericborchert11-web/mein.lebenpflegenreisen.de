@@ -123,6 +123,7 @@ h1 { margin:0 0 4px; }
             <option value="">alle</option>
             <option value="trip">Reisebegleitung</option>
             <option value="sitzwache">Sitzwache</option>
+            <option value="einarbeitung">Einarbeitungstag</option>
             <option value="auslage">Auslage</option>
           </select>
         </label>
@@ -275,10 +276,12 @@ function claimHerkunft(c) {
   if (c.kind === 'auslage') return 'auslage';
   if (c.source_type === 'trip') return 'trip';
   if (c.source_type === 'sitzwache') return 'sitzwache';
+  // Einarbeitungstag (Onboarding): halbe Sitzwachen-Pauschale ohne Buchung.
+  if (c.source_type === 'einarbeitung') return 'einarbeitung';
   return '';
 }
 
-const HERKUNFT_LABEL = { trip:'Reisebegleitung', sitzwache:'Sitzwache', auslage:'Auslage' };
+const HERKUNFT_LABEL = { trip:'Reisebegleitung', sitzwache:'Sitzwache', einarbeitung:'Einarbeitungstag', auslage:'Auslage' };
 
 // Filter der Liste. „offen" ist die Arbeitsliste des Vorstands: alles, was noch
 // eine Entscheidung oder eine Ueberweisung braucht. Leerer Wert heisst „alle".

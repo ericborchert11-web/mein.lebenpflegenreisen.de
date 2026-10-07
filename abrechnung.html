@@ -628,6 +628,7 @@ footer a { color: var(--lime); text-decoration: none; }
 .type-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; margin-right: 8px; }
 .type-badge.trip { background: var(--lime-soft); color: var(--green); }
 .type-badge.sitz { background: #E0E7F4; color: #2D4A6B; }
+.type-badge.einarb { background: #EFE8F6; color: #4E3A6B; }
 .iban-info { padding: 12px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 14px; }
 .iban-info strong { color: var(--green); }
 .iban-info .change-link { float: right; color: var(--green); text-decoration: underline; font-size: 13px; }
@@ -1184,8 +1185,14 @@ function renderClaimsSection() {
       : (c.status === 'approved' || c.status === 'submitted' || !c.status) ? 'noch nicht ausgezahlt'
       : '';
     const stateClass = c.status === 'paid' ? 'state-paid' : c.status === 'approved' ? 'state-approved' : c.status === 'rejected' ? 'state-rejected' : 'state-submitted';
-    const typeBadge = c.source_type === 'sitzwache' ? '<span class="type-badge sitz">Sitzwache</span>' : '<span class="type-badge trip">Reise</span>';
-    const title = c.source_type === 'sitzwache' ? 'Sitzwache vom ' + formatDateRange(c.period_start, c.period_end) : 'Reise: ' + formatDateRange(c.period_start, c.period_end);
+    // Drei Herkuenfte: Reise, Sitzwache und der Einarbeitungstag aus dem
+    // Onboarding (halbe Sitzwachen-Pauschale, ohne Buchung und ohne Reise).
+    const typeBadge = c.source_type === 'sitzwache' ? '<span class="type-badge sitz">Sitzwache</span>'
+      : c.source_type === 'einarbeitung' ? '<span class="type-badge einarb">Einarbeitungstag</span>'
+      : '<span class="type-badge trip">Reise</span>';
+    const title = c.source_type === 'sitzwache' ? 'Sitzwache vom ' + formatDateRange(c.period_start, c.period_end)
+      : c.source_type === 'einarbeitung' ? 'Einarbeitungstag am ' + formatDateRange(c.period_start, c.period_end)
+      : 'Reise: ' + formatDateRange(c.period_start, c.period_end);
     return '<div class="trip-card"><div>' + typeBadge + '<div class="trip-info-title">' + escape(title) + '</div><div class="trip-info-meta"><span>Beleg-ID: <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong></span><span>Eingereicht: ' + new Date(c.submitted_at).toLocaleDateString('de-DE') + '</span><span class="trip-state ' + stateClass + '">' + stateLabel + '</span>' + (stateNote ? '<span>' + stateNote + '</span>' : '') + '</div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(c.amount) + '</div><button class="btn btn-ghost" onclick="showBeleg(\'' + c.id + '\')">Beleg ansehen</button></div></div>';
   }).join('');
 }

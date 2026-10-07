@@ -111,6 +111,11 @@
     var jahresSumme = Number(d.jahresSumme) || 0;
 
     var isSitz = c.source_type === 'sitzwache';
+    // Dritte Herkunft seit Oktober 2026: der Einarbeitungstag aus dem
+    // Onboarding. Er wird automatisch angelegt, hat weder Buchung noch Reise
+    // und wird mit der halben Sitzwachen-Pauschale verguetet. Er ist KEINE
+    // Reise — ohne diese Unterscheidung stuende "Reisebegleitung" auf dem Beleg.
+    var isEinarbeitung = c.source_type === 'einarbeitung';
     // Auslagenersatz nach § 3 Nr. 50 EStG ist etwas anderes als eine
     // Aufwandsentschädigung: er ist steuerfrei und zählt NICHT gegen den
     // Übungsleiterfreibetrag. Deshalb bekommt er eine eigene Fassung des
@@ -177,6 +182,10 @@
         for (i = 0; i < breakdown.length; i++) {
           row = breakdown[i];
           var anzahl = row.factor != null ? (row.count != null ? row.count : row.factor) : '–';
+          // Einarbeitungstag: Satz ist die volle Sitzwachen-Pauschale, gezahlt
+          // wird die Haelfte — "1 × Satz = halber Betrag" saehe nach Rechenfehler
+          // aus, deshalb steht hier der Faktor 0,5.
+          if (isEinarbeitung && row.factor != null) anzahl = String(row.factor).replace('.', ',');
           var satz = row.base != null ? eur(row.base) : '';
           var posLabel = isAuslage ? anreiseLabel(row.label) : row.label;
           positionsHtml += '<tr><td>' + escape(posLabel) + '</td><td class="num">' + escape(anzahl)
@@ -205,7 +214,9 @@
         ? 'Fahrtkosten der Anreise'
         : (c.auslage_art === 'beleg' ? 'Erstattung gegen eingereichten Nachweis' : '');
     } else {
-      aktivitaet = isSitz ? 'Ehrenamtliche Sitzwache' : 'Ehrenamtliche Reisebegleitung';
+      aktivitaet = isSitz ? 'Ehrenamtliche Sitzwache'
+        : isEinarbeitung ? 'Einarbeitungstag (halbe Sitzwachen-Pauschale)'
+        : 'Ehrenamtliche Reisebegleitung';
       aktivitaetSub = 'pflegerisch-betreuende Tätigkeit im ideellen Bereich des Vereins';
     }
 

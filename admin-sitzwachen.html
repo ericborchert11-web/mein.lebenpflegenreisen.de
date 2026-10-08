@@ -658,6 +658,14 @@ function renderBookings() {
       } else if (b.status === 'completed' && b.compensation_eur == null) {
         actions = '<button class="as-btn" data-act="snapshot" data-id="' + b.id + '" title="Betrag aus aktuellem Satz nachtragen">Satz nachtragen</button>';
       }
+      // Abgeschlossen, aber nie vor Ort erfasst (z. B. durch die automatische
+      // Auszahlung oder per Knopf "Abschliessen"): der Nachweis fehlt trotzdem.
+      // einsatz_nacherfassen() nimmt auch abgeschlossene Buchungen an und laesst
+      // ihren Status in Ruhe.
+      if (b.status === 'completed' && !hatEinsatz && b.date < new Date().toLocaleDateString('sv-SE')) {
+        actions += '<button class="as-btn" data-act="nacherfassen" data-id="' + b.id + '" ' +
+                   'title="Papier-Stundenzettel eintragen">Nacherfassen</button>';
+      }
 
       // Aktionen auf dem Einsatz selbst — unabhaengig vom Buchungsstatus.
       if (einsatzFertig) {

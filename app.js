@@ -6374,7 +6374,7 @@
   function itemCols() {
     return _hatBriefFelder === false
       ? ITEM_COLS_BASIS
-      : 'id, pos, quantity, description, detail_text, nachweis_text, period_text, unit_price_cents, amount_cents';
+      : 'id, pos, quantity, description, detail_text, nachweis_text, period_text, unit_price_cents, amount_cents, booking_id';
   }
 
   /** Meldet PostgREST eine unbekannte Spalte? Dann fehlt die Migration. */
@@ -6543,7 +6543,12 @@
         description:      String(it.description || '').trim(),
         period_text:      it.period_text || null,
         unit_price_cents: Number(it.unit_price_cents) || 0,
-        amount_cents:     itemAmountCents(it.quantity, it.unit_price_cents)
+        amount_cents:     itemAmountCents(it.quantity, it.unit_price_cents),
+        // Die Position einer Sammelrechnung kennt ihren Dienst. Speichern loescht
+        // und schreibt alle Positionen neu — ohne diese Zeile waere die
+        // Verknuepfung nach dem ersten Speichern im Editor weg, und der Dienst
+        // gaelte wieder als nicht abgerechnet.
+        booking_id:       it.booking_id || null
       })).filter(r => r.description);
       // Dieselbe Ruecksicht wie oben: vor der Migration kennt die Tabelle die
       // beiden Textspalten nicht, und ein Insert damit schluege komplett fehl.

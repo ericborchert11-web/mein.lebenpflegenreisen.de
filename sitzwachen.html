@@ -948,7 +948,7 @@ footer a { color: var(--lime); text-decoration: none; }
 
 
 
-<script src="app.js"></script>
+<script src="app.js?v20261008a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'sitzwachen' });
@@ -1100,7 +1100,9 @@ async function loadBookingsFromDb() {
           station: b.station || '',
           station_phone: b.station_phone || '',
           unterwegs_ts: b.unterwegs_ts || null,
-          eta_ts: b.eta_ts || null
+          eta_ts: b.eta_ts || null,
+          anmeldung_aufnahme: !!b.anmeldung_aufnahme,
+          bestaetigung_durch_verein: !!b.bestaetigung_durch_verein
         };
       }
     }
@@ -1218,22 +1220,24 @@ function renderUpcoming() {
   if (!items.length && !termine.length) { section.hidden = true; list.innerHTML = ''; badge.textContent = ''; return; }
   section.hidden = false;
 
-  const openCount = items.filter(b => b.status === 'planned').length;
+  // Wo der Verein die Dienste selbst bestaetigt (JVK), wartet nichts auf die Person.
+  const openCount = items.filter(b => b.status === 'planned' && !b.bestaetigung_durch_verein).length;
   badge.innerHTML = openCount
     ? `<span style="background:#F6E0D6;color:#9B2C2C;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;">${openCount} wartet auf Bestätigung</span>`
     : '';
 
   const buchungKarten = items.map(b => {
     const dstr = new Date(b.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-    const pillColor = b.status === 'confirmed' ? '#2E7D46' : (b.status === 'completed' ? '#1E5B36' : '#9B2C2C');
+    const pillColor = b.status === 'confirmed' ? '#2E7D46' : (b.status === 'completed' ? '#1E5B36'
+                    : (b.bestaetigung_durch_verein ? '#5B6660' : '#9B2C2C'));
     const offen = b.status === 'planned' || b.status === 'confirmed';
     // Am Tag des Dienstes (Nachtdienst bis 8 Uhr des Folgetags) kann die
     // Anreise gemeldet werden — davor waere die Angabe wertlos.
     const heute = b.date === dateKey(new Date()) || laeuftUeberMitternacht(b);
-    const actions = b.status === 'planned'
+    const actions = (b.status === 'planned' && !b.bestaetigung_durch_verein)
       ? `<button type="button" class="up-confirm" data-id="${b.id}" style="background:#2E5E3A;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Bestätigen</button>
          <button type="button" class="up-cancel" data-id="${b.id}" style="background:#fff;color:#8A3A22;border:1px solid #B07058;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Absagen</button>`
-      : (b.status === 'confirmed'
+      : ((b.status === 'confirmed' || b.status === 'planned')
           ? `<button type="button" class="up-cancel" data-id="${b.id}" style="background:#fff;color:#8A3A22;border:1px solid #B07058;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">Absagen</button>`
           : '');
     const anreise = window.LPR.anreiseStatus ? window.LPR.anreiseStatus(b) : null;
@@ -1249,7 +1253,8 @@ function renderUpcoming() {
     return `<div style="border:1px solid #E4DFD2;border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:#fff">
       <div>
         <div style="font-weight:700">${dstr} · ${UPCOMING_SHIFT[b.shift_de] || b.shift_de}</div>
-        <div style="font-size:14px;color:#555;margin-top:2px">${b.clinic_name}${b.patient_room ? ' · Zimmer ' + b.patient_room : ''} · <span style="color:${pillColor};font-weight:600">${UPCOMING_STATUS[b.status] || b.status}</span></div>
+        <div style="font-size:14px;color:#555;margin-top:2px">${b.clinic_name}${b.patient_room ? ' · Zimmer ' + b.patient_room : ''} · <span style="color:${pillColor};font-weight:600">${(b.status === 'planned' && b.bestaetigung_durch_verein) ? 'eingeteilt — der Verein bestätigt' : (UPCOMING_STATUS[b.status] || b.status)}</span></div>
+        ${b.anmeldung_aufnahme ? `<div style="font-size:14px;margin-top:6px">Anmeldung an der Aufnahme${b.station ? '' : ' — dort erfährst du die Station'}</div>` : ''}
         ${anreise ? `<div style="font-size:14px;font-weight:700;color:#24456E;margin-top:6px">→ ${escape(anreise.text)}</div>` : ''}
         ${b.station_phone ? `<div style="font-size:14px;margin-top:6px">Station: <a href="tel:${escape(b.station_phone.replace(/[^\d+]/g,''))}" style="color:#1E5B36;font-weight:700">${escape(b.station_phone)}</a></div>` : ''}
       </div>

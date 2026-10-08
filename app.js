@@ -1825,8 +1825,27 @@
         created_at: b.created_at,
         station_phone: b.station_phone,
         unterwegs_ts: b.unterwegs_ts,
-        eta_ts: b.eta_ts
+        eta_ts: b.eta_ts,
+        anmeldung_aufnahme: false,
+        bestaetigung_durch_verein: false
       }));
+      // Klinikname und Klinik-Schalter aus meine_buchung_kliniken(). profiles.full_name
+      // ist beim Klinik-Konto die Ansprechperson ("Pflegedienstleitung JVK"), nicht
+      // die Klinik — clinic_details duerfen Ehrenamtliche aber nicht lesen.
+      // Fehlt die Funktion noch (Push vor Migration AW), bleibt es beim alten Namen.
+      if (bookings.length) {
+        const { data: kl, error: kErr } = await (await sb()).rpc('meine_buchung_kliniken');
+        if (kErr) console.warn('[LPR] meine_buchung_kliniken:', kErr.message);
+        const proBuchung = {};
+        (kl || []).forEach(k => { proBuchung[k.booking_id] = k; });
+        bookings.forEach(b => {
+          const k = proBuchung[b.id];
+          if (!k) return;
+          if (k.klinik) b.clinic_name = k.klinik;
+          b.anmeldung_aufnahme = !!k.anmeldung_aufnahme;
+          b.bestaetigung_durch_verein = !!k.bestaetigung_durch_verein;
+        });
+      }
       return { ok: true, bookings };
     } catch(e) { console.error('[LPR] getMyBookings:', e); return { ok: false, error: 'Netzwerkfehler.', bookings: [] }; }
   }

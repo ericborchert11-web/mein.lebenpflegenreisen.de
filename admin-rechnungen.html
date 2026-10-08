@@ -118,6 +118,31 @@
 .f-in  { display:block; width:100%; margin-top:5px; font-family:inherit; font-size:14px;
          padding:9px 11px; border:1.5px solid var(--border); border-radius:8px; background:#fff; color:var(--text); }
 .inv-inactive td { opacity:.5; }
+/* Sammelrechnung aus Diensten */
+dialog.sr-dlg { border: none; border-radius: var(--radius); padding: 0; width: min(680px, 94vw); margin: auto;
+  box-shadow: 0 18px 50px rgba(0,0,0,.22); }
+dialog.sr-dlg::backdrop { background: rgba(26,58,42,.38); }
+.sr-kopf { padding: 20px 24px 6px; }
+.sr-kopf h2 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 19px; font-weight: 800;
+  color: var(--green-deep); margin: 0 0 4px; }
+.sr-kopf p { font-size: 13px; color: var(--muted); margin: 0; line-height: 1.5; }
+.sr-body { padding: 8px 24px 16px; }
+.sr-body label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 12px; }
+.sr-body select, .sr-body input { font-family: inherit; font-size: 14px; padding: 8px 10px;
+  border: 1.5px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); }
+.sr-woche { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 5px; }
+.sr-woche strong { min-width: 220px; font-size: 14px; color: var(--text); }
+.sr-liste { margin-top: 14px; border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
+.sr-liste table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.sr-liste th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); padding: 8px 10px; background: #FAFAF7; border-bottom: 1px solid var(--border); }
+.sr-liste td { padding: 8px 10px; border-bottom: 1px solid #EFEDE8; }
+.sr-liste tr.schon td { color: var(--muted); }
+.sr-liste .num { text-align: right; font-variant-numeric: tabular-nums; }
+.sr-summe { margin-top: 12px; font-size: 14px; font-weight: 700; color: var(--green-deep); }
+.sr-meldung { margin-top: 10px; font-size: 13.5px; font-weight: 600; color: #8A3A22; }
+.sr-fuss { padding: 14px 24px; background: #FAFAF7; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -141,6 +166,7 @@
         <div id="kpi-open" style="font-family:'Bricolage Grotesque',sans-serif;font-size:26px;font-weight:800;color:var(--green-deep);">—</div>
         <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
           <a class="btn" href="admin-empfaenger.html">Empfänger</a>
+          <button class="btn" onclick="srOeffnen()">Sammelrechnung aus Diensten</button>
           <button class="btn btn-primary" onclick="newInvoice()">+ Neue Rechnung</button>
         </div>
       </div>
@@ -164,9 +190,36 @@
     <div class="inv-card" id="table-wrap"></div>
   </div>
 </div>
+
+<dialog id="sr-dlg" class="sr-dlg" aria-labelledby="sr-titel">
+  <div class="sr-kopf">
+    <h2 id="sr-titel">Sammelrechnung aus Diensten</h2>
+    <p>Eine Position je erledigtem Dienst, mit Station und Stufe T1/T2. Stornierte,
+       nicht erschienene und unbesetzte Dienste kosten nichts und fehlen hier.
+       Was schon auf einer Rechnung steht, wird nicht noch einmal berechnet.</p>
+  </div>
+  <div class="sr-body">
+    <label for="sr-empf">Klinik</label>
+    <select id="sr-empf" style="width:100%;margin-top:5px;" onchange="srLaden()"></select>
+    <label>Abrechnungswoche (Montag bis Sonntag)</label>
+    <div class="sr-woche">
+      <button type="button" class="btn" onclick="srSchieben(-7)" aria-label="Woche zurück">‹</button>
+      <strong id="sr-zeitraum">—</strong>
+      <button type="button" class="btn" onclick="srSchieben(7)" aria-label="Woche vor">›</button>
+    </div>
+    <div id="sr-liste" class="sr-liste"></div>
+    <div id="sr-summe" class="sr-summe"></div>
+    <p id="sr-meldung" class="sr-meldung" hidden></p>
+  </div>
+  <div class="sr-fuss">
+    <button class="btn" onclick="document.getElementById('sr-dlg').close()">Abbrechen</button>
+    <button class="btn btn-primary" id="sr-ok" onclick="srAnlegen(this)" disabled>Entwurf anlegen</button>
+  </div>
+</dialog>
 </main>
 
-<script src="app.js?v20260921c"></script>
+<script src="sammelrechnung.js?v20261008a"></script>
+<script src="app.js?v20261008c"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -257,6 +310,90 @@ function renderTable(invoices) {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+
+// ── Sammelrechnung aus Diensten ─────────────────────────────────────────
+// Montags fuer die Vorwoche: das ist der Normalfall, deshalb vorbelegt.
+let _srWoche = null;
+const SR_SCHICHT = { morning: 'Frühdienst', afternoon: 'Spätdienst', night: 'Nachtdienst' };
+
+function heuteIso() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function srOeffnen() {
+  const kliniken = _recipients.filter(r => r.active && r.clinic_id);
+  if (!kliniken.length) {
+    LPR.showToast('Kein Empfänger ist einer Klinik zugeordnet.', 'warn');
+    return;
+  }
+  document.getElementById('sr-empf').innerHTML =
+    kliniken.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+  _srWoche = Sammelrechnung.vorwoche(heuteIso());
+  document.getElementById('sr-dlg').showModal();
+  srLaden();
+}
+
+function srSchieben(tage) {
+  _srWoche = Sammelrechnung.verschiebe(_srWoche, tage);
+  srLaden();
+}
+
+async function srLaden() {
+  const w = _srWoche;
+  document.getElementById('sr-zeitraum').textContent =
+    'KW ' + w.kw + ' · ' + deDate(w.von) + ' – ' + deDate(w.bis);
+  const liste = document.getElementById('sr-liste');
+  const summe = document.getElementById('sr-summe');
+  const m = document.getElementById('sr-meldung');
+  const ok = document.getElementById('sr-ok');
+  m.hidden = true; ok.disabled = true;
+  liste.innerHTML = '<div style="padding:14px;color:var(--muted);">Wird geladen …</div>';
+  summe.textContent = '';
+
+  const res = await LPR.sammelrechnungDienste(document.getElementById('sr-empf').value, w.von, w.bis);
+  if (_srWoche !== w) return;   // inzwischen weitergeblaettert
+  if (!res.ok) {
+    liste.innerHTML = '';
+    m.textContent = 'Dienste nicht ladbar: ' + res.error; m.hidden = false;
+    return;
+  }
+  if (!res.dienste.length) {
+    liste.innerHTML = '<div style="padding:14px;color:var(--muted);">In dieser Woche gibt es keine erledigten Dienste.</div>';
+    return;
+  }
+  liste.innerHTML = `<table>
+    <thead><tr><th>Datum</th><th>Schicht</th><th>Station</th><th>Stufe</th><th class="num">Betrag</th><th></th></tr></thead>
+    <tbody>${res.dienste.map(d => `<tr${d.abgerechnet_auf ? ' class="schon"' : ''}>
+      <td>${deDate(d.datum)}</td>
+      <td>${escapeHtml(SR_SCHICHT[d.schicht] || d.schicht)}</td>
+      <td>${escapeHtml(d.station)}</td>
+      <td>${escapeHtml(d.stufe)}</td>
+      <td class="num">${LPR.centsToEUR(d.preis_cents)}</td>
+      <td>${d.abgerechnet_auf ? 'schon auf ' + escapeHtml(d.abgerechnet_auf) : ''}</td>
+    </tr>`).join('')}</tbody></table>`;
+
+  const z = Sammelrechnung.zusammenfassung(res.dienste);
+  summe.textContent = z.anzahl
+    ? z.anzahl + (z.anzahl === 1 ? ' Dienst' : ' Dienste') + ' · T1: ' + z.t1 + ' · T2: ' + z.t2
+      + ' · zusammen ' + LPR.centsToEUR(z.summe_cents)
+    : 'Alle Dienste dieser Woche sind schon abgerechnet.';
+  ok.disabled = !z.anzahl;
+}
+
+async function srAnlegen(btn) {
+  btn.disabled = true; btn.textContent = 'Wird angelegt …';
+  const res = await LPR.sammelrechnungAnlegen(document.getElementById('sr-empf').value, _srWoche.von, _srWoche.bis);
+  btn.textContent = 'Entwurf anlegen';
+  if (!res.ok) {
+    // Meldung IM Dialog: ein Toast laege unter dem Backdrop.
+    const m = document.getElementById('sr-meldung');
+    m.textContent = res.error; m.hidden = false;
+    btn.disabled = false;
+    return;
+  }
+  location.href = 'rechnung.html?id=' + res.id;
 }
 
 async function newInvoice() {

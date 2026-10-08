@@ -6274,6 +6274,38 @@
     return inv.due_date < dateKey(new Date());
   }
 
+  /**
+   * Sammelrechnung: die Dienste einer Klinik im Zeitraum, auch die schon
+   * abgerechneten (mit Rechnungsnummer) — die Vorschau soll zeigen, warum ein
+   * Dienst fehlt. Welche abrechenbar sind, entscheidet die Datenbank.
+   */
+  async function sammelrechnungDienste(recipientId, von, bis) {
+    try {
+      const { data, error } = await (await sb()).rpc('sammelrechnung_dienste', {
+        p_recipient_id: recipientId, p_von: von, p_bis: bis
+      });
+      if (error) return { ok: false, error: error.message, dienste: [] };
+      return { ok: true, dienste: data || [] };
+    } catch(e) {
+      console.error('[LPR] sammelrechnungDienste:', e);
+      return { ok: false, error: 'Netzwerkfehler.', dienste: [] };
+    }
+  }
+
+  /** Legt den Entwurf an und gibt seine id zurueck. */
+  async function sammelrechnungAnlegen(recipientId, von, bis) {
+    try {
+      const { data, error } = await (await sb()).rpc('sammelrechnung_anlegen', {
+        p_recipient_id: recipientId, p_von: von, p_bis: bis
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, id: data };
+    } catch(e) {
+      console.error('[LPR] sammelrechnungAnlegen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function listRecipients(includeInactive) {
     try {
       let q = (await sb())
@@ -7503,7 +7535,7 @@
     // Block D: Rechnungsstellung
     VEREIN, BILLING_DEFAULT_SHIFT_CENTS,
     centsToEUR, eurToCents, qtyToNumber, itemAmountCents, invoiceSubtotalCents, invoiceIsOverdue, invoiceIsCredit, invoiceIsOpen,
-    listRecipients, saveRecipient, setRecipientActive,
+    listRecipients, saveRecipient, setRecipientActive, sammelrechnungDienste, sammelrechnungAnlegen,
     listInvoices, getInvoice, createInvoice, updateInvoiceDraft, reopenInvoice, saveInvoiceItems,
     deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid, getInvoiceRef,
     // Kassenbuch

@@ -539,7 +539,7 @@ body.contrast .anleitung-hinweis, body.contrast .anleitung-hinweis a { color: #0
 </div>
 </main>
 
-<script src="app.js?v20260921a"></script>
+<script src="app.js?v20261008a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'mein-bereich' });
@@ -905,8 +905,9 @@ async function renderUpcomingBookings() {
             </div>
             <span class="bb-shift-pill ${escape(b.shift)}">${escape(sh.label)} · ${escape(sh.time)}</span>
           </div>
-          ${(b.station || b.patient_room || b.fallnummer || flags || b.patient_notes || b.patient_count === 2) ? `
+          ${(b.station || b.anmeldung_aufnahme || b.patient_room || b.fallnummer || flags || b.patient_notes || b.patient_count === 2) ? `
             <dl class="bb-detail-grid">
+              ${b.anmeldung_aufnahme ? `<dt>Anmeldung</dt><dd>an der Aufnahme${b.station ? '' : ' — dort erfährst du die Station'}</dd>` : ''}
               ${b.station ? `<dt>Station</dt><dd>${escape(b.station)}</dd>` : ''}
               ${b.patient_count === 2 ? `<dt>Patient:innen</dt><dd><strong>2</strong> — beide im selben Zimmer/Bereich</dd>` : ''}
               ${b.patient_room ? `<dt>Zimmer</dt><dd>${escape(b.patient_room)}</dd>` : ''}

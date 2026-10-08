@@ -1,5 +1,19 @@
 # Änderungen
 
+## 08.10.2026 — Sammelrechnung aus Diensten
+
+Sana will wöchentlich abgerechnet werden, Montag bis Sonntag, mit Stufe T1/T2
+je Dienst fürs Controlling. In der Rechnungsübersicht legt „Sammelrechnung aus
+Diensten" für eine Klinik und eine Woche den Entwurf an: eine Position je
+erledigtem Dienst mit Datum, Schicht, Station und Stufe, die Einleitung zählt
+T1 und T2, Erlöskonto Klinik und § 19-Hinweis sind gesetzt. Stornierte, nicht
+erschienene und unbesetzte Dienste kosten nach Vertrag nichts und tauchen gar
+nicht erst auf.
+
+Jede Position merkt sich ihren Dienst. Was auf einer nicht stornierten Rechnung
+steht, wird nicht noch einmal berechnet; die Vorschau zeigt es grau mit der
+Rechnungsnummer. Wird eine Rechnung storniert, ist der Dienst wieder abrechenbar.
+
 ## 07.10.2026 — Pflichthinweis auf Rechnungen folgt dem Erlöskonto
 
 Im Rechnungseditor wird kein Befreiungsgrund mehr getippt. Man wählt das

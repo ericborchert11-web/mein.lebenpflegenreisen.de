@@ -114,6 +114,21 @@
   .best.un .text { color:#1A1A18; }
   a { text-decoration:none; color:inherit; }
 }
+
+/* ═════════ Export fuer den Mailversand ═════════
+   zeitnachweis.html?rechnung=…&export=1 laeuft unsichtbar in einem iframe von
+   rechnung.html. Die Blaetter sehen dann aus wie im Druck: feste A4-Breite,
+   Rand aus dem Padding, kein Rahmen. Alles andere ist ausgeblendet. */
+html.export, html.export body { background:#fff !important; min-height:0; margin:0; }
+html.export .zn-wrap { max-width:none; margin:0; padding:0; }
+html.export .no-print, html.export .sr-only { display:none !important; }
+html.export .blatt { box-sizing:border-box; width:210mm; max-width:none; border:none; border-radius:0;
+                     margin:0; padding:16mm 18mm 12mm; }
+html.export .best.un { border-color:#6B6B65; }
+html.export .best.un .text { color:#1A1A18; }
+html.export a { text-decoration:none; color:inherit; }
+/* html2canvas verschluckt bei tabular-nums die Leerzeichen ("20:00Uhr"). */
+html.export .kv td { font-variant-numeric:normal; }
 </style>
 </head>
 <body>
@@ -136,14 +151,18 @@
 </div>
 </main>
 
-<script src="app.js?v20261009a"></script>
+<script src="app.js?v20261009b"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
 
-LPR_Layout.init({ page: 'rechnungen-admin' });
-
-const INV_ID = new URLSearchParams(location.search).get('rechnung');
+const PARAMS = new URLSearchParams(location.search);
+const INV_ID = PARAMS.get('rechnung');
+// Export-Modus: keine Navigation, keine Weiterleitung, nur die Blaetter und
+// window.zeitnachweisPdf() fuer rechnung.html.
+const EXPORT = PARAMS.get('export') === '1';
+if (EXPORT) document.documentElement.classList.add('export');
+else LPR_Layout.init({ page: 'rechnungen-admin' });
 const TZ = 'Europe/Berlin';
 const SCHICHT = { morning: 'Frühdienst', afternoon: 'Spätdienst', night: 'Nachtdienst' };
 
@@ -249,7 +268,17 @@ async function aufWeissFlach(urls) {
 }
 
 // ── Laden ────────────────────────────────────────────────────────────────
+// Erfuellt, sobald Daten und Blaetter stehen (nur im Export-Modus gebraucht).
+let _bereitOk, _bereitFehler;
+const _bereit = new Promise((ok, fehler) => { _bereitOk = ok; _bereitFehler = fehler; });
+_bereit.catch(() => {});
+
 async function init() {
+  if (EXPORT) {
+    if (!INV_ID || !LPR.requireRole('admin')) { _bereitFehler(new Error('Nur für den Vorstand.')); return; }
+    await laden();
+    return;
+  }
   if (!LPR.requireRole('admin', 'login.html?next=' + encodeURIComponent('zeitnachweis.html' + location.search))) return;
   if (!INV_ID) { location.href = 'admin-rechnungen.html'; return; }
   $('zurueck').href = 'rechnung.html?id=' + encodeURIComponent(INV_ID);
@@ -259,7 +288,11 @@ async function init() {
 
 async function laden() {
   const res = await LPR.getZeitnachweis(INV_ID);
-  if (!res.ok) { melde('Zeitnachweis konnte nicht geladen werden: ' + res.error, true); return; }
+  if (!res.ok) {
+    melde('Zeitnachweis konnte nicht geladen werden: ' + res.error, true);
+    _bereitFehler(new Error('Zeitnachweis konnte nicht geladen werden: ' + res.error));
+    return;
+  }
   _daten = res.daten;
   _daten.dienste = _daten.dienste || [];
   _daten.ohne_einsatz = _daten.ohne_einsatz || [];
@@ -274,6 +307,7 @@ async function laden() {
   else if (_daten.fehler === 'empfaenger_ohne_klinik') melde('Der Rechnungsempfänger ist keiner Klinik zugeordnet — es gibt keine Dienste für diesen Nachweis.', true);
   else if (_daten.fehler === 'kein_zeitraum') melde('Die Rechnung hat keinen Leistungszeitraum — bitte zuerst „Leistung von/bis" in der Rechnung pflegen.', true);
   render();
+  _bereitOk();
 }
 
 function render() {
@@ -551,6 +585,50 @@ async function drucken() {
   window.print();
   setTimeout(() => { document.title = alt; }, 1000);
 }
+
+// ── Export als PDF (fuer den Mailversand) ────────────────────────────────
+// Jedes Blatt wird einzeln gerastert und auf eine eigene A4-Seite gesetzt:
+// Deckblatt + ein Blatt je Dienst = 1 + n Seiten, wie im Druck. Ein Blatt,
+// das laenger als eine Seite waere, wird auf die Seite verkleinert statt
+// geteilt — ein Dienst gehoert auf ein Blatt.
+async function bilderGeladen() {
+  const bilder = Array.from(document.querySelectorAll('#blaetter img'));
+  await Promise.all(bilder.map(img => {
+    const fertig = img.complete && img.naturalWidth > 0
+      ? Promise.resolve()
+      : new Promise(res => { img.addEventListener('load', res, { once: true }); img.addEventListener('error', res, { once: true }); });
+    return fertig.then(() => (img.decode ? img.decode().catch(() => {}) : null));
+  }));
+}
+
+async function zeitnachweisPdf() {
+  await _bereit;
+  const blaetter = Array.from(document.querySelectorAll('#blaetter .blatt'));
+  if (!blaetter.length) throw new Error('Für diese Rechnung gibt es keine Dienste mit digitaler Einsatzdoku.');
+  if (_daten.fehler) throw new Error('Der Zeitnachweis ist unvollständig (' + _daten.fehler + ').');
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  await bilderGeladen();
+  const h2p = await LPR.ladeHtml2pdf();
+  const opt = {
+    margin: 0,
+    image: { type: 'jpeg', quality: 0.92 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  // Ein leeres Startdokument; die erste (leere) Seite faellt am Ende wieder raus.
+  const pdf = await h2p().set(opt).from(document.createElement('div')).toPdf().get('pdf');
+  const B = 210, H = 297;
+  for (const el of blaetter) {
+    const canvas = await h2p().set(opt).from(el).toCanvas().get('canvas');
+    let w = B, h = canvas.height * B / canvas.width;
+    if (h > H) { w = w * H / h; h = H; }
+    pdf.addPage('a4', 'portrait');
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (B - w) / 2, 0, w, h);
+  }
+  pdf.deletePage(1);
+  return pdf.output('blob');
+}
+window.zeitnachweisPdf = zeitnachweisPdf;
 
 init();
 </script>

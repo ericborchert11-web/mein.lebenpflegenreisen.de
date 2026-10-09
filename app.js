@@ -2382,6 +2382,164 @@
     } catch(e) { return { ok: false, error: 'Netzwerkfehler.', urls: {} }; }
   }
 
+  // ── Rechnungsversand (rv1) ───────────────────────────────────────────────
+  // Board-only. Rechnung und Zeitnachweis liegen als PDF im privaten Bucket
+  // 'rechnungen' unter <invoice_id>/…; der Bucket kennt kein Update und kein
+  // Loeschen — jede Datei bekommt deshalb einen Zeitstempel im Namen.
+  const RECHNUNG_BUCKET = 'rechnungen';
+
+  // html2pdf.js (bringt html2canvas und jsPDF mit) wird erst geladen, wenn ein
+  // PDF gebraucht wird. Mit Integritaetspruefung: die Datei kommt von einem CDN.
+  const HTML2PDF_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.14.0/html2pdf.bundle.min.js';
+  const HTML2PDF_SRI = 'sha512-+9GoO5OUX2MmPRHUH5dnOY+KGReMLcxywEvQxvAI0y5JxXh/lkz99dKj4xdYfODP3dMFsoZRz4CF/vHcaqa2Ag==';
+  let _html2pdfPromise = null;
+  function ladeHtml2pdf() {
+    if (global.html2pdf) return Promise.resolve(global.html2pdf);
+    if (_html2pdfPromise) return _html2pdfPromise;
+    _html2pdfPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = HTML2PDF_SRC;
+      s.integrity = HTML2PDF_SRI;
+      s.crossOrigin = 'anonymous';
+      s.onload = () => global.html2pdf ? resolve(global.html2pdf) : reject(new Error('html2pdf fehlt nach dem Laden.'));
+      s.onerror = () => { _html2pdfPromise = null; reject(new Error('Die PDF-Bibliothek konnte nicht geladen werden.')); };
+      document.head.appendChild(s);
+    });
+    return _html2pdfPromise;
+  }
+
+  /**
+   * Stand des Zeitnachweises: {art, vollstaendig, dienste?, offen?, ohne_einsatz?, grund?}.
+   * Bei 'papier' kommt der hinterlegte Pfad dazu (pfad), damit die Seite den
+   * Scan anzeigen und beim Versand mitschicken kann.
+   */
+  async function getZeitnachweisStatus(invoiceId) {
+    try {
+      const client = await sb();
+      const { data, error } = await client.rpc('zeitnachweis_status', { p_invoice: invoiceId });
+      if (error) return { ok: false, error: error.message };
+      if (!data || typeof data !== 'object') return { ok: false, error: 'Keine Daten.' };
+      const status = Object.assign({}, data);
+      status.pfad = null;
+      if (status.art === 'papier') {
+        const r = await client.from('invoices').select('nachweis_pfad').eq('id', invoiceId).maybeSingle();
+        if (!r.error && r.data) status.pfad = r.data.nachweis_pfad || null;
+      }
+      return { ok: true, status };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  const NACHWEIS_TYPEN = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
+
+  /** Papier-Zeitnachweis (Scan) an einen Entwurf haengen. */
+  async function rechnungNachweisHochladen(invoiceId, file) {
+    if (!file) return { ok: false, error: 'Bitte eine Datei wählen.' };
+    if (file.size > 20 * 1024 * 1024) return { ok: false, error: 'Die Datei ist größer als 20 MB.' };
+    let ext = String(file.name || '').split('.').pop().toLowerCase();
+    if (!NACHWEIS_TYPEN[ext]) {
+      ext = Object.keys(NACHWEIS_TYPEN).find(k => NACHWEIS_TYPEN[k] === file.type) || '';
+    }
+    if (!NACHWEIS_TYPEN[ext]) return { ok: false, error: 'Bitte ein PDF, JPG oder PNG wählen.' };
+    if (ext === 'jpeg') ext = 'jpg';
+    try {
+      const client = await sb();
+      const pfad = invoiceId + '/nachweis-' + Date.now() + '.' + ext;
+      const up = await client.storage.from(RECHNUNG_BUCKET)
+        .upload(pfad, file, { upsert: false, contentType: NACHWEIS_TYPEN[ext] });
+      if (up.error) return { ok: false, error: 'Hochladen fehlgeschlagen: ' + up.error.message };
+      const { error } = await client.rpc('rechnung_nachweis_setzen', { p_invoice: invoiceId, p_pfad: pfad });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, pfad };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Signierter Link (5 Minuten) auf eine Datei im Rechnungs-Bucket. */
+  async function rechnungDateiUrl(pfad) {
+    try {
+      const { data, error } = await (await sb()).storage.from(RECHNUNG_BUCKET).createSignedUrl(pfad, 300);
+      if (error || !data) return { ok: false, error: error ? error.message : 'Kein Link erhalten.' };
+      return { ok: true, url: data.signedUrl };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  // Die Function antwortet mit {ok, status, fehler?}. Bei einem Nicht-2xx
+  // steckt die Antwort im context des Fehlers — dort nachlesen, sonst bliebe
+  // nur "non-2xx status code" ohne den eigentlichen Grund.
+  async function _versandFunktion(body) {
+    const { data, error } = await (await sb()).functions.invoke('rechnung-versenden', { body });
+    if (error) {
+      let fehler = error.message;
+      try {
+        const j = error.context && typeof error.context.json === 'function' ? await error.context.json() : null;
+        if (j && (j.fehler || j.error)) fehler = j.fehler || j.error;
+      } catch(e) { /* bleibt bei error.message */ }
+      return { ok: false, status: 'fehler', fehler };
+    }
+    if (!data || data.ok === false) {
+      return { ok: false, status: (data && data.status) || 'fehler', fehler: (data && (data.fehler || data.error)) || 'Versand fehlgeschlagen.' };
+    }
+    return { ok: true, status: data.status || 'versendet', fehler: null };
+  }
+
+  // Ein Blob aus einem iframe stammt aus einem anderen Realm; instanceof Blob
+  // schlaegt dann fehl. Deshalb hier immer in einen eigenen Blob umpacken.
+  async function _alsPdfBlob(b) {
+    return new Blob([await b.arrayBuffer()], { type: 'application/pdf' });
+  }
+
+  /**
+   * Festgeschriebene Rechnung verschicken: PDFs ablegen, Versandzeile anlegen,
+   * Function aufrufen. nachweisBlob = erzeugter Zeitnachweis (digital),
+   * nachweisPfad = bereits hinterlegter Scan (papier). Beides leer = nur Rechnung.
+   */
+  async function rechnungVersenden(invoiceId, rechnungBlob, nachweisBlob, nachweisPfad) {
+    if (!rechnungBlob) return { ok: false, status: 'fehler', fehler: 'Das Rechnungs-PDF fehlt.' };
+    try {
+      const client = await sb();
+      const inv = await client.from('invoices').select('invoice_no, status').eq('id', invoiceId).maybeSingle();
+      if (inv.error || !inv.data) return { ok: false, status: 'fehler', fehler: inv.error ? inv.error.message : 'Rechnung nicht gefunden.' };
+      if (!inv.data.invoice_no) return { ok: false, status: 'fehler', fehler: 'Die Rechnung ist noch nicht festgeschrieben.' };
+      const bucket = client.storage.from(RECHNUNG_BUCKET);
+      const nr = String(inv.data.invoice_no).replace(/[^A-Za-z0-9_-]+/g, '-');
+      const rPfad = invoiceId + '/rechnung-' + nr + '-' + Date.now() + '.pdf';
+      const up = await bucket.upload(rPfad, await _alsPdfBlob(rechnungBlob), { upsert: false, contentType: 'application/pdf' });
+      if (up.error) return { ok: false, status: 'fehler', fehler: 'Rechnungs-PDF konnte nicht abgelegt werden: ' + up.error.message };
+      let nPfad = nachweisPfad || null;
+      if (nachweisBlob) {
+        nPfad = invoiceId + '/zeitnachweis-' + nr + '-' + Date.now() + '.pdf';
+        const up2 = await bucket.upload(nPfad, await _alsPdfBlob(nachweisBlob), { upsert: false, contentType: 'application/pdf' });
+        if (up2.error) return { ok: false, status: 'fehler', fehler: 'Zeitnachweis-PDF konnte nicht abgelegt werden: ' + up2.error.message };
+      }
+      const { data: versandId, error } = await client.rpc('rechnung_versand_anlegen', {
+        p_invoice: invoiceId, p_rechnung_pfad: rPfad, p_nachweis_pfad: nPfad
+      });
+      if (error) return { ok: false, status: 'fehler', fehler: error.message };
+      const res = await _versandFunktion({ versand_id: versandId });
+      res.versand_id = versandId;
+      return res;
+    } catch(e) {
+      console.error('[LPR] rechnungVersenden:', e);
+      return { ok: false, status: 'fehler', fehler: 'Netzwerkfehler.' };
+    }
+  }
+
+  /** Versandversuche einer Rechnung, neueste zuerst. */
+  async function listRechnungVersand(invoiceId) {
+    try {
+      const { data, error } = await (await sb()).from('rechnung_versand')
+        .select('id, invoice_id, an, kopie, rechnung_pfad, nachweis_pfad, status, fehler, angelegt_am, versendet_am')
+        .eq('invoice_id', invoiceId).order('angelegt_am', { ascending: false });
+      if (error) return { ok: false, error: error.message, versand: [] };
+      return { ok: true, versand: data || [] };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.', versand: [] }; }
+  }
+
+  /** Dieselbe Versandzeile noch einmal schicken (gleiche PDFs). */
+  async function rechnungErneutSenden(versandId) {
+    try { return await _versandFunktion({ versand_id: versandId, erneut: true }); }
+    catch(e) { return { ok: false, status: 'fehler', fehler: 'Netzwerkfehler.' }; }
+  }
+
   /** Anzeigetexte der Positivliste — an einer Stelle fuer alle Oberflaechen. */
   const TAETIGKEIT_LABEL = {
     anwesenheit_sichtkontakt: 'Anwesenheit & Sichtkontakt',
@@ -6363,12 +6521,20 @@
 
   async function listRecipients(includeInactive) {
     try {
-      let q = (await sb())
-        .from('billing_recipients')
-        .select('id, name, address, postal_code, city, contact_person, customer_ref, email, payment_days, clinic_id, shift_price_cents, active')
-        .order('name', { ascending: true });
-      if (!includeInactive) q = q.eq('active', true);
-      const { data, error } = await q;
+      const client = await sb();
+      // nachweis_art kommt aus rv1. Fehlt die Spalte noch (Push vor Migration),
+      // wird ohne sie geladen — dann verhalten sich alle Empfaenger wie 'keiner'.
+      const abfrage = mitArt => {
+        let q = client
+          .from('billing_recipients')
+          .select('id, name, address, postal_code, city, contact_person, customer_ref, email, payment_days, clinic_id, shift_price_cents, active'
+                  + (mitArt ? ', nachweis_art' : ''))
+          .order('name', { ascending: true });
+        if (!includeInactive) q = q.eq('active', true);
+        return q;
+      };
+      let { data, error } = await abfrage(true);
+      if (spalteFehlt(error)) ({ data, error } = await abfrage(false));
       if (error) return { ok: false, error: error.message, recipients: [] };
       return { ok: true, recipients: data || [] };
     } catch(e) {
@@ -6395,6 +6561,11 @@
       shift_price_cents: (rec.shift_price_cents === '' || rec.shift_price_cents == null)
                             ? null : Number(rec.shift_price_cents)
     };
+    // Nur mitschicken, wenn gesetzt: andere Aufrufer kennen das Feld nicht.
+    if (rec.nachweis_art !== undefined) {
+      if (!['keiner', 'digital', 'papier'].includes(rec.nachweis_art)) return { ok: false, error: 'Unbekannte Art des Zeitnachweises.' };
+      row.nachweis_art = rec.nachweis_art;
+    }
     try {
       const client = await sb();
       const q = rec.id
@@ -7618,6 +7789,9 @@
     einsatzStornieren, einsatzReaktivieren, einsatzNacherfassen,
     uploadUnterschrift, einsatzAbschliessen, einsatzNettoMinuten,
     getZeitnachweis, einsatzVorstandBestaetigen, unterschriftUrls,
+    // Rechnungsversand mit Zeitnachweis (rv1)
+    getZeitnachweisStatus, rechnungNachweisHochladen, rechnungDateiUrl, rechnungVersenden,
+    listRechnungVersand, rechnungErneutSenden, ladeHtml2pdf,
     einsatzPufferLesen, einsatzPufferSchreiben, einsatzPufferLeeren,
     // Klinik-Self-Service (Etappe 1)
     getMyClinic, submitMyClinic,

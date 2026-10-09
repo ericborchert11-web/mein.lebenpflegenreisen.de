@@ -159,7 +159,20 @@
         </div>
         <label class="f-lbl">Ansprechpartner<input class="f-in" id="f-contact"></label>
         <label class="f-lbl">Kunden-/Aktenzeichen<input class="f-in" id="f-ref"></label>
-        <label class="f-lbl">E-Mail<input class="f-in" id="f-email" type="email"></label>
+        <label class="f-lbl">E-Mail (Rechnungsversand; mehrere mit Komma)
+          <input class="f-in" id="f-email" type="text" inputmode="email" autocomplete="off"
+                 placeholder="rechnung@klinik.de, buchhaltung@klinik.de" aria-describedby="f-email-fehler"></label>
+        <p id="f-email-fehler" style="font-size:12.5px;color:#8A3A18;font-weight:600;margin:-6px 0 12px;" hidden></p>
+        <label class="f-lbl">Zeitnachweis / Rechnungsversand
+          <select class="f-in" id="f-nachweis">
+            <option value="keiner">keiner — Rechnung wie bisher, kein automatischer Versand</option>
+            <option value="digital">digital (Einsatzdoku)</option>
+            <option value="papier">Papier-Scan</option>
+          </select></label>
+        <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px;">
+          Bei „digital“ und „Papier-Scan“ lässt sich eine Rechnung erst mit vollständigem
+          Zeitnachweis festschreiben. Danach gehen Rechnung und Zeitnachweis automatisch per
+          Mail an die Adressen oben, Kopie an finanzen@lebenpflegenreisen.de.</p>
         <div style="display:flex;gap:12px;">
           <label class="f-lbl" style="flex:1;">Zahlungsziel (Tage)<input class="f-in" id="f-days" type="number" min="1" value="14"></label>
           <label class="f-lbl" style="flex:1;">Preis je Schicht (€)<input class="f-in" id="f-shift" placeholder="200,00"></label>
@@ -176,7 +189,7 @@
 </div>
 </main>
 
-<script src="app.js?v20260815a"></script>
+<script src="app.js?v20261009b"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -184,6 +197,22 @@
 LPR_Layout.init({ page: 'empfaenger-admin' });
 
 let _recipients = [];
+// Kurzlabel in der Tabelle; 'keiner' bleibt unsichtbar.
+const NACHWEIS_KURZ = { digital: 'Versand mit Zeitnachweis (digital)', papier: 'Versand mit Zeitnachweis (Papier-Scan)' };
+
+function artBekannt() { return !_recipients.length || _recipients.some(x => 'nachweis_art' in x); }
+
+// Mehrere Adressen, mit Komma getrennt. Bewusst einfache Pruefung: ein @,
+// davor und danach etwas, hinten ein Punkt — keine Leerzeichen.
+function mailFehler(text) {
+  const teile = String(text || '').split(',').map(x => x.trim());
+  if (teile.length === 1 && teile[0] === '') return '';
+  const falsch = teile.filter(x => !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(x));
+  if (!falsch.length) return '';
+  return falsch.some(x => x === '')
+    ? 'Zwischen zwei Kommas fehlt eine Adresse.'
+    : 'Keine gültige Mailadresse: ' + falsch.join(', ');
+}
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 
@@ -216,7 +245,7 @@ function renderTable() {
     <tr class="${r.active ? '' : 'emp-inactive'}">
       <td><strong>${escapeHtml(r.name)}</strong>${r.customer_ref ? '<br><span style="font-size:12px;color:var(--muted);">Zeichen: ' + escapeHtml(r.customer_ref) + '</span>' : ''}</td>
       <td>${escapeHtml(r.address || '—')}<br><span style="font-size:12px;color:var(--muted);">${escapeHtml((r.postal_code || '') + ' ' + (r.city || ''))}</span></td>
-      <td>${escapeHtml(r.contact_person || '—')}</td>
+      <td>${escapeHtml(r.contact_person || '—')}${NACHWEIS_KURZ[r.nachweis_art] ? '<br><span style="font-size:12px;color:var(--muted);">' + NACHWEIS_KURZ[r.nachweis_art] + '</span>' : ''}</td>
       <td class="num">${r.payment_days} Tage</td>
       <td class="num">${r.shift_price_cents == null ? '<span style="color:var(--muted);">Standard</span>' : LPR.centsToEUR(r.shift_price_cents)}</td>
       <td style="white-space:nowrap;">
@@ -245,6 +274,8 @@ function openForm(id) {
   document.getElementById('f-contact').value = r ? (r.contact_person || '') : '';
   document.getElementById('f-ref').value     = r ? (r.customer_ref || '') : '';
   document.getElementById('f-email').value   = r ? (r.email || '') : '';
+  document.getElementById('f-email-fehler').hidden = true;
+  document.getElementById('f-nachweis').value = (r && r.nachweis_art) || 'keiner';
   document.getElementById('f-days').value    = r ? r.payment_days : 14;
   document.getElementById('f-shift').value   = (r && r.shift_price_cents != null)
     ? (r.shift_price_cents / 100).toFixed(2).replace('.', ',') : '';
@@ -253,6 +284,13 @@ function openForm(id) {
 
 async function saveForm() {
   const shiftRaw = document.getElementById('f-shift').value.trim();
+  const mails = document.getElementById('f-email').value.split(',').map(x => x.trim()).filter(Boolean).join(', ');
+  const art = document.getElementById('f-nachweis').value;
+  const fehlerEl = document.getElementById('f-email-fehler');
+  let fehler = mailFehler(document.getElementById('f-email').value);
+  if (!fehler && art !== 'keiner' && !mails) fehler = 'Für den Versand mit Zeitnachweis ist mindestens eine Mailadresse nötig.';
+  fehlerEl.textContent = fehler; fehlerEl.hidden = !fehler;
+  if (fehler) { document.getElementById('f-email').focus(); return; }
   const res = await LPR.saveRecipient({
     id:             document.getElementById('f-id').value || null,
     name:           document.getElementById('f-name').value,
@@ -261,7 +299,9 @@ async function saveForm() {
     city:           document.getElementById('f-city').value,
     contact_person: document.getElementById('f-contact').value,
     customer_ref:   document.getElementById('f-ref').value,
-    email:          document.getElementById('f-email').value,
+    email:          mails,
+    // Fehlt die Spalte noch (Migration rv1 nicht gelaufen), nicht mitschicken.
+    nachweis_art:   artBekannt() ? art : undefined,
     payment_days:   document.getElementById('f-days').value,
     shift_price_cents: shiftRaw === '' ? null : LPR.eurToCents(shiftRaw)
   });

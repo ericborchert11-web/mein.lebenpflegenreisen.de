@@ -90,6 +90,38 @@
 .beleg-storno { color:#8A3A18; font-weight:700; }
 .beleg-hint { clear:both; font-size:11.5px; color:#4A4A46; margin:10px 0 0; }
 
+/* PDF fuer den Mailversand: dieselben Werte wie im Druck (@media print unten),
+   nur als Klasse, weil html2canvas den Bildschirm rastert. Den Rand setzt
+   html2pdf (14 mm), deshalb hier kein Padding. */
+.beleg.pdf { border:none; border-radius:0; padding:0; font-size:11pt; }
+.beleg.pdf h1 { font-size:21pt; }
+/* html2canvas verschluckt bei tabular-nums Leerzeichen ("200,00€"). */
+.beleg.pdf, .beleg.pdf * { font-variant-numeric:normal; }
+
+/* Zeitnachweis und Versand (rv1) — nur Bildschirm. */
+.rv-box { background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+          padding:16px 20px; margin-bottom:16px; font-size:14px; }
+.rv-box h2 { font-family:'Bricolage Grotesque',sans-serif; font-size:16px; color:var(--green-deep); margin:0 0 8px; }
+.rv-box.warn { border-color:#C85B30; background:#FDF6F1; }
+.rv-box.warn h2 { color:#8A3A18; }
+.rv-zeile { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.rv-ok { color:var(--ok); font-weight:700; }
+.rv-grund { color:#8A3A18; font-weight:600; }
+.rv-klein { font-size:12.5px; color:var(--muted); }
+.rv-fortschritt { margin-top:10px; font-weight:600; color:var(--green-deep); }
+.rv-ergebnis { margin-top:10px; font-weight:600; }
+.rv-ergebnis.ok { color:var(--ok); }
+.rv-ergebnis.fehler { color:#8A3A18; }
+.rv-table { width:100%; border-collapse:collapse; font-size:13.5px; margin-top:6px; }
+.rv-table th { text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+               color:var(--muted); padding:6px 6px; border-bottom:1.5px solid var(--border); }
+.rv-table td { padding:7px 6px; border-bottom:1px solid #EFEDE8; vertical-align:top; word-break:break-word; }
+.rv-pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:700; }
+.rv-pill.versendet { background:#EAF3EC; color:#2C6B45; }
+.rv-pill.offen { background:#FFF3D6; color:#8A6200; }
+.rv-pill.fehler { background:#FDE3E0; color:#B4231A; }
+.re-bar .grund { flex-basis:100%; font-size:12.5px; color:#8A3A18; font-weight:600; text-align:right; }
+
 
 /* ═════════ BEGLEITSCHREIBEN ═════════
    Die Millimeter hier sind keine Geschmacksfrage: sie entscheiden, ob die
@@ -211,6 +243,7 @@
   </div>
 
   <div class="re-bar no-print" id="action-bar"></div>
+  <div class="no-print" id="rv-panel"></div>
   <div id="editor" hidden></div>
   <!-- Der Brief steht vor der Rechnung — am Bildschirm wie im Druck, damit die
        Vorschau der Reihenfolge im Umschlag entspricht. -->
@@ -234,7 +267,7 @@
 
 <script src="ust-ampel.js?v20261007a"></script>
 <script src="rechnung-hinweise.js?v20261007b"></script>
-<script src="app.js?v20261009a"></script>
+<script src="app.js?v20261009b"></script>
 <script src="druck-anpassen.js?v20260823a"></script>
 <script src="layout.js"></script>
 <script>
@@ -246,6 +279,19 @@ const INV_ID = new URLSearchParams(location.search).get('id');
 let _inv = null, _recipient = null, _items = [], _recipients = [], _templates = [], _bezug = null;
 // Zahl der Dienste im Zeitnachweis — 0 heisst: keine Anlage-Zeile auf der Rechnung.
 let _znAnzahl = 0;
+// Rechnungsversand (rv1): Stand des Zeitnachweises laut Datenbank
+// ({art, vollstaendig, dienste, offen, ohne_einsatz, grund, pfad}) — null, solange
+// unbekannt oder die RPC fehlt; dann sperrt die Oberflaeche nichts (der
+// Server-Trigger prueft ohnehin).
+let _zn = null;
+// Empfaenger oder Leistungszeitraum im Editor geaendert, aber noch nicht
+// gespeichert: der Stand oben bezieht sich dann auf die alte Fassung.
+let _znVeraltet = false;
+let _versand = [];          // Zeilen aus rechnung_versand, neueste zuerst
+let _versandLaeuft = false;
+let _versandSchritt = '';   // sichtbarer Fortschritt
+let _versandErgebnis = null; // { ok, text }
+let _uploadLaeuft = false;
 
 // Escapt auch Anfuehrungszeichen: Vorlagennamen landen in value="…"-Attributen,
 // und ein Name wie 'Nachtwache 12" Schicht' wuerde das Feld sonst zerreissen.
@@ -278,6 +324,8 @@ async function init() {
   _recipients = (await LPR.listRecipients(true)).recipients || [];
   await loadTemplates();
   await reload();
+  await zeitnachweisLaden();
+  await versandLaden();
   await zeitnachweisZaehlen();
 }
 
@@ -448,6 +496,7 @@ async function loadTemplates() {
 
 function render() {
   renderBar();
+  renderRvPanel();
   const isDraft = _inv.status === 'draft';
   document.getElementById('editor').hidden = !isDraft;
   if (isDraft) renderEditor();
@@ -474,7 +523,11 @@ function renderBar() {
   if (s === 'draft') {
     bits.push('<button class="btn" onclick="saveDraft()">Speichern</button>');
     bits.push('<button class="btn" onclick="removeDraft()">Verwerfen</button>');
-    bits.push('<button class="btn btn-primary" onclick="issue()">Festschreiben</button>');
+    const sperre = festschreibenSperre();
+    bits.push(sperre
+      ? '<button class="btn btn-primary" disabled aria-describedby="fs-grund" title="' + escapeHtml(sperre) + '">Festschreiben</button>'
+        + '<span class="grund" id="fs-grund">' + escapeHtml(sperre) + '</span>'
+      : '<button class="btn btn-primary" onclick="issue()">Festschreiben</button>');
   } else {
     bits.push('<span style="font-size:12.5px;color:var(--muted);">' + escapeHtml(UstAmpel.kontoName(_inv.erloeskonto))
       + (_inv.erloeskonto === 'erloes_reisen' && _inv.ust_pflichtig === false ? ' · steuerfrei' : '') + '</span>');
@@ -881,7 +934,7 @@ function renderBeleg() {
 
     ${steuerBlock}
     ${betreuungsHinweis}
-    ${_znAnzahl > 0 && !_inv.cancels_invoice_id ? '<p class="beleg-hint">Anlage: Zeitnachweis</p>' : ''}
+    ${(_znAnzahl > 0 || (_zn && _zn.art === 'papier' && _zn.pfad)) && !_inv.cancels_invoice_id ? '<p class="beleg-hint">Anlage: Zeitnachweis</p>' : ''}
 
     <div class="beleg-pay">
       <div class="beleg-lbl">Zahlung</div>
@@ -911,6 +964,11 @@ function setField(key, value) {
   // Der Empfaenger steckt im Beleg — ohne diese Zeile zeigte die Vorschau nach
   // dem Umstellen weiter die alte Anschrift.
   if (key === 'recipient_id') _recipient = _recipients.find(r => r.id === value) || _recipient;
+  // Diese drei Felder bestimmen den Zeitnachweis. Geprueft wird der
+  // gespeicherte Stand — bis zum Speichern ist die Anzeige deshalb veraltet.
+  if (key === 'recipient_id' || key === 'service_from' || key === 'service_to') {
+    _znVeraltet = true; renderBar(); renderRvPanel();
+  }
   // Der Schalter blendet den halben Baukasten ein oder aus, deshalb hier den
   // Editor komplett neu zeichnen statt nur die Vorschau.
   if (key === 'mit_brief') { renderEditor(); renderBrief(); renderBeleg(); return; }
@@ -1128,6 +1186,8 @@ async function saveDraft(silent) {
   const b = await LPR.saveInvoiceItems(INV_ID, _items);
   if (!b.ok) { LPR.showToast(b.error, 'warn'); return false; }
   if (!silent) LPR.showToast('Gespeichert ✓');
+  _znVeraltet = false;
+  await zeitnachweisLaden();
   return true;
 }
 
@@ -1147,10 +1207,18 @@ async function issue() {
   const warn = p.warnungen.length ? '\n\nBitte prüfen:\n– ' + p.warnungen.join('\n– ') + '\n' : '';
   if (!confirm('Festschreiben? Danach ist die Rechnung nicht mehr änderbar — Korrekturen laufen über eine Storno-Rechnung.' + warn)) return;
   if (!await saveDraft(true)) return;
+  // saveDraft hat den Zeitnachweis frisch geprueft. Unvollstaendig = der
+  // Server-Trigger wuerde ohnehin ablehnen; hier mit verstaendlichem Grund.
+  const sperre = festschreibenSperre();
+  if (sperre) { LPR.showToast(sperre, 'warn'); return; }
   const res = await LPR.issueInvoice(INV_ID);
-  if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); await zeitnachweisLaden(); return; }
   LPR.showToast('Festgeschrieben als ' + res.invoice.invoice_no);
   await reload();
+  await zeitnachweisLaden();
+  await versandLaden();
+  // Empfaenger mit Zeitnachweis bekommen Rechnung und Nachweis sofort per Mail.
+  if (versandPflicht()) await versandAusfuehren();
 }
 
 async function markPaid() {
@@ -1189,6 +1257,269 @@ async function reopen() {
   if (!res.ok) { LPR.showToast(res.error, 'warn'); return; }
   LPR.showToast('Wieder als Entwurf geöffnet.');
   await reload();
+}
+
+/* ═════════ ZEITNACHWEIS UND RECHNUNGSVERSAND (rv1) ═════════
+   Empfaenger mit nachweis_art 'digital' (Einsatzdoku, z. B. Sana) oder
+   'papier' (Scan, z. B. JVK): Festschreiben erst mit vollstaendigem Nachweis,
+   danach gehen Rechnung und Nachweis automatisch per Mail an die Adressen des
+   Empfaengers, Kopie an finanzen@. 'keiner' verhaelt sich wie bisher. */
+const VERSAND_KOPIE = 'finanzen@lebenpflegenreisen.de';
+
+function znArt() {
+  if (_inv && _inv.cancels_invoice_id) return 'keiner';
+  // Im Editor umgestellter Empfaenger: bis zum Speichern gilt seine Art aus der Liste.
+  if (_znVeraltet && _inv && _inv.status === 'draft') {
+    const r = _recipients.find(x => x.id === _inv.recipient_id);
+    return (r && r.nachweis_art) || 'keiner';
+  }
+  if (_zn && _zn.art) return _zn.art;
+  return 'keiner';
+}
+function versandPflicht() {
+  const a = znArt();
+  return (a === 'digital' || a === 'papier') && !LPR.invoiceIsCredit(_inv);
+}
+
+async function zeitnachweisLaden() {
+  if (typeof LPR.getZeitnachweisStatus !== 'function' || !_inv || _inv.cancels_invoice_id) { _zn = null; }
+  else {
+    const res = await LPR.getZeitnachweisStatus(INV_ID);
+    _zn = res.ok ? res.status : null;
+    if (!res.ok) console.warn('[rechnung] Zeitnachweis-Status:', res.error);
+  }
+  renderBar();
+  renderRvPanel();
+  if (_inv) renderBeleg();
+}
+
+async function versandLaden() {
+  if (typeof LPR.listRechnungVersand !== 'function' || !_inv || _inv.status === 'draft') { _versand = []; renderRvPanel(); return; }
+  const res = await LPR.listRechnungVersand(INV_ID);
+  _versand = res.ok ? res.versand : [];
+  renderRvPanel();
+}
+
+/** Grund, warum noch nicht festgeschrieben werden kann — oder ''. */
+function festschreibenSperre() {
+  if (!_inv || _inv.status !== 'draft' || _znVeraltet || !_zn) return '';
+  const a = znArt();
+  if ((a !== 'digital' && a !== 'papier') || _zn.vollstaendig) return '';
+  return 'Festschreiben erst mit vollständigem Zeitnachweis: ' + znGrundText();
+}
+
+/** Der Grund in ganzen Saetzen — die Datenbank liefert ihn ohne Umlaute. */
+function znGrundText() {
+  if (!_zn) return '';
+  if (_zn.art === 'papier') return 'Der Papier-Zeitnachweis ist noch nicht hochgeladen.';
+  const offen = Number(_zn.offen) || 0, ohne = Number(_zn.ohne_einsatz) || 0;
+  if (offen || ohne) {
+    const teile = [];
+    if (offen) teile.push(offen === 1 ? '1 Dienst ist nicht bestätigt' : offen + ' Dienste sind nicht bestätigt');
+    if (ohne) teile.push(ohne === 1 ? '1 Dienst hat keine Einsatzdoku' : ohne + ' Dienste haben keine Einsatzdoku');
+    return teile.join(', ') + '.';
+  }
+  if (_zn.grund === 'Leistungszeitraum oder Klinik fehlt.') return 'Leistungszeitraum (von/bis) oder die Klinik des Empfängers fehlt.';
+  if (_zn.grund === 'Im Leistungszeitraum gibt es keine abgeschlossenen Dienste.') return 'Im Leistungszeitraum gibt es keine abgeschlossenen Dienste.';
+  return _zn.grund || 'Der Zeitnachweis ist unvollständig.';
+}
+
+/** Mailadressen des Empfaengers (Komma-getrennt gepflegt). */
+function versandAdressen() {
+  return String((_recipient && _recipient.email) || '').split(',').map(x => x.trim()).filter(Boolean);
+}
+
+function dtBerlin(ts) {
+  if (!ts) return '—';
+  return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit',
+    year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(ts)) + ' Uhr';
+}
+
+const VERSAND_STATUS = { versendet: 'versendet', offen: 'offen', fehler: 'Fehler' };
+
+function renderRvPanel() {
+  const el = document.getElementById('rv-panel');
+  if (!el) return;
+  if (!_inv || !versandPflicht()) { el.innerHTML = ''; return; }
+  const draft = _inv.status === 'draft';
+  const zn = _zn || {};
+  const link = '<a href="zeitnachweis.html?rechnung=' + encodeURIComponent(INV_ID) + '">Zum Zeitnachweis</a>';
+  let inhalt = '';
+
+  if (_znVeraltet && draft) {
+    inhalt += '<p class="rv-klein" style="margin:0;">Empfänger oder Leistungszeitraum geändert — mit „Speichern“ wird der Zeitnachweis neu geprüft.</p>';
+  } else if (zn.art === 'digital') {
+    inhalt += zn.vollstaendig
+      ? '<div class="rv-zeile"><span class="rv-ok">vollständig ✓</span><span>(' + (Number(zn.dienste) || 0)
+        + (Number(zn.dienste) === 1 ? ' Dienst' : ' Dienste') + ')</span><span class="spacer" style="flex:1"></span>' + link + '</div>'
+      : '<div class="rv-zeile"><span class="rv-grund">' + escapeHtml(znGrundText()) + '</span><span class="spacer" style="flex:1"></span>' + link + '</div>'
+        + '<p class="rv-klein" style="margin:6px 0 0;">Offene Dienste im Zeitnachweis als Vorstand bestätigen oder in den Sitzwachen nacherfassen; danach diese Seite neu laden.</p>';
+  } else if (zn.art === 'papier') {
+    if (zn.pfad) {
+      inhalt += '<div class="rv-zeile"><span class="rv-ok">Scan hinterlegt ✓</span>'
+        + '<button type="button" class="btn" onclick="nachweisAnsehen()">Ansehen</button></div>';
+    } else if (!draft) {
+      inhalt += '<p class="rv-grund" style="margin:0;">Kein Scan hinterlegt.</p>';
+    }
+    if (draft) {
+      inhalt += '<div class="rv-zeile" style="margin-top:' + (zn.pfad ? '10px' : '0') + ';">'
+        + (zn.pfad ? '' : '<span class="rv-grund">Der Papier-Zeitnachweis ist noch nicht hochgeladen.</span>')
+        + '</div>'
+        + '<div class="rv-zeile" style="margin-top:8px;">'
+        + '<input type="file" id="rv-datei" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" style="font-size:13px;max-width:100%;">'
+        + '<button type="button" class="btn" id="rv-hochladen" onclick="nachweisHochladen()"' + (_uploadLaeuft ? ' disabled' : '') + '>'
+        + (_uploadLaeuft ? 'Lädt hoch …' : (zn.pfad ? 'Anderen Scan hochladen' : 'Hochladen')) + '</button></div>'
+        + '<p class="rv-klein" style="margin:6px 0 0;">Unterschriebener Stundenzettel als PDF, JPG oder PNG, höchstens 20 MB.</p>';
+    }
+  }
+  const nachweisBox = `<div class="rv-box${zn.art && !zn.vollstaendig && draft && !_znVeraltet ? ' warn' : ''}">
+      <h2>Zeitnachweis</h2>${inhalt || '<p class="rv-klein" style="margin:0;">Stand wird geladen …</p>'}</div>`;
+
+  // Versand
+  const an = versandAdressen();
+  let versand = '';
+  if (draft) {
+    versand = an.length
+      ? '<p style="margin:0;">Wird nach dem Festschreiben an <strong>' + escapeHtml(an.join(', ')) + '</strong> gesendet, Kopie an '
+        + escapeHtml(VERSAND_KOPIE) + '.</p>'
+      : '<p class="rv-grund" style="margin:0;">Für diesen Empfänger ist keine Mailadresse hinterlegt — der Versand nach dem Festschreiben würde scheitern. '
+        + 'Bitte unter <a href="admin-empfaenger.html">Empfänger</a> nachtragen.</p>';
+  } else {
+    if (_versand.length) {
+      versand += '<table class="rv-table"><thead><tr><th>Datum</th><th>An</th><th>Status</th><th>Fehler</th><th></th></tr></thead><tbody>'
+        + _versand.map(v => `<tr>
+            <td style="white-space:nowrap;">${escapeHtml(dtBerlin(v.versendet_am || v.angelegt_am))}</td>
+            <td>${escapeHtml(v.an)}<div class="rv-klein">Kopie: ${escapeHtml(v.kopie || VERSAND_KOPIE)}</div></td>
+            <td><span class="rv-pill ${escapeHtml(v.status)}">${escapeHtml(VERSAND_STATUS[v.status] || v.status)}</span></td>
+            <td>${escapeHtml(v.fehler || '')}</td>
+            <td style="white-space:nowrap;"><button type="button" class="btn" onclick="erneutSenden('${escapeHtml(v.id)}')"${_versandLaeuft ? ' disabled' : ''}>Erneut senden</button></td>
+          </tr>`).join('')
+        + '</tbody></table>';
+    } else {
+      versand += '<div class="rv-zeile"><span>Noch nicht versendet'
+        + (an.length ? ' — Empfänger: ' + escapeHtml(an.join(', ')) + ', Kopie an ' + escapeHtml(VERSAND_KOPIE) : '') + '.</span>'
+        + '<span class="spacer" style="flex:1"></span>'
+        + '<button type="button" class="btn btn-primary" onclick="versandAusfuehren()"' + (_versandLaeuft ? ' disabled' : '') + '>Jetzt senden</button></div>';
+    }
+  }
+  if (_versandSchritt) versand += '<div class="rv-fortschritt" role="status">' + escapeHtml(_versandSchritt) + '</div>';
+  if (_versandErgebnis) versand += '<div class="rv-ergebnis ' + (_versandErgebnis.ok ? 'ok' : 'fehler') + '" role="status">' + escapeHtml(_versandErgebnis.text) + '</div>';
+  const versandBox = `<div class="rv-box"><h2>Versand per Mail</h2>${versand}</div>`;
+
+  el.innerHTML = nachweisBox + versandBox;
+}
+
+async function nachweisHochladen() {
+  if (_uploadLaeuft) return;
+  const input = document.getElementById('rv-datei');
+  const datei = input && input.files && input.files[0];
+  if (!datei) { LPR.showToast('Bitte zuerst eine Datei wählen.', 'warn'); return; }
+  _uploadLaeuft = true; renderRvPanel();
+  const res = await LPR.rechnungNachweisHochladen(INV_ID, datei);
+  _uploadLaeuft = false;
+  if (!res.ok) { renderRvPanel(); LPR.showToast(res.error, 'warn'); return; }
+  LPR.showToast('Scan hinterlegt ✓');
+  await zeitnachweisLaden();
+}
+
+async function nachweisAnsehen() {
+  if (!_zn || !_zn.pfad) return;
+  // Fenster sofort oeffnen (sonst blockt der Browser das Popup nach dem await).
+  const w = window.open('', '_blank');
+  const res = await LPR.rechnungDateiUrl(_zn.pfad);
+  if (!res.ok) { if (w) w.close(); LPR.showToast(res.error, 'warn'); return; }
+  if (w) w.location.href = res.url; else location.href = res.url;
+}
+
+function versandFortschritt(text) { _versandSchritt = text; renderRvPanel(); }
+
+/** Die Rechnung, wie sie auf dem Bildschirm steht, als A4-PDF. */
+async function rechnungPdf() {
+  const h2p = await LPR.ladeHtml2pdf();
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  const quelle = document.querySelector('#beleg .beleg');
+  if (!quelle) throw new Error('Die Rechnung ist nicht dargestellt.');
+  const el = quelle.cloneNode(true);
+  el.classList.add('pdf');
+  return h2p().set({
+    margin: 14,
+    image: { type: 'jpeg', quality: 0.92 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css'], avoid: ['tr', '.beleg-sum', '.beleg-tax', '.beleg-pay', '.beleg-foot'] }
+  }).from(el).outputPdf('blob');
+}
+
+/**
+ * Zeitnachweis als PDF: zeitnachweis.html laeuft im Export-Modus in einem
+ * unsichtbaren iframe (gleiche Herkunft, gleiche Sitzung) und liefert das PDF
+ * ueber window.zeitnachweisPdf().
+ */
+function zeitnachweisPdfErzeugen() {
+  return new Promise((resolve, reject) => {
+    const f = document.createElement('iframe');
+    f.setAttribute('aria-hidden', 'true');
+    f.tabIndex = -1;
+    // Nicht display:none — dann hat das Blatt keine Masse und html2canvas
+    // rastert nichts. Ausserhalb des Bildschirms, aber in A4-Breite.
+    f.style.cssText = 'position:fixed;left:-10000px;top:0;width:820px;height:1200px;border:0;';
+    let fertig = false;
+    const ende = (fn, wert) => { if (fertig) return; fertig = true; clearTimeout(uhr); setTimeout(() => f.remove(), 0); fn(wert); };
+    const uhr = setTimeout(() => ende(reject, new Error('Zeitnachweis-PDF: Zeitüberschreitung.')), 120000);
+    f.onload = async () => {
+      try {
+        const w = f.contentWindow;
+        if (!w || typeof w.zeitnachweisPdf !== 'function') throw new Error('Die Zeitnachweis-Seite liefert kein PDF.');
+        const fremd = await w.zeitnachweisPdf();
+        // Umpacken, solange der iframe noch lebt: ein Blob aus einem
+        // entfernten Dokument liefert seine Bytes nie mehr (arrayBuffer haengt).
+        const eigen = new Blob([await fremd.arrayBuffer()], { type: 'application/pdf' });
+        ende(resolve, eigen);
+      } catch (e) { ende(reject, e); }
+    };
+    f.src = 'zeitnachweis.html?rechnung=' + encodeURIComponent(INV_ID) + '&export=1';
+    document.body.appendChild(f);
+  });
+}
+
+/** PDFs erzeugen, ablegen, verschicken. Auch fuer "Jetzt senden". */
+async function versandAusfuehren() {
+  if (_versandLaeuft || !versandPflicht() || _inv.status === 'draft') return;
+  _versandLaeuft = true; _versandErgebnis = null;
+  versandFortschritt('PDFs werden erzeugt …');
+  try {
+    const rechnungBlob = await rechnungPdf();
+    let nachweisBlob = null, nachweisPfad = null;
+    if (znArt() === 'digital') {
+      nachweisBlob = await zeitnachweisPdfErzeugen();
+    } else {
+      nachweisPfad = _zn && _zn.pfad;
+      if (!nachweisPfad) throw new Error('Der Papier-Zeitnachweis ist nicht hinterlegt.');
+    }
+    versandFortschritt('PDFs erzeugt … wird versendet …');
+    const res = await LPR.rechnungVersenden(INV_ID, rechnungBlob, nachweisBlob, nachweisPfad);
+    _versandErgebnis = res.ok
+      ? { ok: true, text: 'Versendet an ' + versandAdressen().join(', ') + ' (Kopie an ' + VERSAND_KOPIE + ').' }
+      : { ok: false, text: 'Versand fehlgeschlagen: ' + (res.fehler || 'unbekannter Fehler') };
+  } catch (e) {
+    console.error('[rechnung] Versand:', e);
+    _versandErgebnis = { ok: false, text: 'PDF konnte nicht erzeugt werden: ' + (e && e.message ? e.message : e)
+      + ' — mit „Jetzt senden“ erneut versuchen.' };
+  }
+  _versandLaeuft = false; _versandSchritt = '';
+  await versandLaden();
+}
+
+async function erneutSenden(versandId) {
+  if (_versandLaeuft) return;
+  _versandLaeuft = true; _versandErgebnis = null;
+  versandFortschritt('Wird erneut versendet …');
+  const res = await LPR.rechnungErneutSenden(versandId);
+  _versandErgebnis = res.ok
+    ? { ok: true, text: 'Erneut versendet.' }
+    : { ok: false, text: 'Versand fehlgeschlagen: ' + (res.fehler || 'unbekannter Fehler') };
+  _versandLaeuft = false; _versandSchritt = '';
+  await versandLaden();
 }
 
 function printInvoice() {

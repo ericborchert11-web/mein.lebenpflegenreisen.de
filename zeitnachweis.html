@@ -201,7 +201,7 @@ function grundVorschlag(d) {
   return teile.join(' — ');
 }
 
-// Pausen als Paare Beginn–Ende; eine offene Pause endet mit dem Dienst.
+// Pausen als Paare Beginn–Ende; eine offene Pause wird als "ohne Ende" ausgewiesen.
 function pausenText(d) {
   if (d.status === 'nacherfasst' && !(d.pausen || []).length) {
     return d.pausen_manuell ? 'Pausen gesamt ' + Number(d.pausen_manuell) + ' Min. (nacherfasst)' : 'keine';

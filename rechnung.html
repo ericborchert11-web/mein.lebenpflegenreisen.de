@@ -283,8 +283,12 @@ async function init() {
 
 // Einmal beim Laden: gibt es Dienste fuer den Zeitnachweis? Scheitert die
 // Abfrage oder meldet sie einen Fehler, bleibt die Anlage-Zeile weg.
+// Die Zeile nennt bewusst KEINE Anzahl: die Zahl wird live berechnet und
+// koennte einer festgeschriebenen Rechnung spaeter widersprechen (Nacherfassung,
+// Dienste ohne Einsatzdoku). Bei Gutschrift/Storno gibt es keine Anlage.
 async function zeitnachweisZaehlen() {
   if (typeof LPR.getZeitnachweis !== 'function') return;
+  if (_inv && _inv.cancels_invoice_id) return;
   const res = await LPR.getZeitnachweis(INV_ID);
   if (!res.ok || !res.daten || res.daten.fehler) return;
   const n = Array.isArray(res.daten.dienste) ? res.daten.dienste.length : 0;
@@ -464,7 +468,9 @@ function renderBar() {
   const bits = [`<strong style="font-family:'Bricolage Grotesque',sans-serif;font-size:18px;color:var(--green-deep);">
      ${escapeHtml(_inv.invoice_no || 'Entwurf')}</strong>`, '<span class="spacer"></span>'];
   // Die Seite ist ohnehin nur fuer den Vorstand (init prueft die Rolle).
-  bits.push('<a class="btn" href="zeitnachweis.html?rechnung=' + encodeURIComponent(INV_ID) + '">Zeitnachweis</a>');
+  if (!_inv.cancels_invoice_id) {
+    bits.push('<a class="btn" href="zeitnachweis.html?rechnung=' + encodeURIComponent(INV_ID) + '">Zeitnachweis</a>');
+  }
   if (s === 'draft') {
     bits.push('<button class="btn" onclick="saveDraft()">Speichern</button>');
     bits.push('<button class="btn" onclick="removeDraft()">Verwerfen</button>');
@@ -875,7 +881,7 @@ function renderBeleg() {
 
     ${steuerBlock}
     ${betreuungsHinweis}
-    ${_znAnzahl > 0 ? '<p class="beleg-hint">Anlage: Zeitnachweis (' + _znAnzahl + (_znAnzahl === 1 ? ' Dienst' : ' Dienste') + ')</p>' : ''}
+    ${_znAnzahl > 0 && !_inv.cancels_invoice_id ? '<p class="beleg-hint">Anlage: Zeitnachweis</p>' : ''}
 
     <div class="beleg-pay">
       <div class="beleg-lbl">Zahlung</div>

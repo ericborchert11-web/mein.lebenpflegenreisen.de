@@ -234,7 +234,7 @@
 
 <script src="ust-ampel.js?v20261007a"></script>
 <script src="rechnung-hinweise.js?v20261007b"></script>
-<script src="app.js?v20261008b"></script>
+<script src="app.js?v20261009a"></script>
 <script src="druck-anpassen.js?v20260823a"></script>
 <script src="layout.js"></script>
 <script>
@@ -244,6 +244,8 @@ LPR_Layout.init({ page: 'rechnungen-admin' });
 
 const INV_ID = new URLSearchParams(location.search).get('id');
 let _inv = null, _recipient = null, _items = [], _recipients = [], _templates = [], _bezug = null;
+// Zahl der Dienste im Zeitnachweis — 0 heisst: keine Anlage-Zeile auf der Rechnung.
+let _znAnzahl = 0;
 
 // Escapt auch Anfuehrungszeichen: Vorlagennamen landen in value="…"-Attributen,
 // und ein Name wie 'Nachtwache 12" Schicht' wuerde das Feld sonst zerreissen.
@@ -276,6 +278,17 @@ async function init() {
   _recipients = (await LPR.listRecipients(true)).recipients || [];
   await loadTemplates();
   await reload();
+  await zeitnachweisZaehlen();
+}
+
+// Einmal beim Laden: gibt es Dienste fuer den Zeitnachweis? Scheitert die
+// Abfrage oder meldet sie einen Fehler, bleibt die Anlage-Zeile weg.
+async function zeitnachweisZaehlen() {
+  if (typeof LPR.getZeitnachweis !== 'function') return;
+  const res = await LPR.getZeitnachweis(INV_ID);
+  if (!res.ok || !res.daten || res.daten.fehler) return;
+  const n = Array.isArray(res.daten.dienste) ? res.daten.dienste.length : 0;
+  if (n !== _znAnzahl) { _znAnzahl = n; renderBeleg(); }
 }
 
 async function reload() {
@@ -450,6 +463,8 @@ function renderBar() {
   const s = _inv.status;
   const bits = [`<strong style="font-family:'Bricolage Grotesque',sans-serif;font-size:18px;color:var(--green-deep);">
      ${escapeHtml(_inv.invoice_no || 'Entwurf')}</strong>`, '<span class="spacer"></span>'];
+  // Die Seite ist ohnehin nur fuer den Vorstand (init prueft die Rolle).
+  bits.push('<a class="btn" href="zeitnachweis.html?rechnung=' + encodeURIComponent(INV_ID) + '">Zeitnachweis</a>');
   if (s === 'draft') {
     bits.push('<button class="btn" onclick="saveDraft()">Speichern</button>');
     bits.push('<button class="btn" onclick="removeDraft()">Verwerfen</button>');
@@ -860,6 +875,7 @@ function renderBeleg() {
 
     ${steuerBlock}
     ${betreuungsHinweis}
+    ${_znAnzahl > 0 ? '<p class="beleg-hint">Anlage: Zeitnachweis (' + _znAnzahl + (_znAnzahl === 1 ? ' Dienst' : ' Dienste') + ')</p>' : ''}
 
     <div class="beleg-pay">
       <div class="beleg-lbl">Zahlung</div>

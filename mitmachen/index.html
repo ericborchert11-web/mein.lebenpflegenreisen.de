@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ehrenamtliche Sitzwache werden – Leben Pflegen Reisen e.V.</title>
-<meta name="description" content="Ehrenamtliche Sitzwache in Berliner Kliniken werden: Schichten selbst wählen, Schulung und Versicherung inklusive. Auch ohne Pflegeausbildung – Laien sind willkommen.">
+<meta name="description" content="Ehrenamtliche Sitzwache in Berliner Kliniken werden: 100 € steuerfreie Aufwandsentschädigung je Dienst, Schichten selbst wählen, Schulung inklusive. Auch ohne Pflegeausbildung.">
 <meta property="og:title" content="Ehrenamtliche Sitzwache werden">
 <meta property="og:description" content="Da sein, wenn es zählt. Werde ehrenamtliche Sitzwache in Berliner Kliniken – mit oder ohne Pflegeausbildung, wir schulen dich.">
 <meta property="og:type" content="website">
@@ -289,6 +289,13 @@ textarea { min-height: 118px; resize: vertical; }
 }
 .form-fehler a { color: #6E200E; }
 
+/* Aufklapper fuer die freiwilligen Felder. Die FAQ-Regeln fuer details
+   gelten mit; hier nur Abstand und Schriftgroesse an das Formular angepasst. */
+.form-karte details.mehr { border-top: 1px solid var(--rand); border-bottom: 1px solid var(--rand); margin: 4px 0 20px; }
+.form-karte details.mehr summary { font-size: 15.5px; }
+.form-karte details.mehr summary .hinweis-inline { margin-left: .35em; }
+.form-karte details.mehr[open] { padding-bottom: 4px; }
+
 .geschafft { text-align: left; padding: 8px 0; }
 .geschafft h2 { margin-bottom: 14px; }
 
@@ -359,7 +366,7 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
 <section>
   <div class="wrap">
     <h2>Was ist eine Sitzwache?</h2>
-    <p>Sitzwachen begleiten schwerkranke und sterbende Menschen am Krankenbett: da sein, zuhören, Ruhe geben – und Angehörige wie Pflegekräfte entlasten.</p>
+    <p>Sitzwachen sind im Krankenhaus bei Menschen, die nicht allein sein sollten – meist nachts und meist bei älteren Patientinnen und Patienten, die unruhig oder verwirrt sind. Du bist da, hörst zu, gibst Orientierung und rufst die Pflege, wenn etwas ist. Das entlastet die Station und hilft nachweislich, einem Delir vorzubeugen.</p>
     <p class="pflichtsatz">Sitzwache ist Begleitung – keine pflegerischen oder medizinischen Tätigkeiten.</p>
   </div>
 </section>
@@ -370,10 +377,10 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
     <ul class="chev">
       <li>Mindestens 18 Jahre, empathisch und verlässlich</li>
       <li>Die Bereitschaft, die Schulung vollständig zu absolvieren – eine Pflegeausbildung ist keine Bedingung</li>
-      <li>Zeit für etwa eine Schicht pro Woche – du wählst deine Schichten selbst</li>
+      <li>Keine Mindestzahl an Diensten – du trägst dich ein, wenn du Zeit hast</li>
     </ul>
 
-    <p class="sub">Eine Pflegeausbildung ist keine Bedingung. Sie entscheidet nur über die <strong>Höhe</strong> der steuerfreien Aufwandsentschädigung – mit dreijähriger Ausbildung fällt sie höher aus. An das Bett darfst du in beiden Fällen, nach der Schulung.</p>
+    <p class="sub">Eine Pflegeausbildung ist keine Bedingung. Sie entscheidet nur über die <strong>Höhe</strong> der steuerfreien Aufwandsentschädigung: <strong>100 € je Dienst</strong>, mit abgeschlossener dreijähriger Pflegeausbildung <strong>150 € je Dienst</strong>. An das Bett darfst du in beiden Fällen, nach der Schulung.</p>
 
     <div class="zielgruppen">
       <!-- Laien stehen ZUERST: Sitzwache ist Begleitung, keine Pflege. Vorher
@@ -397,7 +404,7 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
       </div>
       <div class="zielgruppe">
         <h3>Studium</h3>
-        <p>Nachtdienste passen neben Vorlesungen – und die Aufwandsentschädigung bleibt steuerfrei, ohne BAföG-Kürzung.</p>
+        <p>Nachtdienste passen neben Vorlesungen – und die Aufwandsentschädigung bleibt steuerfrei, ohne BAföG-Kürzung. In Prüfungsphasen trägst du dich einfach nicht ein.</p>
       </div>
     </div>
   </div>
@@ -408,20 +415,35 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
     <h2>Was du bekommst</h2>
     <ul class="chev">
       <li>Eine Aufgabe, die trägt – und Menschen, denen deine Zeit alles bedeutet</li>
-      <li>Selbst gewählte, planbare Schichten</li>
+      <li>Selbst gewählte, planbare Schichten – ohne Mindestzahl</li>
       <li>Eine Schulung vor dem ersten Einsatz (für Sitzwachen mindestens 8 Stunden) plus begleitete Hospitationsschichten</li>
       <li>Versicherungsschutz während deiner Einsätze über den Verein</li>
-      <li>Eine steuerfreie Aufwandsentschädigung (Übungsleiterpauschale)</li>
+      <li>Eine steuerfreie Aufwandsentschädigung von 100 € je Sitzwachen-Dienst, mit dreijähriger Pflegeausbildung 150 € – im Rahmen der Übungsleiterpauschale, ohne Anrechnung auf Minijob oder BAföG</li>
       <li>Ehrenamtsbescheinigung – wertvoll für Bewerbungen und Ausbildung</li>
     </ul>
   </div>
 </section>
 
-<section class="sand" id="ablauf">
+<!-- Reisen: Der Menuepunkt "Mitmachen" fuehrt von jeder Seite hierher. Vorher
+     kamen Reisen nur als Halbsatz und als Auswahlknopf im Formular vor. -->
+<section class="sand" id="reisen">
+  <div class="wrap">
+    <h2>Lieber Reisen begleiten?</h2>
+    <p>Wir fahren mit Menschen in den Urlaub, die das allein nicht mehr können – mit Pflegegrad, mit Demenz oder mit Behinderung. Als Reisebegleitung bist du unterwegs dabei: beim Ankommen, im Alltag vor Ort, bei Ausflügen.</p>
+    <ul class="chev">
+      <li>Unterkunft und Verpflegung vor Ort sind dabei</li>
+      <li>Du suchst dir die Reisen aus, die zu dir passen</li>
+      <li>Steuerfreie Aufwandsentschädigung und Versicherungsschutz über den Verein</li>
+    </ul>
+    <p class="sub">Im Formular unten einfach „Reisebegleitung“ oder „Beides“ wählen.</p>
+  </div>
+</section>
+
+<section id="ablauf">
   <div class="wrap">
     <h2>So schnell geht&rsquo;s</h2>
     <ol class="ablauf">
-      <li><h3>Bewerben</h3><p>2 Minuten, Formular unten</p></li>
+      <li><h3>Bewerben</h3><p>1 Minute, Formular unten – oder kurz anrufen</p></li>
       <li><h3>Rückmeldung</h3><p>von uns innerhalb von zwei Werktagen</p></li>
       <li><h3>Erstgespräch</h3><p>20 Minuten, telefonisch</p></li>
       <li><h3>Unterlagen &amp; Schulung</h3><p>Schulung: für Sitzwachen mindestens 8 Stunden. Unterlagen: erweitertes Führungszeugnis (für Ehrenamtliche gebührenfrei, die Bescheinigung stellen wir), Masernschutznachweis, Belehrung nach § 43 IfSG, Erste-Hilfe-Nachweis (nicht älter als zwei Jahre), Datenschutz- und Schweigepflichterklärung. Bei allem helfen wir dir.</p></li>
@@ -430,10 +452,11 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
   </div>
 </section>
 
-<section id="bewerben">
+<section class="sand" id="bewerben">
   <div class="wrap">
     <h2>Jetzt bewerben</h2>
-    <p class="sub">Zwei Minuten und unverbindlich. Dein Konto legst du danach an, wenn du magst.</p>
+    <p class="sub">Eine Minute und unverbindlich – Pflicht sind nur Name, E-Mail und dein Hintergrund. Dein Konto legst du danach an, wenn du magst.</p>
+    <p class="sub">Lieber erst sprechen? Ruf an unter <a href="tel:+491743409116">0174 3409116</a> oder schreib per <a href="https://wa.me/491743409116">WhatsApp</a>.</p>
 
     <div class="form-karte">
       <div id="fehlerkasten" class="form-fehler" hidden></div>
@@ -468,12 +491,6 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
           </select>
         </div>
 
-        <div class="feld">
-          <label for="hintergrund_detail">Erzähl kurz mehr dazu</label>
-          <p class="hinweis">Ohne Pflegeausbildung: Was machst du beruflich oder im Alltag? Mit Abschluss: Wie heißt er, und wann hast du ihn gemacht? Im Studium: welches Fach, welches Semester?</p>
-          <input type="text" id="hintergrund_detail" name="hintergrund_detail" maxlength="300">
-        </div>
-
         <!-- Reisen gehoeren dazu: Der Menuepunkt "Mitmachen" fuehrt von jeder
              Seite hierher, auch fuer alle, die Reisen begleiten wollen. -->
         <fieldset class="gruppe">
@@ -484,6 +501,17 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
             <label class="kasten"><input type="radio" name="interesse" value="beides"> Beides</label>
           </div>
         </fieldset>
+
+        <!-- Alles Weitere ist freiwillig und eingeklappt: am Handy war das
+             Formular rund 1.800 px hoch. Was hier fehlt, klaert das Erstgespraech. -->
+        <details class="mehr">
+          <summary>Mehr über dich erzählen <span class="hinweis-inline">(freiwillig)</span></summary>
+
+        <div class="feld">
+          <label for="hintergrund_detail">Erzähl kurz mehr dazu</label>
+          <p class="hinweis">Ohne Pflegeausbildung: Was machst du beruflich oder im Alltag? Mit Abschluss: Wie heißt er, und wann hast du ihn gemacht? Im Studium: welches Fach, welches Semester?</p>
+          <input type="text" id="hintergrund_detail" name="hintergrund_detail" maxlength="300">
+        </div>
 
         <fieldset class="gruppe">
           <legend>Wann kannst du?</legend>
@@ -505,6 +533,7 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
           <label for="motivation">Warum möchtest du mitmachen?</label>
           <textarea id="motivation" name="motivation" maxlength="1000"></textarea>
         </div>
+        </details>
 
         <div class="feld">
           <label for="kanal">Wie hast du von uns erfahren? <span class="hinweis-inline">(freiwillig)</span></label>
@@ -554,7 +583,7 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
   </div>
 </section>
 
-<section class="sand">
+<section>
   <div class="wrap">
     <h2>Häufige Fragen</h2>
 
@@ -572,7 +601,11 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
     </details>
     <details>
       <summary>Wie viel Zeit muss ich mitbringen?</summary>
-      <p>Ab etwa einer Schicht pro Woche; du wählst selbst, wann.</p>
+      <p>So viel, wie du möchtest. Es gibt keine Mindestzahl an Diensten: Du siehst im Kalender, welche Dienste offen sind, und trägst dich ein, wenn du Zeit hast.</p>
+    </details>
+    <details>
+      <summary>Wie viel Aufwandsentschädigung bekomme ich?</summary>
+      <p>100 € je Sitzwachen-Dienst, mit abgeschlossener dreijähriger Pflegeausbildung 150 €. Das ist eine Aufwandsentschädigung im Ehrenamt, kein Lohn: Im Rahmen der Übungsleiterpauschale (bis 3.300 € im Jahr) ist sie steuer- und sozialabgabenfrei und wird weder auf einen Minijob noch auf das BAföG angerechnet.</p>
     </details>
     <details>
       <summary>Bin ich versichert?</summary>

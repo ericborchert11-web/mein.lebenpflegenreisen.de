@@ -21,13 +21,16 @@ const pruefe = (name, bedingung, hinweis) => {
   if (!bedingung) fehler.push(`${name}\n    ${hinweis}`);
 };
 
-// ── Gate 1: keine Euro-Betraege ────────────────────────────────────────────
-// Die Freigabe des Finanzvorstands zur Aufwandsentschaedigung steht aus.
-// Qualitativ ("steuerfrei") ist erlaubt, jede Zahl nicht — auch nicht in
-// Meta-Tags oder Kommentaren, deshalb wird die ganze Datei geprueft.
-const betrag = html.match(/\d[\d.,]*\s*(€|EUR\b|Euro\b)|(€|EUR\b)\s*\d/gi);
-pruefe('Gate 1 — keine Euro-Betraege', betrag === null,
-  `gefunden: ${betrag ? betrag.join(', ') : ''}`);
+// ── Gate 1: nur freigegebene Euro-Betraege ─────────────────────────────────
+// Am 09.10.2026 von Eric freigegeben: 100 € je Dienst, 150 € mit
+// abgeschlossener dreijaehriger Pflegeausbildung, dazu die gesetzliche
+// Uebungsleiterpauschale von 3.300 €. Jede andere Zahl faellt durch — auch
+// in Meta-Tags oder Kommentaren, deshalb wird die ganze Datei geprueft.
+const FREIGEGEBEN = ['100 €', '150 €', '3.300 €'];
+const betrag = (html.match(/\d[\d.,]*\s*(€|EUR\b|Euro\b)|(€|EUR\b)\s*\d/gi) || [])
+  .filter(b => !FREIGEGEBEN.includes(b.replace(/\s+/g, ' ')));
+pruefe('Gate 1 — nur freigegebene Euro-Betraege', betrag.length === 0,
+  `nicht freigegeben: ${betrag.join(', ')}`);
 
 // ── Gate 2: keine Kliniknamen ──────────────────────────────────────────────
 // Strenger als marketing/ehrenamt/README.md, wo Sana genannt werden darf.

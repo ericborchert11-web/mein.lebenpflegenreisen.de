@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Zeitnachweis · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.zn-wrap { max-width: 900px; margin: 28px auto 60px; padding: 0 20px; }
+.back-link { display:inline-flex; align-items:center; gap:6px; margin:0 0 14px; font-size:14px;
+             font-weight:600; color:#1A3A2A; text-decoration:none; }
+.back-link:hover { text-decoration:underline; }
+
+.zn-bar { background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+          padding:16px 20px; margin-bottom:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.zn-bar .spacer { flex:1; }
+.zn-bar h1 { font-family:'Bricolage Grotesque',sans-serif; font-size:18px; color:var(--green-deep); margin:0; }
+
+.meldung { background:var(--lime-soft); border:1px solid var(--lime); border-radius:var(--radius-sm);
+           padding:12px 14px; margin-bottom:16px; color:var(--green-deep); font-weight:600; }
+.meldung.warn { background:#FCEADA; border-color:var(--warn); color:#8A2E0E; }
+
+.zn-box { background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+          padding:16px 20px; margin-bottom:16px; }
+.zn-box.warn { border-color:#C85B30; background:#FDF6F1; }
+.zn-box h2 { font-family:'Bricolage Grotesque',sans-serif; font-size:16px; color:#8A3A18; margin:0 0 6px; }
+.zn-box p.sub { font-size:13px; color:var(--muted); margin:0 0 10px; }
+.zn-liste { list-style:none; margin:0; padding:0; }
+.zn-liste > li { border-top:1px solid #EFEDE8; padding:10px 0; }
+.zn-liste > li:first-child { border-top:none; }
+.zn-zeile { display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:14px; }
+.zn-zeile .spacer { flex:1; }
+.zn-zeile .klein { font-size:12.5px; color:var(--muted); }
+
+.vb-panel { margin-top:10px; padding:14px; border:1.5px solid var(--border); border-radius:10px; background:#fff; }
+.vb-panel canvas { width:100%; height:160px; display:block; background:#fff;
+                   border:2px dashed var(--green); border-radius:10px; touch-action:none; }
+.vb-sigrow { display:flex; justify-content:space-between; align-items:center; margin:4px 0 10px;
+             font-size:13px; color:var(--muted); font-weight:600; }
+.vb-panel label { display:block; font-size:13px; font-weight:600; color:var(--muted); }
+.vb-panel textarea { display:block; width:100%; margin-top:5px; font-family:inherit; font-size:14px;
+                     padding:9px 11px; border:1.5px solid var(--border); border-radius:8px; resize:vertical; }
+.vb-hinweis { font-size:12.5px; color:var(--muted); margin:8px 0 10px; }
+.vb-knoepfe { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+.vb-fehler { color:#8A2E0E; font-weight:600; font-size:13px; margin:6px 0; }
+.zn-box .btn:not(.btn-primary) { background:#fff; border:1.5px solid var(--border); color:var(--green-deep); }
+.link-btn { background:none; border:none; color:var(--green); font:inherit; font-weight:700;
+            text-decoration:underline; cursor:pointer; padding:2px 4px; }
+
+/* ═════════ Blaetter ═════════
+   Am Bildschirm wie im Druck dasselbe Layout. KEINE box-shadow: Chrome
+   exportiert Schatten als Soft-Mask, Vorschau und Keynote zeichnen daraus
+   harte graue Kaesten. Rahmen statt Schatten. */
+.blatt { background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+         padding:14mm 16mm; margin:0 auto 20px; color:#1A1A18; font-size:10.5pt; line-height:1.5;
+         max-width:210mm; }
+.blatt-kopf { display:flex; justify-content:space-between; align-items:flex-start;
+              border-bottom:3px solid #C8F135; padding-bottom:4mm; margin-bottom:8mm; }
+.blatt-logo { font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:14pt; color:#1A3A2A; }
+.blatt-logo-sub { font-size:8pt; color:#6B6B65; letter-spacing:.08em; text-transform:uppercase; margin-top:1mm; }
+.blatt-kopf-rechts { text-align:right; font-size:8.5pt; color:#4A4A46; }
+.blatt h2 { font-family:'Bricolage Grotesque',sans-serif; font-size:20pt; font-weight:800; color:#1A3A2A;
+            margin:0 0 6mm; letter-spacing:-.02em; line-height:1.15; }
+.blatt h3 { font-family:'Bricolage Grotesque',sans-serif; font-size:12pt; font-weight:700; color:#1A3A2A;
+            margin:7mm 0 3mm; }
+.lbl { font-size:8pt; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#6B6B65; }
+.kv { width:100%; border-collapse:collapse; }
+.kv th { text-align:left; width:42mm; font-size:8.5pt; font-weight:700; text-transform:uppercase;
+         letter-spacing:.06em; color:#6B6B65; padding:2.6mm 3mm 2.6mm 0; vertical-align:top;
+         border-bottom:1px solid #E4E2DC; }
+.kv td { padding:2.4mm 0; border-bottom:1px solid #E4E2DC; vertical-align:top; font-variant-numeric:tabular-nums; }
+.kv tr.hl td { font-weight:700; font-size:12pt; color:#1A3A2A; }
+.legende { margin:0; padding:0; list-style:none; }
+.legende li { padding:1.5mm 0 1.5mm 6mm; position:relative; }
+.legende li::before { content:''; position:absolute; left:0; top:3.2mm; width:3mm; height:3mm; border-radius:50%;
+                      background:#1A3A2A; }
+.legende li.vs::before { background:#6E9B1F; }
+.legende li.un::before { background:#fff; border:1px solid #6B6B65; width:2.6mm; height:2.6mm; }
+.blatt-fuss { border-top:1px solid #E4E2DC; margin-top:10mm; padding-top:3mm; font-size:8pt; color:#6B6B65; }
+.status-nach { display:inline-block; font-size:8.5pt; font-weight:700; color:#4A4A46;
+               border:1px solid #9A978F; border-radius:3px; padding:0 2mm; margin-left:2mm; }
+
+.best { margin-top:8mm; border:1.5px solid #1A3A2A; border-radius:3mm; padding:5mm 6mm; }
+.best .lbl { margin-bottom:2mm; }
+.best img { display:block; max-width:90mm; max-height:34mm; margin:1mm 0 2mm;
+            border-bottom:1px solid #9A978F; }
+.best.vs { border-color:#6E9B1F; }
+.best.un { border-color:#C85B30; }
+.best.un .text { color:#B23A12; font-weight:700; }
+.best .vs-text { font-weight:600; }
+
+@media print {
+  /* Rand 0: Chrome druckt sonst Datum, Titel, Dateipfad und Seitenzahl in den
+     Seitenrand. Der sichtbare Rand kommt aus dem Padding des Blattes. */
+  @page { size: A4; margin: 0; }
+  html, body { background:#fff !important; min-height:0; margin:0; }
+  .zn-wrap { max-width:none; margin:0; padding:0; }
+  .blatt { border:none; border-radius:0; margin:0; max-width:none; padding:16mm 18mm 12mm; }
+  .blatt + .blatt { break-before: page; page-break-before: always; }
+  .blatt { break-inside: avoid; page-break-inside: avoid; }
+  /* Unbestaetigt: im Druck neutral, kein Alarmrot auf dem Dokument. */
+  .best.un { border-color:#6B6B65; }
+  .best.un .text { color:#1A1A18; }
+  a { text-decoration:none; color:inherit; }
+}
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+<main id="main">
+<div class="zn-wrap">
+  <a href="admin-rechnungen.html" class="back-link no-print" id="zurueck">← Rechnung</a>
+
+  <div class="zn-bar no-print" id="bar">
+    <h1>Zeitnachweis</h1>
+    <span class="spacer"></span>
+    <button class="btn btn-primary" id="btn-druck" type="button" disabled>Drucken / Als PDF sichern</button>
+  </div>
+
+  <div class="meldung no-print" id="meldung" hidden></div>
+  <div class="zn-box warn no-print" id="druck-warnung" hidden></div>
+  <div class="no-print" id="hinweise"></div>
+  <div id="blaetter"></div>
+</div>
+</main>
+
+<script src="app.js?v20261009a"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+
+LPR_Layout.init({ page: 'rechnungen-admin' });
+
+const INV_ID = new URLSearchParams(location.search).get('rechnung');
+const TZ = 'Europe/Berlin';
+const SCHICHT = { morning: 'Frühdienst', afternoon: 'Spätdienst', night: 'Nachtdienst' };
+
+let _daten = null;        // Antwort der RPC
+let _urls = {};           // Pfad -> signierter Link
+let _offen = null;        // einsatz_id des offenen Bestaetigungs-Panels
+let _laeuft = false;      // Speichern laeuft gerade
+let _sig = null;          // Zustand des Unterschriftfeldes
+
+const $ = id => document.getElementById(id);
+function esc(s) {
+  const d = document.createElement('div'); d.textContent = s ?? '';
+  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function melde(text, warn) {
+  const el = $('meldung');
+  el.textContent = text; el.classList.toggle('warn', !!warn); el.hidden = !text;
+}
+
+// ── Datum und Zeit (immer Berliner Zeit) ─────────────────────────────────
+const fmtUhr = new Intl.DateTimeFormat('de-DE', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+const fmtTagTs = new Intl.DateTimeFormat('de-DE', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' });
+const fmtIsoTs = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+const fmtWochentag = new Intl.DateTimeFormat('de-DE', { timeZone: 'UTC', weekday: 'long' });
+
+function deDatum(iso) { return iso ? iso.slice(8,10) + '.' + iso.slice(5,7) + '.' + iso.slice(0,4) : '—'; }
+function wochentag(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  return fmtWochentag.format(new Date(Date.UTC(y, m - 1, d)));
+}
+function uhr(ts) { return ts ? fmtUhr.format(new Date(ts)) : '—'; }
+function tagVon(ts) { return ts ? fmtIsoTs.format(new Date(ts)) : ''; }
+// Uhrzeit, und das Datum dazu, wenn der Zeitpunkt nicht am Diensttag liegt
+// (Nachtdienst endet am Folgetag).
+function zeitpunkt(ts, datum) {
+  if (!ts) return '—';
+  const u = uhr(ts) + ' Uhr';
+  return tagVon(ts) !== datum ? fmtTagTs.format(new Date(ts)) + ', ' + u : u;
+}
+function stdMin(min) {
+  const m = Math.max(0, Math.round(Number(min) || 0));
+  return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
+}
+function stdDez(min) { return ((Number(min) || 0) / 60).toFixed(2).replace('.', ','); }
+function netto(min) { return stdMin(min) + ' Std. (' + stdDez(min) + ')'; }
+
+// ── Bestaetigungsstand eines Dienstes ────────────────────────────────────
+function stationUnterschrieben(d) { return d.unterschrift_status === 'geleistet' && !!d.unterschrift_path; }
+function bestaetigt(d) { return stationUnterschrieben(d) || !!d.vorstand; }
+
+function grundVorschlag(d) {
+  const lab = (LPR.KEINE_UNTERSCHRIFT_LABEL || {})[d.keine_kategorie] || '';
+  const teile = [];
+  if (lab) teile.push('Keine Unterschrift der Station: ' + lab);
+  if (d.keine_vermerk) teile.push(String(d.keine_vermerk).trim());
+  if (!teile.length && d.status === 'nacherfasst') teile.push('Dienst nachträglich erfasst (Papier-Stundenzettel)');
+  return teile.join(' — ');
+}
+
+// Pausen als Paare Beginn–Ende; eine offene Pause endet mit dem Dienst.
+function pausenText(d) {
+  if (d.status === 'nacherfasst' && !(d.pausen || []).length) {
+    return d.pausen_manuell ? 'Pausen gesamt ' + Number(d.pausen_manuell) + ' Min. (nacherfasst)' : 'keine';
+  }
+  const ev = (d.pausen || []).slice().sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+  const paare = [];
+  let start = null;
+  ev.forEach(e => {
+    if (e.typ === 'pause_start') { if (!start) start = e.ts; }
+    else if (e.typ === 'pause_ende' && start) { paare.push([start, e.ts]); start = null; }
+  });
+  if (start) paare.push([start, null]);
+  if (!paare.length) return 'keine';
+  return paare.map(([a, b]) => {
+    if (!b) return esc(uhr(a)) + '–(ohne Ende)';
+    const min = Math.round((new Date(b) - new Date(a)) / 60000);
+    return esc(uhr(a)) + '–' + esc(uhr(b)) + ' (' + min + ' Min.)';
+  }).join('<br>');
+}
+
+// Unterschriften sind PNGs mit transparentem Grund. Chrome legt dafuer im PDF
+// eine Soft-Mask an, die Vorschau und Keynote falsch zeichnen. Deshalb jedes
+// Bild auf weissen Grund malen und als undurchsichtiges PNG einsetzen. Klappt
+// das nicht (CORS, Netz), bleibt der signierte Link.
+async function aufWeissFlach(urls) {
+  const aus = {};
+  await Promise.all(Object.keys(urls).map(async pfad => {
+    aus[pfad] = urls[pfad];
+    try {
+      const resp = await fetch(urls[pfad]);
+      if (!resp.ok) return;
+      const bmp = await createImageBitmap(await resp.blob());
+      const c = document.createElement('canvas');
+      c.width = bmp.width; c.height = bmp.height;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(bmp, 0, 0);
+      aus[pfad] = c.toDataURL('image/png');
+    } catch (e) { /* signierter Link bleibt */ }
+  }));
+  return aus;
+}
+
+// ── Laden ────────────────────────────────────────────────────────────────
+async function init() {
+  if (!LPR.requireRole('admin', 'login.html?next=' + encodeURIComponent('zeitnachweis.html' + location.search))) return;
+  if (!INV_ID) { location.href = 'admin-rechnungen.html'; return; }
+  $('zurueck').href = 'rechnung.html?id=' + encodeURIComponent(INV_ID);
+  $('btn-druck').addEventListener('click', druckKnopf);
+  await laden();
+}
+
+async function laden() {
+  const res = await LPR.getZeitnachweis(INV_ID);
+  if (!res.ok) { melde('Zeitnachweis konnte nicht geladen werden: ' + res.error, true); return; }
+  _daten = res.daten;
+  _daten.dienste = _daten.dienste || [];
+  _daten.ohne_einsatz = _daten.ohne_einsatz || [];
+  const pfade = [];
+  _daten.dienste.forEach(d => {
+    if (stationUnterschrieben(d)) pfade.push(d.unterschrift_path);
+    if (d.vorstand && d.vorstand.unterschrift_path) pfade.push(d.vorstand.unterschrift_path);
+  });
+  const u = await LPR.unterschriftUrls(pfade);
+  _urls = await aufWeissFlach(u.urls || {});
+  if (!u.ok) melde('Unterschriftsbilder konnten nicht geladen werden: ' + u.error, true);
+  else if (_daten.fehler === 'empfaenger_ohne_klinik') melde('Der Rechnungsempfänger ist keiner Klinik zugeordnet — es gibt keine Dienste für diesen Nachweis.', true);
+  else if (_daten.fehler === 'kein_zeitraum') melde('Die Rechnung hat keinen Leistungszeitraum — bitte zuerst „Leistung von/bis" in der Rechnung pflegen.', true);
+  render();
+}
+
+function render() {
+  const r = _daten.rechnung || {};
+  document.title = 'Zeitnachweis ' + (r.nummer || 'Entwurf') + ' · Leben Pflegen Reisen e.V.';
+  $('btn-druck').disabled = !_daten.dienste.length;
+  $('druck-warnung').hidden = true;
+  renderHinweise();
+  renderBlaetter();
+}
+
+// ── Bildschirmleiste: offene Punkte ──────────────────────────────────────
+function dienstKurz(d) {
+  return esc(wochentag(d.datum).slice(0, 2) + ', ' + deDatum(d.datum)) + ' · ' + esc(SCHICHT[d.schicht] || d.schicht || '')
+    + (d.sitzwache ? ' · ' + esc(d.sitzwache) : '') + (d.station ? ' · ' + esc(d.station) : '');
+}
+
+function renderHinweise() {
+  const offen = _daten.dienste.filter(d => !bestaetigt(d));
+  const ohne = _daten.ohne_einsatz;
+  let html = '';
+  if (offen.length) {
+    html += `<div class="zn-box warn">
+      <h2>${offen.length === 1 ? '1 Dienst' : offen.length + ' Dienste'} ohne Bestätigung</h2>
+      <p class="sub">Keine Unterschrift der Station und keine Vorstandsbestätigung. Der Vorstand kann den Dienst
+        bestätigen — auf dem Nachweis steht dann ausdrücklich, dass die Station nicht unterschrieben hat.</p>
+      <ul class="zn-liste">${offen.map(d => `
+        <li><div class="zn-zeile"><span>${dienstKurz(d)}</span>
+          ${d.status === 'nacherfasst' ? '<span class="klein">nachträglich erfasst</span>' : ''}
+          <span class="spacer"></span>
+          ${_offen === d.einsatz_id ? '' : `<button class="btn" type="button" data-bestaetigen="${esc(d.einsatz_id)}">Als Vorstand bestätigen</button>`}
+        </div>${_offen === d.einsatz_id ? panelHtml(d) : ''}</li>`).join('')}
+      </ul></div>`;
+  }
+  if (ohne.length) {
+    html += `<div class="zn-box warn">
+      <h2>${ohne.length === 1 ? '1 Dienst' : ohne.length + ' Dienste'} ohne digitale Einsatzdoku</h2>
+      <p class="sub">Abgeschlossen, aber nie über die App erfasst — diese Dienste fehlen im Nachweis, bis sie
+        nacherfasst sind.</p>
+      <ul class="zn-liste">${ohne.map(o => `
+        <li><div class="zn-zeile"><span>${esc(wochentag(o.datum).slice(0, 2) + ', ' + deDatum(o.datum))} ·
+          ${esc(SCHICHT[o.schicht] || o.schicht || '')}${o.sitzwache ? ' · ' + esc(o.sitzwache) : ''}</span>
+          <span class="spacer"></span>
+          <a class="btn" href="admin-sitzwachen.html">In Sitzwachen nacherfassen</a></div></li>`).join('')}
+      </ul></div>`;
+  }
+  $('hinweise').innerHTML = html;
+  $('hinweise').querySelectorAll('[data-bestaetigen]').forEach(b =>
+    b.addEventListener('click', () => panelOeffnen(b.getAttribute('data-bestaetigen'))));
+  if (_offen) panelVerdrahten();
+}
+
+function panelHtml(d) {
+  return `<div class="vb-panel" id="vb-panel">
+    <canvas id="vb-sig" aria-label="Unterschriftfeld Vorstand"></canvas>
+    <div class="vb-sigrow"><span>Unterschrift Vorstand</span>
+      <button class="link-btn" type="button" id="vb-loeschen">Löschen</button></div>
+    <label for="vb-grund">Grund (Pflicht, wird auf den Nachweis gedruckt)
+      <textarea id="vb-grund" rows="3" maxlength="500">${esc(grundVorschlag(d))}</textarea></label>
+    <p class="vb-hinweis">Die Bestätigung ist danach nicht mehr änderbar. Auf dem Blatt steht:
+      „Bestätigt durch den Vorstand — keine Unterschrift der Station."</p>
+    <div class="vb-fehler" id="vb-fehler" hidden></div>
+    <div class="vb-knoepfe">
+      <button class="btn" type="button" id="vb-abbrechen">Abbrechen</button>
+      <button class="btn btn-primary" type="button" id="vb-speichern">Speichern</button>
+    </div></div>`;
+}
+
+function panelOeffnen(id) {
+  if (_laeuft) return;
+  _offen = id; _sig = null;
+  renderHinweise();
+  const p = $('vb-panel'); if (p) p.scrollIntoView({ block: 'nearest' });
+}
+
+function panelSchliessen() { if (_laeuft) return; _offen = null; _sig = null; renderHinweise(); }
+
+// Zeichenlogik wie in einsatz.html: Pointer-Events, Fallback Touch/Maus.
+function panelVerdrahten() {
+  const c = $('vb-sig');
+  const rect = c.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(rect.width * dpr); c.height = Math.round(rect.height * dpr);
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1A241E';
+  // Weisser Grund statt Transparenz: das gespeicherte PNG ist undurchsichtig
+  // und erzeugt im PDF keine Soft-Mask.
+  const weiss = () => { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width / dpr, c.height / dpr); };
+  weiss();
+  _sig = { ctx, tinte: false };
+
+  let zeichnet = false, px = 0, py = 0;
+  const punkt = (x, y) => { const b = c.getBoundingClientRect(); return [x - b.left, y - b.top]; };
+  const beginn = (x, y) => { zeichnet = true; [px, py] = punkt(x, y); };
+  const zug = (x, y) => {
+    if (!zeichnet) return;
+    const [nx, ny] = punkt(x, y);
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(nx, ny); ctx.stroke();
+    px = nx; py = ny; _sig.tinte = true;
+  };
+  const ende = () => { zeichnet = false; };
+  if (window.PointerEvent) {
+    c.addEventListener('pointerdown', e => {
+      e.preventDefault(); beginn(e.clientX, e.clientY);
+      try { c.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    c.addEventListener('pointermove', e => { if (zeichnet) { e.preventDefault(); zug(e.clientX, e.clientY); } });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => c.addEventListener(ev, ende));
+  } else {
+    c.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; if (t) beginn(t.clientX, t.clientY); }, { passive: false });
+    c.addEventListener('touchmove', e => { e.preventDefault(); const t = e.touches[0]; if (t) zug(t.clientX, t.clientY); }, { passive: false });
+    ['touchend', 'touchcancel'].forEach(ev => c.addEventListener(ev, ende));
+    c.addEventListener('mousedown', e => { e.preventDefault(); beginn(e.clientX, e.clientY); });
+    c.addEventListener('mousemove', e => { if (zeichnet) zug(e.clientX, e.clientY); });
+    ['mouseup', 'mouseleave'].forEach(ev => c.addEventListener(ev, ende));
+  }
+
+  $('vb-loeschen').addEventListener('click', () => {
+    weiss(); _sig.tinte = false;
+  });
+  $('vb-abbrechen').addEventListener('click', panelSchliessen);
+  $('vb-speichern').addEventListener('click', panelSpeichern);
+}
+
+function panelFehler(text) { const el = $('vb-fehler'); el.textContent = text; el.hidden = !text; }
+
+async function panelSpeichern() {
+  if (_laeuft || !_offen) return;
+  const grund = $('vb-grund').value.trim();
+  if (!_sig || !_sig.tinte) { panelFehler('Bitte im Feld unterschreiben.'); return; }
+  if (grund.length < 5) { panelFehler('Bitte einen Grund angeben (mindestens 5 Zeichen).'); return; }
+  if (grund.length > 500) { panelFehler('Der Grund ist zu lang (höchstens 500 Zeichen).'); return; }
+  panelFehler('');
+  _laeuft = true;
+  const knopf = $('vb-speichern'); knopf.disabled = true; knopf.textContent = 'Speichert …';
+  const blob = await new Promise(res => $('vb-sig').toBlob(res, 'image/png'));
+  const r = await LPR.einsatzVorstandBestaetigen(_offen, grund, blob);
+  _laeuft = false;
+  if (!r.ok) {
+    panelFehler(r.error || 'Speichern fehlgeschlagen.');
+    knopf.disabled = false; knopf.textContent = 'Speichern';
+    return;
+  }
+  _offen = null; _sig = null;
+  melde('Dienst als Vorstand bestätigt.');
+  await laden();
+}
+
+// ── Blaetter ─────────────────────────────────────────────────────────────
+function kopfHtml(r) {
+  const V = LPR.VEREIN;
+  return `<div class="blatt-kopf">
+    <div><div class="blatt-logo">${esc(V.name)}</div>
+      <div class="blatt-logo-sub">Zeitnachweis Sitzwachen</div></div>
+    <div class="blatt-kopf-rechts">${esc(V.strasse)} · ${esc(V.ort)}<br>${esc(V.email)} · ${esc(V.web)}<br>
+      Rechnung ${esc(r.nummer || 'Entwurf')}</div>
+  </div>`;
+}
+
+function bestaetigungHtml(d) {
+  if (stationUnterschrieben(d)) {
+    const url = _urls[d.unterschrift_path];
+    return `<div class="best"><div class="lbl">Bestätigung durch die Station</div>
+      ${url ? `<img src="${esc(url)}" alt="Unterschrift der Pflege">` : '<p>(Unterschriftsbild nicht verfügbar)</p>'}
+      <div>Unterschrift Pflege: <strong>${esc(d.pflege_name || '—')}</strong></div>
+      ${d.bestaetigt_ts ? `<div>Unterschrieben am ${esc(fmtTagTs.format(new Date(d.bestaetigt_ts)))}, ${esc(uhr(d.bestaetigt_ts))} Uhr</div>` : ''}
+    </div>`;
+  }
+  if (d.vorstand) {
+    const v = d.vorstand;
+    const url = _urls[v.unterschrift_path];
+    return `<div class="best vs"><div class="lbl">Bestätigung durch den Vorstand</div>
+      ${url ? `<img src="${esc(url)}" alt="Unterschrift des Vorstands">` : '<p>(Unterschriftsbild nicht verfügbar)</p>'}
+      <div class="vs-text">Bestätigt durch den Vorstand (${esc(v.name || '—')}) am ${esc(v.ts ? fmtTagTs.format(new Date(v.ts)) : '—')}
+        — keine Unterschrift der Station.</div>
+      <div>Grund: ${esc(v.grund || '—')}</div>
+    </div>`;
+  }
+  return `<div class="best un"><div class="lbl">Bestätigung</div>
+    <div class="text">Nicht bestätigt</div>
+    <div>Keine Unterschrift der Station und keine Bestätigung durch den Vorstand.</div>
+  </div>`;
+}
+
+function dienstBlatt(d, i, n, r) {
+  return `<section class="blatt">
+    ${kopfHtml(r)}
+    <div class="lbl">Dienst ${i + 1} von ${n}</div>
+    <h2>${esc(wochentag(d.datum))}, ${esc(deDatum(d.datum))} · ${esc(SCHICHT[d.schicht] || d.schicht || '')}
+      ${d.status === 'nacherfasst' ? '<span class="status-nach">nachträglich erfasst</span>' : ''}</h2>
+    <table class="kv">
+      <tr><th>Datum</th><td>${esc(wochentag(d.datum))}, ${esc(deDatum(d.datum))}</td></tr>
+      <tr><th>Schicht</th><td>${esc(SCHICHT[d.schicht] || d.schicht || '—')}</td></tr>
+      <tr><th>Station</th><td>${esc(d.station || '—')}</td></tr>
+      <tr><th>Fallnummer</th><td>${esc(d.fallnummer || '—')}</td></tr>
+      <tr><th>Sitzwache</th><td>${esc(d.sitzwache || '—')}</td></tr>
+      <tr><th>Beginn</th><td>${esc(zeitpunkt(d.beginn, d.datum))}</td></tr>
+      <tr><th>Ende</th><td>${esc(zeitpunkt(d.ende, d.datum))}</td></tr>
+      <tr><th>Pausen</th><td>${pausenText(d)}</td></tr>
+      <tr class="hl"><th>Netto-Arbeitszeit</th><td>${esc(netto(d.netto_minuten))}</td></tr>
+    </table>
+    ${d.status === 'nacherfasst' ? '<p style="font-size:9pt;color:#4A4A46;margin-top:3mm">Hinweis: Dieser Dienst wurde nachträglich nach dem Papier-Stundenzettel erfasst.</p>' : ''}
+    ${bestaetigungHtml(d)}
+    <div class="blatt-fuss">${esc(LPR.VEREIN.name)} · ${esc(LPR.VEREIN.register)} · Zeiten in Berliner Ortszeit</div>
+  </section>`;
+}
+
+function deckblatt(r, dienste) {
+  const summe = dienste.reduce((s, d) => s + (Number(d.netto_minuten) || 0), 0);
+  const zeitraum = r.von ? deDatum(r.von) + (r.bis && r.bis !== r.von ? ' – ' + deDatum(r.bis) : '') : '—';
+  const nStation = dienste.filter(stationUnterschrieben).length;
+  const nVorstand = dienste.filter(d => !stationUnterschrieben(d) && d.vorstand).length;
+  const nOffen = dienste.length - nStation - nVorstand;
+  return `<section class="blatt">
+    ${kopfHtml(r)}
+    <h2>Zeitnachweis zur Rechnung ${esc(r.nummer || 'Entwurf')}</h2>
+    <table class="kv">
+      <tr><th>Rechnungssteller</th><td>${esc(LPR.VEREIN.name)}, ${esc(LPR.VEREIN.strasse)}, ${esc(LPR.VEREIN.ort)}</td></tr>
+      <tr><th>Klinik / Empfänger</th><td>${esc(r.empfaenger || '—')}</td></tr>
+      <tr><th>Leistungszeitraum</th><td>${esc(zeitraum)}</td></tr>
+      <tr><th>Anzahl Dienste</th><td>${dienste.length}</td></tr>
+      <tr class="hl"><th>Summe Netto-Stunden</th><td>${esc(stdMin(summe))} Std. (${esc(stdDez(summe))})</td></tr>
+    </table>
+    <h3>Legende</h3>
+    <ul class="legende">
+      <li><strong>Pflege</strong> — von der Pflegekraft der Station digital unterschrieben (${nStation})</li>
+      <li class="vs"><strong>Vorstand</strong> — keine Unterschrift der Station; vom Vorstand des Vereins mit
+        Begründung bestätigt (${nVorstand})</li>
+      <li class="un"><strong>Nicht bestätigt</strong> — weder Station noch Vorstand (${nOffen})</li>
+    </ul>
+    <p style="margin-top:6mm;font-size:9.5pt;color:#4A4A46">Auf den folgenden Seiten steht je Dienst ein Blatt mit
+      Beginn, Ende, Pausen und Netto-Arbeitszeit. Netto-Zeit = Dauer abzüglich Pausen. Alle Uhrzeiten in Berliner Ortszeit.</p>
+    <div class="blatt-fuss">${esc(LPR.VEREIN.name)} · ${esc(LPR.VEREIN.register)} · Steuernummer ${esc(LPR.VEREIN.steuernummer || '—')}</div>
+  </section>`;
+}
+
+function renderBlaetter() {
+  const r = _daten.rechnung || {};
+  const dienste = _daten.dienste;
+  if (!dienste.length) {
+    $('blaetter').innerHTML = '<div class="zn-box no-print"><p style="margin:0">Für diese Rechnung gibt es keine Dienste mit digitaler Einsatzdoku.</p></div>';
+    return;
+  }
+  $('blaetter').innerHTML = deckblatt(r, dienste) + dienste.map((d, i) => dienstBlatt(d, i, dienste.length, r)).join('');
+}
+
+// ── Drucken ──────────────────────────────────────────────────────────────
+function druckKnopf() {
+  const offen = (_daten ? _daten.dienste : []).filter(d => !bestaetigt(d)).length;
+  const w = $('druck-warnung');
+  if (offen && w.hidden) {
+    w.innerHTML = `<h2>${offen === 1 ? '1 Dienst ist' : offen + ' Dienste sind'} nicht bestätigt</h2>
+      <p class="sub" style="color:#8A2E0E">Auf dem Nachweis steht dann „Nicht bestätigt". Besser vorher oben als Vorstand bestätigen.</p>
+      <div class="vb-knoepfe"><button class="btn" type="button" id="dw-ab">Abbrechen</button>
+      <button class="btn btn-primary" type="button" id="dw-ok">Trotzdem drucken</button></div>`;
+    w.hidden = false;
+    $('dw-ab').addEventListener('click', () => { w.hidden = true; });
+    $('dw-ok').addEventListener('click', () => { w.hidden = true; drucken(); });
+    w.scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  drucken();
+}
+
+// Erst drucken, wenn alle Unterschriftsbilder geladen sind — sonst fehlen
+// sie im PDF.
+async function drucken() {
+  const bilder = Array.from(document.querySelectorAll('#blaetter img'));
+  await Promise.all(bilder.map(img => img.complete ? null
+    : new Promise(res => { img.onload = img.onerror = res; })));
+  const alt = document.title;
+  const r = (_daten && _daten.rechnung) || {};
+  document.title = 'Zeitnachweis ' + (r.nummer || 'Entwurf') + ' ' + (r.empfaenger || '');
+  window.print();
+  setTimeout(() => { document.title = alt; }, 1000);
+}
+
+init();
+</script>
+</body>
+</html>

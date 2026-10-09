@@ -2327,6 +2327,61 @@
     } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
   }
 
+  // ── Zeitnachweis zur Sitzwachen-Rechnung ─────────────────────────────────
+  // Board-only; die Pruefung sitzt in den RPCs und in den Storage-Policies.
+
+  /** Alle Dienste der Rechnung samt Zeiten und Bestaetigung. */
+  async function getZeitnachweis(invoiceId) {
+    try {
+      const { data, error } = await (await sb()).rpc('zeitnachweis_fuer_rechnung', { p_invoice: invoiceId });
+      if (error) return { ok: false, error: error.message };
+      if (!data || typeof data !== 'object') return { ok: false, error: 'Keine Daten.' };
+      return { ok: true, daten: data };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /**
+   * Vorstandsbestaetigung: erst das Unterschriftsbild in den eigenen Ordner
+   * (die Policy erlaubt nur {auth.uid}/…), dann die RPC. Liegt vom
+   * gescheiterten Vorversuch schon eine Datei unter dem Namen, bekommt der
+   * neue Versuch einen Zeitstempel — ueberschrieben wird nie (upsert false).
+   */
+  async function einsatzVorstandBestaetigen(einsatzId, grund, blob) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    if (!blob) return { ok: false, error: 'Unterschrift fehlt.' };
+    try {
+      const client = await sb();
+      const bucket = client.storage.from('einsatz-unterschriften');
+      let pfad = s.id + '/' + einsatzId + '-vorstand.png';
+      let up = await bucket.upload(pfad, blob, { contentType: 'image/png', upsert: false });
+      if (up.error && /exist|duplicate|409/i.test(String(up.error.message || '') + ' ' + String(up.error.statusCode || ''))) {
+        pfad = s.id + '/' + einsatzId + '-vorstand-' + Date.now() + '.png';
+        up = await bucket.upload(pfad, blob, { contentType: 'image/png', upsert: false });
+      }
+      if (up.error) return { ok: false, error: 'Unterschrift konnte nicht gespeichert werden: ' + up.error.message };
+      const { data, error } = await client.rpc('einsatz_vorstand_bestaetigen', {
+        p_einsatz: einsatzId, p_grund: grund, p_unterschrift_path: pfad
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, id: data, pfad };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Signierte Links (1 Stunde) fuer Unterschriftsbilder, gesammelt in einem Aufruf. */
+  async function unterschriftUrls(paths) {
+    const liste = Array.from(new Set((paths || []).filter(Boolean)));
+    if (!liste.length) return { ok: true, urls: {} };
+    try {
+      const { data, error } = await (await sb()).storage
+        .from('einsatz-unterschriften').createSignedUrls(liste, 3600);
+      if (error) return { ok: false, error: error.message, urls: {} };
+      const urls = {};
+      (data || []).forEach(d => { if (d && d.path && d.signedUrl) urls[d.path] = d.signedUrl; });
+      return { ok: true, urls };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.', urls: {} }; }
+  }
+
   /** Anzeigetexte der Positivliste — an einer Stelle fuer alle Oberflaechen. */
   const TAETIGKEIT_LABEL = {
     anwesenheit_sichtkontakt: 'Anwesenheit & Sichtkontakt',
@@ -7562,6 +7617,7 @@
     getEinsatzInfoFuerBuchungen, KEINE_UNTERSCHRIFT_LABEL, TAETIGKEIT_LABEL,
     einsatzStornieren, einsatzReaktivieren, einsatzNacherfassen,
     uploadUnterschrift, einsatzAbschliessen, einsatzNettoMinuten,
+    getZeitnachweis, einsatzVorstandBestaetigen, unterschriftUrls,
     einsatzPufferLesen, einsatzPufferSchreiben, einsatzPufferLeeren,
     // Klinik-Self-Service (Etappe 1)
     getMyClinic, submitMyClinic,

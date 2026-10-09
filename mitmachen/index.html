@@ -179,6 +179,12 @@ section p.sub { color: var(--mute); }
   line-height: 1.3; color: var(--gruen); max-width: 30ch;
 }
 
+/* Beispiel-Nacht: der einzige erzaehlende Block der Seite. */
+.beispiel { margin: 34px 0 0; padding: 26px 26px 22px; background: var(--gruen); color: #fff; border-radius: 16px; max-width: 62ch; }
+.beispiel figcaption { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: var(--lime); margin-bottom: 12px; }
+.beispiel blockquote p { font-size: 18px; line-height: 1.6; color: rgba(255,255,255,.94); margin: 0 0 14px; max-width: none; }
+.beispiel .beispiel-hinweis { font-size: 14px; color: var(--mute-dunkel); margin: 0; }
+
 /* Aufzaehlungen mit Chevron statt Punkt — greift die Wortmarke auf, ohne
    dass jeder Abschnitt zur Kachel wird. */
 ul.chev { list-style: none; margin: 0 0 8px; }
@@ -368,6 +374,17 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
     <h2>Was ist eine Sitzwache?</h2>
     <p>Sitzwachen sind im Krankenhaus bei Menschen, die nicht allein sein sollten – meist nachts und meist bei älteren Patientinnen und Patienten, die unruhig oder verwirrt sind. Du bist da, hörst zu, gibst Orientierung und rufst die Pflege, wenn etwas ist. Das entlastet die Station und hilft nachweislich, einem Delir vorzubeugen.</p>
     <p class="pflichtsatz">Sitzwache ist Begleitung – keine pflegerischen oder medizinischen Tätigkeiten.</p>
+
+    <!-- Bewusst als Beispiel gekennzeichnet, nicht als Erfahrungsbericht einer
+         echten Person. Sobald es ein echtes Zitat mit Einwilligung gibt, hier
+         ersetzen und Name/Alter/Rolle darunter setzen. -->
+    <figure class="beispiel">
+      <figcaption>So kann eine Nacht aussehen</figcaption>
+      <blockquote>
+        <p>„Um zehn übernimmst du von der Spätschicht. Im Zimmer liegt eine ältere Dame, frisch operiert, die nicht weiß, wo sie ist, und immer wieder aufstehen will. Du setzt dich ans Bett, sagst ihr, welcher Tag ist und dass sie im Krankenhaus ist. Gegen zwei will sie wieder los – du hältst ihre Hand, ihr redet über ihren Garten, irgendwann schläft sie. Einmal klingelst du nach der Pflege, weil sie Schmerzen hat. Um sechs fragt sie: ‚Waren Sie die ganze Nacht da?‘“</p>
+      </blockquote>
+      <p class="beispiel-hinweis">Ein Beispiel, wie ein Dienst verlaufen kann – jede Nacht ist anders.</p>
+    </figure>
   </div>
 </section>
 

@@ -38,11 +38,18 @@
 
   function verschiebe(woche, tage) { return wocheVon(plus(woche.von, tage)); }
 
-  /** Summe der Vorschau. Bereits abgerechnete Dienste zaehlen nicht mit. */
-  function zusammenfassung(dienste) {
+  /** Vorbelegt ist, was offen ist und keinen fehlenden Zeitnachweis hat. */
+  function vorbelegt(d) {
+    return !d.abgerechnet_auf && (d.nachweis == null || d.nachweis === 'vollstaendig');
+  }
+
+  /** Summe der Vorschau. Abgerechnetes zaehlt nie; mit `gewaehlt` (Set von
+   *  booking_id) nur die angehakten Dienste. */
+  function zusammenfassung(dienste, gewaehlt) {
     var z = { anzahl: 0, t1: 0, t2: 0, summe_cents: 0 };
     (dienste || []).forEach(function (d) {
       if (d.abgerechnet_auf) return;
+      if (gewaehlt && !gewaehlt.has(d.booking_id)) return;
       z.anzahl++;
       if (d.stufe === 'T1') z.t1++; else z.t2++;
       z.summe_cents += Number(d.preis_cents || 0);
@@ -51,7 +58,8 @@
   }
 
   var Sammelrechnung = { wocheVon: wocheVon, vorwoche: vorwoche, verschiebe: verschiebe,
-                         kalenderwoche: kalenderwoche, zusammenfassung: zusammenfassung };
+                         kalenderwoche: kalenderwoche, zusammenfassung: zusammenfassung,
+                         vorbelegt: vorbelegt };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Sammelrechnung;
   else if (typeof window !== 'undefined') window.Sammelrechnung = Sammelrechnung;

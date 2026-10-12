@@ -230,7 +230,7 @@ dialog.sr-dlg::backdrop { background: rgba(26,58,42,.38); }
 </main>
 
 <script src="sammelrechnung.js?v20261012b"></script>
-<script src="app.js?v20261012a"></script>
+<script src="app.js?v20261012b"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -451,13 +451,18 @@ function srUmschalten(id, an) {
   srSumme();
 }
 
+function srEmpfaenger() {
+  return _recipients.find(r => r.id === document.getElementById('sr-empf').value) || {};
+}
+
 function srSumme() {
   const summe = document.getElementById('sr-summe');
   const offen = Sammelrechnung.zusammenfassung(_srDienste).anzahl;
   const z = Sammelrechnung.zusammenfassung(_srDienste, _srAuswahl);
   summe.textContent = !offen ? 'Alle Dienste dieses Zeitraums sind schon abgerechnet.'
     : !z.anzahl ? 'Kein Dienst ausgewählt.'
-    : z.anzahl + (z.anzahl === 1 ? ' Dienst' : ' Dienste') + ' ausgewählt · T1: ' + z.t1 + ' · T2: ' + z.t2
+    : z.anzahl + (z.anzahl === 1 ? ' Dienst' : ' Dienste') + ' ausgewählt'
+      + (srEmpfaenger().stufe_und_station === false ? '' : ' · T1: ' + z.t1 + ' · T2: ' + z.t2)
       + ' · zusammen ' + LPR.centsToEUR(z.summe_cents)
       + (z.anzahl < offen ? ' · ' + (offen - z.anzahl) + ' bleiben offen' : '');
   document.getElementById('sr-ok').disabled = !z.anzahl;

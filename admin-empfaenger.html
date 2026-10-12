@@ -173,6 +173,11 @@
           Bei „digital“ und „Papier-Scan“ lässt sich eine Rechnung erst mit vollständigem
           Zeitnachweis festschreiben. Danach gehen Rechnung und Zeitnachweis automatisch per
           Mail an die Adressen oben, Kopie an finanzen@lebenpflegenreisen.de.</p>
+        <label class="f-lbl" id="f-detail-zeile" style="display:flex;gap:9px;align-items:flex-start;font-weight:600;">
+          <input type="checkbox" id="f-detail" style="width:17px;height:17px;margin-top:1px;accent-color:var(--green-deep);">
+          <span>Station und Stufe (T1/T2) auf Sammelrechnungen ausweisen
+            <span style="display:block;font-weight:400;font-size:12px;margin-top:2px;">Aus, wenn die Klinik nur einen
+            Tarif hat und die Station nicht braucht (JVK).</span></span></label>
         <div style="display:flex;gap:12px;">
           <label class="f-lbl" style="flex:1;">Zahlungsziel (Tage)<input class="f-in" id="f-days" type="number" min="1" value="14"></label>
           <label class="f-lbl" style="flex:1;">Preis je Schicht (€)<input class="f-in" id="f-shift" placeholder="200,00"></label>
@@ -189,7 +194,7 @@
 </div>
 </main>
 
-<script src="app.js?v20261009b"></script>
+<script src="app.js?v20261012b"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -200,6 +205,7 @@ let _recipients = [];
 // Kurzlabel in der Tabelle; 'keiner' bleibt unsichtbar.
 const NACHWEIS_KURZ = { digital: 'Versand mit Zeitnachweis (digital)', papier: 'Versand mit Zeitnachweis (Papier-Scan)' };
 
+function detailBekannt() { return !_recipients.length || _recipients.some(x => 'stufe_und_station' in x); }
 function artBekannt() { return !_recipients.length || _recipients.some(x => 'nachweis_art' in x); }
 
 // Mehrere Adressen, mit Komma getrennt. Bewusst einfache Pruefung: ein @,
@@ -276,6 +282,8 @@ function openForm(id) {
   document.getElementById('f-email').value   = r ? (r.email || '') : '';
   document.getElementById('f-email-fehler').hidden = true;
   document.getElementById('f-nachweis').value = (r && r.nachweis_art) || 'keiner';
+  document.getElementById('f-detail').checked = !r || r.stufe_und_station !== false;
+  document.getElementById('f-detail-zeile').style.display = detailBekannt() ? 'flex' : 'none';
   document.getElementById('f-days').value    = r ? r.payment_days : 14;
   document.getElementById('f-shift').value   = (r && r.shift_price_cents != null)
     ? (r.shift_price_cents / 100).toFixed(2).replace('.', ',') : '';
@@ -302,6 +310,7 @@ async function saveForm() {
     email:          mails,
     // Fehlt die Spalte noch (Migration rv1 nicht gelaufen), nicht mitschicken.
     nachweis_art:   artBekannt() ? art : undefined,
+    stufe_und_station: detailBekannt() ? document.getElementById('f-detail').checked : undefined,
     payment_days:   document.getElementById('f-days').value,
     shift_price_cents: shiftRaw === '' ? null : LPR.eurToCents(shiftRaw)
   });

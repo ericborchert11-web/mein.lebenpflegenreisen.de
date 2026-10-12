@@ -55,5 +55,20 @@ const z = SR.zusammenfassung([
 pruefe('Zusammenfassung', z.anzahl === 3 && z.t1 === 1 && z.t2 === 2 && z.summe_cents === 60000, j(z));
 pruefe('leere Zusammenfassung', SR.zusammenfassung([]).anzahl === 0, '');
 
+// 6 — Vorbelegung: nur offen und Nachweis vollstaendig (oder kein digitaler Nachweis)
+pruefe('vollstaendig ist vorbelegt', SR.vorbelegt({ abgerechnet_auf: null, nachweis: 'vollstaendig' }) === true, '');
+pruefe('kein Nachweis noetig ist vorbelegt', SR.vorbelegt({ abgerechnet_auf: null, nachweis: null }) === true, '');
+pruefe('unbestaetigt ist nicht vorbelegt', SR.vorbelegt({ abgerechnet_auf: null, nachweis: 'unbestaetigt' }) === false, '');
+pruefe('ohne Doku ist nicht vorbelegt', SR.vorbelegt({ abgerechnet_auf: null, nachweis: 'ohne_doku' }) === false, '');
+pruefe('abgerechnet ist nie vorbelegt', SR.vorbelegt({ abgerechnet_auf: 'RE-2026-0020', nachweis: 'vollstaendig' }) === false, '');
+
+// 7 — Zusammenfassung mit Auswahl zaehlt nur Gewaehltes
+const za = SR.zusammenfassung([
+  { booking_id: 'a', stufe: 'T1', preis_cents: 20000, abgerechnet_auf: null },
+  { booking_id: 'b', stufe: 'T2', preis_cents: 20000, abgerechnet_auf: null },
+  { booking_id: 'c', stufe: 'T2', preis_cents: 20000, abgerechnet_auf: 'RE-2026-0020' }
+], new Set(['a', 'c']));
+pruefe('Auswahl zaehlt nur Gewaehltes und Offenes', za.anzahl === 1 && za.t1 === 1 && za.summe_cents === 20000, j(za));
+
 if (fehler.length) { console.error('FEHLER:\n- ' + fehler.join('\n- ')); process.exit(1); }
 console.log('Sammelrechnung: alle Pruefungen bestanden.');

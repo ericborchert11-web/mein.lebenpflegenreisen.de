@@ -6505,11 +6505,11 @@
     }
   }
 
-  /** Legt den Entwurf an und gibt seine id zurueck. */
-  async function sammelrechnungAnlegen(recipientId, von, bis) {
+  /** Legt den Entwurf aus den angehakten Diensten an und gibt seine id zurueck. */
+  async function sammelrechnungAnlegen(recipientId, von, bis, bookingIds) {
     try {
       const { data, error } = await (await sb()).rpc('sammelrechnung_anlegen', {
-        p_recipient_id: recipientId, p_von: von, p_bis: bis
+        p_recipient_id: recipientId, p_von: von, p_bis: bis, p_booking_ids: bookingIds
       });
       if (error) return { ok: false, error: error.message };
       return { ok: true, id: data };

@@ -139,6 +139,13 @@ dialog.sr-dlg::backdrop { background: rgba(26,58,42,.38); }
 .sr-liste td { padding: 8px 10px; border-bottom: 1px solid #EFEDE8; }
 .sr-liste tr.schon td { color: var(--muted); }
 .sr-liste .num { text-align: right; font-variant-numeric: tabular-nums; }
+.sr-liste td.wahl, .sr-liste th.wahl { width: 34px; padding-right: 0; }
+.sr-liste input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--green-deep); cursor: pointer; }
+.sr-liste .zwkopf td { background: #FAFAF7; font-size: 12px; font-weight: 700; color: var(--green-deep);
+  text-transform: uppercase; letter-spacing: .04em; }
+.sr-nw { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.sr-nw.ok { color: #2E6B3F; }
+.sr-nw.fehlt { color: #8A3A22; }
 .sr-summe { margin-top: 12px; font-size: 14px; font-weight: 700; color: var(--green-deep); }
 .sr-meldung { margin-top: 10px; font-size: 13.5px; font-weight: 600; color: #8A3A22; }
 .sr-fuss { padding: 14px 24px; background: #FAFAF7; border-top: 1px solid var(--border);
@@ -194,9 +201,10 @@ dialog.sr-dlg::backdrop { background: rgba(26,58,42,.38); }
 <dialog id="sr-dlg" class="sr-dlg" aria-labelledby="sr-titel">
   <div class="sr-kopf">
     <h2 id="sr-titel">Sammelrechnung aus Diensten</h2>
-    <p>Eine Position je erledigtem Dienst, mit Station und Stufe T1/T2. Stornierte,
-       nicht erschienene und unbesetzte Dienste kosten nichts und fehlen hier.
-       Was schon auf einer Rechnung steht, wird nicht noch einmal berechnet.</p>
+    <p>Eine Position je angehaktem Dienst, mit Station und Stufe T1/T2. Dienste ohne
+       vollständigen Zeitnachweis sind nicht angehakt — sie bleiben offen und erscheinen
+       bei der nächsten Woche unter „Noch offen aus früheren Wochen“. Stornierte, nicht
+       erschienene und unbesetzte Dienste kosten nichts und fehlen hier.</p>
   </div>
   <div class="sr-body">
     <label for="sr-empf">Klinik</label>
@@ -218,8 +226,8 @@ dialog.sr-dlg::backdrop { background: rgba(26,58,42,.38); }
 </dialog>
 </main>
 
-<script src="sammelrechnung.js?v20261008a"></script>
-<script src="app.js?v20261008c"></script>
+<script src="sammelrechnung.js?v20261012a"></script>
+<script src="app.js?v20261012a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -315,6 +323,8 @@ function renderTable(invoices) {
 // ── Sammelrechnung aus Diensten ─────────────────────────────────────────
 // Montags fuer die Vorwoche: das ist der Normalfall, deshalb vorbelegt.
 let _srWoche = null;
+let _srDienste = [];
+let _srAuswahl = new Set();
 const SR_SCHICHT = { morning: 'Frühdienst', afternoon: 'Spätdienst', night: 'Nachtdienst' };
 
 function heuteIso() {
@@ -351,6 +361,8 @@ async function srLaden() {
   m.hidden = true; ok.disabled = true;
   liste.innerHTML = '<div style="padding:14px;color:var(--muted);">Wird geladen …</div>';
   summe.textContent = '';
+  _srDienste = [];
+  _srAuswahl = new Set();
 
   const res = await LPR.sammelrechnungDienste(document.getElementById('sr-empf').value, w.von, w.bis);
   if (_srWoche !== w) return;   // inzwischen weitergeblaettert
@@ -363,28 +375,64 @@ async function srLaden() {
     liste.innerHTML = '<div style="padding:14px;color:var(--muted);">In dieser Woche gibt es keine erledigten Dienste.</div>';
     return;
   }
+  _srDienste = res.dienste;
+  _srDienste.forEach(d => { if (Sammelrechnung.vorbelegt(d)) _srAuswahl.add(d.booking_id); });
+
+  const nachtraege = _srDienste.filter(d => d.nachtrag);
+  const woche = _srDienste.filter(d => !d.nachtrag);
+  const block = (titel, dienste) => !dienste.length ? '' :
+    `<tr class="zwkopf"><td colspan="7">${titel}</td></tr>` + dienste.map(srZeile).join('');
   liste.innerHTML = `<table>
-    <thead><tr><th>Datum</th><th>Schicht</th><th>Station</th><th>Stufe</th><th class="num">Betrag</th><th></th></tr></thead>
-    <tbody>${res.dienste.map(d => `<tr${d.abgerechnet_auf ? ' class="schon"' : ''}>
+    <thead><tr><th class="wahl"></th><th>Datum</th><th>Schicht</th><th>Station</th><th>Stufe</th><th>Zeitnachweis</th><th class="num">Betrag</th></tr></thead>
+    <tbody>${block('Noch offen aus früheren Wochen', nachtraege)}${block('KW ' + w.kw, woche)}</tbody></table>`;
+  srSumme();
+}
+
+const SR_NACHWEIS = {
+  vollstaendig: '<span class="sr-nw ok">✓ vollständig</span>',
+  unbestaetigt: '<span class="sr-nw fehlt">unbestätigt</span>',
+  ohne_doku:    '<span class="sr-nw fehlt">ohne Einsatzdoku</span>'
+};
+
+function srZeile(d) {
+  const wahl = d.abgerechnet_auf ? ''
+    : `<input type="checkbox" ${_srAuswahl.has(d.booking_id) ? 'checked' : ''}
+         aria-label="Dienst am ${deDate(d.datum)} abrechnen"
+         onchange="srUmschalten('${d.booking_id}', this.checked)">`;
+  const nachweis = d.abgerechnet_auf ? 'schon auf ' + escapeHtml(d.abgerechnet_auf)
+    : (SR_NACHWEIS[d.nachweis] || '—');
+  return `<tr${d.abgerechnet_auf ? ' class="schon"' : ''}>
+      <td class="wahl">${wahl}</td>
       <td>${deDate(d.datum)}</td>
       <td>${escapeHtml(SR_SCHICHT[d.schicht] || d.schicht)}</td>
       <td>${escapeHtml(d.station)}</td>
       <td>${escapeHtml(d.stufe)}</td>
+      <td>${nachweis}</td>
       <td class="num">${LPR.centsToEUR(d.preis_cents)}</td>
-      <td>${d.abgerechnet_auf ? 'schon auf ' + escapeHtml(d.abgerechnet_auf) : ''}</td>
-    </tr>`).join('')}</tbody></table>`;
+    </tr>`;
+}
 
-  const z = Sammelrechnung.zusammenfassung(res.dienste);
-  summe.textContent = z.anzahl
-    ? z.anzahl + (z.anzahl === 1 ? ' Dienst' : ' Dienste') + ' · T1: ' + z.t1 + ' · T2: ' + z.t2
+function srUmschalten(id, an) {
+  if (an) _srAuswahl.add(id); else _srAuswahl.delete(id);
+  srSumme();
+}
+
+function srSumme() {
+  const summe = document.getElementById('sr-summe');
+  const offen = Sammelrechnung.zusammenfassung(_srDienste).anzahl;
+  const z = Sammelrechnung.zusammenfassung(_srDienste, _srAuswahl);
+  summe.textContent = !offen ? 'Alle Dienste dieser Woche sind schon abgerechnet.'
+    : !z.anzahl ? 'Kein Dienst ausgewählt.'
+    : z.anzahl + (z.anzahl === 1 ? ' Dienst' : ' Dienste') + ' ausgewählt · T1: ' + z.t1 + ' · T2: ' + z.t2
       + ' · zusammen ' + LPR.centsToEUR(z.summe_cents)
-    : 'Alle Dienste dieser Woche sind schon abgerechnet.';
-  ok.disabled = !z.anzahl;
+      + (z.anzahl < offen ? ' · ' + (offen - z.anzahl) + ' bleiben offen' : '');
+  document.getElementById('sr-ok').disabled = !z.anzahl;
 }
 
 async function srAnlegen(btn) {
   btn.disabled = true; btn.textContent = 'Wird angelegt …';
-  const res = await LPR.sammelrechnungAnlegen(document.getElementById('sr-empf').value, _srWoche.von, _srWoche.bis);
+  const res = await LPR.sammelrechnungAnlegen(document.getElementById('sr-empf').value,
+    _srWoche.von, _srWoche.bis, [..._srAuswahl]);
   btn.textContent = 'Entwurf anlegen';
   if (!res.ok) {
     // Meldung IM Dialog: ein Toast laege unter dem Backdrop.

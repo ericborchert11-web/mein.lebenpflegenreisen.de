@@ -6522,13 +6522,14 @@
   async function listRecipients(includeInactive) {
     try {
       const client = await sb();
-      // nachweis_art kommt aus rv1. Fehlt die Spalte noch (Push vor Migration),
-      // wird ohne sie geladen — dann verhalten sich alle Empfaenger wie 'keiner'.
+      // nachweis_art kommt aus rv1, stufe_und_station aus BA. Fehlt eine Spalte noch
+      // (Push vor Migration), wird ohne beide geladen — dann verhalten sich alle
+      // Empfaenger wie 'keiner'.
       const abfrage = mitArt => {
         let q = client
           .from('billing_recipients')
           .select('id, name, address, postal_code, city, contact_person, customer_ref, email, payment_days, clinic_id, shift_price_cents, active'
-                  + (mitArt ? ', nachweis_art' : ''))
+                  + (mitArt ? ', nachweis_art, stufe_und_station' : ''))
           .order('name', { ascending: true });
         if (!includeInactive) q = q.eq('active', true);
         return q;
@@ -6557,10 +6558,13 @@
       customer_ref:   rec.customer_ref || null,
       email:          rec.email || null,
       payment_days:   Number(rec.payment_days) > 0 ? Number(rec.payment_days) : 14,
-      clinic_id:      rec.clinic_id || null,
       shift_price_cents: (rec.shift_price_cents === '' || rec.shift_price_cents == null)
                             ? null : Number(rec.shift_price_cents)
     };
+    // Das Formular kennt die Klinik-Zuordnung nicht. Frueher wurde sie hier bei
+    // jedem Speichern auf null gesetzt, und die Sammelrechnung fand die Klinik nicht mehr.
+    if (rec.clinic_id !== undefined) row.clinic_id = rec.clinic_id || null;
+    if (rec.stufe_und_station !== undefined) row.stufe_und_station = !!rec.stufe_und_station;
     // Nur mitschicken, wenn gesetzt: andere Aufrufer kennen das Feld nicht.
     if (rec.nachweis_art !== undefined) {
       if (!['keiner', 'digital', 'papier'].includes(rec.nachweis_art)) return { ok: false, error: 'Unbekannte Art des Zeitnachweises.' };

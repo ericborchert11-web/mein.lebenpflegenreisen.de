@@ -70,5 +70,13 @@ const za = SR.zusammenfassung([
 ], new Set(['a', 'c']));
 pruefe('Auswahl zaehlt nur Gewaehltes und Offenes', za.anzahl === 1 && za.t1 === 1 && za.summe_cents === 20000, j(za));
 
+// 8 — Vormonat: ganzer Kalendermonat vor dem heutigen, auch ueber den Jahreswechsel
+let m = SR.vormonat('2026-10-12');
+pruefe('Vormonat Oktober', m.von === '2026-09-01' && m.bis === '2026-09-30', j(m));
+m = SR.vormonat('2027-01-03');
+pruefe('Vormonat Januar', m.von === '2026-12-01' && m.bis === '2026-12-31', j(m));
+m = SR.vormonat('2026-03-31');
+pruefe('Vormonat Maerz (Februar)', m.von === '2026-02-01' && m.bis === '2026-02-28', j(m));
+
 if (fehler.length) { console.error('FEHLER:\n- ' + fehler.join('\n- ')); process.exit(1); }
 console.log('Sammelrechnung: alle Pruefungen bestanden.');

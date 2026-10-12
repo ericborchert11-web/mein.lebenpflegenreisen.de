@@ -38,6 +38,13 @@
 
   function verschiebe(woche, tage) { return wocheVon(plus(woche.von, tage)); }
 
+  /** Der ganze Kalendermonat vor dem heutigen. */
+  function vormonat(heuteIso) {
+    var erster = String(heuteIso).slice(0, 8) + '01';
+    var bis = plus(erster, -1);
+    return { von: bis.slice(0, 8) + '01', bis: bis };
+  }
+
   /** Vorbelegt ist, was offen ist und keinen fehlenden Zeitnachweis hat. */
   function vorbelegt(d) {
     return !d.abgerechnet_auf && (d.nachweis == null || d.nachweis === 'vollstaendig');
@@ -59,7 +66,7 @@
 
   var Sammelrechnung = { wocheVon: wocheVon, vorwoche: vorwoche, verschiebe: verschiebe,
                          kalenderwoche: kalenderwoche, zusammenfassung: zusammenfassung,
-                         vorbelegt: vorbelegt };
+                         vorbelegt: vorbelegt, vormonat: vormonat };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Sammelrechnung;
   else if (typeof window !== 'undefined') window.Sammelrechnung = Sammelrechnung;

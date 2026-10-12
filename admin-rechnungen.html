@@ -131,7 +131,8 @@ dialog.sr-dlg::backdrop { background: rgba(26,58,42,.38); }
 .sr-body select, .sr-body input { font-family: inherit; font-size: 14px; padding: 8px 10px;
   border: 1.5px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); }
 .sr-woche { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 5px; }
-.sr-woche strong { min-width: 220px; font-size: 14px; color: var(--text); }
+.sr-woche input[type=date] { width: 160px; }
+.sr-woche .bis { font-size: 13px; color: var(--muted); }
 .sr-liste { margin-top: 14px; border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
 .sr-liste table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .sr-liste th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
@@ -203,17 +204,19 @@ dialog.sr-dlg::backdrop { background: rgba(26,58,42,.38); }
     <h2 id="sr-titel">Sammelrechnung aus Diensten</h2>
     <p>Eine Position je angehaktem Dienst, mit Station und Stufe T1/T2. Dienste ohne
        vollständigen Zeitnachweis sind nicht angehakt — sie bleiben offen und erscheinen
-       bei der nächsten Woche unter „Noch offen aus früheren Wochen“. Stornierte, nicht
+       bei der nächsten Rechnung unter „Noch offen vor dem Zeitraum“. Stornierte, nicht
        erschienene und unbesetzte Dienste kosten nichts und fehlen hier.</p>
   </div>
   <div class="sr-body">
     <label for="sr-empf">Klinik</label>
-    <select id="sr-empf" style="width:100%;margin-top:5px;" onchange="srLaden()"></select>
-    <label>Abrechnungswoche (Montag bis Sonntag)</label>
+    <select id="sr-empf" style="width:100%;margin-top:5px;" onchange="srKlinikWechsel()"></select>
+    <label for="sr-von">Leistungszeitraum</label>
     <div class="sr-woche">
-      <button type="button" class="btn" onclick="srSchieben(-7)" aria-label="Woche zurück">‹</button>
-      <strong id="sr-zeitraum">—</strong>
-      <button type="button" class="btn" onclick="srSchieben(7)" aria-label="Woche vor">›</button>
+      <input type="date" id="sr-von" onchange="srZeitraumGeaendert()">
+      <span class="bis">bis</span>
+      <input type="date" id="sr-bis" aria-label="Leistungszeitraum bis" onchange="srZeitraumGeaendert()">
+      <button type="button" class="btn" onclick="srVorwahl('woche')">Vorwoche</button>
+      <button type="button" class="btn" onclick="srVorwahl('monat')">Vormonat</button>
     </div>
     <div id="sr-liste" class="sr-liste"></div>
     <div id="sr-summe" class="sr-summe"></div>
@@ -226,7 +229,7 @@ dialog.sr-dlg::backdrop { background: rgba(26,58,42,.38); }
 </dialog>
 </main>
 
-<script src="sammelrechnung.js?v20261012a"></script>
+<script src="sammelrechnung.js?v20261012b"></script>
 <script src="app.js?v20261012a"></script>
 <script src="layout.js"></script>
 <script>
@@ -321,10 +324,13 @@ function renderTable(invoices) {
 }
 
 // ── Sammelrechnung aus Diensten ─────────────────────────────────────────
-// Montags fuer die Vorwoche: das ist der Normalfall, deshalb vorbelegt.
-let _srWoche = null;
+// Montags fuer die Vorwoche: das ist der Normalfall, deshalb vorbelegt. Der
+// Zeitraum ist frei (mehrere Wochen, ein Monat). Haekchen, die von Hand gesetzt
+// oder entfernt wurden, ueberleben jeden Zeitraumwechsel (_srWahl).
+let _srZeitraum = null;
 let _srDienste = [];
 let _srAuswahl = new Set();
+let _srWahl = new Map();   // booking_id -> true/false, nur Handaenderungen
 const SR_SCHICHT = { morning: 'Frühdienst', afternoon: 'Spätdienst', night: 'Nachtdienst' };
 
 function heuteIso() {
@@ -340,51 +346,78 @@ function srOeffnen() {
   }
   document.getElementById('sr-empf').innerHTML =
     kliniken.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
-  _srWoche = Sammelrechnung.vorwoche(heuteIso());
+  _srWahl = new Map();
   document.getElementById('sr-dlg').showModal();
+  srVorwahl('woche');
+}
+
+function srKlinikWechsel() {
+  _srWahl = new Map();
   srLaden();
 }
 
-function srSchieben(tage) {
-  _srWoche = Sammelrechnung.verschiebe(_srWoche, tage);
+function srVorwahl(art) {
+  const z = art === 'monat' ? Sammelrechnung.vormonat(heuteIso()) : Sammelrechnung.vorwoche(heuteIso());
+  document.getElementById('sr-von').value = z.von;
+  document.getElementById('sr-bis').value = z.bis;
+  srZeitraumGeaendert();
+}
+
+function srZeitraumGeaendert() {
+  const von = document.getElementById('sr-von').value;
+  const bis = document.getElementById('sr-bis').value;
+  _srZeitraum = { von, bis };
   srLaden();
 }
 
 async function srLaden() {
-  const w = _srWoche;
-  document.getElementById('sr-zeitraum').textContent =
-    'KW ' + w.kw + ' · ' + deDate(w.von) + ' – ' + deDate(w.bis);
+  const z = _srZeitraum;
   const liste = document.getElementById('sr-liste');
   const summe = document.getElementById('sr-summe');
   const m = document.getElementById('sr-meldung');
   const ok = document.getElementById('sr-ok');
   m.hidden = true; ok.disabled = true;
-  liste.innerHTML = '<div style="padding:14px;color:var(--muted);">Wird geladen …</div>';
   summe.textContent = '';
   _srDienste = [];
   _srAuswahl = new Set();
+  if (!z.von || !z.bis || z.bis < z.von) {
+    liste.innerHTML = '';
+    m.textContent = 'Bitte einen gültigen Zeitraum wählen (von vor bis).'; m.hidden = false;
+    return;
+  }
+  liste.innerHTML = '<div style="padding:14px;color:var(--muted);">Wird geladen …</div>';
 
-  const res = await LPR.sammelrechnungDienste(document.getElementById('sr-empf').value, w.von, w.bis);
-  if (_srWoche !== w) return;   // inzwischen weitergeblaettert
+  const res = await LPR.sammelrechnungDienste(document.getElementById('sr-empf').value, z.von, z.bis);
+  if (_srZeitraum !== z) return;   // inzwischen Zeitraum geaendert
   if (!res.ok) {
     liste.innerHTML = '';
     m.textContent = 'Dienste nicht ladbar: ' + res.error; m.hidden = false;
     return;
   }
   if (!res.dienste.length) {
-    liste.innerHTML = '<div style="padding:14px;color:var(--muted);">In dieser Woche gibt es keine erledigten Dienste.</div>';
+    liste.innerHTML = '<div style="padding:14px;color:var(--muted);">In diesem Zeitraum gibt es keine erledigten Dienste.</div>';
     return;
   }
   _srDienste = res.dienste;
-  _srDienste.forEach(d => { if (Sammelrechnung.vorbelegt(d)) _srAuswahl.add(d.booking_id); });
+  _srDienste.forEach(d => {
+    if (d.abgerechnet_auf) return;
+    const an = _srWahl.has(d.booking_id) ? _srWahl.get(d.booking_id) : Sammelrechnung.vorbelegt(d);
+    if (an) _srAuswahl.add(d.booking_id);
+  });
 
+  // Gliederung: Nachtraege zuerst, dann je Kalenderwoche.
   const nachtraege = _srDienste.filter(d => d.nachtrag);
-  const woche = _srDienste.filter(d => !d.nachtrag);
+  const wochen = new Map();
+  _srDienste.filter(d => !d.nachtrag).forEach(d => {
+    const w = Sammelrechnung.wocheVon(d.datum);
+    if (!wochen.has(w.von)) wochen.set(w.von, { titel: 'KW ' + w.kw + ' · ' + deDate(w.von) + ' – ' + deDate(w.bis), dienste: [] });
+    wochen.get(w.von).dienste.push(d);
+  });
   const block = (titel, dienste) => !dienste.length ? '' :
     `<tr class="zwkopf"><td colspan="7">${titel}</td></tr>` + dienste.map(srZeile).join('');
   liste.innerHTML = `<table>
     <thead><tr><th class="wahl"></th><th>Datum</th><th>Schicht</th><th>Station</th><th>Stufe</th><th>Zeitnachweis</th><th class="num">Betrag</th></tr></thead>
-    <tbody>${block('Noch offen aus früheren Wochen', nachtraege)}${block('KW ' + w.kw, woche)}</tbody></table>`;
+    <tbody>${block('Noch offen vor dem Zeitraum', nachtraege)}${[...wochen.values()].map(w => block(w.titel, w.dienste)).join('')}</tbody></table>`;
   srSumme();
 }
 
@@ -413,6 +446,7 @@ function srZeile(d) {
 }
 
 function srUmschalten(id, an) {
+  _srWahl.set(id, an);
   if (an) _srAuswahl.add(id); else _srAuswahl.delete(id);
   srSumme();
 }
@@ -421,7 +455,7 @@ function srSumme() {
   const summe = document.getElementById('sr-summe');
   const offen = Sammelrechnung.zusammenfassung(_srDienste).anzahl;
   const z = Sammelrechnung.zusammenfassung(_srDienste, _srAuswahl);
-  summe.textContent = !offen ? 'Alle Dienste dieser Woche sind schon abgerechnet.'
+  summe.textContent = !offen ? 'Alle Dienste dieses Zeitraums sind schon abgerechnet.'
     : !z.anzahl ? 'Kein Dienst ausgewählt.'
     : z.anzahl + (z.anzahl === 1 ? ' Dienst' : ' Dienste') + ' ausgewählt · T1: ' + z.t1 + ' · T2: ' + z.t2
       + ' · zusammen ' + LPR.centsToEUR(z.summe_cents)
@@ -432,7 +466,7 @@ function srSumme() {
 async function srAnlegen(btn) {
   btn.disabled = true; btn.textContent = 'Wird angelegt …';
   const res = await LPR.sammelrechnungAnlegen(document.getElementById('sr-empf').value,
-    _srWoche.von, _srWoche.bis, [..._srAuswahl]);
+    _srZeitraum.von, _srZeitraum.bis, [..._srAuswahl]);
   btn.textContent = 'Entwurf anlegen';
   if (!res.ok) {
     // Meldung IM Dialog: ein Toast laege unter dem Backdrop.

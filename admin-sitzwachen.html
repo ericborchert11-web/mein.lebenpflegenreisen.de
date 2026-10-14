@@ -67,6 +67,10 @@
 .od-kopf h3 { margin:0; font-size:15px; }
 .od-kopf .as-btn { margin-left:auto; }
 .od-aktionen { display:flex; gap:6px; flex-wrap:wrap; }
+.od-filter { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:0 0 8px; }
+.od-filter button { border:1px solid #E0DACE; background:#fff; color:#5A6650; border-radius:999px; padding:5px 12px; font-size:13px; font-weight:600; cursor:pointer; }
+.od-filter button.aktiv { background:var(--green); border-color:var(--green); color:#fff; }
+.od-filter select { margin-left:auto; padding:5px 8px; font-size:13px; border:1px solid #E0DACE; border-radius:8px; background:#fff; }
 @media (max-width:640px) { .od-tabelle thead { display:none; } .od-tabelle td { display:block; border-bottom:none; padding:4px 10px; } .od-tabelle tr { display:block; border-bottom:1px solid #EEE9DD; padding:6px 0; } }
 .as-actions { display:flex; gap:6px; flex-wrap:wrap; }
 .as-btn { padding:6px 12px; font-size:13px; font-weight:600; border-radius:7px; border:1px solid var(--green); background:#fff; color:var(--green); cursor:pointer; }
@@ -214,6 +218,12 @@ h1 { margin:0 0 4px; }
         <div class="od-kopf">
           <h3>Offene Dienste</h3>
           <button class="as-btn" id="od-neu">Offene Dienste anlegen</button>
+        </div>
+        <div class="od-filter" id="od-filter" hidden>
+          <button type="button" data-odf="offen">Noch offen</button>
+          <button type="button" data-odf="unbesetzt">Niemand verfügbar</button>
+          <button type="button" data-odf="alle">Alle</button>
+          <select id="od-filter-klinik" aria-label="Klinik"></select>
         </div>
         <div id="od-liste"><div class="as-empty">Wird geladen…</div></div>
       </div>
@@ -844,18 +854,56 @@ let _odAktion = null;   // { art: 'besetzen' | 'unbesetzt', dienst }
 
 const OD_SCHICHT_KURZ = { morning: 'Früh', afternoon: 'Spät', night: 'Nacht' };
 
+// Filter: "offen" ist der Normalfall (hier wird jemand gesucht), die
+// vergangenen "niemand verfuegbar" stehen sonst davor und verdecken ihn.
+let _odFilter = 'offen';
+let _odKlinik = '';
+try { _odFilter = localStorage.getItem('od-filter') || 'offen'; } catch (e) {}
+
 async function ladeOffeneDienste() {
   const el = document.getElementById('od-liste');
   const res = await LPR.boardOffeneDienste(14);
   if (!res.ok) { el.innerHTML = '<div class="as-empty">' + esc(res.error || 'Fehler.') + '</div>'; return; }
   _odDienste = res.dienste;
+  odRendern();
+}
+
+function odRendern() {
+  const el = document.getElementById('od-liste');
+  const leiste = document.getElementById('od-filter');
+  leiste.hidden = !_odDienste.length;
   if (!_odDienste.length) {
     el.innerHTML = '<div class="as-empty">Keine offenen Dienste.</div>';
     return;
   }
+  const kliniken = [...new Set(_odDienste.map(d => d.clinic_name || '—'))].sort();
+  if (_odKlinik && !kliniken.includes(_odKlinik)) _odKlinik = '';
+  const sel = document.getElementById('od-filter-klinik');
+  sel.hidden = kliniken.length < 2;
+  sel.innerHTML = '<option value="">alle Kliniken</option>'
+    + kliniken.map(k => '<option' + (k === _odKlinik ? ' selected' : '') + '>' + esc(k) + '</option>').join('');
+  const proKlinik = _odDienste.filter(d => !_odKlinik || (d.clinic_name || '—') === _odKlinik);
+  const anzahl = {
+    offen:     proKlinik.filter(d => d.status === 'offen').length,
+    unbesetzt: proKlinik.filter(d => d.status !== 'offen').length,
+    alle:      proKlinik.length
+  };
+  const worte = { offen: 'Noch offen', unbesetzt: 'Niemand verfügbar', alle: 'Alle' };
+  leiste.querySelectorAll('[data-odf]').forEach(b => {
+    b.classList.toggle('aktiv', b.dataset.odf === _odFilter);
+    b.textContent = worte[b.dataset.odf] + ' (' + anzahl[b.dataset.odf] + ')';
+  });
+  const liste = proKlinik.filter(d => _odFilter === 'alle'
+    || (_odFilter === 'offen' ? d.status === 'offen' : d.status !== 'offen'));
+  if (!liste.length) {
+    el.innerHTML = '<div class="as-empty">' + (_odFilter === 'offen'
+      ? 'Nichts mehr offen — alles besetzt oder als „niemand verfügbar“ markiert.'
+      : 'Keine Einträge.') + '</div>';
+    return;
+  }
   el.innerHTML = '<table class="as-table od-tabelle"><thead><tr><th>Datum</th><th>Schicht</th><th>Klinik</th>'
     + '<th>Zustand</th><th>Notiz</th><th></th></tr></thead><tbody>'
-    + _odDienste.map(d => {
+    + liste.map(d => {
         const offen = d.status === 'offen';
         const zustand = offen
           ? '<span class="pill offen">offen</span>'
@@ -984,6 +1032,12 @@ async function odZeilenAktion(btn) {
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('od-neu').onclick       = odNeuOeffnen;
+  document.querySelectorAll('[data-odf]').forEach(b => b.onclick = () => {
+    _odFilter = b.dataset.odf;
+    try { localStorage.setItem('od-filter', _odFilter); } catch (e) {}
+    odRendern();
+  });
+  document.getElementById('od-filter-klinik').onchange = e => { _odKlinik = e.target.value; odRendern(); };
   document.getElementById('od-abbrechen').onclick = odNeuSchliessen;
   document.getElementById('od-ok').onclick        = odNeuSpeichern;
   document.getElementById('od-overlay').onclick   = e => { if (e.target.id === 'od-overlay') odNeuSchliessen(); };

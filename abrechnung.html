@@ -802,6 +802,8 @@ body.compliance-locked .info-box { display: none; }
       <div class="section-label">
         <h2>Meine Anträge</h2>
         <p>Alle bereits eingereichten Abrechnungen mit Status. Als abgerechnet gilt ein Antrag erst, wenn der Vorstand die Auszahlung angewiesen hat.</p>
+        <p>Du hast für den Verein Geld ausgelegt, zum Beispiel für Tickets, Material oder Porto?
+          <button class="btn btn-primary" style="margin-top:8px" onclick="openAuslageDialog()">Auslage einreichen</button></p>
       </div>
       <div id="submitted-claims"></div>
     </div>
@@ -899,12 +901,75 @@ body.compliance-locked .info-box { display: none; }
   </div>
 </dialog>
 
+<!-- ════════════ DIALOG: Auslage einreichen (Vereinsauslage, Stufe 2) ════════════ -->
+<dialog id="auslage-dialog" aria-labelledby="ad-title">
+  <div class="dlg-head">
+    <div class="dlg-title" id="ad-title">Auslage einreichen</div>
+    <div class="dlg-sub" id="ad-sub">Erstattung von Geld, das du für den Verein ausgelegt hast</div>
+  </div>
+  <div class="dlg-body">
+    <div class="info-box green">
+      Auslagenersatz nach <strong>§ 3 Nr. 50 EStG</strong>: steuerfrei, zählt <strong>nicht</strong> gegen deinen
+      Freibetrag der Übungsleiterpauschale. Erstattet wird, was du tatsächlich bezahlt hast — mit Beleg.
+    </div>
+    <div id="ad-neu">
+      <div class="field">
+        <label for="ad-bez">Wofür?</label>
+        <input type="text" id="ad-bez" maxlength="120" placeholder="z. B. Bahnticket Rostock–Kröpelin, Bastelmaterial">
+      </div>
+      <div class="field">
+        <label for="ad-betrag">Betrag (€)</label>
+        <input type="text" id="ad-betrag" inputmode="decimal" placeholder="z. B. 24,74">
+      </div>
+      <div class="field">
+        <label for="ad-von">Datum der Ausgabe</label>
+        <input type="date" id="ad-von">
+        <div class="field-hint">Bei mehreren Ausgaben: von <input type="date" id="ad-bis" style="width:auto;display:inline-block"> (bis, optional)</div>
+      </div>
+      <div class="field">
+        <label for="ad-reise">Gehört zu einer Reise? (optional)</label>
+        <select id="ad-reise"><option value="">— keine Reise —</option></select>
+      </div>
+      <div class="field">
+        <label for="ad-notiz">Anmerkung (optional)</label>
+        <textarea id="ad-notiz" rows="2" maxlength="300"></textarea>
+      </div>
+    </div>
+    <div class="field">
+      <label for="ad-dateien">Belege (PDF oder Foto, Pflicht)</label>
+      <input type="file" id="ad-dateien" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic">
+      <div class="field-hint" id="ad-dateien-liste">Fotos vom Handy gehen auch. Höchstens 10 MB je Datei.</div>
+    </div>
+    <div class="iban-info">
+      <strong>Auszahlung an:</strong> <span id="ad-iban">—</span>
+    </div>
+    <label class="check">
+      <input type="checkbox" id="ad-chk-echt">
+      <div class="check-text">Ich bestätige, dass mir diese Ausgabe <strong>tatsächlich für den Verein</strong> entstanden ist
+        und dass ich sie <strong>nicht anderweitig erstattet</strong> bekomme oder bekommen habe.</div>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="ad-chk-datenschutz">
+      <div class="check-text">Mir ist bekannt, dass der Verein Antrag und Belege zur <strong>Buchführung</strong> zehn Jahre
+        aufbewahrt (DSGVO Art. 6 Abs. 1 lit. c i.V.m. § 147 AO).</div>
+    </label>
+    <div class="info-box">
+      Nach dem Einreichen prüft der Vorstand deinen Antrag. Sobald er überwiesen ist, bekommst du den
+      Auslagenbeleg per E-Mail.
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn btn-ghost" onclick="closeAuslageDialog()">Abbrechen</button>
+    <button class="btn btn-primary" id="ad-submit" onclick="submitAuslage()">Auslage einreichen</button>
+  </div>
+</dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 
 
 
-<script src="app.js?v20261017a"></script>
+<script src="app.js?v20261017b"></script>
 <script src="beleg-vorlage.js?v20261017a"></script>
 <script src="druck-anpassen.js?v20260823a"></script>
 <script src="layout.js"></script>
@@ -1180,7 +1245,8 @@ function renderClaimsSection() {
     // Nur 'paid' darf als erledigt gelesen werden — bis zur Anweisung durch den
     // Vorstand steht ausdruecklich "noch nicht ausgezahlt" am Antrag.
     const stateLabel = c.status === 'paid' ? 'Ausgezahlt' : c.status === 'approved' ? 'Genehmigt' : c.status === 'rejected' ? 'Abgelehnt' : c.status === 'draft' ? 'Entwurf' : 'Eingereicht';
-    const stateNote = c.status === 'paid'
+    const stateNote = c.status === 'draft' && c.source_type === 'verein' ? 'noch nicht eingereicht — Belege fehlen'
+      : c.status === 'paid'
       ? 'ausgezahlt am ' + (c.paid_at ? new Date(c.paid_at).toLocaleDateString('de-DE') : '—')
       : (c.status === 'approved' || c.status === 'submitted' || !c.status) ? 'noch nicht ausgezahlt'
       : '';
@@ -1200,7 +1266,13 @@ function renderClaimsSection() {
       : c.source_type === 'sitzwache' ? 'Sitzwache vom ' + formatDateRange(c.period_start, c.period_end)
       : c.source_type === 'einarbeitung' ? 'Einarbeitungstag am ' + formatDateRange(c.period_start, c.period_end)
       : 'Reise: ' + formatDateRange(c.period_start, c.period_end);
-    return '<div class="trip-card"><div>' + typeBadge + '<div class="trip-info-title">' + escape(title) + '</div><div class="trip-info-meta"><span>Beleg-ID: <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong></span><span>Eingereicht: ' + new Date(c.submitted_at).toLocaleDateString('de-DE') + '</span><span class="trip-state ' + stateClass + '">' + stateLabel + '</span>' + (stateNote ? '<span>' + stateNote + '</span>' : '') + '</div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(c.amount) + '</div><button class="btn btn-ghost" onclick="showBeleg(\'' + c.id + '\')">Beleg ansehen</button></div></div>';
+    return '<div class="trip-card"><div>' + typeBadge + '<div class="trip-info-title">' + escape(title) + '</div><div class="trip-info-meta"><span>Beleg-ID: <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong></span><span>Eingereicht: ' + (c.submitted_at ? new Date(c.submitted_at).toLocaleDateString('de-DE') : '—') + '</span><span class="trip-state ' + stateClass + '">' + stateLabel + '</span>' + (stateNote ? '<span>' + stateNote + '</span>' : '') + '</div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(c.amount) + '</div>'
+      // Ein Entwurf einer Vereinsauslage ist hängen geblieben (Belege nicht
+      // hochgeladen oder nicht eingereicht) — hier geht es weiter.
+      + (istVerein && c.status === 'draft'
+        ? '<button class="btn btn-primary" onclick="openAuslageDialog(\'' + c.id + '\')">Fortsetzen</button>'
+        : '<button class="btn btn-ghost" onclick="showBeleg(\'' + c.id + '\')">Beleg ansehen</button>')
+      + '</div></div>';
   }).join('');
 }
 
@@ -1304,6 +1376,97 @@ function openBelegFromHash() {
 function closeDialog() {
   document.getElementById('claim-dialog').close();
   _activeContext = null;
+}
+
+// === AUSLAGE EINREICHEN (Vereinsauslage, Stufe 2) ===
+// _adEntwurf ist gesetzt, wenn ein hängen gebliebener Entwurf fortgesetzt
+// wird: dann sind die Angaben schon gespeichert, es fehlen nur Belege und
+// das Einreichen.
+let _adEntwurf = null;
+
+function openAuslageDialog(entwurfId) {
+  if (!_profile?.iban) { showToast('Bitte erst deine IBAN im Profil hinterlegen.', 'warn'); return; }
+  _adEntwurf = entwurfId || null;
+  const c = _adEntwurf ? _claims.find(x => x.id === _adEntwurf) : null;
+  document.getElementById('ad-neu').hidden = !!_adEntwurf;
+  document.getElementById('ad-sub').textContent = c
+    ? 'Entwurf fortsetzen: ' + ((c.amount_breakdown && c.amount_breakdown[0] && c.amount_breakdown[0].label) || '') + ' · ' + formatEUR(c.amount)
+    : 'Erstattung von Geld, das du für den Verein ausgelegt hast';
+  ['ad-bez', 'ad-betrag', 'ad-bis', 'ad-notiz', 'ad-dateien'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('ad-von').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('ad-dateien-liste').textContent = 'Fotos vom Handy gehen auch. Höchstens 10 MB je Datei.';
+  document.getElementById('ad-chk-echt').checked = false;
+  document.getElementById('ad-chk-datenschutz').checked = false;
+  document.getElementById('ad-iban').textContent = formatIbanDisplay(_profile.iban);
+  // Reisen, an denen ich bestätigt teilgenommen habe — als Anlass, nicht als Bedingung.
+  const reisen = _signups.filter(su => su.status === 'confirmed' && su.trips)
+    .map(su => su.trips)
+    .filter((t, i, a) => a.findIndex(x => x.id === t.id) === i);
+  document.getElementById('ad-reise').innerHTML = '<option value="">— keine Reise —</option>'
+    + reisen.map(t => '<option value="' + escape(t.id) + '">' + escape(t.title) + ' · '
+      + new Date(t.start_date).toLocaleDateString('de-DE') + '</option>').join('');
+  document.getElementById('auslage-dialog').showModal();
+}
+
+function closeAuslageDialog() {
+  document.getElementById('auslage-dialog').close();
+  _adEntwurf = null;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('ad-dateien');
+  if (!inp) return;
+  inp.addEventListener('change', () => {
+    const files = [...inp.files];
+    const fehler = files.map(f => LPR.pruefeBelegDatei(f)).find(r => !r.ok);
+    document.getElementById('ad-dateien-liste').textContent = fehler ? fehler.error
+      : files.length + ' Datei(en): ' + files.map(f => f.name).join(', ');
+  });
+});
+
+async function submitAuslage() {
+  const files = [...document.getElementById('ad-dateien').files];
+  if (!files.length) { showToast('Bitte mindestens einen Beleg anhängen.', 'warn'); return; }
+  if (!document.getElementById('ad-chk-echt').checked || !document.getElementById('ad-chk-datenschutz').checked) {
+    showToast('Bitte beide Punkte bestätigen.', 'warn'); return;
+  }
+  const btn = document.getElementById('ad-submit');
+  btn.disabled = true; const alt = btn.textContent; btn.textContent = 'Wird hochgeladen…';
+  let res;
+  if (_adEntwurf) {
+    res = await LPR.meinenAuslageEntwurfEinreichen(_adEntwurf, files);
+  } else {
+    const roh = document.getElementById('ad-betrag').value.trim();
+    if (!/^\d{1,6}([.,]\d{1,2})?$/.test(roh)) {
+      btn.disabled = false; btn.textContent = alt;
+      showToast('Betrag bitte wie „24,74" eingeben.', 'warn'); return;
+    }
+    res = await LPR.meineAuslageEinreichen({
+      bezeichnung: document.getElementById('ad-bez').value,
+      amount_cents: Math.round(parseFloat(roh.replace(',', '.')) * 100),
+      period_start: document.getElementById('ad-von').value,
+      period_end: document.getElementById('ad-bis').value || null,
+      trip_id: document.getElementById('ad-reise').value || null,
+      notes: document.getElementById('ad-notiz').value,
+      files
+    });
+  }
+  btn.disabled = false; btn.textContent = alt;
+  if (!res.ok) {
+    showToast(res.error || 'Einreichen fehlgeschlagen.', 'warn');
+    // Ist schon ein Entwurf entstanden, die Liste neu laden: er steht dann
+    // mit „Fortsetzen" unter „Meine Anträge".
+    if (res.draftId) { await reloadClaims(); }
+    return;
+  }
+  closeAuslageDialog();
+  showToast('Auslage eingereicht. Der Vorstand prüft sie jetzt.');
+  await reloadClaims();
+}
+
+async function reloadClaims() {
+  const r = await LPR.getMyClaims();
+  if (r.ok) { _claims = r.claims || []; renderClaimsSection(); renderBudget(); }
 }
 
 // === SUBMIT ===

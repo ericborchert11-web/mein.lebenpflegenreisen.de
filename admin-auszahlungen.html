@@ -124,7 +124,8 @@ h1 { margin:0 0 4px; }
             <option value="trip">Reisebegleitung</option>
             <option value="sitzwache">Sitzwache</option>
             <option value="einarbeitung">Einarbeitungstag</option>
-            <option value="auslage">Auslage</option>
+            <option value="auslage">Auslage zur Reise</option>
+            <option value="verein">Vereinsauslage</option>
           </select>
         </label>
         <label>Status:
@@ -146,7 +147,7 @@ h1 { margin:0 0 4px; }
 </div>
 </main>
 
-<script src="app.js?v20260721b"></script>
+<script src="app.js?v20261017a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -242,6 +243,10 @@ document.addEventListener('DOMContentLoaded', () => {
   ['au-personen','au-bezeichnung','au-betrag'].forEach(id =>
     document.getElementById(id).addEventListener('input', auRechnen));
   document.getElementById('au-hinrueck').addEventListener('change', auRechnen);
+  document.getElementById('au-dateien').addEventListener('change', auDateienGewechselt);
+  document.getElementById('be-schliessen').onclick = beSchliessen;
+  document.getElementById('be-hochladen').onclick = beHochladen;
+  document.getElementById('be-overlay').onclick = e => { if (e.target.id === 'be-overlay') beSchliessen(); };
 });
 
 // ===================== Anträge =====================
@@ -251,6 +256,8 @@ async function loadClaims() {
   _claims = res.claims || [];
   renderClaims();
   await ladeMitfahrerNamen();
+  _belegZahl = await LPR.zaehleAuslageBelege(_claims.filter(braucheBelege).map(c => c.id));
+  renderClaims();
 }
 
 // Die Namen der Mitfahrenden stehen nicht am Antrag, nur ihre IDs. Sie werden
@@ -273,6 +280,8 @@ async function ladeMitfahrerNamen() {
 // eigenes source_type — sie haengt an einer Reise-Anmeldung und wuerde sonst
 // unter „Reisebegleitung" verschwinden. Deshalb entscheidet kind zuerst.
 function claimHerkunft(c) {
+  // Vereinsauslage: Ausgabe für den Verein ohne Reise-Anmeldung (seit 17.10.2026).
+  if (c.source_type === 'verein') return 'verein';
   if (c.kind === 'auslage') return 'auslage';
   if (c.source_type === 'trip') return 'trip';
   if (c.source_type === 'sitzwache') return 'sitzwache';
@@ -281,7 +290,7 @@ function claimHerkunft(c) {
   return '';
 }
 
-const HERKUNFT_LABEL = { trip:'Reisebegleitung', sitzwache:'Sitzwache', einarbeitung:'Einarbeitungstag', auslage:'Auslage' };
+const HERKUNFT_LABEL = { trip:'Reisebegleitung', sitzwache:'Sitzwache', einarbeitung:'Einarbeitungstag', auslage:'Auslage', verein:'Vereinsauslage' };
 
 // Filter der Liste. „offen" ist die Arbeitsliste des Vorstands: alles, was noch
 // eine Entscheidung oder eine Ueberweisung braucht. Leerer Wert heisst „alle".
@@ -343,15 +352,37 @@ function mailNachversandNoetig(c) {
 // bei der Freigabe sichtbar ist, wofür die Summe steht.
 function claimArtZelle(c) {
   if (c.kind !== 'auslage') return '§ 3 Nr. ' + esc(c.pauschale_art || '26');
-  const unter = c.auslage_art === 'anreise' ? 'Anreise'
+  const verein = c.source_type === 'verein';
+  const unter = verein ? 'für den Verein'
+              : c.auslage_art === 'anreise' ? 'Anreise'
               : (c.auslage_art === 'beleg' ? 'Beleg' : '—');
   let html = '<strong>Auslage</strong> · ' + esc(unter);
+  const klein = t => '<div style="font-size:12px;color:var(--muted);margin-top:3px">' + t + '</div>';
+  if (verein) {
+    const pos = (c.amount_breakdown && c.amount_breakdown[0] && c.amount_breakdown[0].label) || '';
+    if (pos) html += klein(esc(pos));
+    if (c.trip_title) html += klein('Reise „' + esc(c.trip_title) + '“');
+    // Vier-Augen-Prinzip kann das Portal mit einem Vorstandskonto nicht
+    // erzwingen — sichtbar machen, wenn jemand sich selbst erstattet.
+    if (c.erfasst_von && c.erfasst_von === c.user_id) html += klein('selbst erfasst');
+  }
   const namen = (c.mitfahrer_ids || []).map(id => _auMitfahrerNamen[id]).filter(Boolean);
-  if (namen.length) {
-    html += '<div style="font-size:12px;color:var(--muted);margin-top:3px">mit ' + esc(namen.join(', ')) + '</div>';
+  if (namen.length) html += klein('mit ' + esc(namen.join(', ')));
+  if (braucheBelege(c)) {
+    const n = _belegZahl[c.id];
+    const text = n == null ? 'Belege …' : (n ? 'Belege (' + n + ')' : 'Beleg fehlt');
+    html += '<button class="as-btn" style="margin-top:5px;padding:3px 9px;font-size:12px'
+      + (n === 0 ? ';border-color:#C0392B;color:#9B2C2C' : '') + '" data-act="belege" data-id="' + c.id + '">'
+      + esc(text) + '</button>';
   }
   return html;
 }
+
+// Belege gehören zu jeder Auslage, die gegen Nachweis erstattet wird —
+// Vereinsauslagen eingeschlossen. Die Autoanreise ist pauschal, dort gibt es
+// keinen Beleg.
+function braucheBelege(c) { return c.kind === 'auslage' && c.auslage_art === 'beleg'; }
+let _belegZahl = {};  // claim_id → Anzahl Belege im Speicher (null = unbekannt)
 
 function renderClaims() {
   const el = document.getElementById('claim-list');
@@ -426,6 +457,11 @@ function renderClaims() {
 async function onClaimAction(btn) {
   const id = btn.dataset.id, act = btn.dataset.act;
   let status, reason = null;
+  if (act === 'belege') {
+    const c = _claims.find(x => x.id === id);
+    if (c) await beOeffnen(c);
+    return;
+  }
   if (act === 'beleg') {
     // Nur ansehen, kein Statuswechsel — deshalb vor der Wechsel-Logik und ohne
     // btn.disabled/loadClaims danach.
@@ -478,6 +514,13 @@ let _auTrips = [];      // Reisen (Vorstandssicht), erst beim ersten Öffnen gel
 let _auSignups = [];    // ALLE Reise-Anmeldungen inkl. Namen
 let _auGeladen = false;
 let _auMitfahrerNamen = {};  // user_id → Name, nur für die Antragsliste
+let _auMitglieder = [];      // alle freigegebenen Mitglieder — für Vereinsauslagen
+
+// Vereinsauslage: Ausgabe für den Verein ohne Reise-Anmeldung. Person aus
+// allen Mitgliedern, Reise nur optional als Anlass, Belege werden vor dem
+// Speichern hochgeladen (siehe LPR.adminCreateVereinsAuslage).
+function auIstVerein() { return document.getElementById('au-art').value === 'verein'; }
+function auHeute() { return new Date().toISOString().slice(0, 10); }
 
 /**
  * Cent als deutscher Euro-Text. Der Dialog rechnet durchgehend in Cent, weil
@@ -585,15 +628,21 @@ async function auOeffnen() {
   document.getElementById('au-betrag').value = '';
   document.getElementById('au-personen').value = '1';
   document.getElementById('au-hinrueck').checked = true;
+  document.getElementById('au-dateien').value = '';
+  document.getElementById('au-dateien-liste').textContent = '';
+  document.getElementById('au-von').value = '';
+  document.getElementById('au-bis').value = '';
   document.getElementById('au-overlay').hidden = false;
 
   if (!_auGeladen) {
-    const [tRes, sRes] = await Promise.all([LPR.listAllTripsAdmin(), LPR.getAllTripSignupsAdmin()]);
-    if (!tRes.ok || !sRes.ok) {
-      fehler.textContent = tRes.error || sRes.error || 'Reisen konnten nicht geladen werden.';
+    const [tRes, sRes, mRes] = await Promise.all([
+      LPR.listAllTripsAdmin(), LPR.getAllTripSignupsAdmin(), LPR.adminMitgliederFuerAuslage()]);
+    if (!tRes.ok || !sRes.ok || !mRes.ok) {
+      fehler.textContent = tRes.error || sRes.error || mRes.error || 'Reisen konnten nicht geladen werden.';
       fehler.hidden = false;
       return;
     }
+    _auMitglieder = mRes.mitglieder || [];
     // listAllTripsAdmin() sortiert bereits absteigend nach Startdatum — die
     // zuletzt gefahrene Reise steht damit oben, und genau um die geht es beim
     // Nachtragen einer Auslage.
@@ -601,11 +650,20 @@ async function auOeffnen() {
     _auSignups = sRes.signups || [];
     _auGeladen = true;
   }
-  document.getElementById('au-reise').innerHTML = _auTrips.length
+  auReiseOptionen();
+  auReiseGewechselt();
+}
+
+/** Reise-Auswahl füllen. Bei einer Vereinsauslage ist „keine Reise" erlaubt. */
+function auReiseOptionen() {
+  const sel = document.getElementById('au-reise');
+  const vorher = sel.value;
+  const leer = auIstVerein() ? '<option value="">— keine Reise —</option>' : '';
+  sel.innerHTML = leer + (_auTrips.length
     ? _auTrips.map(t => '<option value="' + esc(t.id) + '">' + esc(t.title)
         + ' · ' + esc(auKurzDatum(t.start_date)) + '–' + esc(auKurzDatum(t.end_date)) + '</option>').join('')
-    : '<option value="">— keine Reisen vorhanden —</option>';
-  auReiseGewechselt();
+    : (leer ? '' : '<option value="">— keine Reisen vorhanden —</option>'));
+  if ([...sel.options].some(o => o.value === vorher)) sel.value = vorher;
 }
 
 function auSchliessen() { document.getElementById('au-overlay').hidden = true; }
@@ -613,6 +671,22 @@ function auSchliessen() { document.getElementById('au-overlay').hidden = true; }
 /** Reise gewechselt: Personenliste neu füllen und die Anreise-Sperre prüfen. */
 function auReiseGewechselt() {
   const trip = auTrip();
+  if (auIstVerein()) {
+    const person = document.getElementById('au-person');
+    const vorher = person.value;
+    person.innerHTML = '<option value="">— bitte wählen —</option>'
+      + _auMitglieder.map(m => '<option value="' + esc(m.id) + '">' + esc(m.full_name) + '</option>').join('');
+    if (_auMitglieder.some(m => m.id === vorher)) person.value = vorher;
+    document.getElementById('au-person-hinweis').textContent =
+      'Alle freigegebenen Mitglieder. Eine Anmeldung zur Reise ist nicht nötig.';
+    document.getElementById('au-sperre').hidden = true;
+    // Zeitraum der Ausgabe: mit der Reise vorbelegt, sonst heute. Was schon
+    // eingetragen ist, bleibt stehen.
+    document.getElementById('au-von').value = trip ? String(trip.start_date).slice(0, 10) : (document.getElementById('au-von').value || auHeute());
+    document.getElementById('au-bis').value = trip ? String(trip.end_date).slice(0, 10) : (document.getElementById('au-bis').value || document.getElementById('au-von').value);
+    auFelder();
+    return;
+  }
   const liste = trip ? auAnmeldungen(trip.id) : [];
   const person = document.getElementById('au-person');
   person.innerHTML = liste.length
@@ -637,11 +711,15 @@ function auReiseGewechselt() {
   } else {
     sperre.hidden = true;
   }
-  auArtGewechselt();
+  auFelder();
 }
 
 /** Person gewechselt: die fahrende Person steht nicht in der Mitfahrer-Liste. */
 function auPersonGewechselt() {
+  const selbst = document.getElementById('au-selbst');
+  const s = LPR.getSession();
+  selbst.hidden = !(auIstVerein() && s && document.getElementById('au-person').value === s.id);
+  if (auIstVerein()) { auRechnen(); return; }
   const trip = auTrip();
   const fahrer = document.getElementById('au-person').value;
   const liste = trip ? auAnmeldungen(trip.id).filter(s => String(s.id) !== String(fahrer)) : [];
@@ -655,17 +733,32 @@ function auPersonGewechselt() {
 }
 
 function auArtGewechselt() {
-  const beleg = document.getElementById('au-art').value === 'beleg';
-  document.getElementById('au-anreise-felder').hidden = beleg;
-  document.getElementById('au-beleg-felder').hidden = !beleg;
+  auReiseOptionen();
+  auReiseGewechselt();
+}
+
+/** Felder je Art ein- und ausblenden. */
+function auFelder() {
+  const art = document.getElementById('au-art').value;
+  document.getElementById('au-anreise-felder').hidden = art !== 'anreise';
+  document.getElementById('au-beleg-felder').hidden = art === 'anreise';
+  document.getElementById('au-verein-felder').hidden = art !== 'verein';
+  document.getElementById('au-reise-label').textContent = art === 'verein' ? 'Reise (optional)' : 'Reise';
   auPersonGewechselt();
+}
+
+function auDateienGewechselt() {
+  const files = [...document.getElementById('au-dateien').files];
+  const fehlerhaft = files.map(f => LPR.pruefeBelegDatei(f)).find(r => !r.ok);
+  document.getElementById('au-dateien-liste').textContent = fehlerhaft ? fehlerhaft.error
+    : (files.length ? files.length + ' Datei(en): ' + files.map(f => f.name).join(', ') : '');
 }
 
 /** Laufende Rechnung im Klartext — vor dem Speichern muss sichtbar sein, was gerechnet wird. */
 function auRechnen() {
   const trip = auTrip();
   const art = document.getElementById('au-art').value;
-  if (art === 'beleg') {
+  if (art === 'beleg' || art === 'verein') {
     const r = auslageBelegRechnung(
       document.getElementById('au-bezeichnung').value,
       document.getElementById('au-betrag').value);
@@ -692,9 +785,46 @@ function auRechnen() {
   }
 }
 
+async function auSpeichernVerein() {
+  const fehler = document.getElementById('au-fehler');
+  const zeige = t => { fehler.textContent = t; fehler.hidden = false; };
+  const userId = document.getElementById('au-person').value;
+  if (!userId) return zeige('Bitte eine Person auswählen.');
+  const r = auslageBelegRechnung(
+    document.getElementById('au-bezeichnung').value,
+    document.getElementById('au-betrag').value);
+  if (!r.ok) return zeige(r.error);
+  const von = document.getElementById('au-von').value;
+  const bis = document.getElementById('au-bis').value || von;
+  if (!von) return zeige('Bitte das Datum der Ausgabe angeben.');
+  const files = [...document.getElementById('au-dateien').files];
+  const trip = auTrip();
+
+  const btn = document.getElementById('au-ok');
+  btn.disabled = true; const alt = btn.textContent;
+  btn.textContent = files.length ? 'Belege werden hochgeladen…' : 'Wird gespeichert…';
+  const res = await LPR.adminCreateVereinsAuslage({
+    user_id: userId,
+    trip_id: trip ? trip.id : null,
+    period_start: von,
+    period_end: bis,
+    bezeichnung: r.label,
+    amount_cents: r.cents,
+    notes: document.getElementById('au-notiz').value.trim() || null,
+    files
+  });
+  btn.disabled = false; btn.textContent = alt;
+  if (!res.ok) return zeige(res.error || 'Speichern fehlgeschlagen.');
+  auSchliessen();
+  toast('Vereinsauslage erfasst und freigegeben: ' + auEuro(r.cents)
+    + (res.belege ? ' · ' + res.belege + ' Beleg(e)' : ' · ohne Beleg') + '.');
+  await loadClaims();
+}
+
 async function auSpeichern() {
   const fehler = document.getElementById('au-fehler');
   fehler.hidden = true;
+  if (auIstVerein()) return auSpeichernVerein();
   const trip = auTrip();
   const signupId = document.getElementById('au-person').value;
   const art = document.getElementById('au-art').value;
@@ -735,7 +865,8 @@ async function auSpeichern() {
     amount_cents: cents,
     amount_breakdown: breakdown,
     mitfahrer_ids: mitfahrer,
-    notes: document.getElementById('au-notiz').value.trim() || null
+    notes: document.getElementById('au-notiz').value.trim() || null,
+    files: art === 'beleg' ? [...document.getElementById('au-dateien').files] : []
   });
   btn.disabled = false; btn.textContent = alt;
   if (!res.ok) { fehler.textContent = res.error || 'Speichern fehlgeschlagen.'; fehler.hidden = false; return; }
@@ -743,6 +874,70 @@ async function auSpeichern() {
   toast('Auslage erfasst und freigegeben: ' + auEuro(cents) + '.');
   await loadClaims();
 }
+
+// ═════════════════ Belege einer Auslage ═════════════════
+// Die Links sind signiert und gelten fünf Minuten — sie werden beim Öffnen
+// des Dialogs erzeugt, damit ein Klick sofort öffnet (ein window.open nach
+// einem await blockieren manche Browser als Popup).
+let _beClaim = null;
+
+async function beOeffnen(c) {
+  _beClaim = c;
+  document.getElementById('be-sub').textContent = c.user_name + ' · ' + eur(c.amount)
+    + (c.beleg_nr ? ' · ' + c.beleg_nr : '') + (c.status === 'paid' ? ' · ausgezahlt' : '');
+  document.getElementById('be-fehler').hidden = true;
+  document.getElementById('be-dateien').value = '';
+  document.getElementById('be-overlay').hidden = false;
+  await beLaden();
+}
+
+async function beLaden() {
+  const c = _beClaim;
+  const el = document.getElementById('be-liste');
+  el.innerHTML = '<p class="nf-hinweis">Wird geladen…</p>';
+  const res = await LPR.listAuslageBelege(c.id);
+  if (!res.ok) { el.innerHTML = '<p class="ev-fehler">' + esc(res.error) + '</p>'; return; }
+  _belegZahl[c.id] = res.belege.length;
+  renderClaims();
+  if (!res.belege.length) {
+    el.innerHTML = '<p class="ev-info">Zu diesem Antrag liegt noch <strong>kein Beleg</strong> vor.</p>';
+    return;
+  }
+  const links = await Promise.all(res.belege.map(b => LPR.auslageBelegUrl(b.pfad)));
+  const loeschbar = c.status !== 'paid';
+  el.innerHTML = '<ul style="padding-left:18px;margin:6px 0">' + res.belege.map((b, i) =>
+    '<li style="margin:6px 0">'
+    + (links[i].ok ? '<a href="' + esc(links[i].url) + '" target="_blank" rel="noopener">' + esc(b.name) + '</a>' : esc(b.name))
+    + (b.groesse ? ' <span class="nf-hinweis">(' + Math.max(1, Math.round(b.groesse / 1024)) + ' KB)</span>' : '')
+    + (loeschbar ? ' <button class="as-btn warn" style="padding:2px 8px;font-size:12px" data-pfad="' + esc(b.pfad) + '">Löschen</button>' : '')
+    + '</li>').join('') + '</ul>'
+    + (loeschbar ? '' : '<p class="nf-hinweis">Der Antrag ist ausgezahlt — Belege bleiben stehen (Aufbewahrung § 147 AO).</p>');
+  el.querySelectorAll('button[data-pfad]').forEach(b => b.addEventListener('click', () => beLoeschen(b.dataset.pfad, b)));
+}
+
+async function beLoeschen(pfad, btn) {
+  if (!confirm('Diesen Beleg löschen?')) return;
+  btn.disabled = true;
+  const res = await LPR.deleteAuslageBeleg(pfad);
+  if (!res.ok) { toast(res.error || 'Löschen fehlgeschlagen.', 'warn'); btn.disabled = false; return; }
+  await beLaden();
+}
+
+async function beHochladen() {
+  const files = [...document.getElementById('be-dateien').files];
+  const fehler = document.getElementById('be-fehler');
+  fehler.hidden = true;
+  if (!files.length) { fehler.textContent = 'Bitte zuerst Dateien wählen.'; fehler.hidden = false; return; }
+  const btn = document.getElementById('be-hochladen');
+  btn.disabled = true;
+  const res = await LPR.uploadAuslageBelege(_beClaim.id, files);
+  btn.disabled = false;
+  if (!res.ok) { fehler.textContent = res.error; fehler.hidden = false; }
+  document.getElementById('be-dateien').value = '';
+  await beLaden();
+}
+
+function beSchliessen() { document.getElementById('be-overlay').hidden = true; }
 
 init();
 </script>
@@ -758,19 +953,25 @@ init();
       danach automatisch raus.
     </p>
 
-    <label class="ev-label" for="au-reise">Reise</label>
+    <label class="ev-label" for="au-art">Art</label>
+    <select id="au-art">
+      <option value="anreise">Anreise mit dem eigenen Auto</option>
+      <option value="beleg">Erstattung gegen Beleg (Reise-Teilnahme)</option>
+      <option value="verein">Ausgabe für den Verein (ohne Anmeldung)</option>
+    </select>
+    <p class="ev-info" id="au-sperre" hidden style="margin-top:8px"></p>
+
+    <label class="ev-label" for="au-reise" id="au-reise-label" style="margin-top:12px">Reise</label>
     <select id="au-reise"><option value="">— wird geladen —</option></select>
 
     <label class="ev-label" for="au-person" style="margin-top:12px">Person</label>
     <select id="au-person"><option value="">—</option></select>
     <p class="nf-hinweis" id="au-person-hinweis">Nur Personen mit bestätigter Anmeldung: der Antrag hängt an der Anmeldung.</p>
-
-    <label class="ev-label" for="au-art" style="margin-top:12px">Art</label>
-    <select id="au-art">
-      <option value="anreise">Anreise mit dem eigenen Auto</option>
-      <option value="beleg">Erstattung gegen Beleg</option>
-    </select>
-    <p class="ev-info" id="au-sperre" hidden style="margin-top:8px"></p>
+    <p class="ev-info" id="au-selbst" hidden style="margin-top:8px">
+      Du erfasst eine Auslage <strong>für dich selbst</strong>. Das Portal kann keine zweite
+      Freigabe verlangen. Der Antrag ist deshalb als „selbst erfasst" markiert und für die
+      Kassenprüfung sichtbar.
+    </p>
 
     <div id="au-anreise-felder">
       <div class="nf-grid" style="margin-top:12px">
@@ -799,6 +1000,24 @@ init();
       <label class="ev-label" for="au-betrag" style="margin-top:12px">Betrag (€)</label>
       <input type="text" id="au-betrag" inputmode="decimal" placeholder="z. B. 34,80">
       <div class="nf-netto" id="au-beleg-summe">—</div>
+
+      <div id="au-verein-felder" hidden>
+        <div class="nf-grid" style="margin-top:12px">
+          <div>
+            <label class="ev-label" for="au-von">Datum der Ausgabe (von)</label>
+            <input type="date" id="au-von">
+          </div>
+          <div>
+            <label class="ev-label" for="au-bis">bis (optional)</label>
+            <input type="date" id="au-bis">
+          </div>
+        </div>
+      </div>
+
+      <label class="ev-label" for="au-dateien" style="margin-top:12px">Belege (PDF oder Foto, optional)</label>
+      <input type="file" id="au-dateien" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic">
+      <p class="nf-hinweis" id="au-dateien-liste"></p>
+      <p class="nf-hinweis">Fehlt der Beleg noch, lässt er sich später über „Beleg fehlt" in der Liste nachreichen.</p>
     </div>
 
     <label class="ev-label" for="au-notiz" style="margin-top:12px">Anmerkung (optional)</label>
@@ -808,6 +1027,24 @@ init();
     <div class="ev-actions">
       <button type="button" class="as-btn" id="au-abbrechen">Abbrechen</button>
       <button type="button" class="as-btn" id="au-ok">Auslage erfassen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Belege einer Auslage (ansehen, nachreichen, vor der Auszahlung löschen) ═══ -->
+<div id="be-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog breit" role="dialog" aria-labelledby="be-titel">
+    <h2 id="be-titel">Belege</h2>
+    <p class="ev-sub" id="be-sub"></p>
+    <div id="be-liste"></div>
+    <div id="be-upload">
+      <label class="ev-label" for="be-dateien" style="margin-top:12px">Weitere Belege hochladen</label>
+      <input type="file" id="be-dateien" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic">
+    </div>
+    <div class="ev-fehler" id="be-fehler" hidden></div>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="be-schliessen">Schließen</button>
+      <button type="button" class="as-btn" id="be-hochladen">Hochladen</button>
     </div>
   </div>
 </div>

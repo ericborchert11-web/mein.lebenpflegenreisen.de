@@ -5724,9 +5724,23 @@
       const trip = signup.trips || {};
       const jetzt = new Date().toISOString();
       const mitfahrer = Array.isArray(p.mitfahrer_ids) ? p.mitfahrer_ids.filter(Boolean) : [];
+      // Belege VOR dem Einfügen hochladen (Antrags-ID aus dem Browser): die
+      // Zahlungsanweisung geht beim INSERT raus und soll sie schon sehen.
+      const files = Array.from(p.files || []);
+      const id = crypto.randomUUID();
+      let pfade = [];
+      if (files.length) {
+        const up = await uploadAuslageBelege(id, files);
+        pfade = up.pfade || [];
+        if (!up.ok) {
+          if (pfade.length) await client.storage.from(AUSLAGEN_BUCKET).remove(pfade);
+          return { ok: false, error: up.error };
+        }
+      }
       const { data: claim, error: insErr } = await client
         .from('claims')
         .insert({
+          id,
           user_id: signup.user_id,
           kind: 'auslage',
           auslage_art: p.auslage_art,
@@ -5748,8 +5762,11 @@
         })
         .select()
         .single();
-      if (insErr) return { ok: false, error: 'Auslage konnte nicht gespeichert werden: ' + insErr.message };
-      return { ok: true, claim };
+      if (insErr) {
+        if (pfade.length) await client.storage.from(AUSLAGEN_BUCKET).remove(pfade);
+        return { ok: false, error: 'Auslage konnte nicht gespeichert werden: ' + insErr.message };
+      }
+      return { ok: true, claim, belege: pfade.length };
     } catch(e) {
       console.error('[LPR] adminCreateAuslageClaim:', e);
       return { ok: false, error: 'Netzwerkfehler.' };

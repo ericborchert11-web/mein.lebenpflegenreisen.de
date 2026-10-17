@@ -904,8 +904,8 @@ body.compliance-locked .info-box { display: none; }
 
 
 
-<script src="app.js?v20261008a"></script>
-<script src="beleg-vorlage.js?v20260820a"></script>
+<script src="app.js?v20261017a"></script>
+<script src="beleg-vorlage.js?v20261017a"></script>
 <script src="druck-anpassen.js?v20260823a"></script>
 <script src="layout.js"></script>
 <script>
@@ -1187,10 +1187,17 @@ function renderClaimsSection() {
     const stateClass = c.status === 'paid' ? 'state-paid' : c.status === 'approved' ? 'state-approved' : c.status === 'rejected' ? 'state-rejected' : 'state-submitted';
     // Drei Herkuenfte: Reise, Sitzwache und der Einarbeitungstag aus dem
     // Onboarding (halbe Sitzwachen-Pauschale, ohne Buchung und ohne Reise).
-    const typeBadge = c.source_type === 'sitzwache' ? '<span class="type-badge sitz">Sitzwache</span>'
+    // Vierte Herkunft seit 17.10.2026: die Vereinsauslage — eine Ausgabe für
+    // den Verein ohne Reise-Anmeldung, die Reise steht höchstens als Anlass dabei.
+    const istVerein = c.source_type === 'verein';
+    const vereinPos = istVerein && c.amount_breakdown && c.amount_breakdown[0] && c.amount_breakdown[0].label;
+    const typeBadge = istVerein ? '<span class="type-badge trip">Auslage</span>'
+      : c.source_type === 'sitzwache' ? '<span class="type-badge sitz">Sitzwache</span>'
       : c.source_type === 'einarbeitung' ? '<span class="type-badge einarb">Einarbeitungstag</span>'
       : '<span class="type-badge trip">Reise</span>';
-    const title = c.source_type === 'sitzwache' ? 'Sitzwache vom ' + formatDateRange(c.period_start, c.period_end)
+    const title = istVerein ? 'Ausgabe für den Verein' + (vereinPos ? ': ' + vereinPos : '')
+        + (c.trip_title ? ' (Reise „' + c.trip_title + '“)' : '')
+      : c.source_type === 'sitzwache' ? 'Sitzwache vom ' + formatDateRange(c.period_start, c.period_end)
       : c.source_type === 'einarbeitung' ? 'Einarbeitungstag am ' + formatDateRange(c.period_start, c.period_end)
       : 'Reise: ' + formatDateRange(c.period_start, c.period_end);
     return '<div class="trip-card"><div>' + typeBadge + '<div class="trip-info-title">' + escape(title) + '</div><div class="trip-info-meta"><span>Beleg-ID: <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong></span><span>Eingereicht: ' + new Date(c.submitted_at).toLocaleDateString('de-DE') + '</span><span class="trip-state ' + stateClass + '">' + stateLabel + '</span>' + (stateNote ? '<span>' + stateNote + '</span>' : '') + '</div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(c.amount) + '</div><button class="btn btn-ghost" onclick="showBeleg(\'' + c.id + '\')">Beleg ansehen</button></div></div>';
@@ -1384,7 +1391,8 @@ function showBeleg(claimId) {
     person: _profile || {},
     verein: { name: VEREIN.name, adresse: VEREIN.adresse, register: VEREIN.register },
     jahresSumme: jahresSummeFuer(c),
-    beschlussDatum: BESCHLUSS_DATUM
+    beschlussDatum: BESCHLUSS_DATUM,
+    reiseTitel: c.trip_title || ''
   });
 
   document.getElementById('beleg-content').innerHTML = html;

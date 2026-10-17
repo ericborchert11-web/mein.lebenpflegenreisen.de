@@ -5802,10 +5802,17 @@
     return Date.now() + '-' + i + '-' + stamm + '.' + ext;
   }
 
-  /** Lädt Belege nach auslagen-belege/<claimId>/. {ok, pfade} oder {ok:false, error, pfade}. */
+  /** Lädt Belege nach auslagen-belege/<claimId>/ (Vorstand). {ok, pfade} oder {ok:false, error, pfade}. */
   async function uploadAuslageBelege(claimId, files) {
     const s = getSession();
     if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', pfade: [] };
+    return _belegeHochladen(claimId, files);
+  }
+
+  // Ohne Rollenprüfung: Mitglieder dürfen in den Ordner ihres eigenen
+  // Entwurfs bzw. eingereichten Antrags ablegen, der Vorstand überall — das
+  // entscheidet die Speicher-Policy, nicht der Browser.
+  async function _belegeHochladen(claimId, files) {
     const liste = Array.from(files || []);
     for (const f of liste) { const p = pruefeBelegDatei(f); if (!p.ok) return { ok: false, error: p.error, pfade: [] }; }
     const pfade = [];
@@ -5954,6 +5961,79 @@
     } catch(e) {
       console.error('[LPR] adminCreateVereinsAuslage:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Vereinsauslage durch das Mitglied selbst (Stufe 2). Ablauf:
+   *   1. Entwurf anlegen (status 'draft' — dazu schweigt claim-mails),
+   *   2. Belege in den Ordner des Entwurfs hochladen,
+   *   3. RPC auslage_einreichen: prüft eigenen Entwurf und mindestens einen
+   *      Beleg und setzt 'submitted' — erst das löst die Eingangsmeldung aus.
+   * Ein Schutz-Trigger lässt Mitglieder Vereinsauslagen nur als Entwurf
+   * anlegen; der Umweg über den Entwurf ist also Pflicht, nicht Stil.
+   * Scheitert Schritt 2 oder 3, bleibt der Entwurf stehen und lässt sich über
+   * meinenAuslageEntwurfEinreichen() fortsetzen (draftId in der Antwort).
+   */
+  async function meineAuslageEinreichen(payload) {
+    const s = getSession();
+    if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
+    const p = payload || {};
+    const bez = String(p.bezeichnung || '').trim();
+    if (bez.length < 3) return { ok: false, error: 'Bitte beschreibe kurz, wofür du Geld ausgelegt hast.' };
+    const cents = Math.round(Number(p.amount_cents));
+    if (!Number.isFinite(cents) || cents <= 0) return { ok: false, error: 'Betrag fehlt oder ist ungültig.' };
+    const von = p.period_start || null;
+    const bis = p.period_end || von;
+    if (!von) return { ok: false, error: 'Bitte das Datum der Ausgabe angeben.' };
+    if (bis < von) return { ok: false, error: 'Das Enddatum liegt vor dem Anfangsdatum.' };
+    const files = Array.from(p.files || []);
+    if (!files.length) return { ok: false, error: 'Bitte mindestens einen Beleg (PDF oder Foto) anhängen.' };
+    for (const f of files) { const r = pruefeBelegDatei(f); if (!r.ok) return { ok: false, error: r.error }; }
+    const prof = await getMyProfile();
+    if (!prof.ok) return { ok: false, error: 'Profil konnte nicht geladen werden.' };
+    if (!prof.profile.iban) return { ok: false, error: 'Bitte erst deine IBAN im Profil hinterlegen.' };
+
+    const id = crypto.randomUUID();
+    try {
+      const client = await sb();
+      const { error } = await client.from('claims').insert({
+        id,
+        user_id: s.id,
+        kind: 'auslage',
+        auslage_art: 'beleg',
+        source_type: 'verein',
+        trip_id: p.trip_id || null,
+        amount: cents / 100,
+        amount_breakdown: [{ label: bez, amount: cents / 100 }],
+        period_start: von,
+        period_end: bis,
+        status: 'draft',
+        pauschale_art: null,
+        notes: (p.notes || '').trim() || null
+      });
+      if (error) return { ok: false, error: 'Antrag konnte nicht angelegt werden: ' + error.message };
+      return await meinenAuslageEntwurfEinreichen(id, files);
+    } catch(e) {
+      console.error('[LPR] meineAuslageEinreichen:', e);
+      return { ok: false, error: 'Netzwerkfehler.', draftId: id };
+    }
+  }
+
+  /** Belege an einen eigenen Entwurf hängen (optional) und ihn einreichen. */
+  async function meinenAuslageEntwurfEinreichen(claimId, files) {
+    const liste = Array.from(files || []);
+    try {
+      if (liste.length) {
+        const up = await _belegeHochladen(claimId, liste);
+        if (!up.ok) return { ok: false, error: up.error + ' Dein Entwurf ist gespeichert — du kannst ihn unter „Meine Anträge" fortsetzen.', draftId: claimId };
+      }
+      const { data, error } = await (await sb()).rpc('auslage_einreichen', { p_claim: claimId });
+      if (error) return { ok: false, error: error.message, draftId: claimId };
+      return { ok: true, claimId, hinweis: data };
+    } catch(e) {
+      console.error('[LPR] meinenAuslageEntwurfEinreichen:', e);
+      return { ok: false, error: 'Netzwerkfehler.', draftId: claimId };
     }
   }
 
@@ -8042,6 +8122,7 @@
     adminCreateAuslageClaim,
     // Vereinsauslagen ohne Reise-Anmeldung und Belege dazu
     adminCreateVereinsAuslage, adminMitgliederFuerAuslage, pruefeBelegDatei,
+    meineAuslageEinreichen, meinenAuslageEntwurfEinreichen,
     uploadAuslageBelege, listAuslageBelege, zaehleAuslageBelege, auslageBelegUrl, deleteAuslageBeleg,
     // Fördermittel-Cockpit
     playbookKapitel,

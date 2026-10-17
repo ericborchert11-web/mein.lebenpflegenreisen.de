@@ -1860,13 +1860,21 @@
     try {
       let q = (await sb())
         .from('claims')
-        .select('id, source_type, trip_signup_id, booking_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, rejected_reason, notes, beleg_nr, pauschale_art, submitted_to_payroll_at, intake_mail_at, payout_mail_at, kind, auslage_art, nachweis_pfad, mitfahrer_ids')
+        .select('id, source_type, trip_signup_id, booking_id, trip_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, rejected_reason, notes, beleg_nr, pauschale_art, submitted_to_payroll_at, intake_mail_at, payout_mail_at, kind, auslage_art, nachweis_pfad, mitfahrer_ids')
         .eq('user_id', s.id)
         .order('submitted_at', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
       const { data, error } = await q;
       if (error) return { ok: false, error: error.message, claims: [] };
-      return { ok: true, claims: data || [] };
+      // Vereinsauslagen nennen ihre Reise nur über trip_id. Der Titel ist
+      // Beiwerk: sieht das Mitglied die Reise nicht (RLS), bleibt er leer.
+      const tids = [...new Set((data || []).map(c => c.trip_id).filter(Boolean))];
+      const tripMap = {};
+      if (tids.length) {
+        const tr = await (await sb()).from('trips').select('id, title').in('id', tids);
+        (tr.data || []).forEach(t => { tripMap[t.id] = t.title; });
+      }
+      return { ok: true, claims: (data || []).map(c => ({ ...c, trip_title: tripMap[c.trip_id] || null })) };
     } catch(e) { console.error('[LPR] getMyClaims:', e); return { ok: false, error: 'Netzwerkfehler.', claims: [] }; }
   }
 
@@ -5526,14 +5534,19 @@
     try {
       const client = await sb();
       const { data, error } = await client.from('claims')
-        .select('id, user_id, source_type, booking_id, amount, status, submitted_at, approved_at, paid_at, pauschale_art, beleg_nr, notes, rejected_reason, submitted_to_payroll_at, intake_mail_at, payout_mail_at, kind, auslage_art, nachweis_pfad, mitfahrer_ids')
+        .select('id, user_id, source_type, booking_id, trip_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, pauschale_art, beleg_nr, notes, rejected_reason, submitted_to_payroll_at, intake_mail_at, payout_mail_at, kind, auslage_art, nachweis_pfad, mitfahrer_ids, erfasst_von')
         .order('submitted_at', { ascending: false, nullsFirst: false });
       if (error) return { ok: false, error: error.message, claims: [] };
       const rows = data || [];
       const uids = [...new Set(rows.map(c => c.user_id).filter(Boolean))];
-      const profRes = uids.length ? await client.from('profiles').select('id, full_name').in('id', uids) : { data: [] };
+      const tids = [...new Set(rows.map(c => c.trip_id).filter(Boolean))];
+      const [profRes, tripRes] = await Promise.all([
+        uids.length ? client.from('profiles').select('id, full_name').in('id', uids) : Promise.resolve({ data: [] }),
+        tids.length ? client.from('trips').select('id, title').in('id', tids) : Promise.resolve({ data: [] })
+      ]);
       const nameMap = {}; (profRes.data || []).forEach(p => { nameMap[p.id] = p.full_name; });
-      return { ok: true, claims: rows.map(c => ({ ...c, user_name: nameMap[c.user_id] || '—' })) };
+      const tripMap = {}; (tripRes.data || []).forEach(t => { tripMap[t.id] = t.title; });
+      return { ok: true, claims: rows.map(c => ({ ...c, user_name: nameMap[c.user_id] || '—', trip_title: tripMap[c.trip_id] || null })) };
     } catch(e) {
       console.error('[LPR] adminListClaims:', e);
       return { ok: false, error: 'Netzwerkfehler.', claims: [] };
@@ -5739,6 +5752,190 @@
       return { ok: true, claim };
     } catch(e) {
       console.error('[LPR] adminCreateAuslageClaim:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  // ── Vereinsauslagen und Belege ─────────────────────────────────────────
+  // Eine Vereinsauslage (claims.source_type = 'verein') ersetzt eine Ausgabe,
+  // die jemand für den Verein vorgestreckt hat — ohne Reise-Anmeldung, die
+  // Reise ist nur optionaler Anlass (claims.trip_id). Belege liegen im
+  // privaten Bucket unter <claim-id>/, lesen dürfen Vorstand und
+  // Kassenprüfung.
+  const AUSLAGEN_BUCKET = 'auslagen-belege';
+  const BELEG_TYPEN = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', heif: 'image/heif' };
+  const BELEG_MAX_BYTES = 10 * 1024 * 1024;
+
+  /** Prüft eine Belegdatei. {ok, ext, typ} oder {ok:false, error}. */
+  function pruefeBelegDatei(file) {
+    if (!file) return { ok: false, error: 'Keine Datei.' };
+    if (file.size > BELEG_MAX_BYTES) return { ok: false, error: '„' + file.name + '“ ist größer als 10 MB.' };
+    let ext = String(file.name || '').split('.').pop().toLowerCase();
+    if (!BELEG_TYPEN[ext]) ext = Object.keys(BELEG_TYPEN).find(k => BELEG_TYPEN[k] === file.type) || '';
+    if (!BELEG_TYPEN[ext]) return { ok: false, error: '„' + file.name + '“: bitte PDF, JPG, PNG oder HEIC.' };
+    return { ok: true, ext: ext === 'jpeg' ? 'jpg' : ext, typ: BELEG_TYPEN[ext] };
+  }
+
+  // Dateiname für den Speicher: lesbar, aber ohne Zeichen, die Storage-Pfade
+  // ablehnen (Umlaute, Leerzeichen, Klammern).
+  function _belegName(file, ext, i) {
+    const stamm = String(file.name || 'beleg').replace(/\.[^.]*$/, '')
+      .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'beleg';
+    return Date.now() + '-' + i + '-' + stamm + '.' + ext;
+  }
+
+  /** Lädt Belege nach auslagen-belege/<claimId>/. {ok, pfade} oder {ok:false, error, pfade}. */
+  async function uploadAuslageBelege(claimId, files) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', pfade: [] };
+    const liste = Array.from(files || []);
+    for (const f of liste) { const p = pruefeBelegDatei(f); if (!p.ok) return { ok: false, error: p.error, pfade: [] }; }
+    const pfade = [];
+    try {
+      const bucket = (await sb()).storage.from(AUSLAGEN_BUCKET);
+      for (let i = 0; i < liste.length; i++) {
+        const p = pruefeBelegDatei(liste[i]);
+        const pfad = claimId + '/' + _belegName(liste[i], p.ext, i);
+        const up = await bucket.upload(pfad, liste[i], { upsert: false, contentType: p.typ });
+        if (up.error) return { ok: false, error: 'Hochladen von „' + liste[i].name + '“ fehlgeschlagen: ' + up.error.message, pfade };
+        pfade.push(pfad);
+      }
+      return { ok: true, pfade };
+    } catch(e) {
+      console.error('[LPR] uploadAuslageBelege:', e);
+      return { ok: false, error: 'Netzwerkfehler beim Hochladen.', pfade };
+    }
+  }
+
+  /** Belege eines Antrags: [{pfad, name, groesse}]. Vorstand und Kassenprüfung. */
+  async function listAuslageBelege(claimId) {
+    try {
+      const { data, error } = await (await sb()).storage.from(AUSLAGEN_BUCKET)
+        .list(claimId, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
+      if (error) return { ok: false, error: error.message, belege: [] };
+      return { ok: true, belege: (data || []).filter(o => o.name && o.id).map(o => ({
+        pfad: claimId + '/' + o.name,
+        name: o.name.replace(/^\d+-\d+-/, ''),
+        groesse: (o.metadata && o.metadata.size) || null
+      })) };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.', belege: [] }; }
+  }
+
+  /** Anzahl Belege je Antrag für viele Anträge auf einmal: {claimId: n}. */
+  async function zaehleAuslageBelege(claimIds) {
+    const ids = [...new Set((claimIds || []).filter(Boolean))];
+    const zahl = {};
+    if (!ids.length) return zahl;
+    try {
+      const bucket = (await sb()).storage.from(AUSLAGEN_BUCKET);
+      await Promise.all(ids.map(async id => {
+        const { data, error } = await bucket.list(id, { limit: 100 });
+        zahl[id] = error ? null : (data || []).filter(o => o.name && o.id).length;
+      }));
+    } catch(e) { console.error('[LPR] zaehleAuslageBelege:', e); }
+    return zahl;
+  }
+
+  /** Signierter Link (5 Minuten) auf einen Beleg. */
+  async function auslageBelegUrl(pfad) {
+    try {
+      const { data, error } = await (await sb()).storage.from(AUSLAGEN_BUCKET).createSignedUrl(pfad, 300);
+      if (error || !data) return { ok: false, error: error ? error.message : 'Kein Link erhalten.' };
+      return { ok: true, url: data.signedUrl };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Beleg löschen — nur Vorstand, nur solange der Antrag nicht ausgezahlt ist (Policy). */
+  async function deleteAuslageBeleg(pfad) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    try {
+      const { data, error } = await (await sb()).storage.from(AUSLAGEN_BUCKET).remove([pfad]);
+      if (error) return { ok: false, error: error.message };
+      // Storage meldet bei einer verweigerten Löschung keinen Fehler, sondern
+      // eine leere Liste — sonst stünde „gelöscht“ da, und die Datei bleibt.
+      if (!data || !data.length) return { ok: false, error: 'Nicht gelöscht: nach der Auszahlung bleiben Belege stehen.' };
+      return { ok: true };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Freigegebene Mitglieder (ohne Klinik-Konten) für die Auswahl beim Erfassen. */
+  async function adminMitgliederFuerAuslage() {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', mitglieder: [] };
+    try {
+      const { data, error } = await (await sb()).from('profiles')
+        .select('id, full_name, role, status')
+        .in('role', ['volunteer', 'board']).eq('status', 'approved')
+        .order('full_name');
+      if (error) return { ok: false, error: error.message, mitglieder: [] };
+      return { ok: true, mitglieder: (data || []).map(p => ({ id: p.id, full_name: p.full_name || '—' })) };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.', mitglieder: [] }; }
+  }
+
+  /**
+   * Vereinsauslage anlegen. payload: {user_id, trip_id?, period_start,
+   * period_end?, bezeichnung, amount_cents, notes?, files?}.
+   *
+   * Die Antrags-ID entsteht hier im Browser, und die Belege werden VOR dem
+   * Einfügen hochgeladen: der Webhook schickt die Zahlungsanweisung beim
+   * INSERT, und die soll schon sagen können, ob Belege vorliegen. Scheitert
+   * das Einfügen, werden die Dateien wieder entfernt.
+   */
+  async function adminCreateVereinsAuslage(payload) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    const p = payload || {};
+    if (!p.user_id) return { ok: false, error: 'Bitte eine Person auswählen.' };
+    const bez = String(p.bezeichnung || '').trim();
+    if (!bez) return { ok: false, error: 'Bitte eine Bezeichnung angeben.' };
+    const cents = Math.round(Number(p.amount_cents));
+    if (!Number.isFinite(cents) || cents <= 0) return { ok: false, error: 'Betrag fehlt oder ist ungültig.' };
+    const von = p.period_start || null;
+    const bis = p.period_end || von;
+    if (!von) return { ok: false, error: 'Bitte das Datum der Ausgabe angeben.' };
+    if (bis < von) return { ok: false, error: 'Das Enddatum liegt vor dem Anfangsdatum.' };
+    const files = Array.from(p.files || []);
+    for (const f of files) { const r = pruefeBelegDatei(f); if (!r.ok) return { ok: false, error: r.error }; }
+
+    const id = crypto.randomUUID();
+    let pfade = [];
+    try {
+      const client = await sb();
+      if (files.length) {
+        const up = await uploadAuslageBelege(id, files);
+        pfade = up.pfade || [];
+        if (!up.ok) {
+          if (pfade.length) await client.storage.from(AUSLAGEN_BUCKET).remove(pfade);
+          return { ok: false, error: up.error };
+        }
+      }
+      const jetzt = new Date().toISOString();
+      const { data: claim, error } = await client.from('claims').insert({
+        id,
+        user_id: p.user_id,
+        kind: 'auslage',
+        auslage_art: 'beleg',
+        source_type: 'verein',
+        trip_id: p.trip_id || null,
+        amount: cents / 100,
+        amount_breakdown: [{ label: bez, amount: cents / 100 }],
+        period_start: von,
+        period_end: bis,
+        status: 'approved',
+        submitted_at: jetzt,
+        approved_at: jetzt,
+        pauschale_art: null,
+        notes: (p.notes || '').trim() || null
+      }).select().single();
+      if (error) {
+        if (pfade.length) await client.storage.from(AUSLAGEN_BUCKET).remove(pfade);
+        return { ok: false, error: 'Auslage konnte nicht gespeichert werden: ' + error.message };
+      }
+      return { ok: true, claim, belege: pfade.length };
+    } catch(e) {
+      console.error('[LPR] adminCreateVereinsAuslage:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
     }
   }
@@ -7180,7 +7377,7 @@
         client.from('kontostaende').select('id, konto_iban, stichtag, stand_cents, notiz').order('stichtag'),
         client.from('invoices').select('id, invoice_no, invoice_date, total_cents, status, paid_on, recipient_snapshot, billing_recipients(name)')
               .not('invoice_no', 'is', null).order('invoice_date', { ascending: false }),
-        client.from('claims').select('id, user_id, beleg_nr, amount, status, kind, auslage_art, submitted_at, paid_at, notes')
+        client.from('claims').select('id, user_id, beleg_nr, amount, status, kind, auslage_art, source_type, submitted_at, paid_at, notes')
               .order('paid_at', { ascending: false, nullsFirst: false }),
         client.from('v_pruefung_namen').select('id, full_name')
       ]);
@@ -7826,6 +8023,9 @@
     resendClaimMail, getClaimBeleg, adminClaimsFuerBuchungen, adminAuslagenFuerAnmeldungen,
     // Auslagenersatz (§ 3 Nr. 50 EStG) — Erfassung durch den Vorstand
     adminCreateAuslageClaim,
+    // Vereinsauslagen ohne Reise-Anmeldung und Belege dazu
+    adminCreateVereinsAuslage, adminMitgliederFuerAuslage, pruefeBelegDatei,
+    uploadAuslageBelege, listAuslageBelege, zaehleAuslageBelege, auslageBelegUrl, deleteAuslageBeleg,
     // Fördermittel-Cockpit
     playbookKapitel,
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,

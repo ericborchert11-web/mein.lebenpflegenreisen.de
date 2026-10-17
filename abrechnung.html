@@ -1266,7 +1266,7 @@ function renderClaimsSection() {
       : c.source_type === 'sitzwache' ? 'Sitzwache vom ' + formatDateRange(c.period_start, c.period_end)
       : c.source_type === 'einarbeitung' ? 'Einarbeitungstag am ' + formatDateRange(c.period_start, c.period_end)
       : 'Reise: ' + formatDateRange(c.period_start, c.period_end);
-    return '<div class="trip-card"><div>' + typeBadge + '<div class="trip-info-title">' + escape(title) + '</div><div class="trip-info-meta"><span>Beleg-ID: <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong></span><span>Eingereicht: ' + new Date(c.submitted_at).toLocaleDateString('de-DE') + '</span><span class="trip-state ' + stateClass + '">' + stateLabel + '</span>' + (stateNote ? '<span>' + stateNote + '</span>' : '') + '</div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(c.amount) + '</div>'
+    return '<div class="trip-card"><div>' + typeBadge + '<div class="trip-info-title">' + escape(title) + '</div><div class="trip-info-meta"><span>Beleg-ID: <strong>' + escape(c.id.substring(0,8).toUpperCase()) + '</strong></span><span>Eingereicht: ' + (c.submitted_at ? new Date(c.submitted_at).toLocaleDateString('de-DE') : '—') + '</span><span class="trip-state ' + stateClass + '">' + stateLabel + '</span>' + (stateNote ? '<span>' + stateNote + '</span>' : '') + '</div></div><div class="trip-action"><div class="trip-amount">' + formatEUR(c.amount) + '</div>'
       // Ein Entwurf einer Vereinsauslage ist hängen geblieben (Belege nicht
       // hochgeladen oder nicht eingereicht) — hier geht es weiter.
       + (istVerein && c.status === 'draft'

@@ -208,7 +208,15 @@
     //
     // Herkunft der Auslage — erstattet wird eine Ausgabe, nicht ein Einsatz.
     var aktivitaet, aktivitaetSub;
-    if (isAuslage) {
+    if (isAuslage && c.source_type === 'verein') {
+      // Vereinsauslage (seit 17.10.2026): eine Ausgabe, die jemand für den
+      // Verein vorgestreckt hat, ohne an einer Reise angemeldet zu sein. Die
+      // Reise steht nur als Anlass dabei, wenn eine angegeben ist — der
+      // Titel kommt von außen (d.reiseTitel), weil der Antrag nur die id trägt.
+      aktivitaet = 'Erstattete Auslagen';
+      aktivitaetSub = 'Ausgabe für den Verein'
+        + (d.reiseTitel ? ' · Reise „' + escape(d.reiseTitel) + '“' : '');
+    } else if (isAuslage) {
       aktivitaet = 'Erstattete Auslagen';
       aktivitaetSub = c.auslage_art === 'anreise'
         ? 'Fahrtkosten der Anreise'

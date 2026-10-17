@@ -66,7 +66,7 @@
 </main>
 
 <script src="kassenbuch-auswertung.js?v20261007a"></script>
-<script src="app.js?v20261007a"></script>
+<script src="app.js?v20261017a"></script>
 <script src="layout.js?v20260922a"></script>
 <script>
 'use strict';
@@ -86,6 +86,20 @@ const CLAIM_STATUS = { draft:'Entwurf', submitted:'eingereicht', approved:'freig
 const INV_STATUS   = { draft:'Entwurf', issued:'offen', paid:'bezahlt', cancelled:'storniert' };
 
 let _daten = null;
+
+// Belege einer Auslage: Liste mit signierten Links (fünf Minuten gültig),
+// direkt unter dem Link aufgeklappt. Nur Lesen — die Prüfung ändert nichts.
+async function zeigeBelege(claimId, link) {
+  const ziel = link.parentElement;
+  link.textContent = 'wird geladen…';
+  const res = await LPR.listAuslageBelege(claimId);
+  if (!res.ok) { ziel.textContent = 'Belege nicht ladbar: ' + res.error; return; }
+  if (!res.belege.length) { ziel.innerHTML = '<strong>kein Beleg hinterlegt</strong>'; return; }
+  const urls = await Promise.all(res.belege.map(b => LPR.auslageBelegUrl(b.pfad)));
+  ziel.innerHTML = res.belege.map((b, i) => urls[i].ok
+    ? '<a href="' + escapeAttr(urls[i].url) + '" target="_blank" rel="noopener">' + escapeHtml(b.name) + '</a>'
+    : escapeHtml(b.name)).join('<br>');
+}
 
 async function init() {
   const session = LPR.getSession();
@@ -206,7 +220,7 @@ function zeichne() {
       <table class="kp-tab">
         <thead><tr><th>Beleg-Nr.</th><th>Person</th><th class="num">Betrag</th><th>Status</th></tr></thead>
         <tbody>${_daten.antraege.map(c => `<tr>
-          <td>${escapeHtml(c.beleg_nr || '—')}<div class="kp-sub">${c.kind === 'auslage' ? 'Auslage' : 'Pauschale'}</div></td>
+          <td>${escapeHtml(c.beleg_nr || '—')}<div class="kp-sub">${c.kind === 'auslage' ? (c.source_type === 'verein' ? 'Vereinsauslage' : 'Auslage') : 'Pauschale'}</div>${c.kind === 'auslage' && c.auslage_art === 'beleg' ? `<div class="kp-sub"><a href="#" onclick="zeigeBelege('${escapeAttr(c.id)}', this); return false;">Belege ansehen</a></div>` : ''}</td>
           <td>${escapeHtml(c.user_name)}</td>
           <td class="num">${eur(Math.round(Number(c.amount) * 100))}</td>
           <td>${escapeHtml(CLAIM_STATUS[c.status] || c.status)}${c.paid_at ? '<div class="kp-sub">' + deDate(String(c.paid_at).slice(0,10)) + '</div>' : ''}</td>

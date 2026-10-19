@@ -151,6 +151,11 @@ h1 { margin:0 0 4px; }
 }
 .ev-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
 .nf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* Empfaenger der Bestaetigung (Migration BB): je Klinik-Konto ein Haken. */
+.empf-liste { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.empf-liste label { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+.empf-liste input { margin-top: 3px; }
+.empf-liste .as-sub { display: block; }
 @media (max-width: 520px) { .nf-grid { grid-template-columns: 1fr; } }
 /* Raster statt Flow: gleich breite Kacheln brechen sauber um, statt je nach
    Textlaenge unterschiedlich hohe Zeilen zu bilden. */
@@ -291,7 +296,7 @@ h1 { margin:0 0 4px; }
 </div>
 </main>
 
-<script src="app.js?v20260909a"></script>
+<script src="app.js?v20261019a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -545,6 +550,8 @@ async function loadBookings() {
   const nRes = await LPR.getBookingNotifications(_bookings.map(b => b.id));
   _notifyStand = nRes.ok ? nRes.nach : {};
   const claimsRes = await LPR.adminClaimsFuerBuchungen(_bookings.map(b => b.id));
+  // Konten fuer „Station fehlt“ und den Dialog „Station / Empfänger“.
+  if (!_kKonten.length) await kontenLaden();
   _claimsByBooking = {};
   (claimsRes.ok ? claimsRes.claims : []).forEach(c => {
     (_claimsByBooking[c.booking_id] = _claimsByBooking[c.booking_id] || []).push(c);
@@ -637,6 +644,19 @@ function ohneUnterschriftHinweis(b) {
        + (i.vermerk ? ' · ' + esc(i.vermerk) : '') + '</span>';
 }
 
+/** Station unter dem Kliniknamen; fehlt sie in einem Haus mit Controlling, rot. */
+function stationHinweis(b) {
+  if (!b.clinic_id) return '';
+  if (b.station) {
+    const n = (b.benachrichtigen || []).length;
+    return '<br><span class="as-sub">' + esc(b.station) + (n ? ' · Mail an ' + n + ' gewählte' : '') + '</span>';
+  }
+  const k = _kKonten.find(x => x.id === b.clinic_id);
+  return k && k.stationPflicht
+    ? '<br><span class="as-sub" style="color:#9B2C2C;font-weight:700;">Station fehlt</span>'
+    : '';
+}
+
 function renderBookings() {
   const filter = document.getElementById('f-booking-status').value;
   const rows = _bookings.filter(b => !filter || b.status === filter);
@@ -695,11 +715,15 @@ function renderBookings() {
           '<button class="as-btn warn" data-act="einsatz-storno" data-id="' + b.id + '" ' +
           'title="Laufenden Einsatz aufheben">Einsatz stornieren</button>';
       }
+      if (b.clinic_id && b.status !== 'cancelled') {
+        actions += '<button class="as-btn" data-act="angaben" data-id="' + b.id + '" '
+          + 'title="Station korrigieren und festlegen, wer die Mails bekommt">Station / Empfänger</button>';
+      }
       return '<tr>' +
         '<td>' + fmtDate(b.date) + warn + '</td>' +
         '<td>' + esc(SHIFT_SHORT[b.shift] || b.shift) + '</td>' +
         '<td>' + esc(b.volunteer_name) + '</td>' +
-        '<td>' + esc(b.clinic_name) + '</td>' +
+        '<td>' + esc(b.clinic_name) + stationHinweis(b) + '</td>' +
         '<td>' + esc(b.patient_room || '—') +
           (b.patient_count === 2 ? ' <span class="pc2" title="Zwei Patient:innen mit einer Sitzwache">2 Pat.</span>' : '') + '</td>' +
         '<td>' + (b.hours != null ? esc(String(b.hours)) : '—') + '</td>' +
@@ -924,14 +948,61 @@ function odRendern() {
     + '</tbody></table>';
 }
 
+// Klinik-Konten, geladen beim Oeffnen eines Dialogs. Ein Haus (Krankenhaus)
+// hat mehrere Konten; die Abteilung am Konto ist nur noch ein Hinweis, wer wer
+// ist — sie entscheidet weder ueber die Auswertung noch ueber die Empfaenger.
+let _kKonten = [];
+
+async function kontenLaden() {
+  const kl = await LPR.boardKlinikKonten();
+  _kKonten = kl.kliniken || [];
+  return _kKonten;
+}
+
+function haeuser() {
+  const m = new Map();
+  for (const k of _kKonten) if (!m.has(k.haus)) m.set(k.haus, k.name);
+  return Array.from(m, ([haus, name]) => ({ haus, name }));
+}
+
+function kontoName(k) {
+  return (k.person || k.name) + (k.abteilung ? ' · ' + k.abteilung : '') + (k.controlling ? ' · Controlling' : '');
+}
+
+/** Haken je Konto des Hauses. Konten, die ohnehin alles bekommen, stehen nur als Hinweis da. */
+function empfaengerHtml(haus, gewaehlt, name) {
+  const konten = _kKonten.filter(k => k.haus === haus);
+  return konten.map(k => k.alleAbteilungen
+    ? '<label><input type="checkbox" checked disabled><span>' + esc(kontoName(k))
+      + '<span class="as-sub">bekommt immer alles (alle Abteilungen)</span></span></label>'
+    : '<label><input type="checkbox" name="' + name + '" value="' + esc(k.id) + '"'
+      + (gewaehlt.includes(k.id) ? ' checked' : '') + '><span>' + esc(kontoName(k)) + '</span></label>'
+  ).join('') || '<div class="as-sub">Für dieses Haus gibt es kein Konto.</div>';
+}
+
+function gewaehlteEmpfaenger(name) {
+  return Array.from(document.querySelectorAll('input[name="' + name + '"]:checked')).map(i => i.value);
+}
+
+function stationPflichtFuer(haus) {
+  return _kKonten.some(k => k.haus === haus && k.stationPflicht);
+}
+
+function odHausGewechselt() {
+  const haus = document.getElementById('od-klinik').value;
+  document.getElementById('od-empf').innerHTML = empfaengerHtml(haus, [], 'od-empf');
+  document.getElementById('od-station-label').textContent = stationPflichtFuer(haus) ? 'Station (Pflicht)' : 'Station (optional)';
+}
+
 async function odNeuOeffnen() {
   document.getElementById('od-fehler').hidden = true;
   ['od-station', 'od-notiz', 'od-von', 'od-bis'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('od-overlay').hidden = false;
-  const kl = await LPR.boardKlinikKonten();
-  document.getElementById('od-klinik').innerHTML = (kl.kliniken || []).map(k =>
-    '<option value="' + esc(k.id) + '">' + esc(k.name) + (k.abteilung ? ' · ' + esc(k.abteilung) : '') + '</option>').join('')
+  await kontenLaden();
+  document.getElementById('od-klinik').innerHTML = haeuser().map(h =>
+    '<option value="' + esc(h.haus) + '">' + esc(h.name) + '</option>').join('')
     || '<option value="">— kein Klinik-Konto —</option>';
+  odHausGewechselt();
 }
 
 function odNeuSchliessen() { document.getElementById('od-overlay').hidden = true; }
@@ -942,12 +1013,26 @@ async function odNeuSpeichern() {
   fehler.hidden = true;
   const von = document.getElementById('od-von').value;
   const bis = document.getElementById('od-bis').value || von;
+  const haus = document.getElementById('od-klinik').value;
+  const empf = gewaehlteEmpfaenger('od-empf');
+  const station = document.getElementById('od-station').value.trim();
+  const zeigeFehler = t => { fehler.textContent = t; fehler.hidden = false; };
+  if (!empf.length && _kKonten.some(k => k.haus === haus && !k.alleAbteilungen)) {
+    return zeigeFehler('Bitte ankreuzen, wer die Bestätigung bekommt.');
+  }
+  if (!station && stationPflichtFuer(haus)) {
+    return zeigeFehler('Bitte die Station angeben — sie zählt in der Auswertung des Hauses.');
+  }
+  // Das Konto, an dem die Buchung haengt: die erste angekreuzte Person, sonst
+  // irgendein Konto des Hauses. Fuer die Mails zaehlt allein die Auswahl.
+  const konto = empf[0] || ((_kKonten.find(k => k.haus === haus) || {}).id) || '';
   btn.disabled = true; btn.textContent = 'Wird angelegt…';
   const res = await LPR.boardOffeneDiensteAnlegen({
-    klinikId: document.getElementById('od-klinik').value,
+    klinikId: konto,
+    benachrichtigen: empf,
     von, bis,
     schicht:  document.getElementById('od-schicht').value,
-    station:  document.getElementById('od-station').value,
+    station,
     notiz:    document.getElementById('od-notiz').value,
     status:   'offen'
   });
@@ -1033,6 +1118,7 @@ async function odZeilenAktion(btn) {
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('od-neu').onclick       = odNeuOeffnen;
+  document.getElementById('od-klinik').onchange   = odHausGewechselt;
   document.querySelectorAll('[data-odf]').forEach(b => b.onclick = () => {
     _odFilter = b.dataset.odf;
     try { localStorage.setItem('od-filter', _odFilter); } catch (e) {}
@@ -1062,13 +1148,16 @@ async function nbOeffnen() {
   document.getElementById('nb-datum').value   = '';
   document.getElementById('nb-overlay').hidden = false;
 
-  const [kl, pe] = await Promise.all([LPR.boardKlinikKonten(), LPR.boardEhrenamtlicheMitBzr()]);
+  const [, pe] = await Promise.all([kontenLaden(), LPR.boardEhrenamtlicheMitBzr()]);
   const selK = document.getElementById('nb-klinik');
   const selP = document.getElementById('nb-person');
 
-  selK.innerHTML = (kl.kliniken || []).map(k =>
-    `<option value="${k.id}">${k.name}${k.abteilung ? ' · ' + k.abteilung : ''}</option>`).join('')
+  // Nachtragen schickt keine Mail — das Konto bestimmt nur, unter welchem
+  // Haus der Dienst steht. Darum Haus zuerst, Person als Hinweis.
+  selK.innerHTML = _kKonten.map(k =>
+    `<option value="${esc(k.id)}">${esc(k.name)} · ${esc(kontoName(k))}</option>`).join('')
     || '<option value="">— kein Klinik-Konto —</option>';
+  nbStationLabel();
 
   _nbPersonen = pe.personen || [];
   // Die BZR-Angabe steht am Namen und nicht in einer Fussnote: Beim Auswaehlen
@@ -1082,6 +1171,11 @@ async function nbOeffnen() {
   if (_nbPersonen.length) selP.value = _nbPersonen[0].id;
 
   nbBzrHinweis();
+}
+
+function nbStationLabel() {
+  const k = _kKonten.find(x => x.id === document.getElementById('nb-klinik').value);
+  document.getElementById('nb-station-label').textContent = k && k.stationPflicht ? 'Station (Pflicht)' : 'Station (optional)';
 }
 
 function nbBzrHinweis() {
@@ -1116,6 +1210,12 @@ async function nbSpeichern() {
     station:      document.getElementById('nb-station').value.trim(),
     notes:        document.getElementById('nb-notiz').value.trim()
   };
+  const nbKonto = _kKonten.find(x => x.id === nutzlast.clinic_id);
+  if (!nutzlast.station && nbKonto && nbKonto.stationPflicht) {
+    fehler.textContent = 'Bitte die Station angeben — sie zählt in der Auswertung des Hauses.';
+    fehler.hidden = false;
+    return;
+  }
   if (nutzlast.volunteer_id === NB_UNBESETZT) {
     if (!nutzlast.clinic_id || !nutzlast.date) {
       fehler.textContent = 'Klinik und Datum sind Pflicht.';
@@ -1164,6 +1264,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nb-abbrechen').onclick  = nbSchliessen;
   document.getElementById('nb-ok').onclick         = nbSpeichern;
   document.getElementById('nb-person').onchange    = nbBzrHinweis;
+  document.getElementById('nb-klinik').onchange    = nbStationLabel;
   document.getElementById('nb-overlay').onclick    = e => { if (e.target.id === 'nb-overlay') nbSchliessen(); };
   document.getElementById('ev-abbrechen').onclick = evSchliessen;
   document.getElementById('ev-ok').onclick = evBestaetigen;
@@ -1173,6 +1274,55 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nf-overlay').onclick = e => { if (e.target.id === 'nf-overlay') nfSchliessen(); };
   ['nf-beginn','nf-ende','nf-pause'].forEach(id =>
     document.getElementById(id).addEventListener('input', nfNetto));
+});
+
+// ═══ Station / Empfänger einer Buchung (Migration BB) ═══
+let _baBuchung = null;
+
+function baOeffnen(b) {
+  _baBuchung = b;
+  const k = _kKonten.find(x => x.id === b.clinic_id);
+  const haus = k ? k.haus : b.clinic_id;
+  const vorbei = b.date < new Date().toLocaleDateString('sv-SE');
+  document.getElementById('ba-info').textContent = fmtDate(b.date) + ' · ' + (SHIFT_SHORT[b.shift] || b.shift)
+    + ' · ' + (b.clinic_name || '') + ' · ' + (b.volunteer_name || '');
+  document.getElementById('ba-station').value = b.station || '';
+  document.getElementById('ba-station-label').textContent = stationPflichtFuer(haus) ? 'Station (Pflicht)' : 'Station (optional)';
+  document.getElementById('ba-empf').innerHTML = empfaengerHtml(haus, b.benachrichtigen || [], 'ba-empf');
+  document.getElementById('ba-mail').textContent = vorbei
+    ? 'Der Dienst liegt in der Vergangenheit: Es geht keine Mail raus.'
+    : 'Ändert sich die Station, bekommen Klinik und Sitzwache eine Änderungsmail. Neue Empfänger allein lösen keine Mail aus.';
+  document.getElementById('ba-fehler').hidden = true;
+  document.getElementById('ba-overlay').hidden = false;
+  setTimeout(() => document.getElementById('ba-station').focus(), 50);
+}
+
+function baSchliessen() { document.getElementById('ba-overlay').hidden = true; _baBuchung = null; }
+
+async function baSpeichern() {
+  const b = _baBuchung; if (!b) return;
+  const fehler = document.getElementById('ba-fehler');
+  const btn = document.getElementById('ba-ok');
+  const station = document.getElementById('ba-station').value.trim();
+  const k = _kKonten.find(x => x.id === b.clinic_id);
+  if (!station && k && stationPflichtFuer(k.haus)) {
+    fehler.textContent = 'Bitte die Station angeben — sie zählt in der Auswertung des Hauses.';
+    fehler.hidden = false;
+    return;
+  }
+  btn.disabled = true;
+  const res = await LPR.boardBuchungAngaben(b.id, { station, benachrichtigen: gewaehlteEmpfaenger('ba-empf') });
+  btn.disabled = false;
+  if (!res.ok) { fehler.textContent = res.error || 'Speichern fehlgeschlagen.'; fehler.hidden = false; return; }
+  baSchliessen();
+  toast('Gespeichert.');
+  await loadBookings();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('ba-abbrechen').onclick = baSchliessen;
+  document.getElementById('ba-ok').onclick        = baSpeichern;
+  document.getElementById('ba-overlay').onclick   = e => { if (e.target.id === 'ba-overlay') baSchliessen(); };
 });
 
 async function onBookingAction(btn) {
@@ -1186,6 +1336,7 @@ async function onBookingAction(btn) {
     return;
   }
   if (act === 'nacherfassen') { nfOeffnen(b); return; }
+  if (act === 'angaben') { baOeffnen(b); return; }
 
   let status, hours = null;
 
@@ -1329,6 +1480,27 @@ init();
   </div>
 </div>
 
+<!-- ═══ Station / Empfänger einer Buchung ═══ -->
+<div id="ba-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog" role="dialog" aria-labelledby="ba-titel">
+    <h2 id="ba-titel">Station / Empfänger</h2>
+    <p class="ev-info" id="ba-info"></p>
+    <label class="ev-label" for="ba-station" id="ba-station-label">Station</label>
+    <input type="text" id="ba-station" maxlength="60" placeholder="z. B. Station 1H" style="width:100%;">
+    <div style="margin-top:14px;">
+      <span class="ev-label">Mails zu diesem Dienst bekommt</span>
+      <div class="empf-liste" id="ba-empf"></div>
+      <div class="as-sub" style="margin-top:4px;">Nichts angekreuzt: wie bisher das buchende Konto und alle mit derselben Abteilung.</div>
+    </div>
+    <p class="as-sub" id="ba-mail" style="margin-top:12px;"></p>
+    <div class="ev-fehler" id="ba-fehler" hidden></div>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="ba-abbrechen">Abbrechen</button>
+      <button type="button" class="as-btn" id="ba-ok">Speichern</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ Telefonisch gebuchten Dienst nachtragen ═══ -->
 <div id="od-overlay" class="ev-overlay" hidden>
   <div class="ev-dialog breit" role="dialog" aria-labelledby="od-titel">
@@ -1342,6 +1514,11 @@ init();
       <div>
         <label class="ev-label" for="od-klinik">Klinik</label>
         <select id="od-klinik"></select>
+      </div>
+      <div style="grid-column: 1 / -1;">
+        <span class="ev-label">Bestätigung bekommt</span>
+        <div class="empf-liste" id="od-empf"></div>
+        <div class="as-sub" style="margin-top:4px;">Wer angerufen hat. Diese Personen bekommen auch Absage, Ersatz und „nicht erschienen“.</div>
       </div>
       <div>
         <label class="ev-label" for="od-schicht">Schicht</label>
@@ -1360,7 +1537,7 @@ init();
         <input type="date" id="od-bis">
       </div>
       <div>
-        <label class="ev-label" for="od-station">Station (optional)</label>
+        <label class="ev-label" for="od-station" id="od-station-label">Station</label>
         <input type="text" id="od-station" maxlength="60" placeholder="z. B. Station 4B">
       </div>
       <div>
@@ -1438,7 +1615,7 @@ init();
         </select>
       </div>
       <div>
-        <label class="ev-label" for="nb-station">Station (optional)</label>
+        <label class="ev-label" for="nb-station" id="nb-station-label">Station</label>
         <input type="text" id="nb-station" maxlength="60" placeholder="z. B. Station 4B">
       </div>
       <div>

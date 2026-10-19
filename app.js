@@ -3755,86 +3755,52 @@
   }
 
   /**
-   * Baut aus den flachen Zeilen der Datenbank die zwei Ebenen, die die
-   * Auswertung zeigt: je Abteilung deren Stationen und deren Zwischensumme.
+   * Fasst die Zeilen der Datenbank je Station zusammen und bildet die Summe.
    *
-   * WARUM hier und nicht auf der Seite: Die Zahlen gehen in eine
-   * Budgetverhandlung. Sie duerfen genau einmal gerechnet werden — sonst gibt
-   * es zwei Rechenwege (Tabelle und CSV) und irgendwann zwei Ergebnisse.
+   * Seit Migration BB (19.10.2026) gibt es keine Abteilungsebene mehr: Die
+   * Abteilung kam vom buchenden Konto, und bei telefonischen Buchungen waehlt
+   * der Vorstand das Konto nach der Ansprechpartnerin — die Zuordnung stimmte
+   * deshalb nicht (Rueckmeldung Sana-Controlling). Die Datenbank liefert eine
+   * Zeile je Station mit vereinheitlichter Schreibweise.
    *
-   * WARUM aufsummiert und nicht uebernommen: Die Datenbank liefert nur die
-   * Stationszeilen, eine je Abteilung-und-Station. Jede Zwischensumme entsteht
-   * deshalb hier aus genau den Stationen, die darunter stehen, und die
-   * Gesamtsumme aus genau den Abteilungen darueber. So kann keine Teilsumme an
-   * ihren eigenen Zeilen vorbeilaufen.
-   *
-   * WARUM eine Map: Sie haelt die Reihenfolge des ersten Auftretens fest, die
-   * Sortierung der Datenbank (Abteilung, darin Dienste absteigend) bleibt also
-   * erhalten — und eine Abteilung wird auch dann zu EINEM Block, falls ihre
-   * Zeilen wider Erwarten einmal nicht am Stueck kaemen.
-   *
-   * Benennung: camelCase wie ueberall im Frontend; die rohen Zeilen behalten
-   * daneben ihre Datenbank-Schreibweise, damit klar bleibt, was von wo kommt.
+   * WARUM trotzdem zusammengefasst: Solange noch die alte Datenbankfunktion
+   * laeuft, kommt dieselbe Station mehrfach (je Abteilung). Hier wird sie zu
+   * einer Zeile, und die Gesamtsumme entsteht aus genau den Zeilen darunter.
    */
-  function gruppiereAuswertungNachAbteilung(zeilen) {
-    const nachAbteilung = new Map();
-
+  function gruppiereAuswertungNachStation(zeilen) {
+    const nachStation = new Map();
     for (const z of (zeilen || [])) {
-      // Die Datenbank setzt 'ohne Angabe' bereits ein; der Fallback hier ist
-      // nur die Absicherung dagegen, dass eine leere Zelle als Abteilung
-      // "undefined" in einer Klinik-Auswertung landet.
-      const name = String(z.abteilung ?? '').trim() || 'ohne Angabe';
-      let abt = nachAbteilung.get(name);
-      if (!abt) {
-        abt = {
-          abteilung: name,
-          dienste: 0, diensteT1: 0, diensteT2: 0, kostenCent: 0,
-          stationen: [],
-        };
-        nachAbteilung.set(name, abt);
+      const name = String(z.station ?? '').trim() || 'ohne Angabe';
+      let st = nachStation.get(name);
+      if (!st) {
+        st = { station: name, dienste: 0, diensteT1: 0, diensteT2: 0, kostenCent: 0 };
+        nachStation.set(name, st);
       }
-
-      const st = {
-        station: String(z.station ?? '').trim() || 'ohne Angabe',
-        dienste: Number(z.dienste) || 0,
-        diensteT1: Number(z.dienste_t1) || 0,
-        diensteT2: Number(z.dienste_t2) || 0,
-        kostenCent: Number(z.kosten_cent) || 0,
-      };
-
-      abt.stationen.push(st);
-      abt.dienste += st.dienste;
-      abt.diensteT1 += st.diensteT1;
-      abt.diensteT2 += st.diensteT2;
-      abt.kostenCent += st.kostenCent;
+      st.dienste += Number(z.dienste) || 0;
+      st.diensteT1 += Number(z.dienste_t1) || 0;
+      st.diensteT2 += Number(z.dienste_t2) || 0;
+      st.kostenCent += Number(z.kosten_cent) || 0;
     }
-
-    const abteilungen = Array.from(nachAbteilung.values());
-    const gesamt = abteilungen.reduce((g, a) => ({
+    // "ohne Angabe" immer zuletzt, sonst nach Diensten absteigend.
+    const stationen = Array.from(nachStation.values()).sort((x, y) =>
+      ((x.station === 'ohne Angabe') - (y.station === 'ohne Angabe'))
+      || (y.dienste - x.dienste) || x.station.localeCompare(y.station, 'de'));
+    const gesamt = stationen.reduce((g, a) => ({
       dienste: g.dienste + a.dienste,
       diensteT1: g.diensteT1 + a.diensteT1,
       diensteT2: g.diensteT2 + a.diensteT2,
       kostenCent: g.kostenCent + a.kostenCent,
     }), { dienste: 0, diensteT1: 0, diensteT2: 0, kostenCent: 0 });
-
-    return { abteilungen, gesamt };
+    return { stationen, gesamt };
   }
 
   /**
-   * Auswertung fuer das Controlling eines Krankenhauses: je Abteilung und
-   * Station die Zahl der geleisteten Dienste, aufgeteilt nach Tarif, und die
-   * Kosten.
+   * Auswertung fuer das Controlling eines Krankenhauses: je Station die Zahl
+   * der geleisteten Dienste, aufgeteilt nach Tarif, und die Kosten.
    *
    * Die Zugangspruefung steckt in der Datenbankfunktion, nicht hier: Sie ist
    * security definer, RLS greift dort also nicht, und ein Riegel im Browser
    * waere ohnehin keiner.
-   *
-   * Die Datenbankfunktion gibt seit Migration AA eine Spalte mehr zurueck
-   * (`abteilung` an erster Stelle). Das faellt hier nicht ins Gewicht: die RPC
-   * liefert Objekte mit benannten Feldern, nicht Tupel — nichts in dieser
-   * Funktion haengt an Spaltenzahl oder -reihenfolge. Auch `preis_cent` wird
-   * weiter namentlich aus der ersten Zeile gelesen und steht laut
-   * Datenbankfunktion in jeder Zeile gleich.
    */
   async function getSitzwachenAuswertung(von, bis) {
     if (!von || !bis) return { ok: false, error: 'Bitte einen Zeitraum wählen.' };
@@ -3852,12 +3818,12 @@
         return { ok: false, error: 'Die Auswertung konnte nicht geladen werden.' };
       }
       const zeilen = data || [];
-      const { abteilungen, gesamt } = gruppiereAuswertungNachAbteilung(zeilen);
+      const { stationen, gesamt } = gruppiereAuswertungNachStation(zeilen);
       return {
         ok: true,
-        zeilen,       // die rohen Zeilen, unveraendert wie bisher
-        abteilungen,  // je Abteilung: Zwischensumme + ihre Stationen
-        gesamt,       // Summe ueber die Abteilungen
+        zeilen,     // die rohen Zeilen, unveraendert
+        stationen,  // je Station eine Zeile
+        gesamt,     // Summe ueber die Stationen
         preisCent: zeilen.length ? Number(zeilen[0].preis_cent) : null,
       };
     } catch (e) {
@@ -5271,19 +5237,37 @@
   // dort war, steht schon fest.
   // ═══════════════════════════════════════════════════════
 
-  /** Klinik-Konten, an die eine nachgetragene Buchung haengen kann. */
+  /**
+   * Klinik-Konten, an die eine Buchung haengen kann.
+   *
+   * `haus` fasst die Konten eines Krankenhauses zusammen (linked_clinic_id).
+   * `stationPflicht`: Das Haus hat ein Controlling-Konto — dort zaehlt die
+   * Station in der Auswertung, ohne sie steht der Dienst unter „ohne Angabe“.
+   */
   async function boardKlinikKonten() {
     try {
-      const { data, error } = await (await sb())
+      const client = await sb();
+      const { data, error } = await client
         .from('clinic_details')
-        .select('id, clinic_name, department, status')
+        .select('id, clinic_name, department, status, linked_clinic_id, controlling, notify_all_departments')
         .eq('status', 'approved')
         .order('clinic_name');
       if (error) return { ok: false, error: error.message, kliniken: [] };
+      const ids = (data || []).map(c => c.id);
+      const { data: prof } = ids.length
+        ? await client.from('profiles').select('id, full_name').in('id', ids)
+        : { data: [] };
+      const nameMap = {}; (prof || []).forEach(p => { nameMap[p.id] = p.full_name || ''; });
+      const mitControlling = new Set((data || []).filter(c => c.controlling && c.linked_clinic_id).map(c => c.linked_clinic_id));
       return { ok: true, kliniken: (data || []).map(c => ({
         id: c.id,
         name: c.clinic_name || '(ohne Namen)',
-        abteilung: c.department || ''
+        abteilung: c.department || '',
+        person: nameMap[c.id] || '',
+        haus: c.linked_clinic_id || c.id,
+        controlling: !!c.controlling,
+        alleAbteilungen: !!c.notify_all_departments,
+        stationPflicht: !!(c.linked_clinic_id && mitControlling.has(c.linked_clinic_id))
       })) };
     } catch(e) {
       console.error('[LPR] boardKlinikKonten:', e);
@@ -5341,7 +5325,7 @@
    * Legt einen Dienst je Tag von `von` bis `bis` an (beide einschliesslich).
    * status 'offen' oder 'unbesetzt', bei 'unbesetzt' ist grund Pflicht.
    */
-  async function boardOffeneDiensteAnlegen({ klinikId, von, bis, schicht, station, notiz, status, grund } = {}) {
+  async function boardOffeneDiensteAnlegen({ klinikId, von, bis, schicht, station, notiz, status, grund, benachrichtigen } = {}) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
     if (!klinikId || !von) return { ok: false, error: 'Klinik und Datum sind Pflicht.' };
@@ -5381,7 +5365,9 @@
         station:        (station || '').trim() || null,
         status,
         reason:         status === 'unbesetzt' ? grund : null,
-        notes:          (notiz || '').trim() || null
+        notes:          (notiz || '').trim() || null,
+        // Wer die Bestaetigung bekommt (Migration BB). Leer = Standardregel.
+        benachrichtigen: (benachrichtigen && benachrichtigen.length) ? benachrichtigen : null
       }));
       const { data, error } = await client.from('unstaffed_requests').insert(zeilen).select();
       if (error) return { ok: false, error: error.message };
@@ -5474,6 +5460,36 @@
     }
   }
 
+  /**
+   * VORSTAND: Station und Empfaenger einer Klinikbuchung korrigieren
+   * (Migration BB). Bei vergangenen Diensten geht keine Mail raus, bei
+   * kuenftigen meldet ein Stationswechsel die Aenderung wie gewohnt.
+   * benachrichtigen leer = Standardregel (buchendes Konto + gleiche Abteilung).
+   */
+  async function boardBuchungAngaben(bookingId, { station, benachrichtigen } = {}) {
+    try {
+      const { error } = await (await sb()).rpc('board_buchung_angaben', {
+        p_booking: bookingId,
+        p_station: String(station || '').trim() || null,
+        p_benachrichtigen: (benachrichtigen && benachrichtigen.length) ? benachrichtigen : null
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] boardBuchungAngaben:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /** Muss das buchende Konto (bzw. sein Haus) eine Station angeben? */
+  async function klinikStationPflicht() {
+    try {
+      const { data, error } = await (await sb()).rpc('klinik_station_pflicht');
+      if (error) return false;
+      return !!data;
+    } catch(e) { return false; }
+  }
+
   async function boardBuchungNachtragen(payload) {
     if (!payload || !payload.clinic_id || !payload.volunteer_id || !payload.date || !payload.shift) {
       return { ok: false, error: 'Klinik, Person, Datum und Schicht sind Pflicht.' };
@@ -5501,7 +5517,7 @@
     try {
       const client = await sb();
       let q = client.from('bookings')
-        .select('id, volunteer_id, clinic_id, date, shift, hours, compensation_eur, status, completed_at, late_cancellation, patient_room, patient_flags, patient_notes, patient_count, cancellation_reason, cancelled_at, cancelled_by_user_id')
+        .select('id, volunteer_id, clinic_id, date, shift, hours, compensation_eur, status, completed_at, late_cancellation, patient_room, patient_flags, patient_notes, patient_count, cancellation_reason, cancelled_at, cancelled_by_user_id, station, benachrichtigen, nachgetragen')
         .order('date', { ascending: false });
       if (fromDate) q = q.gte('date', fromDate);
       if (toDate)   q = q.lte('date', toDate);
@@ -8116,6 +8132,7 @@
     pushAboAbgleichen,
     // AP2 — Vorstand: Sitzwachen-Abschluss/Auszahlung
     boardKlinikKonten, boardEhrenamtlicheMitBzr, boardBuchungNachtragen,
+    boardBuchungAngaben, klinikStationPflicht,
     adminListBookings, adminListClaims, adminSetBookingStatus, adminSetClaimStatus, adminSetSitzRate,
     resendClaimMail, getClaimBeleg, adminClaimsFuerBuchungen, adminAuslagenFuerAnmeldungen,
     // Auslagenersatz (§ 3 Nr. 50 EStG) — Erfassung durch den Vorstand

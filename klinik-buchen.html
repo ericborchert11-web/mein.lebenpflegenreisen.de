@@ -582,7 +582,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js?v20260908a"></script>
+<script src="app.js?v20261019a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'klinik-buchen' });
@@ -1215,6 +1215,12 @@ function openBookingModal(slot) {
   document.getElementById('kb-modal-bg').classList.add('show');
   setTimeout(() => document.getElementById('kb-station').focus(), 50);
 }
+let _stationPflicht = false;
+LPR.klinikStationPflicht().then(p => {
+  _stationPflicht = p;
+  if (p) document.querySelector('label[for="kb-station"]').textContent = 'Station (Pflicht)';
+});
+
 function closeBookingModal() {
   document.getElementById('kb-modal-bg').classList.remove('show');
   activeBooking = null;
@@ -1228,6 +1234,13 @@ async function confirmBooking() {
   const fallnummer = document.getElementById('kb-fallnummer').value.trim();
   const notes = document.getElementById('kb-notes').value.trim();
 
+  // Hat das Haus ein Controlling-Konto, wird je Station ausgewertet — ohne
+  // Station landet der Dienst dort unter „ohne Angabe“ (Migration BB).
+  if (!station && _stationPflicht) {
+    LPR.showToast('Bitte die Station angeben.', 'warn');
+    document.getElementById('kb-station').focus();
+    return;
+  }
   // Bei einem Dienst, der in Kuerze beginnt oder schon laeuft, ist die
   // Nummer keine Kuer: ohne sie kann die Sitzwache unterwegs niemanden
   // erreichen, und die Station erfaehrt nichts.

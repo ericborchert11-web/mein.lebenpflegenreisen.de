@@ -2496,30 +2496,51 @@
   }
 
   /**
-   * Festgeschriebene Rechnung verschicken: PDFs ablegen, Versandzeile anlegen,
-   * Function aufrufen. nachweisBlob = erzeugter Zeitnachweis (digital),
-   * nachweisPfad = bereits hinterlegter Scan (papier). Beides leer = nur Rechnung.
+   * PDFs einer festgeschriebenen Rechnung sichern: in den Bucket legen und fuer
+   * die Drive-Ablage anmelden. Gilt fuer JEDE Rechnung, nicht nur fuer den
+   * Mailversand. nachweisBlob = erzeugter Zeitnachweis (digital), nachweisPfad
+   * = bereits hinterlegter Scan (papier). Liefert die Pfade fuer den Versand.
    */
-  async function rechnungVersenden(invoiceId, rechnungBlob, nachweisBlob, nachweisPfad) {
-    if (!rechnungBlob) return { ok: false, status: 'fehler', fehler: 'Das Rechnungs-PDF fehlt.' };
+  async function rechnungPdfsSichern(invoiceId, rechnungBlob, nachweisBlob, nachweisPfad) {
+    if (!rechnungBlob) return { ok: false, error: 'Das Rechnungs-PDF fehlt.' };
     try {
       const client = await sb();
       const inv = await client.from('invoices').select('invoice_no, status').eq('id', invoiceId).maybeSingle();
-      if (inv.error || !inv.data) return { ok: false, status: 'fehler', fehler: inv.error ? inv.error.message : 'Rechnung nicht gefunden.' };
-      if (!inv.data.invoice_no) return { ok: false, status: 'fehler', fehler: 'Die Rechnung ist noch nicht festgeschrieben.' };
+      if (inv.error || !inv.data) return { ok: false, error: inv.error ? inv.error.message : 'Rechnung nicht gefunden.' };
+      if (!inv.data.invoice_no) return { ok: false, error: 'Die Rechnung ist noch nicht festgeschrieben.' };
       const bucket = client.storage.from(RECHNUNG_BUCKET);
       const nr = String(inv.data.invoice_no).replace(/[^A-Za-z0-9_-]+/g, '-');
       const rPfad = invoiceId + '/rechnung-' + nr + '-' + Date.now() + '.pdf';
       const up = await bucket.upload(rPfad, await _alsPdfBlob(rechnungBlob), { upsert: false, contentType: 'application/pdf' });
-      if (up.error) return { ok: false, status: 'fehler', fehler: 'Rechnungs-PDF konnte nicht abgelegt werden: ' + up.error.message };
+      if (up.error) return { ok: false, error: 'Rechnungs-PDF konnte nicht abgelegt werden: ' + up.error.message };
       let nPfad = nachweisPfad || null;
       if (nachweisBlob) {
         nPfad = invoiceId + '/zeitnachweis-' + nr + '-' + Date.now() + '.pdf';
         const up2 = await bucket.upload(nPfad, await _alsPdfBlob(nachweisBlob), { upsert: false, contentType: 'application/pdf' });
-        if (up2.error) return { ok: false, status: 'fehler', fehler: 'Zeitnachweis-PDF konnte nicht abgelegt werden: ' + up2.error.message };
+        if (up2.error) return { ok: false, error: 'Zeitnachweis-PDF konnte nicht abgelegt werden: ' + up2.error.message };
       }
-      const { data: versandId, error } = await client.rpc('rechnung_versand_anlegen', {
-        p_invoice: invoiceId, p_rechnung_pfad: rPfad, p_nachweis_pfad: nPfad
+      const a1 = await client.rpc('rechnung_ablage_anmelden', { p_invoice: invoiceId, p_art: 'rechnung', p_pfad: rPfad });
+      if (a1.error) return { ok: false, error: 'Ablage nicht angemeldet: ' + a1.error.message };
+      if (nPfad) {
+        const a2 = await client.rpc('rechnung_ablage_anmelden', { p_invoice: invoiceId, p_art: 'zeitnachweis', p_pfad: nPfad });
+        if (a2.error) return { ok: false, error: 'Ablage des Zeitnachweises nicht angemeldet: ' + a2.error.message };
+      }
+      return { ok: true, rechnungPfad: rPfad, nachweisPfad: nPfad };
+    } catch(e) {
+      console.error('[LPR] rechnungPdfsSichern:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Festgeschriebene Rechnung verschicken: Versandzeile mit den schon
+   * gesicherten PDFs anlegen (rechnungPdfsSichern), dann die Function rufen.
+   */
+  async function rechnungVersenden(invoiceId, pfade) {
+    if (!pfade || !pfade.rechnungPfad) return { ok: false, status: 'fehler', fehler: 'Das Rechnungs-PDF fehlt.' };
+    try {
+      const { data: versandId, error } = await (await sb()).rpc('rechnung_versand_anlegen', {
+        p_invoice: invoiceId, p_rechnung_pfad: pfade.rechnungPfad, p_nachweis_pfad: pfade.nachweisPfad || null
       });
       if (error) return { ok: false, status: 'fehler', fehler: error.message };
       const res = await _versandFunktion({ versand_id: versandId });
@@ -2529,6 +2550,36 @@
       console.error('[LPR] rechnungVersenden:', e);
       return { ok: false, status: 'fehler', fehler: 'Netzwerkfehler.' };
     }
+  }
+
+  /** Drive-Ablage einer Rechnung (je Art hoechstens eine Zeile). */
+  async function listRechnungAblage(invoiceId) {
+    try {
+      const { data, error } = await (await sb()).from('rechnung_ablage')
+        .select('id, art, pfad, angelegt_am, drive_link, abgelegt_am, versuche, fehler')
+        .eq('invoice_id', invoiceId);
+      if (error) return { ok: false, error: error.message, ablage: [] };
+      return { ok: true, ablage: data || [] };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.', ablage: [] }; }
+  }
+
+  /**
+   * Festgeschriebene Rechnungen ohne angemeldetes Rechnungs-PDF (Browser beim
+   * Festschreiben geschlossen, oder vor der Drive-Ablage festgeschrieben).
+   */
+  async function rechnungenOhneAblage() {
+    try {
+      const client = await sb();
+      const [inv, abl] = await Promise.all([
+        client.from('invoices').select('id, invoice_no, invoice_date').neq('status', 'draft').not('invoice_no', 'is', null),
+        client.from('rechnung_ablage').select('invoice_id').eq('art', 'rechnung')
+      ]);
+      if (inv.error || abl.error) return { ok: false, error: (inv.error || abl.error).message, rechnungen: [] };
+      const da = new Set((abl.data || []).map(a => a.invoice_id));
+      const fehlt = (inv.data || []).filter(i => !da.has(i.id))
+        .sort((a, b) => String(a.invoice_no).localeCompare(String(b.invoice_no)));
+      return { ok: true, rechnungen: fehlt };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.', rechnungen: [] }; }
   }
 
   /** Versandversuche einer Rechnung, neueste zuerst. */
@@ -8105,6 +8156,7 @@
     getZeitnachweis, einsatzVorstandBestaetigen, unterschriftUrls,
     // Rechnungsversand mit Zeitnachweis (rv1)
     getZeitnachweisStatus, rechnungNachweisHochladen, rechnungDateiUrl, rechnungVersenden,
+    rechnungPdfsSichern, listRechnungAblage, rechnungenOhneAblage,
     listRechnungVersand, rechnungErneutSenden, ladeHtml2pdf,
     einsatzPufferLesen, einsatzPufferSchreiben, einsatzPufferLeeren,
     // Klinik-Self-Service (Etappe 1)

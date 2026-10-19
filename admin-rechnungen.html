@@ -151,6 +151,8 @@ dialog.sr-dlg::backdrop { background: rgba(26,58,42,.38); }
 .sr-meldung { margin-top: 10px; font-size: 13.5px; font-weight: 600; color: #8A3A22; }
 .sr-fuss { padding: 14px 24px; background: #FAFAF7; border-top: 1px solid var(--border);
   display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+#ablage-hinweis[hidden] { display:none; }
+#ablage-hinweis a { color:#8A3A18; font-weight:700; }
 </style>
 </head>
 <body>
@@ -195,6 +197,9 @@ dialog.sr-dlg::backdrop { background: rgba(26,58,42,.38); }
         <select id="f-recipient" class="f-in" style="width:260px;" onchange="loadData()"></select></label>
     </div>
 
+    <div id="ablage-hinweis" class="inv-card" hidden
+         style="padding:14px 20px;margin-bottom:14px;background:#FDF0E8;border-color:#C85B30;color:#8A3A18;"></div>
+
     <div class="inv-card" id="table-wrap"></div>
   </div>
 </div>
@@ -230,7 +235,7 @@ dialog.sr-dlg::backdrop { background: rgba(26,58,42,.38); }
 </main>
 
 <script src="sammelrechnung.js?v20261012b"></script>
-<script src="app.js?v20261012b"></script>
+<script src="app.js?v20261019a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -262,6 +267,23 @@ async function init() {
     _recipients.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
 
   await loadData();
+  await ablageHinweis();
+}
+
+/**
+ * Festgeschriebene Rechnungen ohne PDF kommen nicht nach Drive. Die Liste
+ * nennt sie mit Link; auf der Rechnung erzeugt "PDF erzeugen" die Datei.
+ */
+async function ablageHinweis() {
+  const el = document.getElementById('ablage-hinweis');
+  if (!el || typeof LPR.rechnungenOhneAblage !== 'function') return;
+  const res = await LPR.rechnungenOhneAblage();
+  if (!res.ok || !res.rechnungen.length) { el.hidden = true; return; }
+  const n = res.rechnungen.length;
+  el.innerHTML = '<strong>' + (n === 1 ? 'Bei 1 festgeschriebenen Rechnung fehlt' : 'Bei ' + n + ' festgeschriebenen Rechnungen fehlt')
+    + ' das PDF für die Ablage in Google Drive.</strong> Rechnung öffnen und „PDF erzeugen“ wählen: '
+    + res.rechnungen.map(r => '<a href="rechnung.html?id=' + encodeURIComponent(r.id) + '">' + escapeHtml(r.invoice_no) + '</a>').join(', ');
+  el.hidden = false;
 }
 
 async function loadData() {

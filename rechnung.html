@@ -244,6 +244,7 @@
 
   <div class="re-bar no-print" id="action-bar"></div>
   <div class="no-print" id="rv-panel"></div>
+  <div class="no-print" id="ablage-panel"></div>
   <div id="editor" hidden></div>
   <!-- Der Brief steht vor der Rechnung — am Bildschirm wie im Druck, damit die
        Vorschau der Reihenfolge im Umschlag entspricht. -->
@@ -267,7 +268,7 @@
 
 <script src="ust-ampel.js?v20261007a"></script>
 <script src="rechnung-hinweise.js?v20261007b"></script>
-<script src="app.js?v20261009b"></script>
+<script src="app.js?v20261019a"></script>
 <script src="druck-anpassen.js?v20260823a"></script>
 <script src="layout.js"></script>
 <script>
@@ -292,6 +293,9 @@ let _versandLaeuft = false;
 let _versandSchritt = '';   // sichtbarer Fortschritt
 let _versandErgebnis = null; // { ok, text }
 let _uploadLaeuft = false;
+let _ablage = [];           // Zeilen aus rechnung_ablage (je Art hoechstens eine)
+let _ablageGeladen = false;
+let _pdfLaeuft = false;     // PDFs werden erzeugt und gesichert
 
 // Escapt auch Anfuehrungszeichen: Vorlagennamen landen in value="…"-Attributen,
 // und ein Name wie 'Nachtwache 12" Schicht' wuerde das Feld sonst zerreissen.
@@ -326,6 +330,7 @@ async function init() {
   await reload();
   await zeitnachweisLaden();
   await versandLaden();
+  await ablageLaden();
   await zeitnachweisZaehlen();
 }
 
@@ -497,6 +502,7 @@ async function loadTemplates() {
 function render() {
   renderBar();
   renderRvPanel();
+  renderAblagePanel();
   const isDraft = _inv.status === 'draft';
   document.getElementById('editor').hidden = !isDraft;
   if (isDraft) renderEditor();
@@ -1217,7 +1223,9 @@ async function issue() {
   await reload();
   await zeitnachweisLaden();
   await versandLaden();
-  // Empfaenger mit Zeitnachweis bekommen Rechnung und Nachweis sofort per Mail.
+  // Jede Rechnung bekommt ihr PDF fuer die Drive-Ablage; Empfaenger mit
+  // Zeitnachweis bekommen dieselben Dateien sofort per Mail.
+  await pdfsSichern();
   if (versandPflicht()) await versandAusfuehren();
 }
 
@@ -1482,32 +1490,107 @@ function zeitnachweisPdfErzeugen() {
   });
 }
 
-/** PDFs erzeugen, ablegen, verschicken. Auch fuer "Jetzt senden". */
-async function versandAusfuehren() {
-  if (_versandLaeuft || !versandPflicht() || _inv.status === 'draft') return;
-  _versandLaeuft = true; _versandErgebnis = null;
-  versandFortschritt('PDFs werden erzeugt …');
+/**
+ * PDFs erzeugen und sichern (Bucket + Drive-Ablage). Beim Festschreiben und
+ * ueber den Knopf "PDF erzeugen", wenn es fehlt. Liefert die Pfade oder null.
+ */
+async function pdfsSichern() {
+  if (_pdfLaeuft || !_inv || _inv.status === 'draft') return null;
+  _pdfLaeuft = true; renderAblagePanel();
+  let pfade = null;
   try {
     const rechnungBlob = await rechnungPdf();
     let nachweisBlob = null, nachweisPfad = null;
-    if (znArt() === 'digital') {
+    if (!_inv.cancels_invoice_id && znArt() === 'digital') {
       nachweisBlob = await zeitnachweisPdfErzeugen();
-    } else {
-      nachweisPfad = _zn && _zn.pfad;
-      if (!nachweisPfad) throw new Error('Der Papier-Zeitnachweis ist nicht hinterlegt.');
+    } else if (!_inv.cancels_invoice_id && znArt() === 'papier') {
+      nachweisPfad = (_zn && _zn.pfad) || _inv.nachweis_pfad || null;
     }
-    versandFortschritt('PDFs erzeugt … wird versendet …');
-    const res = await LPR.rechnungVersenden(INV_ID, rechnungBlob, nachweisBlob, nachweisPfad);
+    const res = await LPR.rechnungPdfsSichern(INV_ID, rechnungBlob, nachweisBlob, nachweisPfad);
+    if (!res.ok) LPR.showToast('PDF nicht gesichert: ' + res.error, 'warn');
+    else pfade = { rechnungPfad: res.rechnungPfad, nachweisPfad: res.nachweisPfad };
+  } catch (e) {
+    console.error('[rechnung] PDF sichern:', e);
+    LPR.showToast('PDF konnte nicht erzeugt werden: ' + (e && e.message ? e.message : e), 'warn');
+  }
+  _pdfLaeuft = false;
+  await ablageLaden();
+  return pfade;
+}
+
+/** Gesicherte Pfade aus der Ablage, oder null, wenn das Rechnungs-PDF fehlt. */
+function gesichertePfade() {
+  const r = _ablage.find(a => a.art === 'rechnung');
+  if (!r) return null;
+  const n = _ablage.find(a => a.art === 'zeitnachweis');
+  return { rechnungPfad: r.pfad, nachweisPfad: n ? n.pfad : null };
+}
+
+/** Verschicken mit den gesicherten PDFs; fehlen sie, erst erzeugen. Auch fuer "Jetzt senden". */
+async function versandAusfuehren() {
+  if (_versandLaeuft || !versandPflicht() || _inv.status === 'draft') return;
+  _versandLaeuft = true; _versandErgebnis = null;
+  try {
+    if (!_ablageGeladen) await ablageLaden();
+    let pfade = gesichertePfade();
+    if (!pfade) { versandFortschritt('PDFs werden erzeugt …'); pfade = await pdfsSichern(); }
+    if (!pfade) throw new Error('Die PDFs konnten nicht gesichert werden.');
+    if (znArt() === 'papier' && !pfade.nachweisPfad) throw new Error('Der Papier-Zeitnachweis ist nicht hinterlegt.');
+    versandFortschritt('PDFs gesichert … wird versendet …');
+    const res = await LPR.rechnungVersenden(INV_ID, pfade);
     _versandErgebnis = res.ok
       ? { ok: true, text: 'Versendet an ' + versandAdressen().join(', ') + ' (Kopie an ' + VERSAND_KOPIE + ').' }
       : { ok: false, text: 'Versand fehlgeschlagen: ' + (res.fehler || 'unbekannter Fehler') };
   } catch (e) {
     console.error('[rechnung] Versand:', e);
-    _versandErgebnis = { ok: false, text: 'PDF konnte nicht erzeugt werden: ' + (e && e.message ? e.message : e)
+    _versandErgebnis = { ok: false, text: 'Versand nicht möglich: ' + (e && e.message ? e.message : e)
       + ' — mit „Jetzt senden“ erneut versuchen.' };
   }
   _versandLaeuft = false; _versandSchritt = '';
   await versandLaden();
+}
+
+async function ablageLaden() {
+  if (typeof LPR.listRechnungAblage !== 'function' || !_inv || _inv.status === 'draft') {
+    _ablage = []; _ablageGeladen = false; renderAblagePanel(); return;
+  }
+  const res = await LPR.listRechnungAblage(INV_ID);
+  _ablage = res.ok ? res.ablage : [];
+  _ablageGeladen = res.ok;
+  renderAblagePanel();
+}
+
+const ABLAGE_ART = { rechnung: 'Rechnung', zeitnachweis: 'Zeitnachweis' };
+
+/** Box "Ablage in Google Drive" unter dem Versand, nur bei festgeschriebenen Rechnungen. */
+function renderAblagePanel() {
+  const el = document.getElementById('ablage-panel');
+  if (!el) return;
+  if (!_inv || _inv.status === 'draft' || typeof LPR.listRechnungAblage !== 'function') { el.innerHTML = ''; return; }
+  let inhalt;
+  if (_pdfLaeuft) {
+    inhalt = '<div class="rv-fortschritt" role="status">PDF wird erzeugt und gesichert …</div>';
+  } else if (!_ablageGeladen) {
+    inhalt = '<p class="rv-klein" style="margin:0;">Stand wird geladen …</p>';
+  } else if (!_ablage.some(a => a.art === 'rechnung')) {
+    inhalt = '<div class="rv-zeile"><span class="rv-grund">PDF fehlt — diese Rechnung kommt so nicht nach Drive.</span>'
+      + '<span class="spacer" style="flex:1"></span>'
+      + '<button type="button" class="btn btn-primary" onclick="pdfsSichern()">PDF erzeugen</button></div>';
+  } else {
+    inhalt = _ablage.slice().sort((a, b) => a.art === 'rechnung' ? -1 : (b.art === 'rechnung' ? 1 : 0)).map(a => {
+      let stand;
+      if (a.abgelegt_am) {
+        stand = '<span class="rv-ok">abgelegt ' + escapeHtml(dtBerlin(a.abgelegt_am)) + ' ✓</span>'
+          + (a.drive_link ? ' <a href="' + escapeHtml(a.drive_link) + '" target="_blank" rel="noopener">in Drive öffnen</a>' : '');
+      } else if ((Number(a.versuche) || 0) >= 3) {
+        stand = '<span class="rv-grund">Ablage gescheitert (' + Number(a.versuche) + ' Versuche): ' + escapeHtml(a.fehler || 'unbekannt') + '</span>';
+      } else {
+        stand = '<span>wartet auf Ablage (spätestens in 15 Minuten)</span>';
+      }
+      return '<div class="rv-zeile"><strong style="min-width:110px;">' + escapeHtml(ABLAGE_ART[a.art] || a.art) + '</strong>' + stand + '</div>';
+    }).join('');
+  }
+  el.innerHTML = '<div class="rv-box"><h2>Ablage in Google Drive</h2>' + inhalt + '</div>';
 }
 
 async function erneutSenden(versandId) {

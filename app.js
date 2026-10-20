@@ -2876,10 +2876,14 @@
 
     // Sammelpostfach der Klinik. Leer ist ausdruecklich erlaubt: nicht jede
     // Klinik hat eins, und ein Pflichtfeld waere hier eine erfundene Anforderung.
-    const cc = String((k && k.notification_cc) || '').trim();
-    if (cc && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cc)) {
-      return { ok: false, error: 'Das Sammelpostfach ist keine gültige E-Mail-Adresse.' };
+    // Mehrere Adressen durch Komma getrennt (JVK: Aufnahme + Dienstzuteilung);
+    // notify_recipients zerlegt die Spalte an denselben Trennzeichen.
+    const ccListe = String((k && k.notification_cc) || '').split(/[,;\s]+/).filter(Boolean);
+    const ccFalsch = ccListe.find(a => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a));
+    if (ccFalsch) {
+      return { ok: false, error: 'Im Sammelpostfach ist „' + ccFalsch + '“ keine gültige E-Mail-Adresse.' };
     }
+    const cc = ccListe.join(', ');
 
     const satz = {
       name:       name,

@@ -699,12 +699,13 @@ function renderStamm() {
           <label>Reihenfolge<br><input type="number" id="k-sort" value="${Number(v.sort_order)||999}" style="width:100%"></label>
         </div>
         <label style="display:block; margin-top:12px;">Sammelpostfach für Benachrichtigungen (optional)
-          <br><input type="email" id="k-cc" value="${esc(v.notification_cc || '')}" maxlength="200"
-                     placeholder="z.B. station4b@klinik.de" style="width:100%">
+          <br><input type="text" id="k-cc" value="${esc(v.notification_cc || '')}" maxlength="200"
+                     placeholder="z.B. station4b@klinik.de, pdl@klinik.de" style="width:100%">
         </label>
         <p class="muted" style="font-size:13px; margin-top:4px;">
           Bekommt jede Buchungs- und Stornomeldung dieser Klinik zusätzlich zu den
-          einzelnen Konten. Leer lassen, wenn es kein Stationspostfach gibt.
+          einzelnen Konten. Mehrere Adressen mit Komma trennen. Leer lassen, wenn es
+          kein Stationspostfach gibt.
         </p>
         <label style="display:block; margin-top:12px;">Kennung
           <br><input type="text" id="k-id" value="${esc(v.id)}" maxlength="40" style="width:100%"

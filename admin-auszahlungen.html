@@ -434,6 +434,11 @@ function renderClaims() {
       }
       if (mailNachversandNoetig(c)) {
         actions += '<button class="as-btn" data-act="resend" data-id="' + c.id + '">Mail erneut senden</button>';
+      } else if (c.status === 'approved') {
+        // Anweisung ist schon raus, aber Betrag oder IBAN können sich danach
+        // geändert haben (Korrektur, IBAN nachgetragen) – dann braucht finanzen@
+        // eine neue. claim-mails sendet mit force trotz gesetztem Stempel.
+        actions += '<button class="as-btn" data-act="resend-payroll" data-id="' + c.id + '">Zahlungsanweisung erneut senden</button>';
       }
       return '<tr>' +
         '<td>' + fmtDate(c.submitted_at) + '</td>' +
@@ -469,7 +474,8 @@ async function onClaimAction(btn) {
     if (c) await blOeffnen(c);
     return;
   }
-  if (act === 'resend') {
+  if (act === 'resend' || act === 'resend-payroll') {
+    if (act === 'resend-payroll' && !confirm('Die Zahlungsanweisung ging schon an die Finanzen. Mit dem aktuellen Betrag und der aktuellen IBAN neu senden?')) return;
     btn.disabled = true;
     const res = await LPR.resendClaimMail(id);
     toast(res.ok ? 'Mail verschickt.' : (res.error || 'Versand fehlgeschlagen.'), res.ok ? undefined : 'warn');

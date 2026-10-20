@@ -24,8 +24,9 @@
 <style>
 /* ── Schriften ────────────────────────────────────────────────────────────
    Self-gehostet, nicht von fonts.googleapis.com. Der Rest des Repos laedt
-   sie remote; diese Seite wird oeffentlich beworben und soll ohne
-   Cookie-Banner und ohne Drittanbieter-Request auskommen. Beide unter OFL. */
+   sie remote; diese Seite wird oeffentlich beworben und laedt ohne
+   Einwilligung nichts von Dritten. Einzige Ausnahme ist der Google-Tag,
+   und der erst nach "Zustimmen" in der Einwilligungsleiste. Beide unter OFL. */
 @font-face {
   font-family: 'Bricolage Grotesque';
   font-style: normal; font-weight: 400 800; font-display: swap;
@@ -335,6 +336,37 @@ footer.seite a { color: var(--mute-dunkel); }
 footer.seite a:hover { color: var(--lime); }
 footer.seite .zeile { margin-bottom: 8px; }
 footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; }
+/* Der Knopf zum Aendern der Einwilligung sieht aus wie die Links daneben. */
+footer.seite .link-knopf {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; color: var(--mute-dunkel); text-decoration: underline;
+}
+footer.seite .link-knopf:hover { color: var(--lime); }
+
+/* ── Einwilligungsleiste ──────────────────────────────────────────────────
+   Beide Knoepfe gleich gross und gleich gestaltet: Ablehnen darf nicht
+   schwerer zu finden sein als Zustimmen (so verlangen es die
+   Datenschutzbehoerden). Die Leiste ueberdeckt nichts dauerhaft — wer sie
+   ignoriert, kann die Seite trotzdem vollstaendig benutzen. */
+.einwilligung {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  background: var(--gruen); color: rgba(255,255,255,.92);
+  border-top: 3px solid var(--lime);
+  padding: 18px 0 20px; font-size: 15px; line-height: 1.55;
+  box-shadow: 0 -8px 24px rgba(13,28,19,.18);
+}
+.einwilligung h2 { font-size: 19px; color: #fff; margin-bottom: 6px; }
+.einwilligung p { max-width: 70ch; margin-bottom: 14px; }
+.einwilligung a { color: var(--lime); }
+.einwilligung .knoepfe { gap: 12px; }
+.einwilligung .knopf-wahl {
+  min-height: 46px; padding: 10px 26px; font-size: 16px;
+  background: transparent; color: #fff; border-color: rgba(255,255,255,.7);
+}
+.einwilligung .knopf-wahl:hover { border-color: var(--lime); color: var(--lime); }
+@media (max-width: 480px) {
+  .einwilligung .knopf-wahl { flex: 1 1 0; padding: 10px 12px; }
+}
 
 /* ── Bewegung nur, wenn erwuenscht ────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
@@ -653,9 +685,132 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
     <nav aria-label="Rechtliches">
       <a href="https://lebenpflegenreisen.de/impressum/">Impressum</a>
       <a href="https://lebenpflegenreisen.de/datenschutz/">Datenschutz</a>
+      <button type="button" class="link-knopf" id="einwilligung-aendern">Cookie-Einstellungen</button>
     </nav>
   </div>
 </footer>
+
+<!-- Einwilligung fuer den Google-Tag (§ 25 TDDDG). Bis jemand "Zustimmen"
+     klickt, laedt die Seite NICHTS von Google — auch keine cookielosen
+     Consent-Mode-Pings. Ohne JavaScript bleibt die Leiste verborgen, dann
+     gibt es auch keinen Tag. -->
+<div class="einwilligung" id="einwilligung" role="region" aria-labelledby="einwilligung-titel" hidden>
+  <div class="wrap">
+    <h2 id="einwilligung-titel">Darf Google mitzählen?</h2>
+    <p>Wir werben bei Google um Ehrenamtliche. Wenn du zustimmst, lädt diese Seite den Google-Tag und
+      meldet Google, ob nach einem Klick auf unsere Anzeige eine Bewerbung abgeschickt wurde. Dafür
+      setzt Google Cookies. Ohne deine Zustimmung funktioniert alles genauso. Du kannst deine Wahl
+      jederzeit unten über „Cookie-Einstellungen“ ändern.
+      <a href="https://lebenpflegenreisen.de/datenschutz/" target="_blank" rel="noopener">Mehr in der Datenschutzerklärung</a>.</p>
+    <div class="knoepfe">
+      <button type="button" class="knopf knopf-wahl" data-wahl="nein">Ablehnen</button>
+      <button type="button" class="knopf knopf-wahl" data-wahl="ja">Zustimmen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // Google-Ads-Konto 185-550-3558 (Vorstand). KONVERSION ist die
+  // Conversion-Aktion "Bewerbung Ehrenamt" (Lead-Formular, eine pro Klick,
+  // erweiterte Conversions bewusst AUS — keine E-Mail-Adressen an Google).
+  var GOOGLE_TAG = 'AW-18526859362';
+  var KONVERSION = 'AW-18526859362/h9esCM-eqKMdEOLgpYJF';
+
+  // Gespeichert wird nur die Wahl selbst — das ist technisch notwendig und
+  // braucht keine Einwilligung. Nach zwoelf Monaten fragen wir neu.
+  var SCHLUESSEL = 'lpr-einwilligung-google';
+  var GUELTIG_MS = 365 * 24 * 60 * 60 * 1000;
+
+  var leiste = document.getElementById('einwilligung');
+  var geladen = false;
+
+  function leseWahl() {
+    try {
+      var w = JSON.parse(localStorage.getItem(SCHLUESSEL) || 'null');
+      if (w && (w.wahl === 'ja' || w.wahl === 'nein') && Date.now() - w.zeit < GUELTIG_MS) return w.wahl;
+    } catch (e) { /* privates Fenster, gesperrter Speicher: dann eben neu fragen */ }
+    return null;
+  }
+
+  function speichereWahl(wahl) {
+    try { localStorage.setItem(SCHLUESSEL, JSON.stringify({ wahl: wahl, zeit: Date.now() })); } catch (e) { /* s. o. */ }
+  }
+
+  function ladeGoogleTag() {
+    if (geladen) return;
+    geladen = true;
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    // Nur Messung, keine Personalisierung und kein Analytics.
+    window.gtag('consent', 'default', {
+      ad_storage: 'granted', ad_user_data: 'granted',
+      ad_personalization: 'denied', analytics_storage: 'denied'
+    });
+    window.gtag('js', new Date());
+    window.gtag('config', GOOGLE_TAG);
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GOOGLE_TAG;
+    document.head.appendChild(s);
+  }
+
+  // Widerruf: Google nichts mehr senden lassen und die Cookies entfernen,
+  // die der Tag auf dieser Domain gesetzt hat (_gcl_*). Die Cookies bei
+  // google.com selbst kann eine Webseite nicht loeschen.
+  function widerrufe() {
+    if (geladen && window.gtag) {
+      window.gtag('consent', 'update', { ad_storage: 'denied', ad_user_data: 'denied' });
+    }
+    document.cookie.split(';').forEach(function (c) {
+      var name = c.split('=')[0].trim();
+      if (name.indexOf('_gcl') === 0) {
+        document.cookie = name + '=; Max-Age=0; path=/';
+        document.cookie = name + '=; Max-Age=0; path=/; domain=.lebenpflegenreisen.de';
+      }
+    });
+  }
+
+  // Solange die Leiste offen ist, bekommt die Seite unten so viel Platz,
+  // dass Impressum und Datenschutz nicht darunter verschwinden.
+  function zeigeLeiste(an) {
+    leiste.hidden = !an;
+    document.body.style.paddingBottom = an ? leiste.offsetHeight + 'px' : '';
+  }
+
+  function anwenden(wahl) {
+    if (wahl === 'ja') ladeGoogleTag();
+    else widerrufe();
+  }
+
+  leiste.addEventListener('click', function (e) {
+    var wahl = e.target.getAttribute && e.target.getAttribute('data-wahl');
+    if (!wahl) return;
+    speichereWahl(wahl);
+    zeigeLeiste(false);
+    anwenden(wahl);
+  });
+
+  document.getElementById('einwilligung-aendern').addEventListener('click', function () {
+    zeigeLeiste(true);
+    leiste.querySelector('[data-wahl]').focus();
+  });
+
+  // Fuer das Formular: meldet eine abgeschickte Bewerbung, aber nur mit
+  // Einwilligung und nur, wenn die Conversion-Aktion eingetragen ist.
+  window.lprMeldeBewerbung = function () {
+    if (geladen && KONVERSION && window.gtag) {
+      window.gtag('event', 'conversion', { send_to: KONVERSION });
+    }
+  };
+
+  var bisher = leseWahl();
+  if (bisher) anwenden(bisher);
+  else zeigeLeiste(true);
+})();
+</script>
 
 <script>
 (function () {
@@ -787,6 +942,7 @@ footer.seite nav { margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap; 
       geschafft.hidden = false;
       geschafft.scrollIntoView({ block: 'center' });
       document.title = 'Bewerbung abgeschickt – Leben Pflegen Reisen e.V.';
+      if (window.lprMeldeBewerbung) window.lprMeldeBewerbung();
     })
     .catch(function (err) {
       knopf.disabled = false;

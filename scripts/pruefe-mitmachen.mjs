@@ -72,6 +72,46 @@ pruefe('Gate 4 — kein externes Stylesheet',
 pruefe('Gate 4 — keine externen Bilder', !/<img[^>]+src=["']https?:/i.test(html),
   'Bilder als inline-SVG oder data:-URI.');
 
+// ── Gate 5: Google-Tag nur nach Einwilligung ───────────────────────────────
+// Einzige Ausnahme von Gate 4 (seit 20.10.2026). Der Tag darf nur an EINER
+// Stelle stehen — in ladeGoogleTag() —, und die darf nur aufgerufen werden,
+// wenn die Wahl "ja" lautet. Kein <script src> im Markup, sonst laedt der
+// Browser ihn vor jeder Einwilligung.
+const gtmStellen = html.match(/googletagmanager\.com/g) || [];
+pruefe('Gate 5 — Google-Tag an genau einer Stelle', gtmStellen.length === 1,
+  `gefunden: ${gtmStellen.length}. Nur ladeGoogleTag() darf googletagmanager.com nennen.`);
+pruefe('Gate 5 — Google-Tag nicht im Markup', !/<script[^>]+googletagmanager/i.test(html),
+  'Ein statisches <script src> laedt vor der Einwilligung.');
+const tagFn = html.match(/function ladeGoogleTag\(\)\s*\{[\s\S]*?\n {2}\}/);
+pruefe('Gate 5 — Tag steckt in ladeGoogleTag()',
+  !!tagFn && tagFn[0].includes('googletagmanager.com'),
+  'googletagmanager.com muss innerhalb von ladeGoogleTag() stehen.');
+const aufrufe = [...html.matchAll(/^.*\bladeGoogleTag\(\).*$/gm)].map(m => m[0])
+  .filter(z => !/function ladeGoogleTag/.test(z));
+pruefe('Gate 5 — Tag nur nach "ja"',
+  aufrufe.length === 1 && /wahl === 'ja'/.test(aufrufe[0]),
+  `Aufrufe: ${JSON.stringify(aufrufe)}. Erlaubt ist nur: if (wahl === 'ja') ladeGoogleTag();`);
+pruefe('Gate 5 — keine Personalisierung', /ad_personalization:\s*'denied'/.test(html),
+  'Der Tag misst nur; ad_personalization bleibt denied.');
+
+// ── Gate 6: Einwilligungsleiste ────────────────────────────────────────────
+// Ablehnen muss so leicht sein wie Zustimmen: gleiche Klasse, gleiche Ebene.
+const wahlKnoepfe = [...html.matchAll(/<button[^>]*data-wahl=["'](ja|nein)["'][^>]*>/g)];
+pruefe('Gate 6 — Ablehnen und Zustimmen vorhanden',
+  wahlKnoepfe.map(m => m[1]).sort().join() === 'ja,nein',
+  'Genau zwei Knoepfe mit data-wahl="ja" und data-wahl="nein".');
+pruefe('Gate 6 — beide Knoepfe gleich gestaltet',
+  wahlKnoepfe.length === 2 &&
+  wahlKnoepfe[0][0].match(/class=["']([^"']+)/)?.[1] === wahlKnoepfe[1][0].match(/class=["']([^"']+)/)?.[1],
+  'Ablehnen darf nicht unscheinbarer sein als Zustimmen.');
+pruefe('Gate 6 — Leiste startet verborgen', /id=["']einwilligung["'][^>]*\bhidden\b/.test(html),
+  'Ohne JavaScript gibt es keinen Tag, also auch keine Leiste.');
+pruefe('Gate 6 — Wahl jederzeit aenderbar', html.includes('id="einwilligung-aendern"'),
+  'Knopf "Cookie-Einstellungen" in der Fusszeile fehlt.');
+pruefe('Gate 6 — Hinweis auf Datenschutzerklaerung',
+  /id=["']einwilligung["'][\s\S]*?lebenpflegenreisen\.de\/datenschutz\//.test(html),
+  'Die Leiste muss auf die Datenschutzerklaerung verweisen.');
+
 // ── Barrierefreiheit und Grundgeruest ──────────────────────────────────────
 pruefe('lang="de" gesetzt', /<html[^>]+lang=["']de["']/.test(html),
   'Ohne lang liest der Screenreader deutschen Text englisch vor.');

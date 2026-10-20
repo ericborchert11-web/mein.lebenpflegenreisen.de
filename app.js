@@ -3593,6 +3593,46 @@
     }
   }
 
+  // Vorstand traegt die IBAN eines Mitglieds ein, z.B. wenn sie per Mail oder
+  // Telefon kommt. Gleiche Form wie updateMyIban (leer = loeschen), dazu die
+  // Pruefziffer nach ISO 13616 – ein Zahlendreher landet sonst erst bei der
+  // Bank als Fehlbuchung.
+  async function setUserIban(userId, rawIban) {
+    const s = getSession();
+    if (!s || (s.role !== 'admin' && s.role !== 'board')) {
+      return { ok: false, error: 'Nur der Vorstand kann die IBAN ändern.' };
+    }
+    if (!userId) return { ok: false, error: 'Keine User-ID.' };
+    const iban = (rawIban || '').replace(/\s+/g, '').toUpperCase();
+    if (iban !== '' && !/^DE[0-9]{20}$/.test(iban)) {
+      return { ok: false, error: 'Bitte eine gültige deutsche IBAN angeben (DE + 20 Ziffern).' };
+    }
+    if (iban !== '') {
+      const ziffern = (iban.slice(4) + iban.slice(0, 4)).replace(/[A-Z]/g, c => String(c.charCodeAt(0) - 55));
+      let rest = 0;
+      for (const z of ziffern) rest = (rest * 10 + Number(z)) % 97;
+      if (rest !== 1) return { ok: false, error: 'Die Prüfziffer der IBAN stimmt nicht. Bitte auf Zahlendreher prüfen.' };
+    }
+    try {
+      const { data, error } = await (await sb())
+        .from('profiles')
+        .update({ iban: iban || null, iban_updated_at: new Date().toISOString() })
+        .eq('id', userId)
+        .select('iban, iban_updated_at')
+        .single();
+      if (error) return { ok: false, error: error.message };
+      // Zurueckgelesen wie beim Tarif: der Spaltenschutz setzt Unerlaubtes
+      // still zurueck.
+      if ((data.iban || '') !== iban) {
+        return { ok: false, error: 'Die IBAN wurde nicht übernommen.' };
+      }
+      return { ok: true, iban: data.iban, iban_updated_at: data.iban_updated_at };
+    } catch (e) {
+      console.error('[LPR] setUserIban:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function setUserTarif(userId, tarif) {
     const s = getSession();
     if (!s || (s.role !== 'admin' && s.role !== 'board')) {
@@ -3639,7 +3679,7 @@
       const client = await sb();
       const [profileRes, prefsRes] = await Promise.all([
         client.from('profiles')
-          .select('qualifications, activity_types, preferred_shifts, home_plz, max_km, tarif, masern_status, masern_geprueft_am')
+          .select('qualifications, activity_types, preferred_shifts, home_plz, max_km, tarif, masern_status, masern_geprueft_am, iban, iban_updated_at')
           .eq('id', userId)
           .single(),
         client.from('clinic_preferences')
@@ -3669,6 +3709,8 @@
           // "Fehlt", waehrend die Liste daneben "✓ Masern" zeigte.
           masernStatus:     profileRes.data.masern_status || 'offen',
           masernGeprueftAm: profileRes.data.masern_geprueft_am || null,
+          iban:             profileRes.data.iban || '',
+          ibanUpdatedAt:    profileRes.data.iban_updated_at || null,
           clinicPrefs
         }
       };
@@ -8117,7 +8159,7 @@
     terminPunktEinreichen, setTerminPunktStatus, listTerminPunkte,
     interessentUebernehmen, interessentEinladen, getEhrenamtQuellen, meinEinladungslink,
     // Präferenzen — Vorstand
-    setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference, setUserTarif,
+    setUserHardPreferences, getUserPreferences, setUserSoftPreferences, setUserClinicPreference, setUserTarif, setUserIban,
     setUserMasern, getMyMasern, MASERN_STATUS, MASERN_TEXT,
     register, loginWithPassword, pruefeUndSetzeSession, requireRole,
     requestPasswordReset, setNewPassword, requestMagicLink, hatPasswort, setzePasswort,

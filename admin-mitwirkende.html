@@ -163,6 +163,13 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
   font-family: inherit; font-size: 13.5px; background: #fff;
 }
 .mw-tarif select:focus { outline: none; border-color: var(--green); }
+.mw-tarif input {
+  width: 100%; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); padding: 9px 12px;
+  font-family: inherit; font-size: 13.5px; background: #fff;
+  letter-spacing: .03em;
+}
+.mw-tarif input:focus { outline: none; border-color: var(--green); }
 .mw-hint {
   font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 10px;
 }
@@ -389,6 +396,24 @@ dialog#profile-dialog::backdrop { background: rgba(0,0,0,.45); }
           Nur setzen, wenn der Nachweis vorliegt. Sana rechnet T1-Dienste über die DSA
           gegen das Pflegebudget ab. Bei uns ändert die Einstufung nichts an Preis
           oder Auszahlung.
+        </p>
+      </div>
+    </div>
+
+    <!-- Bankverbindung: der Vorstand traegt die IBAN ein, wenn sie per Mail oder
+         Telefon kommt. Ohne IBAN traegt jede Zahlungsanweisung "IBAN fehlt". -->
+    <div class="pd-section">
+      <div class="pd-section-head">
+        <h4>Bankverbindung</h4>
+        <span class="type-label hard">Hart · Admin</span>
+      </div>
+      <div class="mw-tarif">
+        <label for="mw-iban">IBAN für Auszahlungen</label>
+        <input type="text" id="mw-iban" inputmode="text" autocomplete="off" spellcheck="false"
+               maxlength="34" placeholder="DE00 0000 0000 0000 0000 00">
+        <p class="mw-hint" id="mw-iban-spur">
+          Wird nur gespeichert, wenn du sie änderst. Die Prüfziffer wird kontrolliert.
+          Eine schon verschickte Zahlungsanweisung danach unter Auszahlungen erneut senden.
         </p>
       </div>
     </div>
@@ -871,6 +896,7 @@ async function openProfile(userId, email, name) {
   document.getElementById('pref-plz').value   = '';
   document.getElementById('pref-maxkm').value = '';
   document.getElementById('mw-tarif-sel').value = 'T2';
+  document.getElementById('mw-iban').value = '';
   document.getElementById('mw-masern-sel').value = 'offen';
   document.getElementById('mw-masern-spur').style.display = 'none';
 
@@ -954,6 +980,9 @@ function renderProfileSections() {
   // leerer Wert darf hier keine leere Auswahl zeigen, sonst saehe eine nicht
   // eingestufte Person aus wie eine, deren Einstufung verlorengegangen ist.
   document.getElementById('mw-tarif-sel').value = p.tarif === 'T1' ? 'T1' : 'T2';
+
+  // IBAN in Vierergruppen, wie sie auf Kontoauszuegen steht.
+  document.getElementById('mw-iban').value = (p.iban || '').replace(/(.{4})/g, '$1 ').trim();
 
   // Masernnachweis. Ein unbekannter oder fehlender Wert gilt als 'offen' —
   // im Zweifel fehlt der Nachweis, nicht umgekehrt.
@@ -1184,6 +1213,7 @@ async function saveProfile() {
   if (typeof LPR.setUserSoftPreferences !== 'function') missing.push('setUserSoftPreferences');
   if (typeof LPR.setUserTarif !== 'function') missing.push('setUserTarif');
   if (typeof LPR.setUserMasern !== 'function') missing.push('setUserMasern');
+  if (typeof LPR.setUserIban !== 'function') missing.push('setUserIban');
   if (missing.length > 0) {
     showToast('Fehler: API unvollständig (' + missing.join(', ') + '). Bitte Strg+Shift+R drücken.');
     return;
@@ -1196,21 +1226,28 @@ async function saveProfile() {
   const maxKm           = document.getElementById('pref-maxkm').value;
   const tarif           = document.getElementById('mw-tarif-sel').value;
   const masern          = document.getElementById('mw-masern-sel').value;
+  const iban            = document.getElementById('mw-iban').value.replace(/\s+/g, '').toUpperCase();
+  // Nur schreiben, wenn sich etwas geaendert hat – sonst bekaeme jede Person
+  // bei jedem Speichern ein neues iban_updated_at.
+  const ibanGeaendert   = iban !== ((_currentPrefs && _currentPrefs.iban) || '');
+  if (ibanGeaendert && iban === '' &&
+      !confirm('Die IBAN dieser Person wirklich löschen?')) return;
 
   const saveBtn = document.querySelector('.pd-save');
   const oldText = saveBtn.textContent;
   saveBtn.disabled = true;
   saveBtn.textContent = 'Speichern …';
 
-  let hardRes, softRes, tarifRes, masernRes;
+  let hardRes, softRes, tarifRes, masernRes, ibanRes;
   try {
     // Hart, weich und Tarif parallel speichern — die Karte schreibt alle
     // Felder in einem Rutsch, nur die Klinik-Praeferenzen laufen sofort.
-    [hardRes, softRes, tarifRes, masernRes] = await Promise.all([
+    [hardRes, softRes, tarifRes, masernRes, ibanRes] = await Promise.all([
       LPR.setUserHardPreferences(_currentUser.id, { qualifications, activityTypes }),
       LPR.setUserSoftPreferences(_currentUser.id, { preferredShifts, homePlz, maxKm }),
       LPR.setUserTarif(_currentUser.id, tarif),
-      LPR.setUserMasern(_currentUser.id, masern)
+      LPR.setUserMasern(_currentUser.id, masern),
+      ibanGeaendert ? LPR.setUserIban(_currentUser.id, iban) : Promise.resolve({ ok: true })
     ]);
   } catch (e) {
     saveBtn.disabled = false;
@@ -1246,6 +1283,10 @@ async function saveProfile() {
   // geht ohne Nachweis an ein Bett.
   if (!masernRes || !masernRes.ok) {
     showToast('Masernnachweis: ' + ((masernRes && masernRes.error) || 'Fehler'));
+    return;
+  }
+  if (!ibanRes || !ibanRes.ok) {
+    showToast('IBAN: ' + ((ibanRes && ibanRes.error) || 'Fehler'));
     return;
   }
 

@@ -681,6 +681,12 @@ function renderBookings() {
           '<button class="as-btn" data-act="complete" data-id="' + b.id + '">Abschließen</button>' +
           '<button class="as-btn warn" data-act="noshow" data-id="' + b.id + '">No-Show</button>' +
           '<button class="as-btn warn" data-act="cancel" data-id="' + b.id + '">Stornieren</button>';
+        // Nur im JVK: dort zaehlt, WER kommt (BZR-Abfrage am Tor).
+        const konto = _kKonten.find(k => k.id === b.clinic_id);
+        if (konto && konto.bzrPflicht && !hatEinsatz) {
+          actions += '<button class="as-btn" data-act="tauschen" data-id="' + b.id + '" '
+            + 'title="Andere Person einteilen — das JVK bekommt „Ersatz bestätigt“">Person tauschen</button>';
+        }
         // Papier-Stundenzettel: nur fuer vergangene Dienste ohne eigenen Einsatz.
         if (!hatEinsatz && b.date < new Date().toLocaleDateString('sv-SE')) {
           actions += '<button class="as-btn" data-act="nacherfassen" data-id="' + b.id + '" ' +
@@ -1131,11 +1137,55 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('oa-abbrechen').onclick = odAktionSchliessen;
   document.getElementById('oa-ok').onclick        = odAktionBestaetigen;
   document.getElementById('oa-overlay').onclick   = e => { if (e.target.id === 'oa-overlay') odAktionSchliessen(); };
+  document.getElementById('tb-abbrechen').onclick = tbSchliessen;
+  document.getElementById('tb-ok').onclick        = tbBestaetigen;
+  document.getElementById('tb-overlay').onclick   = e => { if (e.target.id === 'tb-overlay') tbSchliessen(); };
   document.getElementById('od-liste').addEventListener('click', e => {
     const b = e.target.closest('button[data-od]');
     if (b) odZeilenAktion(b);
   });
 });
+
+// ═══ Person tauschen (nur JVK) ═══
+//
+// Die alte Person hat meist schon per WhatsApp abgesagt; sie bekommt
+// deshalb nichts. Die RPC prueft BZR, Doppelbuchung und Einsatz selbst —
+// hier wird nur ausgewaehlt.
+let _tbBuchung = null;
+
+async function tbOeffnen(b) {
+  _tbBuchung = b;
+  document.getElementById('tb-fehler').hidden = true;
+  document.getElementById('tb-grund').value = '';
+  document.getElementById('tb-info').innerHTML =
+    esc(fmtDate(b.date)) + ' · ' + esc(SHIFT_SHORT[b.shift] || b.shift) + ' · ' + esc(b.clinic_name)
+    + '<br>Bisher: <strong>' + esc(b.volunteer_name) + '</strong> — bekommt keine Mail.'
+    + '<br>Das JVK bekommt „Ersatz bestätigt“ mit dem neuen Namen, die neue Person ihren Dienst mit Kalendereintrag.';
+  const sel = document.getElementById('tb-person');
+  sel.innerHTML = '<option value="">wird geladen…</option>';
+  document.getElementById('tb-overlay').hidden = false;
+  const pe = await LPR.boardEhrenamtlicheMitBzr();
+  const auswahl = (pe.personen || []).filter(p => p.bzr_ok && p.id !== b.volunteer_id);
+  sel.innerHTML = auswahl.map(p => '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>').join('')
+    || '<option value="">— niemand mit gültiger BZR-Abfrage —</option>';
+}
+
+function tbSchliessen() { document.getElementById('tb-overlay').hidden = true; _tbBuchung = null; }
+
+async function tbBestaetigen() {
+  if (!_tbBuchung) return;
+  const fehler = document.getElementById('tb-fehler');
+  const person = document.getElementById('tb-person').value;
+  if (!person) { fehler.textContent = 'Bitte eine Person wählen.'; fehler.hidden = false; return; }
+  const btn = document.getElementById('tb-ok');
+  btn.disabled = true; fehler.hidden = true;
+  const res = await LPR.boardBuchungTauschen(_tbBuchung.id, person, document.getElementById('tb-grund').value);
+  btn.disabled = false;
+  if (!res.ok) { fehler.textContent = res.error || 'Tauschen fehlgeschlagen.'; fehler.hidden = false; return; }
+  tbSchliessen();
+  toast('Getauscht. Das JVK und die neue Person werden benachrichtigt.');
+  await loadBookings();
+}
 
 // ═══ Buchung nachtragen ═══
 let _nbPersonen = [];
@@ -1337,6 +1387,7 @@ async function onBookingAction(btn) {
   }
   if (act === 'nacherfassen') { nfOeffnen(b); return; }
   if (act === 'angaben') { baOeffnen(b); return; }
+  if (act === 'tauschen') { tbOeffnen(b); return; }
 
   let status, hours = null;
 
@@ -1574,6 +1625,22 @@ init();
     <div class="ev-actions">
       <button type="button" class="as-btn" id="oa-abbrechen">Abbrechen</button>
       <button type="button" class="as-btn" id="oa-ok"></button>
+    </div>
+  </div>
+</div>
+
+<div id="tb-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog" role="dialog" aria-labelledby="tb-titel">
+    <h2 id="tb-titel">Person tauschen</h2>
+    <p class="ev-info" id="tb-info"></p>
+    <label class="ev-label" for="tb-person">Wer übernimmt den Dienst?</label>
+    <select id="tb-person"></select>
+    <label class="ev-label" for="tb-grund">Grund (optional, nur intern)</label>
+    <input type="text" id="tb-grund" maxlength="120" placeholder="z. B. krank">
+    <div class="ev-fehler" id="tb-fehler" hidden></div>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="tb-abbrechen">Abbrechen</button>
+      <button type="button" class="as-btn" id="tb-ok">Tauschen</button>
     </div>
   </div>
 </div>

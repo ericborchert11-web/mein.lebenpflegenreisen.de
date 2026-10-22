@@ -5355,6 +5355,13 @@
         ? await client.from('profiles').select('id, full_name').in('id', ids)
         : { data: [] };
       const nameMap = {}; (prof || []).forEach(p => { nameMap[p.id] = p.full_name || ''; });
+      // Haeuser mit BZR-Pflicht (JVK). Faellt die Abfrage aus, fehlt nur der
+      // Knopf "Person tauschen" — die RPC prueft ohnehin selbst.
+      const haeuserIds = [...new Set((data || []).map(c => c.linked_clinic_id).filter(Boolean))];
+      const { data: hs } = haeuserIds.length
+        ? await client.from('clinics').select('id, bzr_pflicht').in('id', haeuserIds)
+        : { data: [] };
+      const mitBzr = new Set((hs || []).filter(h => h.bzr_pflicht).map(h => h.id));
       const mitControlling = new Set((data || []).filter(c => c.controlling && c.linked_clinic_id).map(c => c.linked_clinic_id));
       return { ok: true, kliniken: (data || []).map(c => ({
         id: c.id,
@@ -5364,7 +5371,8 @@
         haus: c.linked_clinic_id || c.id,
         controlling: !!c.controlling,
         alleAbteilungen: !!c.notify_all_departments,
-        stationPflicht: !!(c.linked_clinic_id && mitControlling.has(c.linked_clinic_id))
+        stationPflicht: !!(c.linked_clinic_id && mitControlling.has(c.linked_clinic_id)),
+        bzrPflicht: !!(c.linked_clinic_id && mitBzr.has(c.linked_clinic_id))
       })) };
     } catch(e) {
       console.error('[LPR] boardKlinikKonten:', e);
@@ -5553,6 +5561,25 @@
       return { ok: true, bookingId: data };
     } catch(e) {
       console.error('[LPR] boardOffenenDienstBesetzen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * VORSTAND: Person einer offenen JVK-Buchung tauschen (Migration BF).
+   * Die alte Buchung wird still abgesagt, die neue meldet der Klinik
+   * „Ersatz bestätigt" und der neuen Person ihren Dienst.
+   */
+  async function boardBuchungTauschen(bookingId, volunteerId, grund) {
+    try {
+      const { data, error } = await (await sb()).rpc('board_buchung_tauschen', {
+        p_booking: bookingId, p_volunteer: volunteerId,
+        p_grund: String(grund || '').trim() || null
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, bookingId: data };
+    } catch(e) {
+      console.error('[LPR] boardBuchungTauschen:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
     }
   }
@@ -8243,7 +8270,7 @@
     playbookKapitel,
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,
     boardFehlbedarfNachtragen, boardOffeneDiensteAnlegen, boardOffeneDienste,
-    boardOffenerDienstStatus, boardOffenerDienstLoeschen, boardOffenenDienstBesetzen,
+    boardOffenerDienstStatus, boardOffenerDienstLoeschen, boardOffenenDienstBesetzen, boardBuchungTauschen,
     foerderArbeitsplan, foerderDokumentKategorien, foerderDokumente, foerderAntraege,
     foerderDokumentSpeichern, foerderDokumentOeffnen, foerderProjekte, foerderProjektSpeichern,
     foerderAntrag, foerderAntragSpeichern, foerderAntragFreigabe, foerderAntragLoeschen, foerderPositionenErsetzen, foerderAnlagenErsetzen,

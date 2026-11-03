@@ -570,10 +570,15 @@ const SHIFT_LABELS = {
  * nicht einen Zwischenschritt: wer um 15:30 zu einem 14-Uhr-Dienst kommt,
  * will "Einsatz beginnen" sehen, nicht "Einsatz oeffnen".
  */
-function schichtBeginn(dateIso, shift) {
+function schichtBeginn(dateIso, shift, beginnZeit) {
   const s = SHIFT_LABELS[shift];
   if (!s || !dateIso) return null;
   const [y, m, d] = dateIso.split('-').map(Number);
+  // Eigene Dienstzeit (Migration BG) geht der Schicht vor.
+  if (beginnZeit) {
+    const [h, min] = String(beginnZeit).split(':').map(Number);
+    return new Date(y, m - 1, d, h, min, 0);
+  }
   return new Date(y, m - 1, d, s.start, 0, 0);
 }
 function uhrzeit(d) {
@@ -813,7 +818,7 @@ async function renderUpcomingBookings() {
         // Die Schicht laeuft, der Einsatz ist aber nicht gestartet: das ist
         // der Moment, in dem die Karte draengen darf. "Heute" allein waere
         // hier zu beilaeufig.
-        const beginn = schichtBeginn(b.date, b.shift);
+        const beginn = schichtBeginn(b.date, b.shift, LPR.dienstZeit(b) && b.beginn_zeit);
         if (beginn && beginn.getTime() <= Date.now()) {
           return '<div class="bb-status offen"><span aria-hidden="true">▶</span> Dienst läuft seit '
                + escape(uhrzeit(beginn)) + ' Uhr — Einsatz noch nicht begonnen</div>';
@@ -854,7 +859,7 @@ async function renderUpcomingBookings() {
 
     /** Beginn in Stunden — aus der Schicht oder aus der Uhrzeit des Termins. */
     function beginnStunde(b) {
-      if (b.shift === 'termin') {
+      if (b.shift === 'termin' || LPR.dienstZeit(b)) {
         const t = String(b.beginn_zeit || '00:00').split(':');
         return Number(t[0]) + Number(t[1] || 0) / 60;
       }
@@ -891,7 +896,9 @@ async function renderUpcomingBookings() {
         </div>`;
       }
 
-      const sh = SHIFT_LABELS[b.shift] || { label: b.shift, time: '' };
+      const zeit = LPR.dienstZeit(b);
+      const sh = zeit ? { label: 'Sitzwache', time: zeit.text + ' Uhr' }
+                      : (SHIFT_LABELS[b.shift] || { label: b.shift, time: '' });
       const flags = (b.patient_flags || []).map(f =>
         `<span class="bb-flag-mini">${escape(FLAG_LABELS[f] || f)}</span>`
       ).join('');
@@ -925,7 +932,7 @@ async function renderUpcomingBookings() {
                 // fuehrt. "Einsatz oeffnen" ist eine Wegbeschreibung; wer zum
                 // Dienst erscheint, will die Handlung.
                 const laeuft = einsatzInfo[b.id] && einsatzInfo[b.id].einsatz_status === 'laufend';
-                const beginn = schichtBeginn(b.date, b.shift);
+                const beginn = schichtBeginn(b.date, b.shift, LPR.dienstZeit(b) && b.beginn_zeit);
                 // Eine Stunde vor Beginn ist der Start realistisch — vorher
                 // waere der Knopf eine Einladung, zu frueh zu stempeln.
                 const bald = beginn && (beginn.getTime() - Date.now()) < 3600000;

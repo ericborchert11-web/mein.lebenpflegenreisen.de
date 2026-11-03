@@ -157,6 +157,10 @@ h1 { margin:0 0 4px; }
 .empf-liste input { margin-top: 3px; }
 .empf-liste .as-sub { display: block; }
 @media (max-width: 520px) { .nf-grid { grid-template-columns: 1fr; } }
+.zeit-reihe { display: flex; align-items: center; gap: 8px; }
+.zeit-reihe input { flex: 1; min-width: 0; }
+.zeit-info { font-size: 12px; color: #7A8270; margin-top: 4px; }
+.zeit-info.warn { color: #9B2C2C; }
 /* Raster statt Flow: gleich breite Kacheln brechen sauber um, statt je nach
    Textlaenge unterschiedlich hohe Zeilen zu bilden. */
 .nf-taet { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
@@ -727,7 +731,7 @@ function renderBookings() {
       }
       return '<tr>' +
         '<td>' + fmtDate(b.date) + warn + '</td>' +
-        '<td>' + esc(SHIFT_SHORT[b.shift] || b.shift) + '</td>' +
+        '<td>' + esc(schichtText(b)) + '</td>' +
         '<td>' + esc(b.volunteer_name) + '</td>' +
         '<td>' + esc(b.clinic_name) + stationHinweis(b) + '</td>' +
         '<td>' + esc(b.patient_room || '—') +
@@ -946,12 +950,84 @@ function odRendern() {
               ? '<button class="as-btn warn" data-od="unbesetzt" data-id="' + d.id + '">Niemand verfügbar</button>'
               : '<button class="as-btn" data-od="offen" data-id="' + d.id + '">Wieder offen</button>')
           + '<button class="as-btn" data-od="loeschen" data-id="' + d.id + '" title="Falsch angelegt">Löschen</button>';
-        return '<tr><td>' + esc(fmtDate(d.requested_date)) + '</td><td>' + esc(OD_SCHICHT_KURZ[d.shift] || d.shift)
+        const odZeit = d.time_from && d.time_to
+          ? String(d.time_from).slice(0, 5) + '–' + String(d.time_to).slice(0, 5) + ' Uhr'
+          : (OD_SCHICHT_KURZ[d.shift] || d.shift);
+        return '<tr><td>' + esc(fmtDate(d.requested_date)) + '</td><td>' + esc(odZeit)
           + '</td><td>' + esc(d.clinic_name || '—') + (d.station ? '<br><span class="as-sub">' + esc(d.station) + '</span>' : '')
           + '</td><td>' + zustand + '<span class="as-sub">' + esc(herkunft) + '</span></td><td>' + esc(d.notes || '')
           + '</td><td><div class="od-aktionen">' + aktionen + '</div></td></tr>';
       }).join('')
     + '</tbody></table>';
+}
+
+// ═══ Eigene Zeit (Migration BG) ═══
+// In beiden Dialogen ist „Eigene Zeit …“ die vierte Schicht. Die Felder
+// starten mit der zuletzt gewaehlten Schicht, damit nur das Abweichende
+// getippt werden muss (18:00 statt 14:00). Gespeichert wird die Schicht,
+// in die der Beginn faellt, plus Beginn und Ende.
+const SCHICHT_ZEIT = { morning: ['06:00', '14:00'], afternoon: ['14:00', '22:00'], night: ['22:00', '06:00'] };
+const _zeitVorher = {};
+
+function zeitFeldSchicht(pre) {
+  const sel = document.getElementById(pre + '-schicht');
+  const eigen = sel.value === 'eigen';
+  document.getElementById(pre + '-zeit').hidden = !eigen;
+  if (!eigen) { _zeitVorher[pre] = sel.value; return; }
+  const [von, bis] = SCHICHT_ZEIT[_zeitVorher[pre]] || SCHICHT_ZEIT.afternoon;
+  const v = document.getElementById(pre + '-zeit-von');
+  const b = document.getElementById(pre + '-zeit-bis');
+  if (!v.value) v.value = von;
+  if (!b.value) b.value = bis;
+  zeitFeldInfo(pre);
+  v.focus();
+}
+
+function zeitFeldInfo(pre) {
+  const von = document.getElementById(pre + '-zeit-von').value;
+  const bis = document.getElementById(pre + '-zeit-bis').value;
+  const el = document.getElementById(pre + '-zeit-info');
+  const h = LPR.dienstStunden(von, bis);
+  el.classList.remove('warn');
+  if (!h) { el.textContent = 'Beginn und Ende eintragen.'; return; }
+  if (h > 12) { el.textContent = h.toLocaleString('de-DE') + ' Std. — länger als 12 Stunden geht nicht.'; el.classList.add('warn'); return; }
+  const anteil = h >= 8 ? 'volle Pauschale' : 'Pauschale anteilig: ' + Math.round(h / 8 * 100) + ' %';
+  el.textContent = h.toLocaleString('de-DE') + ' Std. · zählt als ' + SHIFT_SHORT[LPR.dienstSchicht(von)] + ' · ' + anteil;
+}
+
+/** { schicht, von, bis } aus einem Dialog; von/bis nur bei eigener Zeit. Fehlertext statt Objekt bei Unsinn. */
+function zeitFeldWert(pre) {
+  const sel = document.getElementById(pre + '-schicht').value;
+  if (sel !== 'eigen') return { schicht: sel, von: null, bis: null };
+  const von = document.getElementById(pre + '-zeit-von').value;
+  const bis = document.getElementById(pre + '-zeit-bis').value;
+  const h = LPR.dienstStunden(von, bis);
+  if (!h) return 'Bitte Beginn und Ende der eigenen Zeit angeben.';
+  if (h > 12) return 'Ein Dienst dauert höchstens 12 Stunden.';
+  return { schicht: LPR.dienstSchicht(von), von, bis };
+}
+
+function zeitFeldLeeren(pre) {
+  document.getElementById(pre + '-zeit-von').value = '';
+  document.getElementById(pre + '-zeit-bis').value = '';
+  const sel = document.getElementById(pre + '-schicht');
+  if (sel.value === 'eigen') sel.value = _zeitVorher[pre] || sel.options[0].value;
+  zeitFeldSchicht(pre);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  ['od', 'nb'].forEach(pre => {
+    _zeitVorher[pre] = document.getElementById(pre + '-schicht').value;
+    document.getElementById(pre + '-schicht').addEventListener('change', () => zeitFeldSchicht(pre));
+    ['-zeit-von', '-zeit-bis'].forEach(id =>
+      document.getElementById(pre + id).addEventListener('input', () => zeitFeldInfo(pre)));
+  });
+});
+
+/** Schicht oder eigene Zeit einer Buchung, kurz fuer die Tabelle. */
+function schichtText(b) {
+  const z = LPR.dienstZeit(b);
+  return z ? z.text + ' Uhr' : (SHIFT_SHORT[b.shift] || b.shift);
 }
 
 // Klinik-Konten, geladen beim Oeffnen eines Dialogs. Ein Haus (Krankenhaus)
@@ -1003,6 +1079,7 @@ function odHausGewechselt() {
 async function odNeuOeffnen() {
   document.getElementById('od-fehler').hidden = true;
   ['od-station', 'od-notiz', 'od-von', 'od-bis'].forEach(id => { document.getElementById(id).value = ''; });
+  zeitFeldLeeren('od');
   document.getElementById('od-overlay').hidden = false;
   await kontenLaden();
   document.getElementById('od-klinik').innerHTML = haeuser().map(h =>
@@ -1023,6 +1100,8 @@ async function odNeuSpeichern() {
   const empf = gewaehlteEmpfaenger('od-empf');
   const station = document.getElementById('od-station').value.trim();
   const zeigeFehler = t => { fehler.textContent = t; fehler.hidden = false; };
+  const zeit = zeitFeldWert('od');
+  if (typeof zeit === 'string') return zeigeFehler(zeit);
   if (!empf.length && _kKonten.some(k => k.haus === haus && !k.alleAbteilungen)) {
     return zeigeFehler('Bitte ankreuzen, wer die Bestätigung bekommt.');
   }
@@ -1037,7 +1116,9 @@ async function odNeuSpeichern() {
     klinikId: konto,
     benachrichtigen: empf,
     von, bis,
-    schicht:  document.getElementById('od-schicht').value,
+    schicht:  zeit.schicht,
+    zeitVon:  zeit.von,
+    zeitBis:  zeit.bis,
     station,
     notiz:    document.getElementById('od-notiz').value,
     status:   'offen'
@@ -1196,6 +1277,7 @@ async function nbOeffnen() {
   document.getElementById('nb-station').value = '';
   document.getElementById('nb-notiz').value   = '';
   document.getElementById('nb-datum').value   = '';
+  zeitFeldLeeren('nb');
   document.getElementById('nb-overlay').hidden = false;
 
   const [, pe] = await Promise.all([kontenLaden(), LPR.boardEhrenamtlicheMitBzr()]);
@@ -1252,11 +1334,13 @@ async function nbSpeichern() {
   const btn = document.getElementById('nb-ok');
   fehler.hidden = true;
 
+  const zeit = zeitFeldWert('nb');
+  if (typeof zeit === 'string') { fehler.textContent = zeit; fehler.hidden = false; return; }
   const nutzlast = {
     clinic_id:    document.getElementById('nb-klinik').value,
     volunteer_id: document.getElementById('nb-person').value,
     date:         document.getElementById('nb-datum').value,
-    shift:        document.getElementById('nb-schicht').value,
+    shift:        zeit.schicht,
     station:      document.getElementById('nb-station').value.trim(),
     notes:        document.getElementById('nb-notiz').value.trim()
   };
@@ -1303,6 +1387,17 @@ async function nbSpeichern() {
     fehler.textContent = res.error || 'Nachtragen fehlgeschlagen.';
     fehler.hidden = false;
     return;
+  }
+  // Die Zeit ist ein zweiter Schritt: Die Buchung steht dann schon. Scheitert
+  // er, wird das gesagt statt verschwiegen — der Dienst bleibt nachgetragen.
+  if (zeit.von) {
+    const zr = await LPR.boardBuchungZeit(res.booking_id, zeit.von, zeit.bis);
+    if (!zr.ok) {
+      nbSchliessen();
+      LPR.showToast('Buchung nachgetragen, aber die Uhrzeit fehlt: ' + (zr.error || 'unbekannter Fehler'), 'warn');
+      loadBookings();
+      return;
+    }
   }
   nbSchliessen();
   LPR.showToast('Buchung nachgetragen. Es wurde niemand benachrichtigt.', 'warn');
@@ -1577,7 +1672,17 @@ init();
           <option value="night">Nachtdienst 22–06</option>
           <option value="morning">Frühdienst 06–14</option>
           <option value="afternoon">Spätdienst 14–22</option>
+          <option value="eigen">Eigene Zeit …</option>
         </select>
+      </div>
+      <div id="od-zeit" hidden>
+        <span class="ev-label">Uhrzeit</span>
+        <div class="zeit-reihe">
+          <input type="time" id="od-zeit-von" step="900" aria-label="Beginn">
+          <span>bis</span>
+          <input type="time" id="od-zeit-bis" step="900" aria-label="Ende">
+        </div>
+        <div class="zeit-info" id="od-zeit-info"></div>
       </div>
       <div>
         <label class="ev-label" for="od-von">von</label>
@@ -1679,7 +1784,17 @@ init();
           <option value="morning">Frühdienst 06–14</option>
           <option value="afternoon">Spätdienst 14–22</option>
           <option value="night">Nachtdienst 22–06</option>
+          <option value="eigen">Eigene Zeit …</option>
         </select>
+      </div>
+      <div id="nb-zeit" hidden>
+        <span class="ev-label">Uhrzeit</span>
+        <div class="zeit-reihe">
+          <input type="time" id="nb-zeit-von" step="900" aria-label="Beginn">
+          <span>bis</span>
+          <input type="time" id="nb-zeit-bis" step="900" aria-label="Ende">
+        </div>
+        <div class="zeit-info" id="nb-zeit-info"></div>
       </div>
       <div>
         <label class="ev-label" for="nb-station" id="nb-station-label">Station</label>

@@ -1097,6 +1097,8 @@ async function loadBookingsFromDb() {
           status: b.status,
           date: b.date,
           shift_de: shiftDe,
+          // Eigene Dienstzeit (Migration BG), sonst null
+          zeit: LPR.dienstZeit(b),
           station: b.station || '',
           station_phone: b.station_phone || '',
           unterwegs_ts: b.unterwegs_ts || null,
@@ -1252,7 +1254,7 @@ function renderUpcoming() {
       : '';
     return `<div style="border:1px solid #E4DFD2;border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:#fff">
       <div>
-        <div style="font-weight:700">${dstr} · ${UPCOMING_SHIFT[b.shift_de] || b.shift_de}</div>
+        <div style="font-weight:700">${dstr} · ${b.zeit ? b.zeit.text + ' Uhr' : (UPCOMING_SHIFT[b.shift_de] || b.shift_de)}</div>
         <div style="font-size:14px;color:#555;margin-top:2px">${b.clinic_name}${b.patient_room ? ' · Zimmer ' + b.patient_room : ''} · <span style="color:${pillColor};font-weight:600">${(b.status === 'planned' && b.bestaetigung_durch_verein) ? 'eingeteilt — der Verein bestätigt' : (UPCOMING_STATUS[b.status] || b.status)}</span></div>
         ${b.anmeldung_aufnahme ? `<div style="font-size:14px;margin-top:6px">Anmeldung an der Aufnahme${b.station ? '' : ' — dort erfährst du die Station'}</div>` : ''}
         ${anreise ? `<div style="font-size:14px;font-weight:700;color:#24456E;margin-top:6px">→ ${escape(anreise.text)}</div>` : ''}
@@ -1430,7 +1432,7 @@ function onUpcomingCancel(btn) {
   const b = Object.values(_dbBookings).find(x => x.id === btn.dataset.id);
   _cancelBookingId = btn.dataset.id;
   document.getElementById('cancel-sub').textContent = b
-    ? `${b.clinic_name} · ${keyToDate(b.date).toLocaleDateString('de-DE', { weekday:'long', day:'2-digit', month:'long' })} · ${UPCOMING_SHIFT[b.shift_de] || b.shift_de}`
+    ? `${b.clinic_name} · ${keyToDate(b.date).toLocaleDateString('de-DE', { weekday:'long', day:'2-digit', month:'long' })} · ${b.zeit ? b.zeit.text + ' Uhr' : (UPCOMING_SHIFT[b.shift_de] || b.shift_de)}`
     : '';
   document.getElementById('cancel-grund').value = '';
   const box = document.getElementById('cancel-gruende');

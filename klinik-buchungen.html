@@ -439,7 +439,9 @@ function renderList() {
 
   let html = '';
   for (const b of filtered) {
-    const sh = SHIFT_LABELS[b.shift] || { label: b.shift, time: '' };
+    const zeit = LPR.dienstZeit(b);
+    const sh = zeit ? { label: 'Sitzwache', time: zeit.text + ' Uhr' }
+                    : (SHIFT_LABELS[b.shift] || { label: b.shift, time: '' });
     const flags = (b.patient_flags || []).map(f =>
       `<span class="kbl-flag-chip-mini">${escape(FLAG_LABELS[f] || f)}</span>`
     ).join('') || '<span style="color:var(--muted);font-size:13px;">—</span>';

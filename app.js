@@ -4611,7 +4611,7 @@
     try {
       let q = (await sb())
         .from('bookings')
-        .select('id, volunteer_id, date, shift, status, station, fallnummer, patient_room, patient_flags, patient_notes, patient_count, created_at, cancelled_at, cancelled_by_user_id, cancellation_reason, station_phone, unterwegs_ts, eta_ts, no_show_marked_at, no_show_note, profiles!bookings_volunteer_id_fkey(full_name)')
+        .select('id, volunteer_id, date, shift, status, station, fallnummer, patient_room, patient_flags, patient_notes, patient_count, created_at, cancelled_at, cancelled_by_user_id, cancellation_reason, station_phone, unterwegs_ts, eta_ts, no_show_marked_at, no_show_note, beginn_zeit, stunden_geplant, profiles!bookings_volunteer_id_fkey(full_name)')
         .eq('clinic_id', s.id)
         .order('date', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
@@ -5430,13 +5430,14 @@
    * Legt einen Dienst je Tag von `von` bis `bis` an (beide einschliesslich).
    * status 'offen' oder 'unbesetzt', bei 'unbesetzt' ist grund Pflicht.
    */
-  async function boardOffeneDiensteAnlegen({ klinikId, von, bis, schicht, station, notiz, status, grund, benachrichtigen } = {}) {
+  async function boardOffeneDiensteAnlegen({ klinikId, von, bis, schicht, station, notiz, status, grund, benachrichtigen, zeitVon, zeitBis } = {}) {
     const s = getSession();
     if (!s) return { ok: false, error: 'Nicht eingeloggt.' };
     if (!klinikId || !von) return { ok: false, error: 'Klinik und Datum sind Pflicht.' };
     if (!FEHLBEDARF_SCHICHTEN.includes(schicht)) return { ok: false, error: 'Bitte eine Schicht wählen.' };
     if (!['offen', 'unbesetzt'].includes(status)) return { ok: false, error: 'Unbekannter Zustand.' };
     if (status === 'unbesetzt' && !OFFEN_GRUENDE.includes(grund)) return { ok: false, error: 'Bitte einen Grund wählen.' };
+    if (!zeitVon !== !zeitBis) return { ok: false, error: 'Bitte Beginn und Ende angeben.' };
 
     // Tage aufzaehlen ueber setDate, nicht ueber Millisekunden — sonst wird aus
     // dem Tag nach der Zeitumstellung der Tag davor.
@@ -5472,7 +5473,10 @@
         reason:         status === 'unbesetzt' ? grund : null,
         notes:          (notiz || '').trim() || null,
         // Wer die Bestaetigung bekommt (Migration BB). Leer = Standardregel.
-        benachrichtigen: (benachrichtigen && benachrichtigen.length) ? benachrichtigen : null
+        benachrichtigen: (benachrichtigen && benachrichtigen.length) ? benachrichtigen : null,
+        // Eigene Zeit (Migration BG): beim Besetzen wird daraus die Buchungszeit.
+        time_from:      zeitVon || null,
+        time_to:        zeitBis || null
       }));
       const { data, error } = await client.from('unstaffed_requests').insert(zeilen).select();
       if (error) return { ok: false, error: error.message };
@@ -5585,6 +5589,54 @@
   }
 
   /**
+   * VORSTAND: eigene Dienstzeit einer Klinikbuchung (Migration BG).
+   * Beide leer = zurueck auf die Schicht. Die Pauschale wird anteilig.
+   */
+  async function boardBuchungZeit(bookingId, von, bis) {
+    try {
+      const { error } = await (await sb()).rpc('board_buchung_zeit', {
+        p_booking: bookingId, p_von: von || null, p_bis: bis || null
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) {
+      console.error('[LPR] boardBuchungZeit:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Eigene Dienstzeit einer Buchung als { von, bis, stunden, text } — oder
+   * null, dann gilt die Schicht. Termine beim Kunden sind etwas anderes und
+   * haben ihre eigene Anzeige.
+   */
+  function dienstZeit(b) {
+    if (!b || b.shift === 'termin' || !b.beginn_zeit || !b.stunden_geplant) return null;
+    const von = String(b.beginn_zeit).slice(0, 5);
+    const [h, m] = von.split(':').map(Number);
+    const stunden = Number(b.stunden_geplant);
+    const min = (h * 60 + m + Math.round(stunden * 60)) % (24 * 60);
+    const bis = String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0');
+    return { von, bis, stunden, text: von + '–' + bis };
+  }
+
+  /** Dauer zwischen zwei Uhrzeiten "HH:MM" in Stunden, ueber Mitternacht hinweg. */
+  function dienstStunden(von, bis) {
+    if (!von || !bis) return null;
+    const [a, b] = [von, bis].map(t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; });
+    const d = (b - a + 24 * 60) % (24 * 60) || 24 * 60;
+    return Math.round(d / 60 * 100) / 100;
+  }
+
+  /** Schicht, in die eine Beginnzeit faellt — wie public.dienst_schicht. */
+  function dienstSchicht(von) {
+    const [h] = String(von || '').split(':').map(Number);
+    if (h >= 6 && h < 14) return 'morning';
+    if (h >= 14 && h < 22) return 'afternoon';
+    return 'night';
+  }
+
+  /**
    * VORSTAND: Station und Empfaenger einer Klinikbuchung korrigieren
    * (Migration BB). Bei vergangenen Diensten geht keine Mail raus, bei
    * kuenftigen meldet ein Stationswechsel die Aenderung wie gewohnt.
@@ -5641,7 +5693,7 @@
     try {
       const client = await sb();
       let q = client.from('bookings')
-        .select('id, volunteer_id, clinic_id, date, shift, hours, compensation_eur, status, completed_at, late_cancellation, patient_room, patient_flags, patient_notes, patient_count, cancellation_reason, cancelled_at, cancelled_by_user_id, station, benachrichtigen, nachgetragen')
+        .select('id, volunteer_id, clinic_id, date, shift, hours, compensation_eur, status, completed_at, late_cancellation, patient_room, patient_flags, patient_notes, patient_count, cancellation_reason, cancelled_at, cancelled_by_user_id, station, benachrichtigen, nachgetragen, beginn_zeit, stunden_geplant')
         .order('date', { ascending: false });
       if (fromDate) q = q.gte('date', fromDate);
       if (toDate)   q = q.lte('date', toDate);
@@ -8271,6 +8323,7 @@
     foerderListProgramme, foerderListAufgaben, foerderListNotizen,
     boardFehlbedarfNachtragen, boardOffeneDiensteAnlegen, boardOffeneDienste,
     boardOffenerDienstStatus, boardOffenerDienstLoeschen, boardOffenenDienstBesetzen, boardBuchungTauschen,
+    boardBuchungZeit, dienstZeit, dienstStunden, dienstSchicht,
     foerderArbeitsplan, foerderDokumentKategorien, foerderDokumente, foerderAntraege,
     foerderDokumentSpeichern, foerderDokumentOeffnen, foerderProjekte, foerderProjektSpeichern,
     foerderAntrag, foerderAntragSpeichern, foerderAntragFreigabe, foerderAntragLoeschen, foerderPositionenErsetzen, foerderAnlagenErsetzen,

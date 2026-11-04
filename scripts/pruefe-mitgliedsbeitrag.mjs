@@ -69,5 +69,13 @@ pruefe('5 € von 9 € ist teilweise', stand.m2 && stand.m2.status === 'teilwei
 pruefe('Beitrag 2027 zaehlt nicht fuer 2026', !stand.m3, JSON.stringify(stand.m3));
 pruefe('Soll 2026 = 9 €, danach 12 €', MB.sollCents(2026) === 900 && MB.sollCents(2027) === 1200, '');
 
+const k = (o) => MB.kandidat(Object.assign({ betrag_cents: 900, verwendungszweck: 'Mitgliedsbeitrag 2026' }, o));
+pruefe('Offener Eingang ist Kandidat', k({}), '');
+pruefe('Von Hand als Sonstige verbuchter Beitrag ist Kandidat', k({ erloeskonto: 'sonstige' }), '');
+pruefe('Sonstige ohne Beitrag im Zweck bleibt in Ruhe', !k({ erloeskonto: 'sonstige', verwendungszweck: 'Spende' }), '');
+pruefe('Erloese 45a werden nie umgebucht', !k({ erloeskonto: 'erloes_45a' }), '');
+pruefe('Schon einem Mitglied zugeordnet -> kein Kandidat', !k({ mitglied_id: 'm1', erloeskonto: 'sonstige' }), '');
+pruefe('Rechnung bleibt Rechnung', !k({ invoice_id: 'r1' }), '');
+
 if (fehler.length) { console.error('FEHLER:\n- ' + fehler.join('\n- ')); process.exit(1); }
 console.log('Mitgliedsbeitrag: alle Pruefungen bestanden.');

@@ -149,8 +149,8 @@ dialog.mg-dlg::backdrop { background: rgba(26,58,42,.38); }
 </dialog>
 </main>
 
-<script src="mitgliedsbeitrag.js?v20261104a"></script>
-<script src="app.js?v20261104b"></script>
+<script src="mitgliedsbeitrag.js?v20261104b"></script>
+<script src="app.js?v20261104c"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -160,18 +160,13 @@ LPR_Layout.init({ page: 'mitglieder' });
 let _mitglieder = [];
 let _buchungen = [];
 let _offen = null;   // Mitglied im Dialog
+let _autoGelaufen = false;
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 function deDate(iso) { return iso ? iso.slice(8,10) + '.' + iso.slice(5,7) + '.' + iso.slice(0,4) : '—'; }
 function eur(cents) { return LPR.centsToEUR(cents); }
 function heute() { return new Date().toLocaleDateString('sv-SE'); }
-
-// Ein Eingang ist erledigt, sobald er einen Vorgang, ein Mitglied oder ein
-// Erloeskonto hat — dieselbe Regel wie im Kassenbuch.
-function istOffenerEingang(b) {
-  return b.betrag_cents > 0 && !b.invoice_id && !b.claim_id && !b.erloeskonto && !b.mitglied_id;
-}
 
 async function init() {
   const session = LPR.getSession();
@@ -195,6 +190,22 @@ async function lade() {
   }
   _mitglieder = m.mitglieder;
   _buchungen = k.ok ? k.buchungen : [];
+  // Eindeutige Beitraege gleich verbuchen — dieselbe Regel wie nach dem
+  // CSV-Upload im Kassenbuch. Nur einmal je Laden, dann neu lesen.
+  if (!_autoGelaufen) {
+    _autoGelaufen = true;
+    let n = 0;
+    for (const b of _buchungen.filter(Mitgliedsbeitrag.kandidat)) {
+      const v = Mitgliedsbeitrag.vorschlagFuer(b, _mitglieder);
+      if (!v || !v.sicher) continue;
+      const r = await LPR.kassenbuchBeitragZuordnen(b.id, v.mitglied_id, v.jahr, b);
+      if (r.ok) n++;
+    }
+    if (n) {
+      LPR.showToast(n + ' Mitgliedsbeitr' + (n === 1 ? 'ag' : 'äge') + ' aus dem Kassenbuch zugeordnet.');
+      return lade();
+    }
+  }
   zeichne();
 }
 
@@ -283,7 +294,7 @@ function zeile(z) {
 // ── Beitragseingaenge, die das Portal nicht sicher zuordnen konnte ─────────
 function zeichneZuordnen() {
   const wrap = document.getElementById('zuordnen-wrap');
-  const kandidaten = _buchungen.filter(istOffenerEingang)
+  const kandidaten = _buchungen.filter(Mitgliedsbeitrag.kandidat)
     .map(b => ({ b, v: Mitgliedsbeitrag.vorschlagFuer(b, _mitglieder) }))
     .filter(x => x.v);
   if (!kandidaten.length) { wrap.hidden = true; wrap.innerHTML = ''; return; }
@@ -312,7 +323,8 @@ async function zuordnen(btn, buchungId, jahr) {
   const mitglied = document.getElementById('z-' + buchungId).value;
   if (!mitglied) { LPR.showToast('Bitte zuerst ein Mitglied wählen.', 'warn'); return; }
   btn.disabled = true;
-  const res = await LPR.kassenbuchBeitragZuordnen(buchungId, mitglied, jahr);
+  const res = await LPR.kassenbuchBeitragZuordnen(buchungId, mitglied, jahr,
+    _buchungen.find(x => x.id === buchungId));
   if (!res.ok) { LPR.showToast(res.error, 'warn'); btn.disabled = false; return; }
   LPR.showToast('Als Beitrag verbucht.');
   await lade();

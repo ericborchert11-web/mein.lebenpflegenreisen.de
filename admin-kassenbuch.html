@@ -212,10 +212,10 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
 
 <script src="kassenbuch-csv.js?v20260921a"></script>
 <script src="kassenbuch-zuordnung.js?v20261007a"></script>
-<script src="mitgliedsbeitrag.js?v20261104a"></script>
+<script src="mitgliedsbeitrag.js?v20261104b"></script>
 <script src="kassenbuch-auswertung.js?v20261007b"></script>
 <script src="ust-ampel.js?v20261007a"></script>
-<script src="app.js?v20261104b"></script>
+<script src="app.js?v20261104c"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -337,15 +337,15 @@ async function importieren(btn) {
 }
 
 function beitragsVorschlag(b) {
-  return istZugeordnet(b) ? null : Mitgliedsbeitrag.vorschlagFuer(b, _mitglieder);
+  return Mitgliedsbeitrag.kandidat(b) ? Mitgliedsbeitrag.vorschlagFuer(b, _mitglieder) : null;
 }
 
 async function beitraegeVerbuchen() {
   let n = 0;
-  for (const b of _alle.filter(x => !istZugeordnet(x))) {
+  for (const b of _alle.filter(Mitgliedsbeitrag.kandidat)) {
     const v = Mitgliedsbeitrag.vorschlagFuer(b, _mitglieder);
     if (!v || !v.sicher) continue;
-    const res = await LPR.kassenbuchBeitragZuordnen(b.id, v.mitglied_id, v.jahr);
+    const res = await LPR.kassenbuchBeitragZuordnen(b.id, v.mitglied_id, v.jahr, b);
     if (res.ok) n++;
   }
   return n;
@@ -451,7 +451,7 @@ function oeffneDialog(id) {
   // Dialog, wie er war.
   document.getElementById('dlg-konto-block').hidden = !istEingang(b);
   document.getElementById('dlg-beitrag-block').hidden = !istEingang(b);
-  const mb = istZugeordnet(b) ? null : Mitgliedsbeitrag.vorschlagFuer(b, _mitglieder);
+  const mb = beitragsVorschlag(b);
   document.getElementById('dlg-mitglied').value = b.mitglied_id || (mb && mb.mitglied_id) || '';
   document.getElementById('dlg-beitrag-jahr').value = b.beitrag_jahr || (mb && mb.jahr)
     || String(b.buchungstag || '').slice(0, 4);
@@ -578,7 +578,7 @@ async function vorschlaegeUebernehmen(btn) {
   const offen = _buchungen.filter(b => !istZugeordnet(b));
   const treffer = offen.map(b => ({ b, v: KassenbuchZuordnung.vorschlagFuer(b, _vorgaenge) }))
                        .filter(x => x.v.art);
-  const beitraege = offen.filter(b => { const v = beitragsVorschlag(b); return v && v.sicher; }).length;
+  const beitraege = _buchungen.filter(b => { const v = beitragsVorschlag(b); return v && v.sicher; }).length;
   if (!treffer.length && !beitraege) { LPR.showToast('Keine eindeutigen Vorschläge gefunden.', 'warn'); return; }
   btn.disabled = true;
   btn.textContent = 'Übernehme …';
@@ -645,10 +645,9 @@ async function ladeListe() {
   const ohneZuordnung = _buchungen.filter(b => !istZugeordnet(b)).length;
   const ohneBeleg     = _buchungen.filter(belegFehlt).length;
   const vorschlaege   = _buchungen.filter(b => {
-                          if (istZugeordnet(b)) return false;
-                          if (KassenbuchZuordnung.vorschlagFuer(b, _vorgaenge).art) return true;
                           const mb = beitragsVorschlag(b);
-                          return !!(mb && mb.sicher);
+                          if (mb && mb.sicher) return true;
+                          return !istZugeordnet(b) && !!KassenbuchZuordnung.vorschlagFuer(b, _vorgaenge).art;
                         }).length;
 
   const stand = document.getElementById('f-stand').value;

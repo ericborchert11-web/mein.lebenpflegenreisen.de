@@ -7558,10 +7558,13 @@
    * Bereich und gehoeren auf "Sonstige Einnahmen", nicht auf eines der drei
    * Erloeskonten (Briefing Mitgliederschreiben, 03.11.2026).
    */
-  function kassenbuchBeitragZuordnen(id, mitgliedId, jahr) {
+  function kassenbuchBeitragZuordnen(id, mitgliedId, jahr, alt) {
+    // Eine schon verbuchte Zeile behaelt Beleg und eigene Notiz.
+    const a = alt || {};
     return kassenbuchZuordnen(id, {
       mitglied_id: mitgliedId, beitrag_jahr: jahr,
-      erloeskonto: 'sonstige', sphaere: 'ideell', notiz: 'Mitgliedsbeitrag ' + jahr
+      erloeskonto: 'sonstige', sphaere: 'ideell',
+      beleg_url: a.beleg_url || null, notiz: a.notiz || ('Mitgliedsbeitrag ' + jahr)
     });
   }
 

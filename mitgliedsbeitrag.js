@@ -124,7 +124,20 @@
     return stand;
   }
 
+  /**
+   * Kommt eine Buchung fuer die Beitragserkennung in Frage? Offene Eingaenge
+   * immer; schon verbuchte nur, wenn sie von Hand als "Sonstige Einnahme" mit
+   * "Beitrag" im Zweck gebucht wurden, aber noch an keinem Mitglied haengen
+   * (so lagen die ersten Beitraege vor dem 04.11.2026 im Kassenbuch).
+   */
+  function kandidat(b) {
+    if (!b || Number(b.betrag_cents) <= 0 || b.mitglied_id || b.invoice_id || b.claim_id) return false;
+    if (!b.erloeskonto) return true;
+    return b.erloeskonto === 'sonstige' && istBeitragsZweck(b.verwendungszweck);
+  }
+
   var Mitgliedsbeitrag = {
+    kandidat: kandidat,
     vorschlagFuer: vorschlagFuer,
     standJeMitglied: standJeMitglied,
     sollCents: sollCents,

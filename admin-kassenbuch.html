@@ -175,6 +175,14 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
     <label for="dlg-vorgang">Gehört zu einem Vorgang im Portal</label>
     <select id="dlg-vorgang" onchange="vorgangGewaehlt()"></select>
 
+    <div id="dlg-beitrag-block">
+      <p class="kb-trenner">oder Mitgliedsbeitrag</p>
+      <label for="dlg-mitglied">Mitglied</label>
+      <select id="dlg-mitglied" onchange="mitgliedGewaehlt()"></select>
+      <label for="dlg-beitrag-jahr">für das Jahr</label>
+      <input id="dlg-beitrag-jahr" type="number" min="2026" max="2100" step="1">
+    </div>
+
     <div id="dlg-konto-block">
       <p class="kb-trenner">oder Einnahme ohne Rechnung</p>
       <label for="dlg-konto">Erlöskonto</label>
@@ -204,9 +212,10 @@ dialog.kb-dlg::backdrop { background: rgba(26,58,42,.38); }
 
 <script src="kassenbuch-csv.js?v20260921a"></script>
 <script src="kassenbuch-zuordnung.js?v20261007a"></script>
+<script src="mitgliedsbeitrag.js?v20261104a"></script>
 <script src="kassenbuch-auswertung.js?v20261007b"></script>
 <script src="ust-ampel.js?v20261007a"></script>
-<script src="app.js?v20261007c"></script>
+<script src="app.js?v20261104a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -220,6 +229,7 @@ let _offen = null;   // die Buchung, die gerade im Dialog liegt
 let _staende = [];
 let _alle = [];      // alle Jahre — der Kontostand darf nicht am Jahresfilter haengen
 let _ust = [];       // Zeilen aus v_ust_umsatz, je Jahr eine
+let _mitglieder = []; // fuer die Beitragserkennung
 
 // Rechnungen nach id — das Konto einer Buchung mit Rechnung steht an der Rechnung.
 function rechnungenNachId() {
@@ -252,6 +262,10 @@ async function init() {
     + '<option value="ohne">Einnahmen ohne Konto</option>';
   const v = await LPR.kassenbuchVorgaenge();
   if (v.ok) { _vorgaenge = { rechnungen: v.rechnungen, antraege: v.antraege }; fuelleVorgangsListe(); }
+  const m = await LPR.mitgliederListe();
+  if (m.ok) _mitglieder = m.mitglieder;
+  document.getElementById('dlg-mitglied').innerHTML = '<option value="">— keins —</option>'
+    + _mitglieder.map(x => `<option value="${escapeAttr(x.id)}">${escapeHtml(x.full_name)}</option>`).join('');
   await ladeAlles();
 }
 
@@ -310,11 +324,36 @@ async function importieren(btn) {
   btn.disabled = true;
   const res = await LPR.kassenbuchImport(_neue);
   if (!res.ok) { LPR.showToast(res.error, 'warn'); btn.disabled = false; return; }
-  LPR.showToast(res.neu + ' Buchungen übernommen.');
   _neue = [];
   document.getElementById('vorschau').hidden = true;
   document.getElementById('datei').value = '';
   await ladeAlles();
+  // Gleich nach dem Upload: eindeutige Mitgliedsbeitraege verbuchen, damit die
+  // Mitgliederliste ohne weiteren Klick stimmt.
+  const beitraege = await beitraegeVerbuchen();
+  LPR.showToast(res.neu + ' Buchungen übernommen'
+    + (beitraege ? ', davon ' + beitraege + ' Mitgliedsbeitr' + (beitraege === 1 ? 'ag' : 'äge') + ' erkannt' : '') + '.');
+  if (beitraege) await ladeAlles();
+}
+
+function beitragsVorschlag(b) {
+  return istZugeordnet(b) ? null : Mitgliedsbeitrag.vorschlagFuer(b, _mitglieder);
+}
+
+async function beitraegeVerbuchen() {
+  let n = 0;
+  for (const b of _alle.filter(x => !istZugeordnet(x))) {
+    const v = Mitgliedsbeitrag.vorschlagFuer(b, _mitglieder);
+    if (!v || !v.sicher) continue;
+    const res = await LPR.kassenbuchBeitragZuordnen(b.id, v.mitglied_id, v.jahr);
+    if (res.ok) n++;
+  }
+  return n;
+}
+
+function mitgliedName(id) {
+  const m = _mitglieder.find(x => x.id === id);
+  return m ? m.full_name : 'Mitglied';
 }
 
 // ── Zuordnung ────────────────────────────────────────────────────────────
@@ -342,6 +381,10 @@ function belegFehlt(b) { return !!b.kostenart && !b.beleg_url; }
 function belegZelle(b) {
   const name = vorgangName(b);
   if (name) return '<span class="kb-beleg">' + escapeHtml(name) + '</span>';
+  if (b.mitglied_id) {
+    return '<span class="kb-beleg">Beitrag ' + escapeHtml(String(b.beitrag_jahr)) + ' · '
+      + escapeHtml(mitgliedName(b.mitglied_id)) + '</span>';
+  }
   if (istEingang(b) && b.erloeskonto && !b.kostenart) {
     return '<span class="kb-beleg">Einnahme</span>'
       + (b.beleg_url ? ' <a class="kb-beleg" href="' + escapeAttr(b.beleg_url) + '" target="_blank" rel="noopener">Beleg ↗</a>' : '');
@@ -354,6 +397,13 @@ function belegZelle(b) {
   }
   const v = KassenbuchZuordnung.vorschlagFuer(b, _vorgaenge);
   if (v.art) return '<span class="kb-vorschlag">Vorschlag: ' + escapeHtml(v.bezeichnung) + '</span>';
+  const mb = beitragsVorschlag(b);
+  if (mb && mb.mitglied_id) {
+    return '<span class="kb-vorschlag">' + (mb.sicher ? 'Vorschlag' : 'Beitrag?') + ': '
+      + escapeHtml(mitgliedName(mb.mitglied_id)) + '</span>'
+      + (mb.hinweis ? ' <span class="kb-beleg">' + escapeHtml(mb.hinweis) + '</span>' : '');
+  }
+  if (mb) return '<span class="kb-offen">offen</span> <span class="kb-beleg">' + escapeHtml(mb.hinweis) + '</span>';
   if (v.hinweis) return '<span class="kb-offen">offen</span> <span class="kb-beleg">' + escapeHtml(v.hinweis) + '</span>';
   return '<span class="kb-offen">offen</span>';
 }
@@ -400,6 +450,12 @@ function oeffneDialog(id) {
   // Das Erloeskonto gibt es nur fuer Eingaenge; bei Ausgaengen bleibt der
   // Dialog, wie er war.
   document.getElementById('dlg-konto-block').hidden = !istEingang(b);
+  document.getElementById('dlg-beitrag-block').hidden = !istEingang(b);
+  const mb = istZugeordnet(b) ? null : Mitgliedsbeitrag.vorschlagFuer(b, _mitglieder);
+  document.getElementById('dlg-mitglied').value = b.mitglied_id || (mb && mb.mitglied_id) || '';
+  document.getElementById('dlg-beitrag-jahr').value = b.beitrag_jahr || (mb && mb.jahr)
+    || String(b.buchungstag || '').slice(0, 4);
+  if (!vorschlag.hinweis && mb && mb.hinweis) { hinweis.hidden = false; hinweis.textContent = mb.hinweis; }
   document.getElementById('dlg-konto').value = b.erloeskonto || '';
   document.getElementById('dlg-45a').checked = b.erloeskonto === 'erloes_reisen' && b.ust_pflichtig === false;
   document.getElementById('dlg-45a-zeile').hidden = b.erloeskonto !== 'erloes_reisen';
@@ -421,6 +477,15 @@ function vorgangGewaehlt() {
   // Mit Rechnung gilt deren Konto — ein eigenes daneben waere eine zweite Wahrheit.
   document.getElementById('dlg-konto').value = '';
   document.getElementById('dlg-45a-zeile').hidden = true;
+  document.getElementById('dlg-mitglied').value = '';
+}
+
+function mitgliedGewaehlt() {
+  if (!document.getElementById('dlg-mitglied').value) return;
+  document.getElementById('dlg-vorgang').value = '';
+  document.getElementById('dlg-konto').value = '';
+  document.getElementById('dlg-kostenart').value = '';
+  document.getElementById('dlg-45a-zeile').hidden = true;
 }
 
 function kontoGewaehlt() {
@@ -428,12 +493,14 @@ function kontoGewaehlt() {
   document.getElementById('dlg-45a-zeile').hidden = k !== 'erloes_reisen';
   if (k !== 'erloes_reisen') document.getElementById('dlg-45a').checked = false;
   if (k) document.getElementById('dlg-vorgang').value = '';
+  if (k) document.getElementById('dlg-mitglied').value = '';
 }
 
 function kostenartGewaehlt() {
   const k = document.getElementById('dlg-kostenart').value;
   if (!k) return;
   document.getElementById('dlg-vorgang').value = '';
+  document.getElementById('dlg-mitglied').value = '';
   document.getElementById('dlg-sphaere').value = KassenbuchZuordnung.sphaereZu(k);
 }
 
@@ -443,6 +510,23 @@ async function speichern(btn, loesen) {
   m.hidden = true;
 
   let z = {};
+  const mitglied = istEingang(_offen) ? document.getElementById('dlg-mitglied').value : '';
+  if (!loesen && mitglied) {
+    const jahr = Number(document.getElementById('dlg-beitrag-jahr').value);
+    if (!(jahr >= 2026 && jahr <= 2100)) {
+      m.textContent = 'Bitte das Beitragsjahr angeben.';
+      m.hidden = false;
+      return;
+    }
+    btn.disabled = true;
+    const r = await LPR.kassenbuchBeitragZuordnen(_offen.id, mitglied, jahr);
+    btn.disabled = false;
+    if (!r.ok) { m.textContent = r.error; m.hidden = false; return; }
+    document.getElementById('dlg').close();
+    LPR.showToast('Als Mitgliedsbeitrag verbucht.');
+    await ladeAlles();
+    return;
+  }
   if (!loesen) {
     const v = document.getElementById('dlg-vorgang').value;
     const k = document.getElementById('dlg-kostenart').value;
@@ -494,7 +578,8 @@ async function vorschlaegeUebernehmen(btn) {
   const offen = _buchungen.filter(b => !istZugeordnet(b));
   const treffer = offen.map(b => ({ b, v: KassenbuchZuordnung.vorschlagFuer(b, _vorgaenge) }))
                        .filter(x => x.v.art);
-  if (!treffer.length) { LPR.showToast('Keine eindeutigen Vorschläge gefunden.', 'warn'); return; }
+  const beitraege = offen.filter(b => { const v = beitragsVorschlag(b); return v && v.sicher; }).length;
+  if (!treffer.length && !beitraege) { LPR.showToast('Keine eindeutigen Vorschläge gefunden.', 'warn'); return; }
   btn.disabled = true;
   btn.textContent = 'Übernehme …';
   let geschrieben = 0, misslungen = 0;
@@ -503,6 +588,7 @@ async function vorschlaegeUebernehmen(btn) {
     const res = await LPR.kassenbuchZuordnen(t.b.id, z);
     if (res.ok) geschrieben++; else misslungen++;
   }
+  geschrieben += await beitraegeVerbuchen();
   LPR.showToast(geschrieben + ' zugeordnet' + (misslungen ? ', ' + misslungen + ' fehlgeschlagen' : '') + '.',
     misslungen ? 'warn' : undefined);
   await ladeAlles();
@@ -558,8 +644,12 @@ async function ladeListe() {
   const aus = _buchungen.filter(b => b.betrag_cents < 0).reduce((s, b) => s + b.betrag_cents, 0);
   const ohneZuordnung = _buchungen.filter(b => !istZugeordnet(b)).length;
   const ohneBeleg     = _buchungen.filter(belegFehlt).length;
-  const vorschlaege   = _buchungen.filter(b => !istZugeordnet(b)
-                          && KassenbuchZuordnung.vorschlagFuer(b, _vorgaenge).art).length;
+  const vorschlaege   = _buchungen.filter(b => {
+                          if (istZugeordnet(b)) return false;
+                          if (KassenbuchZuordnung.vorschlagFuer(b, _vorgaenge).art) return true;
+                          const mb = beitragsVorschlag(b);
+                          return !!(mb && mb.sicher);
+                        }).length;
 
   const stand = document.getElementById('f-stand').value;
   const sichtbar = stand === 'offen'  ? _buchungen.filter(b => !istZugeordnet(b))

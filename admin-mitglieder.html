@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Mitglieder · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.mg-wrap { max-width: 1050px; margin: 32px auto 60px; padding: 0 24px; }
+
+.mg-header {
+  background: #fff; border-radius: var(--radius); padding: 24px 28px;
+  margin-bottom: 18px; box-shadow: var(--shadow); border: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap;
+}
+.mg-header h1 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px;
+  color: var(--green-deep); margin: 0 0 6px; letter-spacing: -.02em;
+}
+.mg-header p { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; max-width: 620px; }
+
+.mg-card {
+  background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+  border: 1px solid var(--border); overflow: hidden;
+}
+.mg-card + .mg-card { margin-top: 14px; }
+.mg-pad { padding: 20px 24px; }
+.mg-zahlen { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-end; }
+.mg-zahl strong { font-size: 22px; font-family: 'Bricolage Grotesque', sans-serif; color: var(--green-deep); }
+.mg-zahl div { font-size: 12.5px; color: var(--muted); }
+.mg-zahl.warn strong { color: #8A3A22; }
+
+.mg-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.mg-table th {
+  text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted); padding: 14px 16px;
+  border-bottom: 1.5px solid var(--border); background: #FAFAF7; white-space: nowrap;
+}
+.mg-table td { padding: 12px 16px; border-bottom: 1px solid #EFEDE8; vertical-align: top; }
+.mg-table tr:last-child td { border-bottom: none; }
+.mg-klein { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+.mg-ja { color: #2C6B45; font-weight: 700; }
+.mg-teil { color: #B7791F; font-weight: 700; }
+.mg-nein { color: #8A3A22; font-weight: 700; }
+.mg-empty { padding: 40px 28px; text-align: center; color: var(--muted); }
+.mg-link { background: none; border: none; padding: 0; font: inherit; color: var(--green); text-decoration: underline; cursor: pointer; }
+.mg-zuordnen select { font-family: inherit; font-size: 13.5px; padding: 7px 9px; border: 1.5px solid var(--border); border-radius: 8px; max-width: 220px; }
+
+dialog.mg-dlg {
+  border: none; border-radius: var(--radius); padding: 0; width: min(520px, 94vw);
+  box-shadow: 0 18px 50px rgba(0,0,0,.22);
+}
+dialog.mg-dlg::backdrop { background: rgba(26,58,42,.38); }
+.mg-dlg-kopf { padding: 20px 24px 0; }
+.mg-dlg-kopf h2 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-size: 19px; font-weight: 800;
+  color: var(--green-deep); margin: 0 0 6px;
+}
+.mg-dlg-body { padding: 4px 24px 20px; }
+.mg-dlg-body label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 14px; }
+.mg-dlg-body select, .mg-dlg-body input {
+  display: block; width: 100%; margin-top: 5px; font-family: inherit; font-size: 14px;
+  padding: 9px 11px; border: 1.5px solid var(--border); border-radius: 8px;
+  background: #fff; color: var(--text);
+}
+.mg-dlg-fuss {
+  padding: 14px 24px; background: #FAFAF7; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+}
+.mg-dlg-meldung { margin-top: 12px; font-size: 13.5px; font-weight: 600; color: #8A3A22; }
+@media (max-width: 720px) {
+  .mg-tab-wrap { overflow-x: auto; }
+  .mg-table th, .mg-table td { padding: 10px 10px; }
+}
+</style>
+</head>
+<body>
+
+<a href="#main" class="sr-only">Zum Hauptinhalt springen</a>
+<main id="main">
+<div class="mg-wrap">
+  <div id="login-view" hidden>
+    <div class="mg-card mg-pad"><p>Dieser Bereich ist dem Vorstand vorbehalten.</p></div>
+  </div>
+
+  <div id="admin-view" hidden>
+    <div class="mg-header">
+      <div>
+        <h1>Mitglieder</h1>
+        <p>Wer hat den Aufnahmeantrag (Fassung November 2026) zurückgeschickt, und wer
+           hat den Beitrag überwiesen? Die Zahlungen kommen aus dem
+           <a href="admin-kassenbuch.html">Kassenbuch</a> — nach jedem CSV-Upload
+           werden eindeutige Beiträge automatisch erkannt.</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <label style="font-size:13px;font-weight:600;color:var(--muted);">Beitragsjahr<br>
+          <select id="f-jahr" class="f-in" style="width:110px;" onchange="zeichne()"></select></label>
+        <label style="font-size:13px;font-weight:600;color:var(--muted);">Anzeige<br>
+          <select id="f-stand" class="f-in" style="width:190px;" onchange="zeichne()">
+            <option value="">alle</option>
+            <option value="offen">noch etwas offen</option>
+            <option value="antrag">Antrag fehlt</option>
+            <option value="beitrag">Beitrag fehlt</option>
+            <option value="fertig">alles erledigt</option>
+          </select></label>
+      </div>
+    </div>
+
+    <div class="mg-card mg-pad" id="zahlen"></div>
+    <div class="mg-card" id="zuordnen-wrap" hidden></div>
+    <div class="mg-card mg-tab-wrap" id="liste"></div>
+  </div>
+</div>
+
+<dialog id="dlg" class="mg-dlg">
+  <div class="mg-dlg-kopf">
+    <h2 id="dlg-titel">Aufnahmeantrag</h2>
+    <p class="mg-klein">Fassung November 2026, als Scan oder Foto an vorstand@.</p>
+  </div>
+  <div class="mg-dlg-body">
+    <label for="dlg-eingang">Antrag eingegangen am</label>
+    <input id="dlg-eingang" type="date">
+    <label for="dlg-zahlweise">Zahlweise laut Antrag</label>
+    <select id="dlg-zahlweise">
+      <option value="">— nicht angegeben —</option>
+      <option value="ueberweisung">Überweisung</option>
+      <option value="sepa">SEPA-Lastschrift (ab 2027)</option>
+    </select>
+    <label for="dlg-scan">Link zum Scan (Google Drive)</label>
+    <input id="dlg-scan" type="url" placeholder="https://drive.google.com/…">
+    <label for="dlg-notiz">Notiz</label>
+    <input id="dlg-notiz" type="text" placeholder="optional, z. B. höherer Beitrag 5 €/Monat">
+    <p id="dlg-meldung" class="mg-dlg-meldung" hidden></p>
+  </div>
+  <div class="mg-dlg-fuss">
+    <button class="btn" onclick="document.getElementById('dlg').close()">Abbrechen</button>
+    <button class="btn" onclick="speichern(this, true)">Haken entfernen</button>
+    <button class="btn btn-primary" onclick="speichern(this, false)">Speichern</button>
+  </div>
+</dialog>
+</main>
+
+<script src="mitgliedsbeitrag.js?v20261104a"></script>
+<script src="app.js?v20261104a"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+
+LPR_Layout.init({ page: 'mitglieder' });
+
+let _mitglieder = [];
+let _buchungen = [];
+let _offen = null;   // Mitglied im Dialog
+
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+function deDate(iso) { return iso ? iso.slice(8,10) + '.' + iso.slice(5,7) + '.' + iso.slice(0,4) : '—'; }
+function eur(cents) { return LPR.centsToEUR(cents); }
+function heute() { return new Date().toLocaleDateString('sv-SE'); }
+
+// Ein Eingang ist erledigt, sobald er einen Vorgang, ein Mitglied oder ein
+// Erloeskonto hat — dieselbe Regel wie im Kassenbuch.
+function istOffenerEingang(b) {
+  return b.betrag_cents > 0 && !b.invoice_id && !b.claim_id && !b.erloeskonto && !b.mitglied_id;
+}
+
+async function init() {
+  const session = LPR.getSession();
+  if (!session) { location.href = 'login.html?next=admin-mitglieder.html'; return; }
+  if (session.role !== 'admin') { document.getElementById('login-view').hidden = false; return; }
+  document.getElementById('admin-view').hidden = false;
+
+  const jahr = new Date().getFullYear();
+  const jahre = [];
+  for (let j = Math.max(2026, jahr - 1); j <= jahr + 1; j++) jahre.push(j);
+  document.getElementById('f-jahr').innerHTML =
+    jahre.map(j => `<option value="${j}"${j === jahr ? ' selected' : ''}>${j}</option>`).join('');
+  await lade();
+}
+
+async function lade() {
+  const [m, k] = await Promise.all([LPR.mitgliederListe(), LPR.kassenbuchListe({})]);
+  if (!m.ok) {
+    document.getElementById('liste').innerHTML = '<div class="mg-empty">Fehler beim Laden: ' + escapeHtml(m.error) + '</div>';
+    return;
+  }
+  _mitglieder = m.mitglieder;
+  _buchungen = k.ok ? k.buchungen : [];
+  zeichne();
+}
+
+function zeilen() {
+  const jahr = Number(document.getElementById('f-jahr').value);
+  const stand = Mitgliedsbeitrag.standJeMitglied(_buchungen, jahr);
+  return _mitglieder.map(m => {
+    const u = m.unterlagen;
+    const s = stand[m.id] || { cents: 0, letzte: null, status: 'offen' };
+    return { m, antrag: !!(u && u.antrag_eingang), u, beitrag: s };
+  });
+}
+
+function zeichne() {
+  const jahr = Number(document.getElementById('f-jahr').value);
+  const alle = zeilen();
+  const n = alle.length;
+  const antraege = alle.filter(z => z.antrag).length;
+  const bezahlt  = alle.filter(z => z.beitrag.status === 'bezahlt').length;
+  const fertig   = alle.filter(z => z.antrag && z.beitrag.status === 'bezahlt').length;
+  const summe    = alle.reduce((s, z) => s + z.beitrag.cents, 0);
+  const offenListe = alle.filter(z => !z.antrag || z.beitrag.status !== 'bezahlt');
+  const mails = offenListe.map(z => z.m.email).filter(e => e && !/^manuell\./i.test(e));
+
+  document.getElementById('zahlen').innerHTML =
+    `<div class="mg-zahlen">
+       <div class="mg-zahl${antraege < n ? ' warn' : ''}"><strong>${antraege} / ${n}</strong><div>Anträge eingegangen</div></div>
+       <div class="mg-zahl${bezahlt < n ? ' warn' : ''}"><strong>${bezahlt} / ${n}</strong><div>Beitrag ${jahr} bezahlt (mind. ${eur(Mitgliedsbeitrag.sollCents(jahr))})</div></div>
+       <div class="mg-zahl"><strong>${fertig}</strong><div>alles erledigt</div></div>
+       <div class="mg-zahl"><strong>${eur(summe)}</strong><div>Beiträge ${jahr} eingegangen</div></div>
+       <div style="flex:1;min-width:200px;text-align:right;">
+         ${mails.length ? `<button class="btn" onclick="mailsKopieren(this)">Mail-Adressen der ${offenListe.length} Offenen kopieren</button>
+           <div class="mg-klein">ohne die ${offenListe.length - mails.length} Mitglieder ohne echte Adresse</div>` : ''}
+       </div>
+     </div>`;
+  window._offeneMails = mails;
+
+  zeichneZuordnen();
+
+  const f = document.getElementById('f-stand').value;
+  const sichtbar = alle.filter(z =>
+      f === 'offen'   ? (!z.antrag || z.beitrag.status !== 'bezahlt')
+    : f === 'antrag'  ? !z.antrag
+    : f === 'beitrag' ? z.beitrag.status !== 'bezahlt'
+    : f === 'fertig'  ? (z.antrag && z.beitrag.status === 'bezahlt')
+    : true);
+
+  if (!sichtbar.length) {
+    document.getElementById('liste').innerHTML = '<div class="mg-empty">Niemand in dieser Auswahl.</div>';
+    return;
+  }
+  document.getElementById('liste').innerHTML =
+    `<table class="mg-table">
+       <thead><tr><th>Mitglied</th><th>Antrag 11/2026</th><th>Zahlweise</th><th>Beitrag ${jahr}</th></tr></thead>
+       <tbody>${sichtbar.map(zeile).join('')}</tbody>
+     </table>`;
+}
+
+function zeile(z) {
+  const m = z.m, u = z.u;
+  const antrag = z.antrag
+    ? `<span class="mg-ja">✓ ${deDate(u.antrag_eingang)}</span>`
+      + (u.scan_url ? ` <a class="mg-klein" href="${escapeAttr(u.scan_url)}" target="_blank" rel="noopener">Scan ↗</a>` : '')
+      + `<div><button class="mg-link mg-klein" onclick="oeffneDialog('${escapeAttr(m.id)}')">ändern</button></div>`
+    : `<span class="mg-nein">fehlt</span>
+       <div><button class="btn" style="padding:6px 12px;font-size:13px;margin-top:6px;" onclick="schnellEingang(this, '${escapeAttr(m.id)}')">heute eingegangen</button>
+       <button class="mg-link mg-klein" onclick="oeffneDialog('${escapeAttr(m.id)}')">anderes Datum …</button></div>`;
+  const zahlweise = !u || !u.zahlweise ? '<span class="mg-klein">—</span>'
+    : u.zahlweise === 'sepa' ? 'SEPA ab 2027' : 'Überweisung';
+  const b = z.beitrag;
+  const beitrag = b.status === 'bezahlt'
+    ? `<span class="mg-ja">✓ ${eur(b.cents)}</span><div class="mg-klein">zuletzt ${deDate(b.letzte)}</div>`
+    : b.status === 'teilweise'
+      ? `<span class="mg-teil">${eur(b.cents)} von ${eur(Mitgliedsbeitrag.sollCents(Number(document.getElementById('f-jahr').value)))}</span><div class="mg-klein">zuletzt ${deDate(b.letzte)}</div>`
+      : '<span class="mg-nein">offen</span>';
+  return `<tr>
+    <td><strong>${escapeHtml(m.full_name)}</strong>
+        <div class="mg-klein">${m.vereinsnummer ? 'Nr. ' + escapeHtml(String(m.vereinsnummer)) + ' · ' : ''}${escapeHtml(m.email || '')}</div>
+        ${u && u.notiz ? `<div class="mg-klein">${escapeHtml(u.notiz)}</div>` : ''}</td>
+    <td>${antrag}</td>
+    <td>${zahlweise}</td>
+    <td>${beitrag}</td>
+  </tr>`;
+}
+
+// ── Beitragseingaenge, die das Portal nicht sicher zuordnen konnte ─────────
+function zeichneZuordnen() {
+  const wrap = document.getElementById('zuordnen-wrap');
+  const kandidaten = _buchungen.filter(istOffenerEingang)
+    .map(b => ({ b, v: Mitgliedsbeitrag.vorschlagFuer(b, _mitglieder) }))
+    .filter(x => x.v);
+  if (!kandidaten.length) { wrap.hidden = true; wrap.innerHTML = ''; return; }
+  wrap.hidden = false;
+  const optionen = vorschlag => '<option value="">— Mitglied wählen —</option>'
+    + _mitglieder.map(m => `<option value="${escapeAttr(m.id)}"${m.id === vorschlag ? ' selected' : ''}>${escapeHtml(m.full_name)}</option>`).join('');
+  wrap.innerHTML =
+    `<div class="mg-pad" style="border-bottom:1px solid var(--border);">
+       <strong>Bitte zuordnen: ${kandidaten.length} Eingang${kandidaten.length === 1 ? '' : 'e'}, die nach Beitrag aussehen</strong>
+       <div class="mg-klein">Das Portal ordnet nur zu, wenn Vor- und Nachname eindeutig passen. Hier fehlt etwas — bitte kurz prüfen.</div>
+     </div>
+     <div class="mg-tab-wrap"><table class="mg-table"><tbody>${kandidaten.map(x => `
+       <tr>
+         <td>${deDate(x.b.buchungstag)}<div class="mg-klein">${escapeHtml(x.b.gegenpartei || '—')}</div></td>
+         <td>${escapeHtml(x.b.verwendungszweck || '')}<div class="mg-klein">${escapeHtml(x.v.hinweis || '')}</div></td>
+         <td style="text-align:right;white-space:nowrap;"><strong>${eur(x.b.betrag_cents)}</strong></td>
+         <td class="mg-zuordnen" style="white-space:nowrap;">
+           <select id="z-${escapeAttr(x.b.id)}">${optionen(x.v.mitglied_id)}</select>
+           <button class="btn btn-primary" style="padding:7px 12px;font-size:13px;"
+             onclick="zuordnen(this, '${escapeAttr(x.b.id)}', ${Number(x.v.jahr)})">Beitrag ${Number(x.v.jahr)}</button>
+         </td>
+       </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function zuordnen(btn, buchungId, jahr) {
+  const mitglied = document.getElementById('z-' + buchungId).value;
+  if (!mitglied) { LPR.showToast('Bitte zuerst ein Mitglied wählen.', 'warn'); return; }
+  btn.disabled = true;
+  const res = await LPR.kassenbuchBeitragZuordnen(buchungId, mitglied, jahr);
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); btn.disabled = false; return; }
+  LPR.showToast('Als Beitrag verbucht.');
+  await lade();
+}
+
+// ── Antragseingang ─────────────────────────────────────────────────────────
+async function schnellEingang(btn, id) {
+  const m = _mitglieder.find(x => x.id === id);
+  const u = (m && m.unterlagen) || {};
+  btn.disabled = true;
+  const res = await LPR.mitgliedUnterlagenSpeichern(id, Object.assign({}, u, { antrag_eingang: heute() }));
+  if (!res.ok) { LPR.showToast(res.error, 'warn'); btn.disabled = false; return; }
+  m.unterlagen = res.unterlagen;
+  LPR.showToast('Antrag von ' + m.full_name + ' vermerkt.');
+  zeichne();
+}
+
+function oeffneDialog(id) {
+  const m = _mitglieder.find(x => x.id === id);
+  if (!m) return;
+  _offen = m;
+  const u = m.unterlagen || {};
+  document.getElementById('dlg-titel').textContent = 'Aufnahmeantrag · ' + m.full_name;
+  document.getElementById('dlg-eingang').value   = u.antrag_eingang || heute();
+  document.getElementById('dlg-zahlweise').value = u.zahlweise || '';
+  document.getElementById('dlg-scan').value      = u.scan_url || '';
+  document.getElementById('dlg-notiz').value     = u.notiz || '';
+  document.getElementById('dlg-meldung').hidden = true;
+  document.getElementById('dlg').showModal();
+}
+
+async function speichern(btn, entfernen) {
+  if (!_offen) return;
+  const meld = document.getElementById('dlg-meldung');
+  const d = {
+    antrag_eingang: entfernen ? null : document.getElementById('dlg-eingang').value,
+    zahlweise: document.getElementById('dlg-zahlweise').value,
+    scan_url:  document.getElementById('dlg-scan').value,
+    notiz:     document.getElementById('dlg-notiz').value
+  };
+  if (!entfernen && !d.antrag_eingang) {
+    meld.textContent = 'Bitte das Eingangsdatum angeben.'; meld.hidden = false; return;
+  }
+  btn.disabled = true;
+  const res = await LPR.mitgliedUnterlagenSpeichern(_offen.id, d);
+  btn.disabled = false;
+  if (!res.ok) { meld.textContent = res.error; meld.hidden = false; return; }
+  _offen.unterlagen = res.unterlagen;
+  document.getElementById('dlg').close();
+  LPR.showToast(entfernen ? 'Haken entfernt.' : 'Gespeichert.');
+  zeichne();
+}
+
+async function mailsKopieren(btn) {
+  const text = (window._offeneMails || []).join(', ');
+  try {
+    await navigator.clipboard.writeText(text);
+    LPR.showToast((window._offeneMails || []).length + ' Adressen kopiert — für das BCC-Feld.');
+  } catch (e) {
+    window.prompt('Adressen zum Kopieren:', text);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

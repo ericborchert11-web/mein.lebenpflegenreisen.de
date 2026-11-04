@@ -7388,7 +7388,8 @@
   const KASSENBUCH_COLS =
     'id, konto_iban, buchungstag, valuta, buchungstext, verwendungszweck, ' +
     'gegenpartei, betrag_cents, fingerabdruck, invoice_id, claim_id, ' +
-    'kostenart, sphaere, beleg_url, notiz, importiert_am, erloeskonto, ust_pflichtig';
+    'kostenart, sphaere, beleg_url, notiz, importiert_am, erloeskonto, ust_pflichtig, ' +
+    'mitglied_id, beitrag_jahr';
 
   async function kassenbuchListe(filter) {
     // Kein Rollencheck ueber "eingeloggt" hinaus: Wer die Zeilen sehen darf,
@@ -7520,7 +7521,10 @@
       // Das Flag leitet der Trigger aus dem Konto ab; gewaehlt wird es nur bei
       // Reisen ("steuerfrei, Pflegekasse traegt die Kosten" = false).
       erloeskonto:   z.erloeskonto || null,
-      ust_pflichtig: z.erloeskonto === 'erloes_reisen' ? z.ust_pflichtig !== false : null
+      ust_pflichtig: z.erloeskonto === 'erloes_reisen' ? z.ust_pflichtig !== false : null,
+      // Mitgliedsbeitrag: Mitglied + Jahr, immer zusammen (Check in der DB)
+      mitglied_id:   z.mitglied_id || null,
+      beitrag_jahr:  z.mitglied_id ? (z.beitrag_jahr || null) : null
     };
     if (patch.invoice_id && patch.claim_id) {
       return { ok: false, error: 'Eine Buchung gehört zu höchstens einem Vorgang.' };
@@ -7545,6 +7549,73 @@
       return { ok: true, buchung: data };
     } catch(e) {
       console.error('[LPR] kassenbuchZuordnen:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Einen Eingang als Mitgliedsbeitrag verbuchen. Beitraege sind ideeller
+   * Bereich und gehoeren auf "Sonstige Einnahmen", nicht auf eines der drei
+   * Erloeskonten (Briefing Mitgliederschreiben, 03.11.2026).
+   */
+  function kassenbuchBeitragZuordnen(id, mitgliedId, jahr) {
+    return kassenbuchZuordnen(id, {
+      mitglied_id: mitgliedId, beitrag_jahr: jahr,
+      erloeskonto: 'sonstige', sphaere: 'ideell', notiz: 'Mitgliedsbeitrag ' + jahr
+    });
+  }
+
+  // ── Mitglieder: Aufnahmeantrag + Beitrag ───────────────────────────────
+  // Mitglied ist, wer freigegeben ist und eine Vereinsnummer hat — Kliniken
+  // haben ein Konto, sind aber keine Mitglieder.
+  async function mitgliederListe() {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', mitglieder: [] };
+    try {
+      const client = await sb();
+      const [p, u] = await Promise.all([
+        client.from('profiles')
+          .select('id, full_name, email, vereinsnummer, role, status')
+          .eq('status', 'approved').neq('role', 'clinic').not('vereinsnummer', 'is', null)
+          .order('full_name', { ascending: true }),
+        client.from('mitglied_unterlagen')
+          .select('profile_id, antrag_fassung, antrag_eingang, zahlweise, scan_url, notiz, geaendert_am')
+      ]);
+      if (p.error) return { ok: false, error: p.error.message, mitglieder: [] };
+      if (u.error) return { ok: false, error: u.error.message, mitglieder: [] };
+      const zu = {};
+      (u.data || []).forEach(r => { zu[r.profile_id] = r; });
+      return { ok: true, mitglieder: (p.data || []).map(m => Object.assign({}, m, { unterlagen: zu[m.id] || null })) };
+    } catch(e) {
+      console.error('[LPR] mitgliederListe:', e);
+      return { ok: false, error: 'Netzwerkfehler.', mitglieder: [] };
+    }
+  }
+
+  /** Antragseingang speichern; antrag_eingang null nimmt den Haken wieder weg. */
+  async function mitgliedUnterlagenSpeichern(profileId, d) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    const row = {
+      profile_id:     profileId,
+      antrag_fassung: '2026-11',
+      antrag_eingang: d.antrag_eingang || null,
+      zahlweise:      d.zahlweise || null,
+      scan_url:       (d.scan_url || '').trim() || null,
+      notiz:          (d.notiz || '').trim() || null
+    };
+    try {
+      const { data, error } = await (await sb()).from('mitglied_unterlagen')
+        .upsert(row, { onConflict: 'profile_id' })
+        .select('profile_id, antrag_fassung, antrag_eingang, zahlweise, scan_url, notiz, geaendert_am')
+        .maybeSingle();
+      if (error) return { ok: false, error: error.message };
+      if (!data || data.antrag_eingang !== row.antrag_eingang) {
+        return { ok: false, error: 'Nicht gespeichert — bitte neu laden.' };
+      }
+      return { ok: true, unterlagen: data };
+    } catch(e) {
+      console.error('[LPR] mitgliedUnterlagenSpeichern:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
     }
   }
@@ -8256,7 +8327,8 @@
     deleteInvoiceDraft, issueInvoice, cancelInvoice, markInvoicePaid, getInvoiceRef,
     // Kassenbuch
     kassenbuchListe, kassenbuchBekannteAbdruecke, kassenbuchImport,
-    kassenbuchVorgaenge, kassenbuchZuordnen, ustUmsatz,
+    kassenbuchVorgaenge, kassenbuchZuordnen, kassenbuchBeitragZuordnen, ustUmsatz,
+    mitgliederListe, mitgliedUnterlagenSpeichern,
     kassenbuchStaende, kassenbuchStandSetzen, kassenbuchStandLoeschen,
     // Kassenpruefung
     pruefRecht, pruefungDaten,

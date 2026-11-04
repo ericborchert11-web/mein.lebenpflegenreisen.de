@@ -161,8 +161,9 @@
           // Nachschlagewerk fuer alle drei Sparten, nicht Teil einer davon.
           punkt('admin-playbook.html', 'playbook', 'Playbook') +
           gruppe('Menschen',
-            ['admin', 'ehrenamt-interesse', 'onboarding-admin', 'termine-admin'],
+            ['admin', 'mitglieder', 'ehrenamt-interesse', 'onboarding-admin', 'termine-admin'],
             punkt('admin-mitwirkende.html', 'admin', 'Mitwirkende') +
+            punkt('admin-mitglieder.html', 'mitglieder', 'Mitglieder') +
             punkt('admin-ehrenamt-interesse.html', 'ehrenamt-interesse', 'Interessenten') +
             // Zahl am Eintrag: wie viele Bewerbende gerade auf den Verein warten.
             punkt('admin-onboarding.html', 'onboarding-admin', 'Onboarding',

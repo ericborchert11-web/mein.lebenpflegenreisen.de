@@ -7577,6 +7577,8 @@
         client.from('profiles')
           .select('id, full_name, email, vereinsnummer, role, status')
           .eq('status', 'approved').neq('role', 'clinic').not('vereinsnummer', 'is', null)
+          // Das Vorstandspostfach hat ein eigenes Konto (Nr. 001), ist aber keine Person.
+          .neq('email', 'vorstand@lebenpflegenreisen.de')
           .order('full_name', { ascending: true }),
         client.from('mitglied_unterlagen')
           .select('profile_id, antrag_fassung, antrag_eingang, zahlweise, scan_url, notiz, geaendert_am')

@@ -14,7 +14,8 @@
 (function () {
   'use strict';
 
-  var PFLICHT = ['fuehrungszeugnis', 'ifsg43', 'erste_hilfe', 'dsgvo', 'schweigepflicht'];
+  // Erste Hilfe ist seit 05.11.2026 keine Pflicht mehr (Eric).
+  var PFLICHT = ['fuehrungszeugnis', 'ifsg43', 'dsgvo', 'schweigepflicht'];
 
   // valid_until gilt einschliesslich: am Ablauftag noch gueltig.
   function gueltig(rec, heute) {

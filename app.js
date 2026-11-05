@@ -1005,7 +1005,7 @@
       const data = cmp.data;
       // Regel steht in unterlagen-regel.js (FZ ODER gueltige BZR). Wird bei
       // Bedarf nachgeladen, damit nicht jede Seite das Skript einbinden muss.
-      if (!global.UnterlagenRegel) await loadScript('unterlagen-regel.js?v20261007');
+      if (!global.UnterlagenRegel) await loadScript('unterlagen-regel.js?v20261105');
       const missing = global.UnterlagenRegel.fehlendeUnterlagen(data || []);
 
       // Ein Lesefehler darf hier NICHT als "Nachweis liegt vor" durchgehen.
@@ -4568,7 +4568,7 @@
       const client = await sb();
 
       // Compliance wird serverseitig durch den Trigger trg_enforce_booking_compliance
-      // erzwungen (Volunteer muss alle 5 Pflichtdokumente gueltig + approved haben).
+      // erzwungen (Volunteer muss alle 4 Pflichtdokumente gueltig + approved haben).
       // Kein clientseitiger compliance_records-Read mehr -- Kliniken haben darauf
       // bewusst keinen Zugriff (DSGVO).
 

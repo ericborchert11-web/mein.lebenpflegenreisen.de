@@ -556,7 +556,6 @@ async function zeichneUnterlagen(st) {
   const masern = ms === 'liegt_vor' ? 'ok' : (ms && ms !== 'offen') ? 'erledigt' : null;
   box.innerHTML = '<h2>Das kannst du schon besorgen</h2>'
     + zeile('Lebensmittelpass (Bescheinigung nach § 43 IfSG)', doc('ifsg43'))
-    + zeile('Erste-Hilfe-Nachweis', doc('erste_hilfe'))
     + zeile('Masernnachweis', masern);
   box.hidden = false;
 }

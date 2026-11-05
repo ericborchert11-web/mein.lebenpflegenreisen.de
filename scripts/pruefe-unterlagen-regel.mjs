@@ -17,7 +17,7 @@ const pruefe = (name, bedingung, hinweis) => { if (!bedingung) fehler.push(`${na
 
 const heute = new Date('2026-10-07T12:00:00');
 const ok = (t, bis) => ({ document_type: t, status: 'approved', valid_until: bis || null });
-const rest = [ok('ifsg43'), ok('erste_hilfe'), ok('dsgvo'), ok('schweigepflicht')];
+const rest = [ok('ifsg43'), ok('dsgvo'), ok('schweigepflicht')];
 
 let f = UR.fehlendeUnterlagen([...rest, ok('fuehrungszeugnis', '2028-01-01')], heute);
 pruefe('FZ allein', f.length === 0, `erwartet [], bekam ${JSON.stringify(f)}`);
@@ -35,7 +35,7 @@ f = UR.fehlendeUnterlagen([...rest, { document_type: 'bzr', status: 'submitted',
 pruefe('BZR nur eingereicht', f.join() === 'fuehrungszeugnis', `bekam ${JSON.stringify(f)}`);
 
 f = UR.fehlendeUnterlagen([], heute);
-pruefe('nichts da', f.length === 5, `erwartet 5 fehlend, bekam ${JSON.stringify(f)}`);
+pruefe('nichts da', f.length === 4, `erwartet 4 fehlend, bekam ${JSON.stringify(f)}`);
 
 pruefe('fzErsetzt bei gueltiger BZR', UR.fzErsetzt([ok('bzr', '2028-01-01')], heute) === true, 'erwartet true');
 pruefe('fzErsetzt ohne BZR', UR.fzErsetzt([ok('fuehrungszeugnis')], heute) === false, 'erwartet false');

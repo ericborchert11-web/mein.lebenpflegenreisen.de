@@ -32,7 +32,7 @@ pruefe('Antrag abgelehnt: neu einreichen', OS.aktueller(st).aktion === 'antrag',
 
 st = { schritt: 4 };
 const b4 = OS.aktueller(st).bringMit.join('|');
-pruefe('Schritt 4 bring mit', /Lebensmittelpass/.test(b4) && /Impfausweis/.test(b4) && /Erste-Hilfe/.test(b4), b4);
+pruefe('Schritt 4 bring mit', /Lebensmittelpass/.test(b4) && /Impfausweis/.test(b4) && !/Erste-Hilfe/.test(b4), b4);
 
 st = { schritt: 5 };
 pruefe('Schritt 5 nennt halbe Pauschale', /halbe/.test(OS.aktueller(st).text), OS.aktueller(st).text);
@@ -64,7 +64,7 @@ pruefe('heute faellt auf das lokale Datum zurueck', /Dein Kennenlernen ist am Do
 st = { schritt: 4, einfuehrung_am: '2026-11-02', heute: H };
 a = OS.aktueller(st);
 pruefe('Einfuehrung geplant: Datum vorn', a.text.startsWith('Deine Einführungsveranstaltung ist am Montag, 02.11.2026. Melde dich'), a.text);
-pruefe('Einfuehrung geplant: bring mit bleibt', a.bringMit.length === 3, JSON.stringify(a.bringMit));
+pruefe('Einfuehrung geplant: bring mit bleibt', a.bringMit.length === 2, JSON.stringify(a.bringMit));
 st = { schritt: 4, einfuehrung_am: '2026-10-01', heute: H };
 pruefe('Einfuehrung vorbei: Standardtext', OS.aktueller(st).text.startsWith('Melde dich'), OS.aktueller(st).text);
 

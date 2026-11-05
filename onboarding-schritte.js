@@ -86,7 +86,7 @@
         return {
           text: (geplant(st.einfuehrung_am, st) ? 'Deine Einführungsveranstaltung ist am ' + datumLang(st.einfuehrung_am) + '. ' : '')
             + 'Melde dich zur Einführungsveranstaltung an. Dort gibt es auch die Belehrung nach dem Infektionsschutzgesetz, und wir schauen uns deine Unterlagen an.',
-          bringMit: ['Lebensmittelpass (Bescheinigung nach § 43 IfSG)', 'Impfausweis oder Nachweis zum Masernschutz', 'Erste-Hilfe-Nachweis'],
+          bringMit: ['Lebensmittelpass (Bescheinigung nach § 43 IfSG)', 'Impfausweis oder Nachweis zum Masernschutz'],
           wartetAuf: 'dich', aktion: 'termine' };
       case 5:
         if (geplant(st.einarbeitung_am, st)) return {

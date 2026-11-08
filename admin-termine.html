@@ -157,12 +157,23 @@
       <button type="button" class="btn" id="tm-df-add">Hinzufügen</button>
     </div>
 
+    <div id="tm-d-nachrichten-block" hidden>
+      <h3 style="margin:28px 0 4px;font-size:16px;color:var(--green-deep);">Nachricht zur Einladung</h3>
+      <p class="tm-mini" style="margin:0 0 10px;">
+        Keine neue Einladung: geht an <strong>alle</strong> Eingeladenen mit Mailadresse, auch an die,
+        die abgesagt haben — mit denselben Zu-/Absage-Knöpfen und dem PDF im Anhang.
+        Die Probe geht immer an vorstand@lebenpflegenreisen.de.
+      </p>
+      <div id="tm-d-nachrichten" class="tm-liste"></div>
+      <div style="overflow-x:auto;"><table class="tm-tab" id="tm-d-prot-tab" hidden><tbody></tbody></table></div>
+    </div>
+
     <h3 style="margin:28px 0 4px;font-size:16px;color:var(--green-deep);" id="tm-d-top-h" hidden>Eingereichte Punkte</h3>
     <div style="overflow-x:auto;"><table class="tm-tab" id="tm-d-top-tab" hidden><tbody></tbody></table></div>
   </div>
 </main>
 
-<script src="app.js?v20261004a"></script>
+<script src="app.js?v20261108a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -249,6 +260,7 @@ async function zeigeDetail(id) {
     el.setAttribute('aria-selected', el.dataset.id === id ? 'true' : 'false'));
   await ladeEingeladene();
   await ladeDateien();
+  await ladeNachrichten();
   await ladePunkte();
 }
 
@@ -429,6 +441,101 @@ $('tm-df-add').addEventListener('click', async () => {
   $('tm-df-titel').value = ''; $('tm-df-datei').value = ''; $('tm-df-url').value = '';
   await ladeDateien();
 });
+
+// ── Nachricht zur Einladung ──────────────────────────────────────────────
+
+let nachrichten = [];
+let protokoll = [];
+
+function zeitText(iso) {
+  return iso ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '';
+}
+
+async function ladeNachrichten() {
+  const r = await LPR.listTerminNachrichten(aktuell.id);
+  // Fehlt die Tabelle (Migration BI nicht eingespielt) oder gibt es keine
+  // Nachricht, bleibt der Bereich einfach zu — kein Fehler fuer andere Termine.
+  nachrichten = r.ok ? r.nachrichten : [];
+  $('tm-d-nachrichten-block').hidden = nachrichten.length === 0;
+  $('tm-d-prot-tab').hidden = true;
+  $('tm-d-nachrichten').innerHTML = nachrichten.map(n =>
+    '<div class="tm-zeile" style="cursor:default;flex-wrap:wrap;gap:8px;">' +
+      '<div style="flex:1 1 260px;">' +
+        '<div style="font-weight:600;">' + esc(n.betreff) + '</div>' +
+        '<div class="tm-mini">' +
+          (n.anhang_url ? 'Anhang: <a href="' + esc(n.anhang_url) + '" target="_blank" rel="noopener">' + esc(n.anhang_name || 'PDF') + '</a> · ' : 'ohne Anhang · ') +
+          (n.verschickt_am ? 'verschickt am ' + esc(zeitText(n.verschickt_am)) : 'noch nicht verschickt') +
+        '</div>' +
+      '</div>' +
+      '<button type="button" class="btn" data-n-probe="' + esc(n.id) + '">Probe an vorstand@</button>' +
+      '<button type="button" class="btn btn-primary" data-n-senden="' + esc(n.id) + '">An alle senden</button>' +
+      '<button type="button" class="btn" data-n-prot="' + esc(n.id) + '">Versandprotokoll</button>' +
+      '<button type="button" class="btn" data-n-csv="' + esc(n.id) + '">Protokoll als CSV</button>' +
+    '</div>').join('');
+
+  [].forEach.call($('tm-d-nachrichten').querySelectorAll('[data-n-probe]'), b =>
+    b.addEventListener('click', async () => {
+      const r2 = await LPR.terminNachrichtVerschicken(b.dataset.nProbe, true);
+      if (!r2.ok) { melde(r2.error, true); return; }
+      melde('Probe an vorstand@lebenpflegenreisen.de verschickt — sie zählt in keiner Liste mit.', false);
+    }));
+
+  [].forEach.call($('tm-d-nachrichten').querySelectorAll('[data-n-senden]'), b =>
+    b.addEventListener('click', async () => {
+      const mitMail = eingeladene.filter(e => e.email).length;
+      if (!window.confirm('Nachricht an alle ' + mitMail + ' Eingeladenen mit Mailadresse verschicken — auch an die, die abgesagt haben? Wer sie schon bekommen hat, bekommt sie nicht noch einmal.')) return;
+      const r2 = await LPR.terminNachrichtVerschicken(b.dataset.nSenden, false);
+      if (!r2.ok) { melde(r2.error, true); return; }
+      melde(r2.anzahl + ' Mail(s) auf den Weg gebracht. Das Protokoll zeigt den Stand; der Zustellstatus kommt alle 15 Minuten aus Resend dazu.', false);
+      await ladeEingeladene();
+      await ladeNachrichten();
+    }));
+
+  [].forEach.call($('tm-d-nachrichten').querySelectorAll('[data-n-prot]'), b =>
+    b.addEventListener('click', () => zeigeProtokoll(b.dataset.nProt)));
+
+  [].forEach.call($('tm-d-nachrichten').querySelectorAll('[data-n-csv]'), b =>
+    b.addEventListener('click', async () => {
+      if (!(await holeProtokoll(b.dataset.nCsv))) return;
+      const n = nachrichten.find(x => x.id === b.dataset.nCsv) || {};
+      const kopf = 'Name;Mail;Rückmeldung;Versandstatus;Versendet am;Zustellstatus;Zustellstatus am;Resend-ID;Fehler\n';
+      const leib = protokoll.map(z => [
+        z.name, z.email || '', z.antwort, z.outbox_status,
+        zeitText(z.gesendet_am), z.zustellstatus || '', zeitText(z.zustellstatus_am),
+        z.resend_id || '', z.fehler || '',
+      ].map(x => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"').join(';')).join('\n');
+      const fuss = '\n\n"Betreff: ' + String(n.betreff || '').replace(/"/g, '""') + '";"Export: ' + zeitText(new Date().toISOString()) + '"\n';
+      const blob = new Blob(['﻿' + kopf + leib + fuss], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'versandprotokoll-' + aktuell.datum + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }));
+}
+
+async function holeProtokoll(id) {
+  const r = await LPR.terminNachrichtProtokoll(id);
+  if (!r.ok) { melde(r.error, true); return false; }
+  protokoll = r.zeilen || [];
+  return true;
+}
+
+async function zeigeProtokoll(id) {
+  if (!(await holeProtokoll(id))) return;
+  const zaehl = {};
+  protokoll.forEach(z => { const k = z.zustellstatus || z.outbox_status; zaehl[k] = (zaehl[k] || 0) + 1; });
+  $('tm-d-prot-tab').hidden = false;
+  $('tm-d-prot-tab').querySelector('tbody').innerHTML =
+    '<tr><th colspan="5" style="text-align:left;">' +
+      esc(Object.keys(zaehl).map(k => k + ': ' + zaehl[k]).join(' · ')) + '</th></tr>' +
+    '<tr><th>Name</th><th>Mail</th><th>Rückmeldung</th><th>Versand</th><th>Zustellung</th></tr>' +
+    protokoll.map(z =>
+      '<tr><td>' + esc(z.name) + '</td><td>' + esc(z.email || '—') + '</td><td>' + esc(z.antwort) + '</td>' +
+      '<td>' + esc(z.outbox_status) + (z.gesendet_am ? ' · ' + esc(zeitText(z.gesendet_am)) : '') +
+        (z.fehler ? '<br><span class="tm-mini">' + esc(String(z.fehler).slice(0, 120)) + '</span>' : '') + '</td>' +
+      '<td>' + esc(z.zustellstatus || '—') + '</td></tr>').join('');
+}
 
 const TOP_STAND_TEXT = { offen: 'offen', aufgenommen: 'aufgenommen', abgelehnt: 'abgelehnt' };
 

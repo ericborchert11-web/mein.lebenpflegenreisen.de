@@ -8000,6 +8000,30 @@
   const terminAbsagen = (id) =>
     rpcTermin('termin_absagen', { p_termin: id }, 'anzahl');
 
+  // ── Nachricht zur Einladung (z. B. finale Tagesordnung) ─────────────────
+  // Text und Anhang legt der Vorstand per SQL an (termin_nachrichten); hier
+  // wird nur verschickt und nachgewiesen.
+  async function listTerminNachrichten(terminId) {
+    try {
+      const { data, error } = await (await sb())
+        .from('termin_nachrichten')
+        .select('id, betreff, anhang_name, anhang_url, created_at, verschickt_am')
+        .eq('termin_id', terminId)
+        .order('created_at', { ascending: true });
+      if (error) return { ok: false, error: error.message, nachrichten: [] };
+      return { ok: true, nachrichten: data || [] };
+    } catch (e) {
+      console.error('[LPR] listTerminNachrichten:', e);
+      return { ok: false, error: 'Netzwerkfehler.', nachrichten: [] };
+    }
+  }
+
+  const terminNachrichtVerschicken = (id, probe) =>
+    rpcTermin('termin_nachricht_verschicken', { p_nachricht: id, p_probe: !!probe }, 'anzahl');
+
+  const terminNachrichtProtokoll = (id) =>
+    rpcTermin('termin_nachricht_protokoll', { p_nachricht: id }, 'zeilen');
+
   const setTerminAntwortAdmin = (eingeladenerId, antwort) =>
     rpcTermin('termin_antwort_setzen',
               { p_eingeladener: eingeladenerId, p_antwort: antwort });
@@ -8306,6 +8330,7 @@
     listVereinsTermine, saveTermin, listTerminEingeladene, terminEingeladeneErzeugen,
     terminEingeladenenHinzufuegen, terminMitgliederHinzufuegen, terminEinladungVerschicken, terminProbeVerschicken,
     terminAenderungVerschicken, terminAbsagen, setTerminAntwortAdmin,
+    listTerminNachrichten, terminNachrichtVerschicken, terminNachrichtProtokoll,
     terminAnsehen, terminAntworten, setMeinTerminAntwort, listMeineTermine,
     getMeinOnboarding, mitgliedsantragEinreichen, getMeinMitgliedsantrag,
     getOnboardingUebersicht, onboardingSetzen, mitgliedsantragEntscheiden, onboardingAbschliessen,

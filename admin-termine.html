@@ -108,7 +108,7 @@
     <div class="tm-aktionen">
       <button type="button" class="btn" id="tm-d-bearbeiten">Bearbeiten</button>
       <button type="button" class="btn" id="tm-d-erzeugen">Eingeladene erzeugen</button>
-      <button type="button" class="btn" id="tm-d-probe">Probe an mich</button>
+      <button type="button" class="btn" id="tm-d-probe" title="Probe der ursprünglichen Einladung — NICHT der Nachricht zur Einladung">Probe der Einladung an mich</button>
       <button type="button" class="btn btn-primary" id="tm-d-einladen">Einladung verschicken</button>
       <button type="button" class="btn" id="tm-d-aenderung">Änderung mitteilen</button>
       <button type="button" class="btn" id="tm-d-absagen">Termin absagen</button>
@@ -173,7 +173,7 @@
   </div>
 </main>
 
-<script src="app.js?v20261108a"></script>
+<script src="app.js?v20261108b"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -474,14 +474,14 @@ async function ladeNachrichten() {
     '</div>').join('');
 
   [].forEach.call($('tm-d-nachrichten').querySelectorAll('[data-n-probe]'), b =>
-    b.addEventListener('click', async () => {
+    b.addEventListener('click', () => gesperrt(b, 60, async () => {
       const r2 = await LPR.terminNachrichtVerschicken(b.dataset.nProbe, true);
       if (!r2.ok) { melde(r2.error, true); return; }
-      melde('Probe an vorstand@lebenpflegenreisen.de verschickt — sie zählt in keiner Liste mit.', false);
-    }));
+      melde('Probe der Nachricht an vorstand@lebenpflegenreisen.de verschickt — sie zählt in keiner Liste mit. Der Knopf ist eine Minute gesperrt.', false);
+    })));
 
   [].forEach.call($('tm-d-nachrichten').querySelectorAll('[data-n-senden]'), b =>
-    b.addEventListener('click', async () => {
+    b.addEventListener('click', () => gesperrt(b, 0, async () => {
       const mitMail = eingeladene.filter(e => e.email).length;
       if (!window.confirm('Nachricht an alle ' + mitMail + ' Eingeladenen mit Mailadresse verschicken — auch an die, die abgesagt haben? Wer sie schon bekommen hat, bekommt sie nicht noch einmal.')) return;
       const r2 = await LPR.terminNachrichtVerschicken(b.dataset.nSenden, false);
@@ -489,7 +489,7 @@ async function ladeNachrichten() {
       melde(r2.anzahl + ' Mail(s) auf den Weg gebracht. Das Protokoll zeigt den Stand; der Zustellstatus kommt alle 15 Minuten aus Resend dazu.', false);
       await ladeEingeladene();
       await ladeNachrichten();
-    }));
+    })));
 
   [].forEach.call($('tm-d-nachrichten').querySelectorAll('[data-n-prot]'), b =>
     b.addEventListener('click', () => zeigeProtokoll(b.dataset.nProt)));
@@ -512,6 +512,26 @@ async function ladeNachrichten() {
       a.click();
       URL.revokeObjectURL(a.href);
     }));
+}
+
+// Doppelklick-Schutz: alle Knöpfe des Bereichs sind gesperrt, solange eine
+// Anfrage läuft, der geklickte danach noch `nachlauf` Sekunden. Am 08.11.2026
+// gingen auf drei schnelle Klicks drei Probe-Mails raus.
+let sendetGerade = false;
+async function gesperrt(knopf, nachlauf, fn) {
+  if (sendetGerade || knopf.disabled) return;
+  sendetGerade = true;
+  const alle = $('tm-d-nachrichten').querySelectorAll('button');
+  [].forEach.call(alle, x => { x.disabled = true; });
+  try { await fn(); }
+  finally {
+    sendetGerade = false;
+    [].forEach.call($('tm-d-nachrichten').querySelectorAll('button'), x => { x.disabled = false; });
+    if (nachlauf && document.body.contains(knopf)) {
+      knopf.disabled = true;
+      setTimeout(() => { knopf.disabled = false; }, nachlauf * 1000);
+    }
+  }
 }
 
 async function holeProtokoll(id) {

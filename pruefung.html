@@ -126,8 +126,8 @@ function zeichne() {
   const reihe = KassenbuchAuswertung.saldoReihe(b, _daten.staende);
   const ein = b.filter(x => x.betrag_cents > 0).reduce((s, x) => s + x.betrag_cents, 0);
   const aus = b.filter(x => x.betrag_cents < 0).reduce((s, x) => s + x.betrag_cents, 0);
-  const ohneZuordnung = b.filter(x => !x.invoice_id && !x.claim_id && !x.kostenart).length;
-  const ohneBeleg     = b.filter(x => x.kostenart && !x.beleg_url).length;
+  const ohneZuordnung = b.filter(x => !x.invoice_id && !x.claim_id && !x.kostenart && !x.mitglied_id && !x.erloeskonto).length;
+  const ohneBeleg     = b.filter(x => x.betrag_cents < 0 && !x.beleg_url).length;
 
   document.getElementById('inhalt').innerHTML = `
     <div class="kp-card kp-pad">
@@ -135,6 +135,9 @@ function zeichne() {
       <p>Alle Zahlen dieses Bereichs sind schreibgeschützt. Grundlage ist das Kassenbuch:
          jede Bewegung des Vereinskontos, jeweils mit dem Vorgang oder dem Beleg, der
          dahintersteht. Stand: ${escapeHtml(new Date().toLocaleDateString('de-DE'))}.</p>
+      <p class="kp-sub">„Beleg ↗" öffnet das Dokument in Google Drive (Rechnung, Auszahlungsbeleg
+         oder Kostenbeleg). Dafür musst du in Google mit dem Konto angemeldet sein, für das
+         der Vorstand die Belegordner freigegeben hat.</p>
     </div>
 
     <div class="kp-card">
@@ -235,21 +238,26 @@ function sphaereVon(kostenart) {
 }
 
 function belegZelle(x) {
+  // Seit 10.11.2026 traegt jede Buchung ihren Beleg als Drive-Link — auch
+  // Rechnungen und Antraege (Rechnungs-PDF bzw. Auszahlungsbeleg).
+  const link = x.beleg_url
+    ? ' <a class="kp-sub" href="' + escapeAttr(x.beleg_url) + '" target="_blank" rel="noopener">Beleg ↗</a>'
+    : '';
+  const notiz = x.notiz ? '<div class="kp-sub">' + escapeHtml(x.notiz) + '</div>' : '';
   if (x.invoice_id) {
     const r = _daten.rechnungen.find(i => i.id === x.invoice_id);
-    return '<span class="kp-sub">' + escapeHtml(r ? r.invoice_no : 'Rechnung') + '</span>';
+    return '<span class="kp-sub">' + escapeHtml(r ? r.invoice_no : 'Rechnung') + '</span>' + link + notiz;
   }
   if (x.claim_id) {
     const c = _daten.antraege.find(i => i.id === x.claim_id);
-    return '<span class="kp-sub">' + escapeHtml(c ? (c.beleg_nr || 'Antrag') : 'Antrag') + '</span>';
+    return '<span class="kp-sub">' + escapeHtml(c ? (c.beleg_nr || 'Antrag') : 'Antrag') + '</span>' + link + notiz;
   }
   if (x.kostenart) {
     return '<span class="kp-sub">' + escapeHtml(x.kostenart) + '</span>'
-      + (x.beleg_url
-          ? ' <a class="kp-sub" href="' + escapeAttr(x.beleg_url) + '" target="_blank" rel="noopener">Beleg ↗</a>'
-          : ' <span class="kp-warn">Beleg fehlt</span>');
+      + (link || ' <span class="kp-warn">Beleg fehlt</span>') + notiz;
   }
-  return '<span class="kp-warn">offen</span>';
+  if (link) return link + notiz;
+  return (x.betrag_cents < 0 ? '<span class="kp-warn">Beleg fehlt</span>' : '<span class="kp-sub">Eingang</span>') + notiz;
 }
 
 function exportiere() {

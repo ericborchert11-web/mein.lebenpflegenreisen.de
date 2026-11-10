@@ -535,9 +535,11 @@ async function btLaden() {
 }
 
 function btZeichnen() {
-  // Wer eingetragen werden kann: Schritt 2 und noch kein Termin gebucht.
+  // Wer eingetragen werden kann: Schritt 2, Kennenlernen noch nicht gewesen
+  // (sonst lehnt die Datenbank ab) und noch kein Termin gebucht.
   const gebucht = new Set(btTage.flatMap(t => t.buchungen.map(b => b.user_id)));
-  const kandidaten = personen.filter(p => Number(p.schritt) === 2 && !gebucht.has(p.user_id));
+  const kandidaten = personen.filter(p => Number(p.schritt) === 2 && !gebucht.has(p.user_id)
+    && !(p.kennenlernen_am && p.kennenlernen_am < heute()));
   $('bt-liste').innerHTML = btTage.map(t => {
     const n = t.buchungen.length;
     const faellt = !!t.ausfall;

@@ -84,6 +84,18 @@
 .ob-knoepfe .btn { padding: 10px 14px; font-size: 15px; background: #fff; color: var(--green-deep); border: 1.5px solid var(--green); }
 .ob-knoepfe .btn.btn-primary { background: var(--lime); border-color: var(--green-deep); }
 
+/* Bewerbungstag */
+.bt-mein { background: var(--lime-soft); border: 1px solid var(--lime); border-radius: var(--radius-sm); padding: 12px 14px; margin: 6px 0 12px; font-size: 16px; color: var(--green-deep); }
+.bt-liste { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.bt-liste button {
+  width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 10px 14px; border: 1.5px solid var(--green); border-radius: var(--radius-sm);
+  background: #fff; color: var(--green-deep); font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; text-align: left;
+}
+.bt-liste button:hover:not(:disabled) { background: var(--lime-soft); }
+.bt-liste button:disabled { border-color: var(--border); color: #7A8270; cursor: not-allowed; background: var(--white); }
+.bt-frei { font-weight: 500; font-size: 14px; white-space: nowrap; }
+
 /* Formular */
 .ob-feld { margin-bottom: 14px; }
 .ob-feld label, .ob-feld legend { display: block; font-weight: 600; font-size: 15px; color: var(--green-deep); margin-bottom: 4px; }
@@ -140,6 +152,8 @@ fieldset.ob-feld { border: none; padding: 0; min-width: 0; }
   <div id="ob-meldung" class="ob-meldung" role="status" aria-live="polite" hidden></div>
 
   <section class="ob-karte ob-jetzt" id="ob-jetzt" aria-label="Jetzt dran"><p>Dein Stand wird geladen …</p></section>
+
+  <section class="ob-karte" id="ob-bewerbungstag" hidden aria-label="Bewerbungstag"></section>
 
   <section class="ob-karte" id="ob-fertig" hidden>
     <h2>Willkommen im Team!</h2>
@@ -233,8 +247,8 @@ fieldset.ob-feld { border: none; padding: 0; min-width: 0; }
   <p><a href="dokumente/lpr-schweigepflicht.pdf" target="_blank" rel="noopener">Als PDF ansehen</a></p>
 </template>
 
-<script src="onboarding-schritte.js?v20261007c"></script>
-<script src="app.js?v20261007b"></script>
+<script src="onboarding-schritte.js?v20261110a"></script>
+<script src="app.js?v20261110a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'onboarding' });
@@ -292,9 +306,81 @@ async function zeichne() {
       ${akt.bringMit.length ? '<h3>Bring mit</h3><ul>' + akt.bringMit.map(b => '<li>' + esc(b) + '</li>').join('') + '</ul>' : ''}`;
   }
 
+  await zeichneBewerbungstag(akt);
   await zeichneTermine(akt);
   zeichneAntrag(st, akt);
   await zeichneUnterlagen(st);
+}
+
+// ── Bewerbungstag: montags 15:30 selbst buchen ───────────────────────────
+// Alle Regeln (Feiertage, 5 Plaetze, Montag 12 Uhr) prueft die Datenbank.
+const tagLang = (d) => new Date(d + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+let btAbsageFrage = false;
+let btLaeuft = false;
+
+async function zeichneBewerbungstag(akt) {
+  const box = $('ob-bewerbungstag');
+  if (!(akt && akt.aktion === 'bewerbungstag')) { box.hidden = true; return; }
+  const r = await LPR.getBewerbungstag();
+  if (!r.ok) {
+    box.hidden = false;
+    box.innerHTML = '<h2>Bewerbungstag</h2><p>Die Termine ließen sich gerade nicht laden. Bitte lade die Seite neu.</p>';
+    return;
+  }
+  const d = r.daten || {};
+  if (!d.darf_buchen && !d.meine) { box.hidden = true; return; }
+  box.hidden = false;
+  const meine = d.meine;
+  const andere = (d.termine || []).filter(t => !meine || t.datum !== meine.datum);
+  let html = '<h2>Bewerbungstag</h2>';
+  if (meine) {
+    html += `<div class="bt-mein"><strong>Dein Termin: ${esc(tagLang(meine.datum))}, ${esc(d.uhrzeit)} Uhr</strong><br>${esc(d.ort)}</div>`;
+    if (meine.aenderbar) {
+      html += `<div class="ob-knoepfe"><button type="button" class="btn${btAbsageFrage ? ' btn-primary' : ''}" data-bt-absagen>${btAbsageFrage ? 'Ja, Termin absagen' : 'Termin absagen'}</button></div>`;
+      if (andere.length) html += '<h3>Lieber an einem anderen Montag?</h3>';
+    } else {
+      html += '<p class="ob-hinweis">Ab Montag 12 Uhr lässt sich der Termin nicht mehr ändern. Wenn etwas dazwischenkommt, schreib uns bitte kurz.</p>';
+    }
+  } else {
+    html += `<p>Jeden Montag um ${esc(d.uhrzeit)} Uhr in der ${esc(d.ort)}. Höchstens 5 Personen pro Termin. An Feiertagen findet kein Bewerbungstag statt.</p>`;
+  }
+  if (!meine || meine.aenderbar) {
+    if (!andere.length) {
+      html += '<p>Gerade ist kein Montag frei. Schau bitte in ein paar Tagen wieder rein oder schreib uns.</p>';
+    } else {
+      html += '<ul class="bt-liste">' + andere.map(t => {
+        const voll = t.frei <= 0;
+        return `<li><button type="button" data-bt-datum="${esc(t.datum)}"${voll ? ' disabled' : ''}>
+          <span>${esc(tagLang(t.datum))}, ${esc(d.uhrzeit)} Uhr</span>
+          <span class="bt-frei">${voll ? 'ausgebucht' : t.frei === 1 ? 'noch 1 Platz' : 'noch ' + t.frei + ' Plätze'}</span></button></li>`;
+      }).join('') + '</ul>';
+      html += '<p class="ob-hinweis">Umbuchen oder absagen kannst du bis zum Termintag um 12 Uhr.</p>';
+    }
+  }
+  box.innerHTML = html;
+
+  box.querySelectorAll('[data-bt-datum]').forEach(b => b.onclick = async () => {
+    if (btLaeuft) return;
+    btLaeuft = true; btAbsageFrage = false;
+    box.querySelectorAll('button').forEach(x => x.disabled = true);
+    const a = await LPR.bewerbungstagBuchen(b.dataset.btDatum);
+    btLaeuft = false;
+    if (a.ok) melde(meine ? 'Umgebucht! Du bekommst eine Bestätigung per Mail.' : 'Gebucht! Du bekommst eine Bestätigung per Mail.');
+    else melde(a.error || 'Das hat nicht geklappt.', true);
+    await zeichne();
+  });
+  const ab = box.querySelector('[data-bt-absagen]');
+  if (ab) ab.onclick = async () => {
+    if (btLaeuft) return;
+    if (!btAbsageFrage) { btAbsageFrage = true; await zeichneBewerbungstag(akt); return; }
+    btLaeuft = true; btAbsageFrage = false;
+    box.querySelectorAll('button').forEach(x => x.disabled = true);
+    const a = await LPR.bewerbungstagAbsagen();
+    btLaeuft = false;
+    if (a.ok) melde('Dein Termin ist abgesagt. Such dir gern einen neuen Montag aus.');
+    else melde(a.error || 'Das hat nicht geklappt.', true);
+    await zeichne();
+  };
 }
 
 async function zeichneTermine(akt) {

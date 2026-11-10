@@ -67,10 +67,10 @@
       case 2:
         if (geplant(st.kennenlernen_am, st)) return {
           text: 'Dein Kennenlernen ist am ' + datumLang(st.kennenlernen_am) + '. Bring bitte deinen Personalausweis mit — dabei füllen wir zusammen den Antrag für die BZR-Abfrage aus.',
-          bringMit: ['Personalausweis'], wartetAuf: 'dich', aktion: 'termine' };
+          bringMit: ['Personalausweis'], wartetAuf: 'dich', aktion: 'bewerbungstag' };
         if (!st.kennenlernen_am) return {
-          text: 'Wir melden uns innerhalb von zwei Werktagen und machen mit dir einen Termin zum Kennenlernen aus. Dabei füllen wir zusammen den Antrag für die BZR-Abfrage aus.',
-          bringMit: ['Personalausweis'], wartetAuf: 'verein', aktion: 'termine' };
+          text: 'Jeden Montag um 15:30 Uhr ist Bewerbungstag in der Turmstraße 10, 10559 Berlin. Such dir unten einen Montag aus. Dabei lernen wir uns kennen und füllen zusammen den Antrag für die BZR-Abfrage aus.',
+          bringMit: ['Personalausweis'], wartetAuf: 'dich', aktion: 'bewerbungstag' };
         return {
           text: 'Danke fürs Kennenlernen! Deine BZR-Abfrage läuft. Das dauert erfahrungsgemäß einige Wochen — du musst nichts tun. Sobald sie da ist, geht es hier weiter.',
           bringMit: [], wartetAuf: 'verein', aktion: null };

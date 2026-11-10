@@ -16,7 +16,8 @@ const zustaende = (st) => OS.schritte(st).map(s => s.zustand).join(',');
 
 let st = { schritt: 2 };
 pruefe('frisch', zustaende(st) === 'erledigt,aktuell,offen,offen,offen,offen', zustaende(st));
-pruefe('frisch: Verein am Zug', OS.aktueller(st).wartetAuf === 'verein', JSON.stringify(OS.aktueller(st)));
+pruefe('frisch: du bist dran, Bewerbungstag buchen', OS.aktueller(st).wartetAuf === 'dich' && OS.aktueller(st).aktion === 'bewerbungstag', JSON.stringify(OS.aktueller(st)));
+pruefe('frisch: Montag 15:30 Turmstrasse', /Montag um 15:30 Uhr/.test(OS.aktueller(st).text) && /Turmstraße 10/.test(OS.aktueller(st).text), OS.aktueller(st).text);
 pruefe('frisch: Ausweis mitbringen', OS.aktueller(st).bringMit.includes('Personalausweis'), JSON.stringify(OS.aktueller(st).bringMit));
 
 st = { schritt: 2, kennenlernen_am: '2026-10-10', bzr_beantragt_am: '2026-10-10', bzr_ok: false, heute: '2026-10-12' };
@@ -52,7 +53,7 @@ const H = '2026-10-07';
 st = { schritt: 2, kennenlernen_am: '2026-10-14', heute: H };
 let a = OS.aktueller(st);
 pruefe('Kennenlernen geplant: Datum mit Wochentag', a.text.includes('Dein Kennenlernen ist am Mittwoch, 14.10.2026.'), a.text);
-pruefe('Kennenlernen geplant: du bist dran, Ausweis, termine', a.wartetAuf === 'dich' && a.bringMit.join() === 'Personalausweis' && a.aktion === 'termine', JSON.stringify(a));
+pruefe('Kennenlernen geplant: du bist dran, Ausweis, bewerbungstag', a.wartetAuf === 'dich' && a.bringMit.join() === 'Personalausweis' && a.aktion === 'bewerbungstag', JSON.stringify(a));
 pruefe('Kennenlernen geplant: BZR-Antrag erwaehnt', /BZR-Abfrage aus\./.test(a.text), a.text);
 st = { schritt: 2, kennenlernen_am: '2026-10-07', heute: H };
 pruefe('Kennenlernen heute: gilt als gewesen', /Danke fürs Kennenlernen/.test(OS.aktueller(st).text), OS.aktueller(st).text);

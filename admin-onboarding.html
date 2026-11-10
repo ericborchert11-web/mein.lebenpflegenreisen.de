@@ -118,6 +118,19 @@
 .btn-frei { background: var(--green); color: #fff; }
 .btn-frei.frage { background: #8A2E0E; color: #fff; }
 .abschluss-hinweis { font-size: 14px; color: var(--muted); }
+/* Bewerbungstage */
+.bt-box { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 22px; }
+.bt-box h2 { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 21px; color: var(--green-deep); margin: 0 0 4px; }
+.bt-tag { border-top: 1px solid var(--border); padding: 12px 0; }
+.bt-tag:first-of-type { border-top: none; }
+.bt-kopf { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; justify-content: space-between; }
+.bt-datum { font-weight: 700; color: var(--green-deep); font-size: 16px; }
+.bt-tag.faellt-aus .bt-datum { color: var(--muted); text-decoration: line-through; }
+.bt-zahl { font-size: 14px; color: var(--muted); }
+.bt-person { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: space-between; padding: 6px 0 0 10px; font-size: 15px; overflow-wrap: anywhere; }
+.bt-tun { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.bt-tun input, .bt-tun select { font-family: inherit; font-size: 16px; min-height: 44px; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: #fff; max-width: 100%; }
+.bt-box .btn-klein { min-height: 40px; padding: 6px 12px; font-size: 14px; }
 .leer { background: #fff; border: 1px dashed var(--border); border-radius: var(--radius); padding: 40px 24px; text-align: center; color: var(--muted); }
 </style>
 </head>
@@ -129,14 +142,20 @@
   <h1>Onboarding</h1>
   <p class="lead">Alle, die gerade ins Ehrenamt starten. Rot markiert: Der Verein ist seit mehr als 14 Tagen am Zug.</p>
 
+  <section class="bt-box" id="bt-box" aria-labelledby="bt-titel">
+    <h2 id="bt-titel">Bewerbungstage</h2>
+    <p class="lead" style="margin-bottom:8px;">Montags 15:30 · Turmstraße 10 · höchstens 5 Plätze. Feiertage fallen automatisch aus; Bewerbende buchen selbst bis Montag 12 Uhr.</p>
+    <div id="bt-liste"><p class="lead">Wird geladen …</p></div>
+  </section>
+
   <div class="filter" id="filter"></div>
   <div id="meldung" class="meldung" role="status" hidden></div>
   <div id="liste"><p class="lead">Wird geladen …</p></div>
 </div>
 </main>
 
-<script src="onboarding-schritte.js?v20261007c"></script>
-<script src="app.js?v20261007d"></script>
+<script src="onboarding-schritte.js?v20261110a"></script>
+<script src="app.js?v20261110a"></script>
 <script src="layout.js?v20261007d"></script>
 <script>
 if (!LPR.requireRole('admin', 'login.html?next=admin-onboarding.html')) throw new Error('kein Zugriff');
@@ -502,7 +521,75 @@ $('liste').addEventListener('click', async (ev) => {
   }
 });
 
-laden();
+// ── Bewerbungstage ─────────────────────────────────────────────────────────
+const tagKurz = (d) => new Date(d + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+let btTage = [];
+let btLaeuft = false;
+let btFrage = null;   // Buchungs-ID, deren Absage gerade bestaetigt werden soll
+
+async function btLaden() {
+  const r = await LPR.getBewerbungstagUebersicht();
+  if (!r.ok) { $('bt-liste').innerHTML = '<p class="lead">Die Bewerbungstage ließen sich nicht laden: ' + esc(r.error) + '</p>'; return; }
+  btTage = r.daten || [];
+  btZeichnen();
+}
+
+function btZeichnen() {
+  // Wer eingetragen werden kann: Schritt 2 und noch kein Termin gebucht.
+  const gebucht = new Set(btTage.flatMap(t => t.buchungen.map(b => b.user_id)));
+  const kandidaten = personen.filter(p => Number(p.schritt) === 2 && !gebucht.has(p.user_id));
+  $('bt-liste').innerHTML = btTage.map(t => {
+    const n = t.buchungen.length;
+    const faellt = !!t.ausfall;
+    const offen = !faellt && !t.schluss_vorbei;
+    return `<div class="bt-tag${faellt ? ' faellt-aus' : ''}">
+      <div class="bt-kopf">
+        <span class="bt-datum">${esc(tagKurz(t.datum))}</span>
+        <span class="bt-zahl">${faellt ? esc(t.ausfall) : n + ' von 5 belegt' + (t.schluss_vorbei ? ' · Buchung geschlossen' : '')}</span>
+      </div>
+      ${t.buchungen.map(b => `<div class="bt-person"><span>${esc(b.name)} · <a href="mailto:${esc(b.email)}">${esc(b.email)}</a></span>
+        <button type="button" class="btn btn-rand btn-klein" data-bt="absagen" data-id="${esc(b.id)}">${btFrage === b.id ? 'Wirklich absagen?' : 'Absagen'}</button></div>`).join('')}
+      <div class="bt-tun">
+        ${t.gesperrt
+          ? `<button type="button" class="btn btn-rand btn-klein" data-bt="entsperren" data-datum="${esc(t.datum)}">Sperre aufheben</button>`
+          : faellt ? '' : `<input type="text" id="bt-grund-${esc(t.datum)}" placeholder="Grund (z. B. Urlaub)" maxlength="200" aria-label="Grund für die Sperre am ${esc(tagKurz(t.datum))}">
+             <button type="button" class="btn btn-rand btn-klein" data-bt="sperren" data-datum="${esc(t.datum)}">${n ? 'Sperren und ' + n + ' absagen' : 'Sperren'}</button>`}
+        ${offen && n < 5 && kandidaten.length ? `<select id="bt-person-${esc(t.datum)}" aria-label="Person für ${esc(tagKurz(t.datum))} eintragen">
+            ${kandidaten.map(p => `<option value="${esc(p.user_id)}">${esc(p.name)}</option>`).join('')}</select>
+            <button type="button" class="btn btn-rand btn-klein" data-bt="eintragen" data-datum="${esc(t.datum)}">Eintragen</button>` : ''}
+      </div>
+    </div>`;
+  }).join('') || '<p class="lead">Keine Montage in den nächsten acht Wochen.</p>';
+}
+
+$('bt-liste').addEventListener('click', async (ev) => {
+  const b = ev.target.closest('button[data-bt]');
+  if (!b || b.disabled || btLaeuft) return;
+  const art = b.dataset.bt, datumWert = b.dataset.datum, id = b.dataset.id;
+  if (art === 'absagen' && btFrage !== id) { btFrage = id; btZeichnen(); return; }
+  const grund = art === 'sperren' ? (($('bt-grund-' + datumWert) || {}).value || '').trim() : '';
+  const person = art === 'eintragen' ? ($('bt-person-' + datumWert) || {}).value : '';
+  btLaeuft = true; btFrage = null;
+  $('bt-liste').querySelectorAll('button').forEach(x => x.disabled = true);
+  let r;
+  try {
+    if (art === 'absagen') r = await LPR.bewerbungstagAbsagenVorstand(id);
+    else if (art === 'sperren') r = await LPR.bewerbungstagSperren(datumWert, grund);
+    else if (art === 'entsperren') r = await LPR.bewerbungstagEntsperren(datumWert);
+    else if (art === 'eintragen') r = await LPR.bewerbungstagEintragen(person, datumWert);
+  } catch (e) { r = { ok: false, error: 'Netzwerkfehler.' }; }
+  btLaeuft = false;
+  const tag = datumWert ? tagKurz(datumWert) : '';
+  const okText = art === 'absagen' ? 'Buchung abgesagt — die Person bekommt eine Mail.'
+    : art === 'sperren' ? `${tag} gesperrt` + (r && r.daten && r.daten.abgesagt ? ` — ${r.daten.abgesagt} Buchung(en) abgesagt, die Personen bekommen eine Mail.` : '.')
+    : art === 'entsperren' ? `Sperre für ${tag} aufgehoben.`
+    : `Eingetragen für ${tag} — die Person bekommt eine Bestätigung.`;
+  melde(r && r.ok ? okText : 'Das hat nicht geklappt: ' + ((r && r.error) || 'Unbekannter Fehler.'), !(r && r.ok));
+  await laden();
+  await btLaden();
+});
+
+laden().then(btLaden);
 </script>
 </body>
 </html>

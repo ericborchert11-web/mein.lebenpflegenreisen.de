@@ -8050,6 +8050,41 @@
     } catch (e) { console.error('[LPR] getMeinOnboarding:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
   }
 
+  // ── Bewerbungstag (montags 15:30, hoechstens 5) ───────────────────────
+  // Regeln (Feiertage, Buchungsschluss Montag 12:00, Platzgrenze) prueft die
+  // Datenbank; hier nur Aufruf und lesbare Fehlertexte.
+  const BEWERBUNGSTAG_FEHLER = {
+    nicht_dran:    'Den Bewerbungstag kannst du nur in Schritt 2 deines Onboardings buchen.',
+    kein_montag:   'Bewerbungstag ist nur montags.',
+    vorbei:        'Für diesen Montag ist die Buchung schon geschlossen (Montag 12 Uhr).',
+    zu_weit:       'So weit im Voraus geht es noch nicht — höchstens sechs Wochen.',
+    faellt_aus:    'An diesem Montag findet kein Bewerbungstag statt.',
+    ausgebucht:    'Dieser Montag ist leider gerade ausgebucht.',
+    fest:          'Dein Termin ist heute — ab 12 Uhr lässt er sich nicht mehr ändern.',
+    keine_buchung: 'Es gibt keine offene Buchung.',
+  };
+  async function rpcBewerbungstag(name, args) {
+    try {
+      const { data, error } = await (await sb()).rpc(name, args || {});
+      if (error) return { ok: false, error: error.message };
+      if (data && typeof data === 'object' && data.ok === false) {
+        return { ok: false, fehler: data.fehler, error: BEWERBUNGSTAG_FEHLER[data.fehler] || 'Das hat nicht geklappt.' };
+      }
+      return { ok: true, daten: data };
+    } catch (e) {
+      console.error('[LPR] ' + name + ':', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+  const getBewerbungstag        = () => rpcBewerbungstag('bewerbungstag_freie_termine');
+  const bewerbungstagBuchen     = (datum) => rpcBewerbungstag('bewerbungstag_buchen', { p_datum: datum });
+  const bewerbungstagAbsagen    = () => rpcBewerbungstag('bewerbungstag_absagen');
+  const getBewerbungstagUebersicht = () => rpcBewerbungstag('bewerbungstag_uebersicht');
+  const bewerbungstagEintragen  = (userId, datum) => rpcBewerbungstag('bewerbungstag_eintragen', { p_user: userId, p_datum: datum });
+  const bewerbungstagAbsagenVorstand = (buchungId) => rpcBewerbungstag('bewerbungstag_absagen_vorstand', { p_buchung: buchungId });
+  const bewerbungstagSperren    = (datum, grund) => rpcBewerbungstag('bewerbungstag_sperren_setzen', { p_datum: datum, p_grund: grund || '' });
+  const bewerbungstagEntsperren = (datum) => rpcBewerbungstag('bewerbungstag_sperre_aufheben', { p_datum: datum });
+
   // ── Onboarding: Vorstand ──────────────────────────────────────────────
   // Die Rechte prueft die Datenbank (is_board() in jeder RPC); hier nur Aufruf.
 
@@ -8333,6 +8368,8 @@
     listTerminNachrichten, terminNachrichtVerschicken, terminNachrichtProtokoll,
     terminAnsehen, terminAntworten, setMeinTerminAntwort, listMeineTermine,
     getMeinOnboarding, mitgliedsantragEinreichen, getMeinMitgliedsantrag,
+    getBewerbungstag, bewerbungstagBuchen, bewerbungstagAbsagen, getBewerbungstagUebersicht,
+    bewerbungstagEintragen, bewerbungstagAbsagenVorstand, bewerbungstagSperren, bewerbungstagEntsperren,
     getOnboardingUebersicht, onboardingSetzen, mitgliedsantragEntscheiden, onboardingAbschliessen,
     getMitgliedsantragVorstand,
     listTerminDateien, addTerminDatei, deleteTerminDatei, uploadTerminDatei,

@@ -613,6 +613,32 @@ $('tm-neu').addEventListener('click', () => { $('tm-detail').hidden = true; form
 $('tm-abbrechen').addEventListener('click', () => { $('tm-form-karte').hidden = true; });
 $('tm-d-bearbeiten').addEventListener('click', () => formularFuellen(aktuell));
 
+// ── Feste Unterlagen je Terminart ──────────────────────────────────────
+// Wer zur Einfuehrung eingeladen wird, soll die Anleitung zum
+// Lebensmittelpass schon mit der Einladung bekommen: Den Termin beim
+// Gesundheitsamt muss man Tage vorher buchen. Erkannt wird die Einfuehrung
+// am Titel, eine eigene Terminart gibt es nicht. Haengt die Datei schon am
+// Termin, passiert nichts. Wird sie von Hand entfernt, kommt sie beim
+// naechsten Speichern wieder — gewollt, die Unterlage ist Pflicht.
+const PFLICHT_UNTERLAGEN = [{
+  passt: titel => /einf(ü|ue|u)hrung/i.test(titel || ''),
+  titel: 'Lebensmittelpass in Berlin: so bekommst du ihn (PDF)',
+  url:   'https://mein.lebenpflegenreisen.de/dokumente/lebensmittelpass-berlin.pdf',
+}];
+
+async function pflichtUnterlagenAnhaengen(terminId, titel) {
+  const noetig = PFLICHT_UNTERLAGEN.filter(u => u.passt(titel));
+  if (!noetig.length) return;
+  const r = await LPR.listTerminDateien(terminId);
+  if (!r.ok) { LPR.showToast('Unterlagen nicht prüfbar: ' + r.error, 'warn'); return; }
+  const da = new Set(r.dateien.map(d => d.url));
+  for (const u of noetig) {
+    if (da.has(u.url)) continue;
+    const a = await LPR.addTerminDatei(terminId, u.titel, u.url, 0);
+    if (!a.ok) LPR.showToast('„' + u.titel + '" konnte nicht angehängt werden: ' + a.error, 'warn');
+  }
+}
+
 $('tm-form').addEventListener('submit', async ev => {
   ev.preventDefault();
   const id = $('tm-form').dataset.id;
@@ -634,6 +660,7 @@ $('tm-form').addEventListener('submit', async ev => {
     tagesordnung_offen: $('tm-tagesordnung-offen').checked,
   });
   if (!r.ok) { melde(r.error, true); return; }
+  await pflichtUnterlagenAnhaengen(r.id, $('tm-titel').value);
   $('tm-form-karte').hidden = true;
   await ladeListe(r.id);
   await zeigeDetail(r.id);

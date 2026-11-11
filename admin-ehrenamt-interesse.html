@@ -180,10 +180,62 @@ async function laden() {
     return;
   }
   alleZeilen = data || [];
+  await kontenAbgleichen(sb);
   zeichneFilter();
   zeichneListe();
   ladeQuellen();
   zeigeKanaele();
+}
+
+// ── Abgleich mit den Portal-Konten ──────────────────────────────────────
+// Die meisten bewerben sich auf /mitmachen/ und legen danach SELBST ihr Konto
+// an — die Danke-Seite bietet das direkt an. Diese Selbstregistrierung kennt
+// den Interessenten-Eintrag nicht, also blieb er auf "neu" stehen, mit einem
+// "Ins Portal einladen"-Knopf fuer jemanden, der laengst im Onboarding ist.
+// Deshalb hier: Verknuepfung ueber die Mailadresse, und wer ein Konto hat,
+// wird beim Oeffnen der Seite auf "uebernommen" gesetzt (mit Notiz).
+const SCHRITT_TITEL = ['Registrieren', 'Kennenlernen', 'Mitgliedsantrag',
+                       'Einführung & Unterlagen', 'Einarbeitungstag', 'Alles da'];
+let konten = new Map();   // mail (klein) -> { status, schritt }
+
+async function kontenAbgleichen(sb) {
+  konten = new Map();
+  const [pr, ob] = await Promise.all([
+    sb.from('profiles').select('id,email,role,status'),
+    LPR.getOnboardingUebersicht()
+  ]);
+  if (pr.error) { console.error('[Interesse] Konten nicht lesbar:', pr.error.message); return; }
+  const schritte = new Map(((ob && ob.ok && ob.personen) || []).map(x => [x.user_id, x.schritt]));
+  for (const k of pr.data || []) {
+    if (!k.email) continue;
+    konten.set(k.email.toLowerCase(), { status: k.status, role: k.role, schritt: schritte.get(k.id) || null });
+  }
+
+  const offen = alleZeilen.filter(z => ['neu', 'kontaktiert', 'gespraech'].includes(z.status)
+                                    && konten.has((z.email || '').toLowerCase()));
+  if (!offen.length) return;
+  const heute = new Date().toLocaleDateString('de-DE');
+  for (const z of offen) {
+    const notizen = (z.notizen ? z.notizen + '\n' : '') +
+      `[${heute}] Konto im Portal vorhanden (selbst registriert), automatisch übernommen.`;
+    const { error } = await sb.from('ehrenamt_interessenten')
+      .update({ status: 'uebernommen', notizen }).eq('id', z.id);
+    if (error) { console.error('[Interesse] Abgleich', z.id, error.message); continue; }
+    z.status = 'uebernommen'; z.notizen = notizen;
+  }
+  LPR.showToast(offen.length + ' mit Portal-Konto automatisch auf „Übernommen“ gesetzt.', 'ok');
+}
+
+/** Zeile "Konto im Portal" fuer die Karte, leer ohne Konto. */
+function kontoZeile(z) {
+  const k = konten.get((z.email || '').toLowerCase());
+  if (!k) return '';
+  if (k.status === 'pending' && k.schritt) {
+    return `<br>🪪 <strong>Konto im Portal</strong> · Onboarding Schritt ${k.schritt}: ` +
+      `${LPR.escape(SCHRITT_TITEL[k.schritt - 1] || '')} · <a href="admin-onboarding.html">zum Onboarding</a>`;
+  }
+  if (k.status === 'approved') return '<br>🪪 <strong>Freigegebenes Mitglied</strong> im Portal';
+  return `<br>🪪 <strong>Konto im Portal</strong> (${LPR.escape(k.status || '')})`;
 }
 
 function zeichneFilter() {
@@ -261,6 +313,7 @@ function zeichneListe() {
         ${z.quelle ? `<br>🔗 kam über <code>${LPR.escape(z.quelle)}</code>` : ''}
         ${z.ref_code ? `<br>👥 empfohlen über <code>${LPR.escape(z.ref_code)}</code>` : ''}
         ${z.mail_ok === false ? '<br><span class="warnung">⚠ Eingangsbestätigung wurde NICHT zugestellt</span>' : ''}
+        ${kontoZeile(z)}
       </div>
 
       ${z.nachricht ? `<div class="karte-nachricht">${LPR.escape(z.nachricht)}</div>` : ''}
@@ -272,7 +325,7 @@ function zeichneListe() {
         </select>
         <textarea id="nz-${z.id}" placeholder="Notiz zum Verlauf — keine Gesundheitsdaten">${LPR.escape(z.notizen || '')}</textarea>
         <button class="btn btn-primary" onclick="speichern('${z.id}')">Speichern</button>
-        ${z.status !== 'abgelehnt'
+        ${z.status !== 'abgelehnt' && !konten.has((z.email || '').toLowerCase())
           ? `<button type="button" class="btn btn-primary" id="ei-${z.id}" onclick="einladen('${z.id}')"
                      title="Legt das Konto an, vermerkt das Kennenlernen und schickt einen Link zum Passwort-Vergeben (24 Stunden gültig). Freigegeben wird erst nach dem Onboarding.">${z.status === 'uebernommen' ? 'Einladung erneut schicken' : 'Ins Portal einladen'}</button>`
           : ''}

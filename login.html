@@ -88,19 +88,20 @@
        ?role=... oder #register; sonst steht hier diese Karte. -->
   <div class="auth-card" id="neu-hier" hidden>
     <h2>Neu hier?</h2>
-    <p class="sub">Ein Konto brauchen Sie erst, wenn wir uns kennengelernt haben.</p>
-    <a class="neu-weg neu-weg--haupt" href="mitmachen/?src=login">
-      <strong>Ehrenamtlich mitmachen →</strong>
-      <span>Kurz bewerben, ohne Konto und ohne Passwort. Wir melden uns innerhalb von zwei Werktagen.</span>
+    <p class="sub">Sie möchten ehrenamtlich mitmachen? Wählen Sie einen der beiden Wege.</p>
+    <a class="neu-weg neu-weg--haupt" href="login.html?role=ehrenamt#register">
+      <strong>Konto anlegen und Bewerbungstag buchen →</strong>
+      <span>Für alle, die schon wissen, dass sie mitmachen wollen, auch auf Empfehlung.
+        Danach buchen Sie direkt einen Bewerbungstag (montags 15:30 Uhr).</span>
+    </a>
+    <a class="neu-weg" href="mitmachen/?src=login">
+      <strong>Erst unverbindlich bewerben →</strong>
+      <span>Ohne Konto und ohne Passwort. Wir melden uns innerhalb von zwei Werktagen.</span>
     </a>
     <a class="neu-weg" href="login.html?role=klinik">
       <strong>Als Klinik Sitzwachen buchen →</strong>
       <span>Einrichtung anmelden. Der Vorstand prüft und schickt Ihnen den Zugang.</span>
     </a>
-    <p class="sub" style="margin:14px 0 0; text-align:center;">
-      Wir haben Sie nach dem Kennenlernen gebeten, ein Konto anzulegen?
-      <a href="login.html?role=ehrenamt" style="color:var(--green); font-weight:700;">Konto erstellen</a>
-    </p>
   </div>
 
   <div class="auth-card" id="register">

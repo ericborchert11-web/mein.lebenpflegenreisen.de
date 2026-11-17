@@ -126,6 +126,7 @@ h1 { margin:0 0 4px; }
             <option value="einarbeitung">Einarbeitungstag</option>
             <option value="auslage">Auslage zur Reise</option>
             <option value="verein">Vereinsauslage</option>
+            <option value="taetigkeit">Ehrenamtspauschale</option>
           </select>
         </label>
         <label>Status:
@@ -139,22 +140,38 @@ h1 { margin:0 0 4px; }
           </select>
         </label>
         <button class="as-btn" id="au-oeffnen" title="Auslagenersatz (§ 3 Nr. 50 EStG) für ein Mitglied eintragen">Auslage erfassen</button>
+        <button class="as-btn" id="ep-oeffnen" title="Aufwandsentschädigung nach § 3 Nr. 26a EStG für eine Tätigkeit ohne Einsatz">Ehrenamtspauschale erfassen</button>
       </div>
       <p class="as-count" id="claim-count"></p>
       <div id="claim-list"></div>
+    </section>
+
+    <section id="panel-freigaben" style="margin-top:36px">
+      <h2 style="font-size:18px;margin:0 0 4px">Freibeträge und Belegtexte</h2>
+      <p class="sub" style="font-size:14px">Die Jahreswerte gelten erst nach Sonjas Freigabe. Freigeben kann nur Sonja mit ihrem eigenen Konto; ändert sich ein Betrag, ist die Freigabe wieder weg.</p>
+      <div id="freigaben-liste"><div class="as-empty">Wird geladen …</div></div>
     </section>
   </div>
 </div>
 </main>
 
-<script src="app.js?v20261017a"></script>
+<script src="app.js?v20261117a"></script>
+<script src="ehrenamtspauschale.js?v20261117a"></script>
+<script src="beleg-vorlage.js?v20261117a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
 LPR_Layout.init({ page: 'auszahlungen-admin' });
 
 const CLAIM_STATUS_LABEL   = { draft:'Entwurf', submitted:'eingereicht', approved:'freigegeben', paid:'ausgezahlt', rejected:'abgelehnt' };
-const FREIBETRAG = { '26':3300, '26a':960 };
+// Jahresfreibetraege kommen aus steuer_freibetraege (seit 17.11.2026), nicht
+// mehr aus dem Code. null = fuer dieses Jahr nichts hinterlegt.
+let _freibetraege = [];
+let _belegFassungen = [];
+function limitEuro(art, jahr) {
+  const fb = Ehrenamtspauschale.freibetrag(_freibetraege, art, jahr);
+  return fb ? fb.cents / 100 : null;
+}
 
 let _claims = [];
 
@@ -172,6 +189,7 @@ async function init() {
   document.getElementById('f-claim-herkunft').addEventListener('change', renderClaims);
   document.getElementById('f-claim-status').addEventListener('change', renderClaims);
 
+  await ladeFreigaben();
   await loadClaims();
 }
 
@@ -247,6 +265,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('be-schliessen').onclick = beSchliessen;
   document.getElementById('be-hochladen').onclick = beHochladen;
   document.getElementById('be-overlay').onclick = e => { if (e.target.id === 'be-overlay') beSchliessen(); };
+  document.getElementById('ep-oeffnen').onclick = epOeffnen;
+  document.getElementById('ep-abbrechen').onclick = epSchliessen;
+  document.getElementById('ep-ok').onclick = epSpeichern;
+  document.getElementById('ep-overlay').onclick = e => { if (e.target.id === 'ep-overlay') epSchliessen(); };
+  ['ep-person','ep-betrag','ep-auszahlung','ep-anderweitig'].forEach(id => {
+    document.getElementById(id).addEventListener('input', epRechnen);
+    document.getElementById(id).addEventListener('change', epRechnen);
+  });
 });
 
 // ===================== Anträge =====================
@@ -282,6 +308,8 @@ async function ladeMitfahrerNamen() {
 function claimHerkunft(c) {
   // Vereinsauslage: Ausgabe für den Verein ohne Reise-Anmeldung (seit 17.10.2026).
   if (c.source_type === 'verein') return 'verein';
+  // Ehrenamtspauschale § 3 Nr. 26a ohne Einsatz (seit 17.11.2026).
+  if (c.source_type === 'taetigkeit') return 'taetigkeit';
   if (c.kind === 'auslage') return 'auslage';
   if (c.source_type === 'trip') return 'trip';
   if (c.source_type === 'sitzwache') return 'sitzwache';
@@ -290,7 +318,7 @@ function claimHerkunft(c) {
   return '';
 }
 
-const HERKUNFT_LABEL = { trip:'Reisebegleitung', sitzwache:'Sitzwache', einarbeitung:'Einarbeitungstag', auslage:'Auslage', verein:'Vereinsauslage' };
+const HERKUNFT_LABEL = { trip:'Reisebegleitung', sitzwache:'Sitzwache', einarbeitung:'Einarbeitungstag', auslage:'Auslage', verein:'Vereinsauslage', taetigkeit:'Ehrenamtspauschale' };
 
 // Filter der Liste. „offen" ist die Arbeitsliste des Vorstands: alles, was noch
 // eine Entscheidung oder eine Ueberweisung braucht. Leerer Wert heisst „alle".
@@ -310,7 +338,9 @@ function yearSum(userId, art, year, excludeId) {
       // Auslagenersatz (§ 3 Nr. 50 EStG) ist steuerfrei und zaehlt nicht gegen
       // den Uebungsleiterfreibetrag (§ 3 Nr. 26 EStG) — nur Pauschalen zaehlen.
       && c.kind !== 'auslage'
-      && (new Date(c.submitted_at || Date.now())).getFullYear() === year)
+      // Massgeblich ist das Jahr der Auszahlung (bis 17.11.2026 stand hier
+      // das Jahr der Einreichung).
+      && Ehrenamtspauschale.freibetragJahr(c) === year)
     .reduce((s, c) => s + Number(c.amount || 0), 0);
 }
 
@@ -351,6 +381,15 @@ function mailNachversandNoetig(c) {
 // Bei einer Autoanreise stehen die benannten Mitfahrenden klein darunter, damit
 // bei der Freigabe sichtbar ist, wofür die Summe steht.
 function claimArtZelle(c) {
+  const klein0 = t => '<div style="font-size:12px;color:var(--muted);margin-top:3px">' + t + '</div>';
+  if (c.source_type === 'taetigkeit') {
+    let h = '§ 3 Nr. 26a' + klein0(esc(c.taetigkeit || ''));
+    if (Number(c.nicht_steuerfrei_cents) > 0) {
+      h += '<div style="font-size:12px;color:#9B2C2C;margin-top:3px">davon ' + eur(c.nicht_steuerfrei_cents / 100) + ' nicht steuerfrei</div>';
+    }
+    if (c.zahlweg === 'bar') h += klein0('bar');
+    return h;
+  }
   if (c.kind !== 'auslage') return '§ 3 Nr. ' + esc(c.pauschale_art || '26');
   const verein = c.source_type === 'verein';
   const unter = verein ? 'für den Verein'
@@ -412,16 +451,18 @@ function renderClaims() {
       // hier nicht, sonst verbraucht eine Spritkosten-Erstattung Freibetrag.
       const istAuslage = c.kind === 'auslage';
       const art = c.pauschale_art || '26';
-      const limit = FREIBETRAG[art];
-      const year = (new Date(c.submitted_at || Date.now())).getFullYear();
+      const year = Ehrenamtspauschale.freibetragJahr(c) || new Date().getFullYear();
+      const limit = limitEuro(art, year);
       const sum = istAuslage ? 0 : yearSum(c.user_id, art, year, c.id);
       const withThis = sum + Number(c.amount || 0);
-      const over = !istAuslage && withThis > limit;
-      const near = !istAuslage && !over && withThis > limit * 0.85;
+      const over = !istAuslage && limit != null && withThis > limit;
+      const near = !istAuslage && !over && limit != null && withThis > limit * 0.85;
       const ampel = over ? 'r' : (near ? 'y' : 'g');
       const freibetragZelle = istAuslage
         ? '<span title="zählt nicht gegen den Freibetrag">—</span>'
-        : '<span class="ampel ' + ampel + '"></span>' + eur(withThis) + ' / ' + eur(limit);
+        : limit == null
+          ? eur(withThis) + ' / <span title="Für ' + year + ' ist kein Freibetrag hinterlegt">?</span>'
+          : '<span class="ampel ' + ampel + '"></span>' + eur(withThis) + ' / ' + eur(limit);
       let actions = '';
       if (c.status === 'submitted') {
         actions =
@@ -429,6 +470,9 @@ function renderClaims() {
           '<button class="as-btn warn" data-act="reject" data-id="' + c.id + '">Ablehnen</button>';
       } else if (c.status === 'approved') {
         actions = '<button class="as-btn" data-act="pay" data-id="' + c.id + '">Als ausgezahlt markieren</button>';
+        if (c.source_type === 'taetigkeit') {
+          actions += '<button class="as-btn" data-act="vorschau" data-id="' + c.id + '">Beleg-Vorschau</button>';
+        }
       } else if (c.status === 'paid') {
         actions = '<button class="as-btn" data-act="beleg" data-id="' + c.id + '">Beleg</button>';
       }
@@ -467,6 +511,11 @@ async function onClaimAction(btn) {
     if (c) await beOeffnen(c);
     return;
   }
+  if (act === 'vorschau') {
+    const c = _claims.find(x => x.id === id);
+    if (c) await bvOeffnen(c);
+    return;
+  }
   if (act === 'beleg') {
     // Nur ansehen, kein Statuswechsel — deshalb vor der Wechsel-Logik und ohne
     // btn.disabled/loadClaims danach.
@@ -486,7 +535,11 @@ async function onClaimAction(btn) {
     if (!confirm('Diesen Antrag freigeben? Danach ist er zur Auszahlung bereit.')) return;
     status = 'approved';
   } else if (act === 'pay') {
-    if (!confirm('Bestätigen, dass die Überweisung erfolgt ist? Es wird eine Auszahlungs-Belegnummer vergeben.')) return;
+    const c = _claims.find(x => x.id === id);
+    const frage = c && c.source_type === 'taetigkeit'
+      ? 'Ist das Geld überwiesen bzw. bar übergeben? Es wird eine Belegnummer vergeben, und der Beleg geht per Mail an die Person. Danach den Beleg ausdrucken und unterschreiben lassen.'
+      : 'Bestätigen, dass die Überweisung erfolgt ist? Es wird eine Auszahlungs-Belegnummer vergeben.';
+    if (!confirm(frage)) return;
     status = 'paid';
   } else if (act === 'reject') {
     reason = prompt('Grund der Ablehnung (wird der Person angezeigt):');
@@ -500,6 +553,223 @@ async function onClaimAction(btn) {
   const res = await LPR.adminSetClaimStatus(id, status, reason);
   if (!res.ok) { toast(res.error || 'Aktion fehlgeschlagen.', 'warn'); btn.disabled = false; return; }
   toast(status === 'paid' ? ('Als ausgezahlt markiert. Beleg-Nr.: ' + (res.claim && res.claim.beleg_nr || '—')) : 'Antrag aktualisiert.');
+  await loadClaims();
+}
+
+// ═════════════════ Ehrenamtspauschale § 3 Nr. 26a (seit 17.11.2026) ═════════════════
+//
+// Aufwandsentschädigung für eine unterstützende Tätigkeit ohne Einsatz
+// (Flyer verteilen, Organisation, Bürohilfe). Erfasst nur der Vorstand, der
+// Antrag entsteht als „freigegeben“ wie eine Vereinsauslage. Die Datenbank
+// prüft Freigabe, Vorstandssperre und Freibetrag noch einmal und lehnt ab,
+// was hier durchrutschen würde — dieser Dialog zeigt nur vorher, was kommt.
+
+let _epMitglieder = [];
+let _epVorschau = null;
+
+async function ladeFreigaben() {
+  const [w, f] = await Promise.all([LPR.steuerFreibetraege(), LPR.belegFreigaben()]);
+  if (!w.ok) toast('Freibeträge konnten nicht geladen werden: ' + w.error, 'warn');
+  _freibetraege = w.werte || [];
+  _belegFassungen = f.fassungen || [];
+  renderFreigaben();
+}
+
+function belegFassungFrei() {
+  return _belegFassungen.some(f => f.variante === '26a-taetigkeit'
+    && f.fassung === LPRBeleg.BELEG_26A_FASSUNG && f.freigabe_sonja_am);
+}
+
+function renderFreigaben() {
+  const el = document.getElementById('freigaben-liste');
+  const status = am => am
+    ? '<span class="pill paid">freigegeben ' + fmtDate(am) + '</span>'
+    : '<span class="pill submitted">Entwurf</span>';
+  const knopf = (am, daten) => '<button class="as-btn' + (am ? ' warn' : '') + '" data-freigabe=\'' + esc(JSON.stringify(daten)) + '\' data-an="' + (am ? '0' : '1') + '">'
+    + (am ? 'Freigabe zurücknehmen' : 'Freigeben') + '</button>';
+  const zeilen = _freibetraege.map(w =>
+    '<tr><td>§ 3 Nr. ' + esc(w.vorschrift) + (w.vorschrift === '26a' ? ' (Ehrenamtspauschale)' : ' (Übungsleiterpauschale)') + '</td>'
+    + '<td>ab ' + esc(String(w.ab_jahr)) + '</td><td>' + eur(w.betrag_cents / 100) + '</td>'
+    + '<td>' + status(w.freigabe_sonja_am) + '</td>'
+    + '<td><div class="as-actions">' + knopf(w.freigabe_sonja_am, { tabelle: 'steuer_freibetraege', vorschrift: w.vorschrift, ab_jahr: w.ab_jahr }) + '</div></td></tr>');
+  const fassung = LPRBeleg.BELEG_26A_FASSUNG;
+  const fz = _belegFassungen.find(f => f.variante === '26a-taetigkeit' && f.fassung === fassung);
+  const fAm = fz && fz.freigabe_sonja_am;
+  zeilen.push('<tr><td>Belegtext Ehrenamtspauschale</td><td>Fassung ' + esc(fassung) + '</td><td>—</td>'
+    + '<td>' + status(fAm) + '</td>'
+    + '<td><div class="as-actions"><button class="as-btn" id="muster-oeffnen">Muster ansehen</button>'
+    + knopf(fAm, { tabelle: 'beleg_freigaben', variante: '26a-taetigkeit', fassung }) + '</div></td></tr>');
+  el.innerHTML = '<table class="as-table"><thead><tr><th>Wert</th><th>gilt</th><th>Betrag</th><th>Status</th><th></th></tr></thead><tbody>'
+    + zeilen.join('') + '</tbody></table>';
+  el.querySelectorAll('button[data-freigabe]').forEach(b => b.addEventListener('click', () => freigabeKlick(b)));
+  document.getElementById('muster-oeffnen').onclick = musterOeffnen;
+}
+
+async function freigabeKlick(btn) {
+  const ziel = JSON.parse(btn.dataset.freigabe);
+  const an = btn.dataset.an === '1';
+  if (an && !confirm('Freigeben? Das geht nur mit Sonjas eigenem Konto; die Datenbank vermerkt Person und Zeitpunkt.')) return;
+  if (!an && !confirm('Freigabe zurücknehmen? Danach lässt sich keine Auszahlung mit diesem Wert freigeben bzw. auszahlen.')) return;
+  btn.disabled = true;
+  const res = await LPR.steuerFreigabe(ziel, an);
+  if (!res.ok) { toast(res.error || 'Freigabe fehlgeschlagen.', 'warn'); btn.disabled = false; return; }
+  toast(an ? 'Freigegeben.' : 'Freigabe zurückgenommen.');
+  await ladeFreigaben();
+  renderClaims();
+}
+
+/** Beleg als vollständiges Dokument für das Vorschau-iframe. */
+function belegDokumentHtml(titel, inhalt) {
+  return '<!doctype html><html lang="de"><head><meta charset="utf-8"><title>' + esc(titel) + '</title></head><body>'
+    + '<style>' + LPRBeleg.CSS + '</style><div class="beleg-wrap">' + inhalt + '</div></body></html>';
+}
+
+function blZeigen(titel, sub, dokument) {
+  document.getElementById('bl-titel').textContent = titel;
+  document.getElementById('bl-sub').textContent = sub;
+  const frame = document.getElementById('bl-frame');
+  document.getElementById('bl-hinweis').hidden = true;
+  frame.srcdoc = dokument;
+  frame.hidden = false;
+  document.getElementById('bl-drucken').hidden = false;
+  document.getElementById('bl-overlay').hidden = false;
+}
+
+const VEREIN_BELEG = { name: 'Leben Pflegen Reisen e. V.', adresse: 'Stephanstraße 46, 10559 Berlin',
+  register: 'Amtsgericht Charlottenburg, VR 42682 B' };
+
+/** Muster mit erfundener Person, damit Sonja den Text vor der Freigabe sieht. */
+function musterOeffnen() {
+  const jahr = new Date().getFullYear();
+  const fb = Ehrenamtspauschale.freibetrag(_freibetraege, '26a', jahr);
+  const inhalt = LPRBeleg.belegHtml({
+    claim: { source_type: 'taetigkeit', kind: 'pauschale', pauschale_art: '26a', status: 'paid',
+      paid_at: new Date().toISOString(), beleg_nr: 'LPR-AZB-' + jahr + '-MUSTER', amount: 150,
+      period_start: jahr + '-11-02', period_end: jahr + '-11-08', freibetrag_jahr: jahr,
+      taetigkeit: 'Verteilung und Aushang von Flyern zur Gewinnung neuer Ehrenamtlicher',
+      zweck: 'Gewinnung neuer Ehrenamtlicher für die Sitzwachen', ort: 'Berlin', nicht_steuerfrei_cents: 0 },
+    person: { full_name: 'Erika Beispiel' }, verein: VEREIN_BELEG, jahresSumme: 150,
+    anschrift: { strasse: 'Musterweg 1', plz: '10115', ort: 'Berlin' }, geburtsdatum: '1990-04-01',
+    freibetrag: fb, unterzeichner: 'Max Vorstand', fassungFreigegeben: belegFassungFrei()
+  });
+  blZeigen('Muster: Auszahlungsbeleg Ehrenamtspauschale', 'Erfundene Person, Fassung ' + LPRBeleg.BELEG_26A_FASSUNG,
+    belegDokumentHtml('Muster Auszahlungsbeleg', inhalt));
+}
+
+/** Vorschau für einen freigegebenen, noch nicht ausgezahlten 26a-Antrag. */
+async function bvOeffnen(c) {
+  const d = await LPR.taetigkeitBelegDaten(c);
+  if (!d.ok) { toast(d.error || 'Belegdaten konnten nicht geladen werden.', 'warn'); return; }
+  const jahr = Ehrenamtspauschale.freibetragJahr(c);
+  const inhalt = LPRBeleg.belegHtml({
+    claim: c, person: { full_name: c.user_name }, verein: VEREIN_BELEG,
+    jahresSumme: yearSum(c.user_id, '26a', jahr, c.id) + Number(c.amount || 0),
+    anschrift: d.anschrift, geburtsdatum: d.geburtsdatum, freibetrag: d.freibetrag,
+    unterzeichner: d.unterzeichner, fassungFreigegeben: d.fassungFreigegeben
+  });
+  blZeigen('Beleg-Vorschau', c.user_name + ' · die Belegnummer kommt mit „Als ausgezahlt markieren“',
+    belegDokumentHtml('Beleg-Vorschau', inhalt));
+}
+
+async function epOeffnen() {
+  const fehler = document.getElementById('ep-fehler');
+  fehler.hidden = true;
+  ['ep-taetigkeit','ep-zweck','ep-von','ep-bis','ep-betrag','ep-anderweitig','ep-notiz'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('ep-ort').value = 'Berlin';
+  document.getElementById('ep-zahlweg').value = 'ueberweisung';
+  document.getElementById('ep-auszahlung').value = auHeute();
+  document.getElementById('ep-bestaetigen').checked = false;
+  document.getElementById('ep-overlay').hidden = false;
+  if (!_epMitglieder.length) {
+    const res = await LPR.adminMitgliederFuerAuslage();
+    if (!res.ok) { fehler.textContent = res.error || 'Mitglieder konnten nicht geladen werden.'; fehler.hidden = false; return; }
+    _epMitglieder = res.mitglieder || [];
+  }
+  document.getElementById('ep-person').innerHTML = '<option value="">— bitte wählen —</option>'
+    + _epMitglieder.map(m => '<option value="' + esc(m.id) + '"' + (m.role === 'board' ? ' disabled' : '') + '>'
+      + esc(m.full_name) + (m.role === 'board' ? ' (Vorstand – gesperrt)' : '') + '</option>').join('');
+  epRechnen();
+}
+
+function epSchliessen() { document.getElementById('ep-overlay').hidden = true; }
+
+function epCents(id) {
+  const v = String(document.getElementById(id).value || '').trim().replace(/\./g, '').replace(',', '.');
+  if (!v) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : NaN;
+}
+
+// Beim Personenwechsel die letzte Erklärung desselben Jahres vorbelegen.
+let _epLetztePerson = null;
+function epRechnen() {
+  const userId = document.getElementById('ep-person').value;
+  const auszahlung = document.getElementById('ep-auszahlung').value;
+  const jahr = auszahlung ? Number(auszahlung.slice(0, 4)) : null;
+  if (userId && userId !== _epLetztePerson) {
+    _epLetztePerson = userId;
+    const letzte = jahr ? Ehrenamtspauschale.letzteErklaerung(_claims, userId, jahr) : null;
+    document.getElementById('ep-anderweitig').value = letzte == null ? '' : (letzte / 100).toFixed(2).replace('.', ',');
+  }
+  const out = document.getElementById('ep-vorschau');
+  const bestWrap = document.getElementById('ep-bestaetigen-wrap');
+  const betrag = epCents('ep-betrag');
+  const anderweitig = epCents('ep-anderweitig');
+  _epVorschau = null;
+  if (!userId || !jahr || betrag == null || Number.isNaN(betrag) || Number.isNaN(anderweitig)) {
+    out.innerHTML = '<span style="color:var(--muted)">Person, Betrag und Auszahlungsdatum eintragen, dann steht hier der Freibetrag.</span>';
+    bestWrap.hidden = true;
+    return;
+  }
+  const v = Ehrenamtspauschale.vorschau({ user_id: userId, amount: betrag / 100, auszahlung_am: auszahlung,
+    anderweitig_cents: anderweitig || 0 }, _claims, _freibetraege);
+  _epVorschau = v;
+  if (!v) {
+    out.innerHTML = '<span style="color:#9B2C2C">Für ' + jahr + ' ist kein Freibetrag nach § 3 Nr. 26a hinterlegt.</span>';
+    bestWrap.hidden = true;
+    return;
+  }
+  out.innerHTML = 'Freibetrag ' + v.jahr + ': <strong>' + eur(v.limit / 100) + '</strong>'
+    + (v.freigegeben ? '' : ' <span style="color:#9B2C2C">(noch nicht von Sonja freigegeben – Speichern wird abgelehnt)</span>')
+    + '<br>bisher ausgeschöpft: ' + eur(v.bisher / 100)
+    + (v.anderweitig ? ' (davon ' + eur(v.anderweitig / 100) + ' laut Erklärung bei anderen)' : '')
+    + '<br>diese Auszahlung: ' + eur(v.diese / 100)
+    + '<br>verbleibend danach: <strong>' + eur(v.verbleibend / 100) + '</strong>'
+    + (v.ueber ? '<br><strong style="color:#9B2C2C">Überschreitung: ' + eur(v.ueber / 100) + ' wären nicht steuerfrei.</strong>' : '');
+  bestWrap.hidden = !v.ueber;
+}
+
+async function epSpeichern() {
+  const fehler = document.getElementById('ep-fehler');
+  const zeige = t => { fehler.textContent = t; fehler.hidden = false; };
+  fehler.hidden = true;
+  const wert = id => document.getElementById(id).value.trim();
+  const betrag = epCents('ep-betrag');
+  const anderweitig = epCents('ep-anderweitig');
+  if (!wert('ep-person')) return zeige('Bitte eine Person auswählen.');
+  if (!wert('ep-taetigkeit')) return zeige('Bitte die Art der Tätigkeit angeben.');
+  if (!wert('ep-zweck')) return zeige('Bitte den Zweck angeben.');
+  if (!wert('ep-von') || !wert('ep-bis')) return zeige('Bitte den Zeitraum angeben.');
+  if (betrag == null || Number.isNaN(betrag) || betrag <= 0) return zeige('Bitte einen gültigen Betrag angeben.');
+  if (Number.isNaN(anderweitig)) return zeige('Der anderweitig genutzte Freibetrag ist keine gültige Zahl.');
+  if (_epVorschau && _epVorschau.ueber && !document.getElementById('ep-bestaetigen').checked) {
+    return zeige('Der Freibetrag wird überschritten. Bitte die Überschreitung ausdrücklich bestätigen.');
+  }
+  const btn = document.getElementById('ep-ok');
+  btn.disabled = true;
+  const res = await LPR.adminCreateTaetigkeitClaim({
+    user_id: wert('ep-person'), amount_cents: betrag,
+    period_start: wert('ep-von'), period_end: wert('ep-bis'),
+    taetigkeit: wert('ep-taetigkeit'), zweck: wert('ep-zweck'), ort: wert('ep-ort'),
+    zahlweg: document.getElementById('ep-zahlweg').value, auszahlung_am: wert('ep-auszahlung'),
+    anderweitig_cents: anderweitig,
+    ueberschreitung_bestaetigt: document.getElementById('ep-bestaetigen').checked,
+    notes: wert('ep-notiz')
+  });
+  btn.disabled = false;
+  if (!res.ok) return zeige(res.error || 'Speichern fehlgeschlagen.');
+  epSchliessen();
+  toast('Ehrenamtspauschale erfasst und freigegeben: ' + eur(betrag / 100) + '. Die Zahlungsanweisung geht an die Finanzen.');
   await loadClaims();
 }
 
@@ -1033,6 +1303,62 @@ init();
     <div class="ev-actions">
       <button type="button" class="as-btn" id="au-abbrechen">Abbrechen</button>
       <button type="button" class="as-btn" id="au-ok">Auslage erfassen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Ehrenamtspauschale erfassen (Vorstand) ═══ -->
+<div id="ep-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog breit" role="dialog" aria-labelledby="ep-titel">
+    <h2 id="ep-titel">Ehrenamtspauschale erfassen</h2>
+    <p class="ev-sub">Aufwandsentschädigung nach § 3 Nr. 26a EStG für eine unterstützende Tätigkeit ohne Einsatz, z. B. Flyer verteilen oder Bürohilfe. Für Sitzwachen und Reisebegleitung gilt weiter die Übungsleiterpauschale.</p>
+    <p class="ev-info">
+      Was hier eingetragen wird, gilt als <strong>bereits freigegeben</strong>. Die Zahlungsanweisung geht danach
+      automatisch an finanzen@. Die Belegnummer kommt erst mit „Als ausgezahlt markieren“; dann geht der Beleg
+      auch per Mail an die Person. Ausdrucken und von beiden Seiten unterschreiben.
+    </p>
+
+    <label class="ev-label" for="ep-person">Person</label>
+    <select id="ep-person"><option value="">— wird geladen —</option></select>
+
+    <label class="ev-label" for="ep-taetigkeit" style="margin-top:12px">Art der Tätigkeit</label>
+    <input type="text" id="ep-taetigkeit" maxlength="200" placeholder="z. B. Verteilung und Aushang von Flyern zur Gewinnung neuer Ehrenamtlicher">
+
+    <label class="ev-label" for="ep-zweck" style="margin-top:12px">Zweck</label>
+    <input type="text" id="ep-zweck" maxlength="200" placeholder="z. B. Gewinnung neuer Ehrenamtlicher für die Sitzwachen">
+
+    <div class="nf-grid" style="margin-top:12px">
+      <div><label class="ev-label" for="ep-von">Zeitraum von</label><input type="date" id="ep-von"></div>
+      <div><label class="ev-label" for="ep-bis">bis</label><input type="date" id="ep-bis"></div>
+    </div>
+
+    <div class="nf-grid" style="margin-top:12px">
+      <div><label class="ev-label" for="ep-ort">Ort</label><input type="text" id="ep-ort" maxlength="80" value="Berlin"></div>
+      <div><label class="ev-label" for="ep-betrag">Betrag (€)</label><input type="text" id="ep-betrag" inputmode="decimal" placeholder="z. B. 150,00"></div>
+    </div>
+
+    <div class="nf-grid" style="margin-top:12px">
+      <div><label class="ev-label" for="ep-zahlweg">Zahlweg</label>
+        <select id="ep-zahlweg"><option value="ueberweisung">Überweisung</option><option value="bar">bar</option></select></div>
+      <div><label class="ev-label" for="ep-auszahlung">Auszahlung am (bestimmt das Freibetragsjahr)</label><input type="date" id="ep-auszahlung"></div>
+    </div>
+
+    <label class="ev-label" for="ep-anderweitig" style="margin-top:12px">Anderweitig genutzter Freibetrag 26a in diesem Jahr (€, laut Erklärung der Person)</label>
+    <input type="text" id="ep-anderweitig" inputmode="decimal" placeholder="leer, wenn nicht erklärt">
+    <p class="nf-hinweis">Vorbelegt aus der letzten Angabe derselben Person im selben Jahr.</p>
+
+    <div class="nf-netto" id="ep-vorschau" style="font-weight:400;font-size:14px;line-height:1.6"></div>
+    <label class="au-inline" id="ep-bestaetigen-wrap" hidden style="margin-top:10px;color:#9B2C2C">
+      <input type="checkbox" id="ep-bestaetigen"> Ich bestätige die Überschreitung. Der übersteigende Teil wird als nicht steuerfrei vermerkt.
+    </label>
+
+    <label class="ev-label" for="ep-notiz" style="margin-top:12px">Anmerkung (optional, intern)</label>
+    <textarea id="ep-notiz" rows="2" maxlength="300"></textarea>
+
+    <div class="ev-fehler" id="ep-fehler" hidden></div>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="ep-abbrechen">Abbrechen</button>
+      <button type="button" class="as-btn" id="ep-ok">Erfassen</button>
     </div>
   </div>
 </div>

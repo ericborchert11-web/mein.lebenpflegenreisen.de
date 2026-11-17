@@ -6240,7 +6240,7 @@
         .in('role', ['volunteer', 'board']).eq('status', 'approved')
         .order('full_name');
       if (error) return { ok: false, error: error.message, mitglieder: [] };
-      return { ok: true, mitglieder: (data || []).map(p => ({ id: p.id, full_name: p.full_name || '—' })) };
+      return { ok: true, mitglieder: (data || []).map(p => ({ id: p.id, full_name: p.full_name || '—', role: p.role })) };
     } catch(e) { return { ok: false, error: 'Netzwerkfehler.', mitglieder: [] }; }
   }
 

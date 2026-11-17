@@ -978,7 +978,6 @@ LPR_Layout.init({ page: 'abrechnung' });
 
 // === KONFIGURATION ===
 const JAHRESFREIBETRAG = 3300;
-const BESCHLUSS_DATUM = '2026-01-15';
 const VEREIN = { name: 'Leben Pflegen Reisen e.V.', adresse: 'Stephanstraße 46, 10559 Berlin', register: 'Amtsgericht Charlottenburg, VR 42682 B', vertretung: 'Vorstand' };
 
 // State
@@ -1554,7 +1553,6 @@ function showBeleg(claimId) {
     person: _profile || {},
     verein: { name: VEREIN.name, adresse: VEREIN.adresse, register: VEREIN.register },
     jahresSumme: jahresSummeFuer(c),
-    beschlussDatum: BESCHLUSS_DATUM,
     reiseTitel: c.trip_title || ''
   });
 

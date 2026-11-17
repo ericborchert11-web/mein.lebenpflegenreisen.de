@@ -32,7 +32,7 @@ const claim = {
   nicht_steuerfrei_cents: 0
 };
 const basis = {
-  claim, verein, jahresSumme: 150, beschlussDatum: '2026-01-15',
+  claim, verein, jahresSumme: 150, beschlussDatum: '2026-01-15', // muss ignoriert werden
   person: { full_name: 'Erika Beispiel', email: 'erika@example.org', iban: 'DE02120300000000202051' },
   freibetrag: { cents: 96000, freigegeben: true }, fassungFreigegeben: true
 };
@@ -92,6 +92,7 @@ pruefe('Ue-Beleg: 0,5 mit Komma', ul.includes(' 0,5 ') && !ul.includes('0.5'));
 pruefe('Ue-Beleg: Einrichtungen statt Auftraggeber', !ul.includes('Auftraggeber') && ul.includes('Vereine und Einrichtungen'));
 pruefe('Ue-Beleg: kein doppelter Punkt', !ul.includes('e.V..'));
 pruefe('Ue-Beleg: kein ENTWURF', !ul.includes('ENTWURF'));
+pruefe('Kein Vereinsbeschluss mehr', !t.includes('beschluss') && !ul.includes('beschluss'));
 
 if (fehler.length) { console.error('FEHLER:\n- ' + fehler.join('\n- ')); process.exit(1); }
 console.log('Beleg Ehrenamtspauschale: alle Pruefungen bestanden.');

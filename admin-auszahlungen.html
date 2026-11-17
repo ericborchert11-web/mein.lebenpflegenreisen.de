@@ -649,7 +649,7 @@ function musterOeffnen() {
       taetigkeit: 'Verteilung und Aushang von Flyern zur Gewinnung neuer Ehrenamtlicher',
       zweck: 'Gewinnung neuer Ehrenamtlicher für die Sitzwachen', ort: 'Berlin', nicht_steuerfrei_cents: 0 },
     person: { full_name: 'Erika Beispiel', email: 'erika@example.org', iban: 'DE02120300000000202051' },
-    verein: VEREIN_BELEG, jahresSumme: 150, beschlussDatum: '2026-01-15',
+    verein: VEREIN_BELEG, jahresSumme: 150,
     freibetrag: fb, fassungFreigegeben: belegFassungFrei()
   });
   blZeigen('Muster: Auszahlungsbeleg Ehrenamtspauschale', 'Erfundene Person, Fassung ' + LPRBeleg.BELEG_26A_FASSUNG,
@@ -664,7 +664,7 @@ async function bvOeffnen(c) {
   const inhalt = LPRBeleg.belegHtml({
     claim: c, person: { full_name: c.user_name }, verein: VEREIN_BELEG,
     jahresSumme: yearSum(c.user_id, '26a', jahr, c.id) + Number(c.amount || 0),
-    beschlussDatum: '2026-01-15', freibetrag: d.freibetrag, fassungFreigegeben: d.fassungFreigegeben
+    freibetrag: d.freibetrag, fassungFreigegeben: d.fassungFreigegeben
   });
   blZeigen('Beleg-Vorschau', c.user_name + ' · die Belegnummer kommt mit „Als ausgezahlt markieren“',
     belegDokumentHtml('Beleg-Vorschau', inhalt));

@@ -389,7 +389,10 @@
       + '<div class="beleg-grid"><div class="beleg-block"><h4>Empfänger:in</h4><p><strong>' + escape(person.full_name || '') + '</strong><br>' + escape(person.email || '') + '<br>IBAN: ' + escape(ibanShown) + '</p></div><div class="beleg-block"><h4>Auszahlender Verein</h4><p><strong>' + escape(verein.name) + '</strong><br>' + escape(verein.adresse) + '<br>' + escape(verein.register) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div><div class="beleg-block"><h4>' + (isAuslage ? 'Grund der Erstattung' : 'Tätigkeit') + '</h4><p>' + aktivitaet + (aktivitaetSub ? '<br><span class="muted">' + aktivitaetSub + '</span>' : '') + '</p></div><div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + zeitraum(c.period_start, c.period_end) + '</strong></p></div>' + yearBar + '</div>'
       + '<table class="beleg-table"><thead>' + columnsHeader + '</thead><tbody>' + positionsHtml + '<tr class="beleg-total-row"><td colspan="' + totalColspan + '">' + summenLabel + '</td><td class="num">' + eur(c.amount) + '</td></tr></tbody></table>'
       + declBlock
-      + '<div class="beleg-foot"><p class="muted">' + footInfo + ' · Vereinsbeschluss vom ' + datum(d.beschlussDatum) + '</p></div>';
+      // Bis 17.11.2026 stand hier "Vereinsbeschluss vom 15.01.2026". Den gab es
+      // nie — der Verein besteht erst seit Maerz 2026. Entfernt auf Erics
+      // Anweisung; d.beschlussDatum wird nicht mehr ausgewertet.
+      + '<div class="beleg-foot"><p class="muted">' + footInfo + '</p></div>';
   }
 
   global.LPRBeleg = { belegHtml: belegHtml, FREIBETRAG: FREIBETRAG, BELEG_26A_FASSUNG: BELEG_26A_FASSUNG, CSS: BELEG_CSS };

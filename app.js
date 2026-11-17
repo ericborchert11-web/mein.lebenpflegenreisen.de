@@ -5726,7 +5726,7 @@
     try {
       const client = await sb();
       const { data, error } = await client.from('claims')
-        .select('id, user_id, source_type, booking_id, trip_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, pauschale_art, beleg_nr, notes, rejected_reason, submitted_to_payroll_at, intake_mail_at, payout_mail_at, kind, auslage_art, nachweis_pfad, mitfahrer_ids, erfasst_von')
+        .select('id, user_id, source_type, booking_id, trip_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, pauschale_art, beleg_nr, notes, rejected_reason, submitted_to_payroll_at, intake_mail_at, payout_mail_at, kind, auslage_art, nachweis_pfad, mitfahrer_ids, erfasst_von, taetigkeit, zweck, ort, zahlweg, auszahlung_am, anderweitig_cents, freibetrag_jahr, nicht_steuerfrei_cents')
         .order('submitted_at', { ascending: false, nullsFirst: false });
       if (error) return { ok: false, error: error.message, claims: [] };
       const rows = data || [];
@@ -6077,6 +6077,160 @@
   }
 
   /** Freigegebene Mitglieder (ohne Klinik-Konten) für die Auswahl beim Erfassen. */
+  // ═══ Ehrenamtspauschale (§ 3 Nr. 26a EStG), seit 17.11.2026 ═══
+  //
+  // Eine Auszahlung fuer eine unterstuetzende Taetigkeit ohne Einsatz
+  // (Flyer, Orga, Buerohilfe) ist ein normaler Antrag mit source_type
+  // 'taetigkeit'. Die Datenbank (Trigger claims_taetigkeit_pruefen) prueft
+  // Vorstandsrecht, Vorstandssperre, Freigabe und Freibetrag und hat das letzte
+  // Wort; die Vorschau im Formular rechnet ehrenamtspauschale.js.
+
+  /** Jahresfreibetraege aus steuer_freibetraege (fuer alle Angemeldeten lesbar). */
+  async function steuerFreibetraege() {
+    try {
+      const { data, error } = await (await sb()).from('steuer_freibetraege')
+        .select('vorschrift, ab_jahr, betrag_cents, quelle, freigabe_sonja_am, freigabe_sonja_von')
+        .order('vorschrift').order('ab_jahr');
+      if (error) return { ok: false, error: error.message, werte: [] };
+      return { ok: true, werte: data || [] };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.', werte: [] }; }
+  }
+
+  /** Freigegebene Fassungen der Belegtexte (beleg_freigaben). */
+  async function belegFreigaben() {
+    try {
+      const { data, error } = await (await sb()).from('beleg_freigaben')
+        .select('variante, fassung, freigabe_sonja_am, freigabe_sonja_von');
+      if (error) return { ok: false, error: error.message, fassungen: [] };
+      return { ok: true, fassungen: data || [] };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.', fassungen: [] }; }
+  }
+
+  /**
+   * Freigabe setzen (an = true) oder zuruecknehmen. Wer freigeben darf, prueft
+   * die Datenbank (app_settings 'steuer.freigabe_profil'); Person und Zeit
+   * stempelt sie selbst.
+   * ziel: { tabelle: 'steuer_freibetraege', vorschrift, ab_jahr }
+   *    oder { tabelle: 'beleg_freigaben', variante, fassung }
+   */
+  async function steuerFreigabe(ziel, an) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    const wert = { freigabe_sonja_am: an ? new Date().toISOString() : null };
+    try {
+      const client = await sb();
+      let res;
+      if (ziel.tabelle === 'steuer_freibetraege') {
+        res = await client.from('steuer_freibetraege').update(wert)
+          .eq('vorschrift', ziel.vorschrift).eq('ab_jahr', ziel.ab_jahr).select().single();
+      } else if (ziel.tabelle === 'beleg_freigaben') {
+        res = await client.from('beleg_freigaben')
+          .upsert({ variante: ziel.variante, fassung: ziel.fassung, ...wert }, { onConflict: 'variante,fassung' })
+          .select().single();
+      } else return { ok: false, error: 'Unbekannte Freigabe.' };
+      if (res.error) return { ok: false, error: res.error.message };
+      return { ok: true, zeile: res.data };
+    } catch(e) {
+      console.error('[LPR] steuerFreigabe:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Ehrenamtspauschale anlegen. payload: { user_id, amount_cents,
+   * period_start, period_end, taetigkeit, zweck, ort, zahlweg, auszahlung_am,
+   * anderweitig_cents, ueberschreitung_bestaetigt, notes }.
+   *
+   * Entsteht wie eine Vereinsauslage direkt als „freigegeben“ — der Vorstand
+   * erfasst, was er beschlossen hat. Danach geht die Zahlungsanweisung an
+   * finanzen@ wie bei jeder Auszahlung; die Belegnummer kommt erst mit
+   * „Als ausgezahlt markieren“.
+   */
+  async function adminCreateTaetigkeitClaim(payload) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    const p = payload || {};
+    const cents = Math.round(Number(p.amount_cents));
+    if (!p.user_id) return { ok: false, error: 'Bitte eine Person auswählen.' };
+    if (!Number.isFinite(cents) || cents <= 0) return { ok: false, error: 'Betrag fehlt oder ist ungültig.' };
+    if (!String(p.taetigkeit || '').trim()) return { ok: false, error: 'Bitte die Art der Tätigkeit angeben.' };
+    if (!String(p.zweck || '').trim()) return { ok: false, error: 'Bitte den Zweck angeben.' };
+    if (!p.period_start || !p.period_end) return { ok: false, error: 'Bitte den Zeitraum angeben.' };
+    if (p.period_start > p.period_end) return { ok: false, error: 'Der Zeitraum endet vor seinem Beginn.' };
+    if (!p.auszahlung_am) return { ok: false, error: 'Bitte das Auszahlungsdatum angeben.' };
+    if (p.zahlweg !== 'ueberweisung' && p.zahlweg !== 'bar') return { ok: false, error: 'Bitte den Zahlweg wählen.' };
+    const jetzt = new Date().toISOString();
+    try {
+      const { data, error } = await (await sb()).from('claims').insert({
+        user_id: p.user_id,
+        source_type: 'taetigkeit',
+        kind: 'pauschale',
+        pauschale_art: '26a',
+        amount: cents / 100,
+        amount_breakdown: [],
+        period_start: p.period_start,
+        period_end: p.period_end,
+        status: 'approved',
+        submitted_at: jetzt,
+        approved_at: jetzt,
+        taetigkeit: String(p.taetigkeit).trim(),
+        zweck: String(p.zweck).trim(),
+        ort: String(p.ort || '').trim() || 'Berlin',
+        zahlweg: p.zahlweg,
+        auszahlung_am: p.auszahlung_am,
+        anderweitig_cents: p.anderweitig_cents == null ? null : Math.max(0, Math.round(Number(p.anderweitig_cents))),
+        ueberschreitung_bestaetigt_am: p.ueberschreitung_bestaetigt ? jetzt : null,
+        notes: String(p.notes || '').trim() || null
+      }).select().single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, claim: data };
+    } catch(e) {
+      console.error('[LPR] adminCreateTaetigkeitClaim:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /**
+   * Alles, was der 26a-Beleg ausser dem Antrag braucht: Anschrift und
+   * Geburtsdatum aus dem Aufnahmeantrag (falls es einen gibt), Name der
+   * Person, die erfasst hat, Freibetrag des Jahres und ob die Belegfassung
+   * freigegeben ist. Fuer die Vorschau vor der Auszahlung; danach friert
+   * claim-mails das Blatt ein.
+   */
+  async function taetigkeitBelegDaten(claim) {
+    const s = getSession();
+    if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
+    try {
+      const client = await sb();
+      const [antrag, erfasser, werte, fassungen] = await Promise.all([
+        client.from('mitgliedsantraege').select('strasse, plz, ort, geburtsdatum, status, eingereicht_am')
+          .eq('user_id', claim.user_id).neq('status', 'abgelehnt')
+          .order('eingereicht_am', { ascending: false }).limit(1),
+        claim.erfasst_von
+          ? client.from('profiles').select('full_name').eq('id', claim.erfasst_von).maybeSingle()
+          : Promise.resolve({ data: null }),
+        steuerFreibetraege(),
+        belegFreigaben()
+      ]);
+      const a = (antrag.data || [])[0] || null;
+      const jahr = claim.freibetrag_jahr || Number(String(claim.auszahlung_am || '').slice(0, 4));
+      const fb = window.Ehrenamtspauschale ? Ehrenamtspauschale.freibetrag(werte.werte, '26a', jahr) : null;
+      const fassung = window.LPRBeleg ? LPRBeleg.BELEG_26A_FASSUNG : null;
+      return {
+        ok: true,
+        anschrift: a ? { strasse: a.strasse, plz: a.plz, ort: a.ort } : null,
+        geburtsdatum: a ? a.geburtsdatum : null,
+        unterzeichner: erfasser.data ? erfasser.data.full_name : null,
+        freibetrag: fb,
+        fassungFreigegeben: (fassungen.fassungen || []).some(f =>
+          f.variante === '26a-taetigkeit' && f.fassung === fassung && f.freigabe_sonja_am)
+      };
+    } catch(e) {
+      console.error('[LPR] taetigkeitBelegDaten:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
   async function adminMitgliederFuerAuslage() {
     const s = getSession();
     if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.', mitglieder: [] };
@@ -8455,6 +8609,7 @@
     adminCreateAuslageClaim,
     // Vereinsauslagen ohne Reise-Anmeldung und Belege dazu
     adminCreateVereinsAuslage, adminMitgliederFuerAuslage, pruefeBelegDatei,
+    steuerFreibetraege, belegFreigaben, steuerFreigabe, adminCreateTaetigkeitClaim, taetigkeitBelegDaten,
     meineAuslageEinreichen, meinenAuslageEntwurfEinreichen,
     uploadAuslageBelege, listAuslageBelege, zaehleAuslageBelege, auslageBelegUrl, deleteAuslageBeleg,
     // Fördermittel-Cockpit

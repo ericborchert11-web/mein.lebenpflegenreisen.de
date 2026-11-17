@@ -1860,7 +1860,7 @@
     try {
       let q = (await sb())
         .from('claims')
-        .select('id, source_type, trip_signup_id, booking_id, trip_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, rejected_reason, notes, beleg_nr, pauschale_art, submitted_to_payroll_at, intake_mail_at, payout_mail_at, kind, auslage_art, nachweis_pfad, mitfahrer_ids')
+        .select('id, source_type, trip_signup_id, booking_id, trip_id, amount, amount_breakdown, period_start, period_end, status, submitted_at, approved_at, paid_at, rejected_reason, notes, beleg_nr, pauschale_art, taetigkeit, zweck, ort, zahlweg, auszahlung_am, freibetrag_jahr, nicht_steuerfrei_cents, submitted_to_payroll_at, intake_mail_at, payout_mail_at, kind, auslage_art, nachweis_pfad, mitfahrer_ids')
         .eq('user_id', s.id)
         .order('submitted_at', { ascending: false });
       if (filter && filter.status) q = q.eq('status', filter.status);
@@ -1890,8 +1890,11 @@
    *  - paid    → Jahr der Anweisung (paid_at = Zufluss, steuerlich massgeblich)
    *  - pending → Jahr der Einreichung (submitted_at)
    */
-  function claimTotals(claims, year) {
+  function claimTotals(claims, year, art) {
     const y = Number(year);
+    // Seit 17.11.2026 zwei getrennte Toepfe: '26' (Uebungsleiter, Standard)
+    // und '26a' (Ehrenamtspauschale). Ohne Angabe zaehlt nur '26'.
+    const topf = art === '26a' ? '26a' : '26';
     const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
     const yearOf = (...candidates) => {
       for (let i = 0; i < candidates.length; i++) {
@@ -1907,6 +1910,7 @@
       // Auslagenersatz (§ 3 Nr. 50 EStG) ist steuerfrei und zaehlt nicht gegen
       // den Uebungsleiterfreibetrag (§ 3 Nr. 26 EStG) — nur Pauschalen zaehlen.
       if (c.kind === 'auslage') return;
+      if ((c.pauschale_art === '26a' ? '26a' : '26') !== topf) return;
       if (c.status === 'paid') {
         if (yearOf(c.paid_at, c.approved_at, c.submitted_at, c.created_at) === y) paid += num(c.amount);
       } else if (c.status === 'submitted' || c.status === 'approved') {

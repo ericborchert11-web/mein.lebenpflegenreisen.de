@@ -755,6 +755,9 @@ body.compliance-locked .info-box { display: none; }
       </div>
     </div>
 
+    <!-- Ehrenamtspauschale § 3 Nr. 26a: nur sichtbar, wenn es eine gibt -->
+    <div class="info-box" id="budget-26a" hidden style="margin-top:12px"></div>
+
     <!-- Compliance-Lock (sichtbar, wenn nicht alle 5 Dokumente freigegeben) -->
     <div id="compliance-lock" class="compliance-block" hidden>
       <h2>🔒 <span>Erst nach Freigabe der Unterlagen</span></h2>
@@ -969,15 +972,24 @@ body.compliance-locked .info-box { display: none; }
 
 
 
-<script src="app.js?v20261017b"></script>
-<script src="beleg-vorlage.js?v20261017a"></script>
+<script src="app.js?v20261117a"></script>
+<script src="ehrenamtspauschale.js?v20261117a"></script>
+<script src="beleg-vorlage.js?v20261117a"></script>
 <script src="druck-anpassen.js?v20260823a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'abrechnung' });
 
 // === KONFIGURATION ===
+// Rueckfall, falls steuer_freibetraege nicht lesbar ist. Massgeblich ist der
+// Jahreswert aus der Tabelle (seit 17.11.2026), siehe freibetragEuro().
 const JAHRESFREIBETRAG = 3300;
+let _freibetraege = [];
+let _belegFassungen = [];
+function freibetragEuro(art, jahr) {
+  const fb = window.Ehrenamtspauschale ? Ehrenamtspauschale.freibetrag(_freibetraege, art, jahr) : null;
+  return fb ? fb.cents / 100 : (art === '26' ? JAHRESFREIBETRAG : null);
+}
 const VEREIN = { name: 'Leben Pflegen Reisen e.V.', adresse: 'Stephanstraße 46, 10559 Berlin', register: 'Amtsgericht Charlottenburg, VR 42682 B', vertretung: 'Vorstand' };
 
 // State
@@ -1098,13 +1110,17 @@ async function loadAll() {
       }
     }
 
-    const [pResp, sResp, bResp, cResp, ratesResp] = await Promise.all([
+    const [pResp, sResp, bResp, cResp, ratesResp, fbResp, fassResp] = await Promise.all([
       LPR.getMyProfile(),
       LPR.getMySignups(),
       LPR.getMyBookings(),
       LPR.getMyClaims(),
-      LPR.getRates()
+      LPR.getRates(),
+      LPR.steuerFreibetraege(),
+      LPR.belegFreigaben()
     ]);
+    _freibetraege = (fbResp && fbResp.werte) || [];
+    _belegFassungen = (fassResp && fassResp.fassungen) || [];
     if (!pResp.ok) throw new Error(pResp.error || 'Profil konnte nicht geladen werden');
     _profile = pResp.profile;
     _signups = sResp?.signups || [];
@@ -1158,19 +1174,38 @@ function renderIbanInfo() {
 function renderBudget() {
   const yearNow = new Date().getFullYear();
   const totals = LPR.claimTotals(_claims, yearNow);
-  const left = Math.max(0, totals.rest);
-  const pct = Math.min(100, (totals.total / JAHRESFREIBETRAG) * 100);
+  const limit26 = freibetragEuro('26', yearNow);
+  const left = Math.max(0, limit26 - totals.total);
+  const pct = Math.min(100, (totals.total / limit26) * 100);
   const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
   setText('budget-used', formatEUR(totals.paid));
   setText('budget-pending', formatEUR(totals.pending));
   setText('budget-left', formatEUR(left));
-  setText('budget-total', formatEUR(JAHRESFREIBETRAG));
+  setText('budget-total', formatEUR(limit26));
   const barEl = document.getElementById('budget-bar');
   if (barEl) { barEl.style.width = pct + '%'; barEl.classList.toggle('warn', pct > 75); }
   const leftEl = document.getElementById('budget-left');
   if (leftEl) leftEl.classList.toggle('warn', left < 300);
   const warnEl = document.getElementById('budget-warning');
   if (warnEl) warnEl.hidden = pct <= 90;
+  render26a(yearNow);
+}
+
+// Zweiter, getrennter Topf: Ehrenamtspauschale (§ 3 Nr. 26a EStG). Nur
+// sichtbar, wenn die Person in diesem Jahr mindestens eine hat.
+function render26a(jahr) {
+  const el = document.getElementById('budget-26a');
+  if (!el) return;
+  const t = LPR.claimTotals(_claims, jahr, '26a');
+  if (!t.total) { el.hidden = true; return; }
+  const limit = freibetragEuro('26a', jahr);
+  el.innerHTML = '<strong>Ehrenamtspauschale (§ 3 Nr. 26a EStG) ' + jahr + ':</strong> '
+    + formatEUR(t.paid) + ' ausgezahlt'
+    + (t.pending ? ', ' + formatEUR(t.pending) + ' offen' : '')
+    + (limit != null ? ' · Freibetrag ' + formatEUR(limit) + ', verbleibend ' + formatEUR(Math.max(0, limit - t.total)) : '')
+    + '<br>Dieser Freibetrag ist getrennt von der Übungsleiterpauschale. '
+    + 'Beziehst du Sozialleistungen, gib diese Einnahme bitte dort an.';
+  el.hidden = false;
 }
 
 function renderTripsSection() {
@@ -1255,12 +1290,16 @@ function renderClaimsSection() {
     // Vierte Herkunft seit 17.10.2026: die Vereinsauslage — eine Ausgabe für
     // den Verein ohne Reise-Anmeldung, die Reise steht höchstens als Anlass dabei.
     const istVerein = c.source_type === 'verein';
+    // Ehrenamtspauschale § 3 Nr. 26a (seit 17.11.2026), vom Vorstand erfasst.
+    const istTaetigkeit = c.source_type === 'taetigkeit';
     const vereinPos = istVerein && c.amount_breakdown && c.amount_breakdown[0] && c.amount_breakdown[0].label;
-    const typeBadge = istVerein ? '<span class="type-badge trip">Auslage</span>'
+    const typeBadge = istTaetigkeit ? '<span class="type-badge einarb">Ehrenamt</span>'
+      : istVerein ? '<span class="type-badge trip">Auslage</span>'
       : c.source_type === 'sitzwache' ? '<span class="type-badge sitz">Sitzwache</span>'
       : c.source_type === 'einarbeitung' ? '<span class="type-badge einarb">Einarbeitungstag</span>'
       : '<span class="type-badge trip">Reise</span>';
-    const title = istVerein ? 'Ausgabe für den Verein' + (vereinPos ? ': ' + vereinPos : '')
+    const title = istTaetigkeit ? 'Ehrenamtspauschale: ' + (c.taetigkeit || '') + ' (' + formatDateRange(c.period_start, c.period_end) + ')'
+      : istVerein ? 'Ausgabe für den Verein' + (vereinPos ? ': ' + vereinPos : '')
         + (c.trip_title ? ' (Reise „' + c.trip_title + '“)' : '')
       : c.source_type === 'sitzwache' ? 'Sitzwache vom ' + formatDateRange(c.period_start, c.period_end)
       : c.source_type === 'einarbeitung' ? 'Einarbeitungstag am ' + formatDateRange(c.period_start, c.period_end)
@@ -1481,8 +1520,8 @@ async function submitClaim() {
 
   const yearNow = new Date().getFullYear();
   const yearTotal = LPR.claimTotals(_claims, yearNow).total;
-  if (yearTotal + _activeContext.total > JAHRESFREIBETRAG) {
-    if (!confirm('Achtung: Mit diesem Antrag würdest du den Jahresfreibetrag von ' + formatEUR(JAHRESFREIBETRAG) + ' überschreiten.\n\nBisher: ' + formatEUR(yearTotal) + '\nDieser Antrag: ' + formatEUR(_activeContext.total) + '\n\nMöchtest du trotzdem einreichen?')) return;
+  if (yearTotal + _activeContext.total > freibetragEuro('26', yearNow)) {
+    if (!confirm('Achtung: Mit diesem Antrag würdest du den Jahresfreibetrag von ' + formatEUR(freibetragEuro('26', yearNow)) + ' überschreiten.\n\nBisher: ' + formatEUR(yearTotal) + '\nDieser Antrag: ' + formatEUR(_activeContext.total) + '\n\nMöchtest du trotzdem einreichen?')) return;
   }
 
   const submitBtn = document.getElementById('cd-submit-btn');
@@ -1533,7 +1572,8 @@ if (window.LPRDruck) {
 // inklusive dieser Zahlung. Grundlage für den Freibetrags-Balken auf dem Beleg.
 function jahresSummeFuer(c) {
   const art = c.pauschale_art === '26a' ? '26a' : '26';
-  const yr = (c.paid_at ? new Date(c.paid_at) : new Date()).getFullYear();
+  const yr = window.Ehrenamtspauschale ? Ehrenamtspauschale.freibetragJahr(c) || new Date().getFullYear()
+    : (c.paid_at ? new Date(c.paid_at) : new Date()).getFullYear();
   return (_claims || [])
     .filter(x => (x.pauschale_art === '26a' ? '26a' : '26') === art
       && x.status === 'paid' && x.paid_at
@@ -1553,7 +1593,11 @@ function showBeleg(claimId) {
     person: _profile || {},
     verein: { name: VEREIN.name, adresse: VEREIN.adresse, register: VEREIN.register },
     jahresSumme: jahresSummeFuer(c),
-    reiseTitel: c.trip_title || ''
+    reiseTitel: c.trip_title || '',
+    // Nur fuer die Ehrenamtspauschale ausgewertet: Freibetrag aus der Tabelle
+    // und ob der Belegtext freigegeben ist (sonst ENTWURF).
+    freibetrag: window.Ehrenamtspauschale ? Ehrenamtspauschale.freibetrag(_freibetraege, '26a', Ehrenamtspauschale.freibetragJahr(c)) : null,
+    fassungFreigegeben: _belegFassungen.some(f => f.variante === '26a-taetigkeit' && f.fassung === LPRBeleg.BELEG_26A_FASSUNG && f.freigabe_sonja_am)
   });
 
   document.getElementById('beleg-content').innerHTML = html;

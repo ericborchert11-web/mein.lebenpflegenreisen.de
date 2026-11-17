@@ -25,6 +25,9 @@
     { name: 'Bankgebühren',            sphaere: 'vermoegensverwaltung' },
     { name: 'Fahrt- und Reisekosten',  sphaere: 'zweckbetrieb' },
     { name: 'Aufwandsentschädigung',   sphaere: 'zweckbetrieb' },
+    // § 3 Nr. 26a fuer unterstuetzende Taetigkeiten (Flyer, Orga, Buero):
+    // dient dem ganzen Verein, deshalb ideell (Entscheidung 17.11.2026).
+    { name: 'Ehrenamtspauschale',      sphaere: 'ideell' },
     { name: 'Spenden & Weiterleitung', sphaere: 'ideell' },
     { name: 'Sonstiges',               sphaere: 'ideell' }
   ];

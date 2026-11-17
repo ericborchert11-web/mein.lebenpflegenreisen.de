@@ -6191,44 +6191,23 @@
   }
 
   /**
-   * Alles, was der 26a-Beleg ausser dem Antrag braucht: Anschrift und
-   * Geburtsdatum aus dem Aufnahmeantrag (falls es einen gibt), Name der
-   * Person, die erfasst hat, Freibetrag des Jahres und ob die Belegfassung
-   * freigegeben ist. Fuer die Vorschau vor der Auszahlung; danach friert
-   * claim-mails das Blatt ein.
+   * Was der 26a-Beleg ausser dem Antrag braucht: Freibetrag des Jahres und ob
+   * die Belegfassung freigegeben ist. Fuer die Vorschau vor der Auszahlung;
+   * danach friert claim-mails das Blatt ein.
    */
   async function taetigkeitBelegDaten(claim) {
     const s = getSession();
     if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
-    try {
-      const client = await sb();
-      const [antrag, erfasser, werte, fassungen] = await Promise.all([
-        client.from('mitgliedsantraege').select('strasse, plz, ort, geburtsdatum, status, eingereicht_am')
-          .eq('user_id', claim.user_id).neq('status', 'abgelehnt')
-          .order('eingereicht_am', { ascending: false }).limit(1),
-        claim.erfasst_von
-          ? client.from('profiles').select('full_name').eq('id', claim.erfasst_von).maybeSingle()
-          : Promise.resolve({ data: null }),
-        steuerFreibetraege(),
-        belegFreigaben()
-      ]);
-      const a = (antrag.data || [])[0] || null;
-      const jahr = claim.freibetrag_jahr || Number(String(claim.auszahlung_am || '').slice(0, 4));
-      const fb = window.Ehrenamtspauschale ? Ehrenamtspauschale.freibetrag(werte.werte, '26a', jahr) : null;
-      const fassung = window.LPRBeleg ? LPRBeleg.BELEG_26A_FASSUNG : null;
-      return {
-        ok: true,
-        anschrift: a ? { strasse: a.strasse, plz: a.plz, ort: a.ort } : null,
-        geburtsdatum: a ? a.geburtsdatum : null,
-        unterzeichner: erfasser.data ? erfasser.data.full_name : null,
-        freibetrag: fb,
-        fassungFreigegeben: (fassungen.fassungen || []).some(f =>
-          f.variante === '26a-taetigkeit' && f.fassung === fassung && f.freigabe_sonja_am)
-      };
-    } catch(e) {
-      console.error('[LPR] taetigkeitBelegDaten:', e);
-      return { ok: false, error: 'Netzwerkfehler.' };
-    }
+    const [werte, fassungen] = await Promise.all([steuerFreibetraege(), belegFreigaben()]);
+    if (!werte.ok) return { ok: false, error: werte.error };
+    const jahr = claim.freibetrag_jahr || Number(String(claim.auszahlung_am || '').slice(0, 4));
+    const fassung = window.LPRBeleg ? LPRBeleg.BELEG_26A_FASSUNG : null;
+    return {
+      ok: true,
+      freibetrag: window.Ehrenamtspauschale ? Ehrenamtspauschale.freibetrag(werte.werte, '26a', jahr) : null,
+      fassungFreigegeben: (fassungen.fassungen || []).some(f =>
+        f.variante === '26a-taetigkeit' && f.fassung === fassung && f.freigabe_sonja_am)
+    };
   }
 
   async function adminMitgliederFuerAuslage() {

@@ -103,53 +103,6 @@
       .replace(/^Anreise mit dem eigenen Fahrzeug/, 'Fahrtkosten Anreise');
   }
 
-  // ── Betrag in Worten (fuer den 26a-Beleg) ───────────────────────────────────
-  var EINER = ['', 'ein', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht', 'neun',
-    'zehn', 'elf', 'zwölf', 'dreizehn', 'vierzehn', 'fünfzehn', 'sechzehn', 'siebzehn', 'achtzehn', 'neunzehn'];
-  var ZEHNER = ['', '', 'zwanzig', 'dreißig', 'vierzig', 'fünfzig', 'sechzig', 'siebzig', 'achtzig', 'neunzig'];
-
-  function unterTausend(n) {
-    var h = Math.floor(n / 100), r = n % 100, s = '';
-    if (h) s += EINER[h] + 'hundert';
-    if (r < 20) s += EINER[r];
-    else s += (r % 10 ? EINER[r % 10] + 'und' : '') + ZEHNER[Math.floor(r / 10)];
-    return s;
-  }
-
-  /** 150 -> "einhundertfünfzig Euro", 12.5 -> "zwölf Euro und fünfzig Cent". */
-  function inWorten(betrag) {
-    var cent = Math.round(Number(betrag || 0) * 100);
-    var euro = Math.floor(cent / 100);
-    cent = cent % 100;
-    var w;
-    if (euro === 0) w = 'null';
-    else {
-      var t = Math.floor(euro / 1000), r = euro % 1000;
-      w = (t ? (t === 1 ? 'eintausend' : unterTausend(t) + 'tausend') : '') + unterTausend(r);
-      // "ein Euro", aber "einhunderteins Euro"
-      if (euro > 1 && /ein$/.test(w)) w += 's';
-    }
-    var s = w + ' Euro';
-    if (cent) s += ' und ' + (cent === 1 ? 'ein' : unterTausend(cent)) + ' Cent';
-    return s;
-  }
-
-  // ── Auszahlungsbeleg Ehrenamtspauschale (§ 3 Nr. 26a EStG) ─────────────────
-  // Seit 17.11.2026: Auszahlung fuer eine unterstuetzende Taetigkeit ohne
-  // Einsatz (claims.source_type 'taetigkeit'), vom Vorstand erfasst. Das Blatt
-  // ist zugleich Taetigkeitsnachweis fuer die Person und wird ausgedruckt,
-  // angekreuzt und von beiden Seiten unterschrieben. Deshalb bleiben Zahlweg,
-  // die Erklaerung zum anderweitig genutzten Freibetrag, Datum und
-  // Unterschriften als Felder zum Ausfuellen frei.
-  //
-  // Wortlaut und Aufbau aus dem Design-Briefing vom 17.11.2026, Abschnitt 4.
-  // Aendert sich der Text, muss BELEG_26A_FASSUNG hochgezaehlt und die neue
-  // Fassung von Sonja freigegeben werden (Tabelle beleg_freigaben). Bis dahin
-  // traegt das Blatt den Vermerk ENTWURF.
-  //
-  // Die Elemente zum Ausfuellen haben Inline-Stile, damit sie im Portal, in
-  // der Vorstandsliste (srcdoc) und in der Mail gleich aussehen, ohne dass drei
-  // Stylesheets nachgezogen werden muessen.
   // Stile des eingefrorenen Belegs (claims.beleg_html). Bis 17.11.2026 standen
   // sie nur als MAIL_CSS in der Edge Function claim-mails; jetzt hier, damit
   // die Vorschau im Vorstand genau das Blatt zeigt, das spaeter eingefroren
@@ -157,115 +110,19 @@
   // claim-mails bei MAIL_CSS.
   var BELEG_CSS = "body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif; color: #1A1A18; line-height: 1.55; }\n  .beleg-wrap { max-width: 700px; margin: 0 auto; background: #fff; padding: 28px 30px; border: 1px solid #E4E2DC; border-radius: 12px; }\n  .beleg-claim { font-size: 13px; font-style: italic; color: #1A3A2A; border-top: 3px solid #C8F135; padding-top: 10px; margin-bottom: 18px; }\n  .beleg-head { border-bottom: 2px solid #2E7D46; padding-bottom: 14px; margin-bottom: 20px; }\n  .beleg-logo-name { font-weight: 800; font-size: 19px; color: #1A3A2A; }\n  .beleg-logo-sub { font-size: 11px; color: #6B6B65; letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }\n  .beleg-nr { font-family: monospace; font-size: 13px; color: #6B6B65; margin-top: 10px; }\n  .beleg-title { font-weight: 800; font-size: 25px; color: #1A3A2A; margin-bottom: 6px; }\n  .beleg-subtitle { color: #6B6B65; font-size: 14px; margin-bottom: 20px; }\n  .beleg-grid { margin: 20px 0; }\n  .beleg-block { margin-bottom: 16px; }\n  .beleg-block h4 { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #6B6B65; margin: 0 0 6px; }\n  .beleg-block p { margin: 0; font-size: 15px; line-height: 1.55; }\n  .beleg-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }\n  .beleg-table th, .beleg-table td { padding: 9px 10px; text-align: left; border-bottom: 1px solid #E4E2DC; }\n  .beleg-table th { color: #1A3A2A; font-weight: 700; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }\n  .beleg-table td.num, .beleg-table th.num { text-align: right; font-family: monospace; }\n  .beleg-total-row { background: #F0F7DC; font-weight: 800; font-size: 16px; color: #1A3A2A; }\n  .beleg-declaration { background: #FAF8F3; border: 1.5px solid #E4E2DC; border-radius: 10px; padding: 16px 20px; margin-top: 20px; font-size: 13px; line-height: 1.65; }\n  .beleg-declaration h4 { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #2E7D46; margin: 0 0 8px; }\n  .beleg-declaration ul { margin: 0 0 0 18px; padding: 0; }\n  .beleg-declaration li { margin-bottom: 5px; }\n  .beleg-foot, .beleg-footer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #E4E2DC; font-size: 12px; color: #6B6B65; }\n  .muted { color: #6B6B65; }\n  @media screen and (min-width: 520px) {\n    .beleg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; }\n    .beleg-grid .beleg-block { margin-bottom: 0; }\n  }\n  @media print {\n    .beleg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; }\n    .beleg-grid .beleg-block { margin-bottom: 0; }\n    @page { size: A4; margin: 6mm 0; }\n    body { background: #fff; margin: 0; }\n    .beleg-wrap { max-width: none; border: none; border-radius: 0; margin: 0; padding: 8mm 14mm; }\n    .beleg-claim { font-size: 11px; padding-top: 8px; margin-bottom: 10px; }\n    .beleg-head { padding-bottom: 9px; margin-bottom: 12px; }\n    .beleg-logo-name { font-size: 17px; }\n    .beleg-nr { font-size: 11px; margin-top: 6px; }\n    .beleg-title { font-size: 21px; margin-bottom: 3px; }\n    .beleg-subtitle { font-size: 11.5px; margin-bottom: 10px; }\n    .beleg-grid { gap: 10px 28px; margin: 10px 0; }\n    .beleg-block h4 { margin-bottom: 3px; }\n    .beleg-block p { font-size: 12px !important; line-height: 1.4; }\n    .beleg-block p.muted { font-size: 10.5px !important; }\n    .beleg-table { margin: 10px 0; font-size: 11.5px; }\n    .beleg-table th, .beleg-table td { padding: 4.5px 10px; }\n    .beleg-total-row { font-size: 13.5px; }\n    .beleg-declaration { font-size: 10px; line-height: 1.4; padding: 10px 14px; margin-top: 10px; }\n    .beleg-declaration li { margin-bottom: 1px; }\n    .beleg-foot, .beleg-footer { margin-top: 9px; padding-top: 6px; font-size: 9.5px; }\n    .beleg-declaration { page-break-inside: avoid; }\n    .beleg-table { page-break-inside: auto; }\n    .beleg-table tr { page-break-inside: avoid; }\n  }";
 
+  // ── Ehrenamtspauschale (§ 3 Nr. 26a EStG), seit 17.11.2026 ──────────────────
+  // Auszahlung fuer eine unterstuetzende Taetigkeit ohne Einsatz
+  // (claims.source_type 'taetigkeit'), vom Vorstand erfasst. Der Beleg ist
+  // derselbe wie bei der Uebungsleiterpauschale (Entscheidung Eric 17.11.2026),
+  // nur mit Taetigkeit/Zweck statt Reise bzw. Sitzwache und der Rechtsgrundlage
+  // § 3 Nr. 26a. Aendert sich sein Text, muss BELEG_26A_FASSUNG hochgezaehlt
+  // und die neue Fassung von Sonja freigegeben werden (Tabelle
+  // beleg_freigaben); bis dahin traegt das Blatt den Vermerk ENTWURF.
   var BELEG_26A_FASSUNG = '2026-11-17';
-  var KK = '<span style="display:inline-block;width:4.5mm;height:4.5mm;border:1.3px solid #1A241E;vertical-align:-1.2mm;margin:0 1.5mm 0 0"></span>';
-  function linie(mm) {
-    return '<span style="display:inline-block;width:' + mm + 'mm;border-bottom:1px solid #1A241E;height:3.6mm;vertical-align:-1mm;margin:0 1mm"></span>';
-  }
-  function wahl(text) { return '<span style="white-space:nowrap;margin-right:3mm">' + KK + text + '</span>'; }
-
-  // Eigener, auf .beleg-26a begrenzter Stilblock: das Blatt hat mehr Inhalt
-  // als die anderen Belege (Erklaerung, zwei Unterschriften, Stempel) und muss
-  // trotzdem auf EINE Seite — mit den Stilen aus abrechnung.html ebenso wie
-  // mit denen, die claim-mails beim Einfrieren mitgibt. Die anderen Belege
-  // beruehrt er nicht.
-  var STIL_26A = '<style>'
-    + '.beleg-26a .txt{font-size:13px;line-height:1.5;margin:0 0 4px}'
-    + '.beleg-26a .sig{border-top:1px solid #1A241E;padding-top:6px;font-size:11px;line-height:1.5;color:#6B6B65}'
-    + '.beleg-26a .sig b{display:block;color:#1A3A2A;font-size:12.5px}'
-    + '.beleg-26a .sigs{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:12px;page-break-inside:avoid}'
-    + '@media print{.beleg-26a{zoom:.92}'
-    + '.beleg-26a .beleg-head{margin-bottom:8px}'
-    + '.beleg-26a .beleg-subtitle{margin-bottom:6px}'
-    + '.beleg-26a .beleg-grid{gap:6px 28px;margin:6px 0}'
-    + '.beleg-26a .beleg-table{margin:6px 0}'
-    + '.beleg-26a .beleg-table th,.beleg-26a .beleg-table td{padding:4px 10px}'
-    + '.beleg-26a .beleg-declaration{margin-top:6px;padding:8px 14px}'
-    + '.beleg-26a .txt{font-size:11px;line-height:1.4;margin-bottom:3px}'
-    + '.beleg-26a .beleg-foot{margin-top:6px;padding-top:4px;font-size:9px}'
-    + '}</style>';
-
-  function belegTaetigkeitHtml(d) {
-    var c = d.claim || {};
-    var person = d.person || {};
-    var verein = d.verein || {};
-    var name = escape(person.full_name || '');
-    var isPaid = c.status === 'paid';
-    var jahrNr = c.freibetrag_jahr || jahr(c.paid_at || c.auszahlung_am);
-    var fb = d.freibetrag && d.freibetrag.cents ? Number(d.freibetrag.cents) / 100 : null;
-    var nichtFrei = (Number(c.nicht_steuerfrei_cents) || 0) / 100;
-    var entwurf = !d.fassungFreigegeben;
-
-    var anschrift = d.anschrift && (d.anschrift.strasse || d.anschrift.ort)
-      ? escape([d.anschrift.strasse, [d.anschrift.plz, d.anschrift.ort].filter(Boolean).join(' ')].filter(Boolean).join(', '))
-      : linie(60);
-    var geburt = d.geburtsdatum ? datum(d.geburtsdatum) : linie(30);
-
-    var nrBlock = isPaid
-      ? 'Beleg-Nr. <strong>' + escape(c.beleg_nr || '—') + '</strong><br>Auszahlung am ' + datum(c.paid_at)
-      : 'Beleg-Nr. wird bei der Auszahlung vergeben<br>Auszahlung am ' + linie(24);
-
-    var yearBar = '';
-    if (fb) {
-      var summe = Number(d.jahresSumme) || 0;
-      var pct = Math.min(100, (summe / fb) * 100);
-      var over = summe > fb;
-      yearBar = '<div class="beleg-block" style="grid-column:1/-1;margin-top:4px"><h4>Freibetrag ' + jahrNr + ' bei ' + escape(verein.name) + '</h4>'
-        + '<div style="background:#EDE8DB;border-radius:6px;height:14px;overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct.toFixed(0) + '%;background:' + (over ? '#C0392B' : '#2E7D46') + '"></div></div>'
-        + '<p style="font-size:14px">' + eur(summe) + ' von ' + eur(fb) + ' ausgeschöpft' + (over ? ' <strong style="color:#C0392B">— Freibetrag überschritten</strong>' : '') + '</p>'
-        + '<p class="muted" style="font-size:13px">Zählt nur Zahlungen von ' + escape(verein.name) + '; Zahlungen anderer Vereine oder Einrichtungen bitte selbst hinzurechnen.</p></div>';
-    }
-
-    var einordnung = '<strong>Steuerliche Einordnung:</strong> Aufwandsentschädigung für nebenberufliche Tätigkeit im Dienst einer gemeinnützigen Körperschaft, steuerfrei nach § 3 Nr. 26a EStG (Ehrenamtspauschale'
-      + (fb ? ', ' + jahrNr + ' bis ' + eur(fb).replace(',00', '') + ' im Kalenderjahr' : '') + ')';
-    if (nichtFrei > 0) {
-      einordnung += '. Davon übersteigen <strong>' + eur(nichtFrei) + '</strong> den Freibetrag und sind nicht steuerfrei.';
-    }
-
-    return STIL_26A + '<div class="beleg-26a">' + (entwurf
-        ? '<div style="border:2px solid #C0392B;color:#C0392B;font-weight:700;text-align:center;padding:4px;margin-bottom:10px;letter-spacing:.1em">ENTWURF · Belegtext noch nicht freigegeben</div>'
-        : '')
-      + '<div class="beleg-claim">' + escape(verein.claim || CLAIM) + '</div>'
-      + '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(verein.name) + '</div><div class="beleg-logo-sub">' + escape(verein.adresse) + '</div></div><div class="beleg-nr">' + nrBlock + '</div></div>'
-      + '<div class="beleg-title">Auszahlungsbeleg</div>'
-      + '<div class="beleg-subtitle">Aufwandsentschädigung für ehrenamtliche Tätigkeit · Ehrenamtspauschale nach § 3 Nr. 26a EStG</div>'
-      + '<div class="beleg-grid">'
-      + '<div class="beleg-block"><h4>Empfänger</h4><p><strong>' + name + '</strong><br>Anschrift: ' + anschrift + '<br>Geburtsdatum: ' + geburt + '</p></div>'
-      + '<div class="beleg-block"><h4>Zahlender Verein</h4><p><strong>' + escape(verein.name) + '</strong><br>' + escape(verein.adresse) + '<br>' + escape(verein.register) + '<br>Vertreten durch den Vorstand<br>(Gemeinnütziger Verein i.S.d. § 52 AO)</p></div>'
-      + '<div class="beleg-block"><h4>Tätigkeit</h4><p>' + escape(c.taetigkeit || '') + '<br><span class="muted">Ort: ' + escape(c.ort || 'Berlin') + ' · nebenberuflich</span></p></div>'
-      + '<div class="beleg-block"><h4>Zeitraum</h4><p><strong>' + zeitraum(c.period_start, c.period_end) + '</strong></p></div>'
-      + yearBar
-      + '</div>'
-      + '<p class="txt">' + name + ' hat für ' + escape(verein.name) + ' folgende Tätigkeit ausgeübt: ' + escape(c.taetigkeit || '')
-      + '. Zweck: ' + escape(c.zweck || '') + '. Die Tätigkeit war Teil des ehrenamtlichen Engagements für den Verein und diente unmittelbar dessen gemeinnützigen Satzungszwecken. '
-      + 'Der Verein bestätigt, dass die Tätigkeit im genannten Zeitraum vollständig erbracht wurde.</p>'
-      + '<table class="beleg-table"><tbody>'
-      + '<tr class="beleg-total-row"><td>Summe Aufwandsentschädigung <span style="font-weight:400;font-size:12px">(in Worten: ' + inWorten(c.amount) + ')</span></td><td class="num">' + eur(c.amount) + '</td></tr>'
-      + '</tbody></table>'
-      + '<p class="txt">' + einordnung + '</p>'
-      + '<p class="txt"><strong>Zahlweg:</strong>&nbsp; ' + wahl('Überweisung auf das Konto des Empfängers') + wahl('bar') + '</p>'
-      + '<div class="beleg-declaration"><h4>Erklärung des Empfängers</h4>'
-      + '<p style="margin-bottom:4px">Ich bestätige, dass ich die oben beschriebene Tätigkeit ausgeübt und den Betrag von ' + eur(c.amount) + ' erhalten habe. Außerdem erkläre ich:</p><ul>'
-      + '<li>Die Tätigkeit habe ich nebenberuflich ausgeübt.</li>'
-      + '<li>Den Freibetrag nach § 3 Nr. 26a EStG habe ich im Kalenderjahr ' + jahrNr + ' bei anderen Vereinen oder Einrichtungen '
-      + wahl('nicht') + '<span style="white-space:nowrap">' + KK + 'in Höhe von ' + linie(22) + ' €</span> in Anspruch genommen.</li>'
-      + '<li>Für diese Tätigkeit erhalte ich keine weitere Vergütung, auch nicht nach § 3 Nr. 12 oder Nr. 26 EStG.</li>'
-      + '<li>Mir ist bekannt, dass ich die Einnahme selbst angeben muss, falls ich Sozialleistungen beziehe.</li>'
-      + '</ul></div>'
-      + '<div class="sigs">'
-      + '<div><div style="height:20mm"></div><div class="sig"><b>Unterschrift ' + name + '</b>Empfänger · Berlin, den ' + linie(28) + '</div></div>'
-      + '<div><div style="height:20mm;position:relative"><div style="position:absolute;right:0;top:0;width:45mm;height:20mm;border:1px dashed #6B7771;box-sizing:border-box"><span style="position:absolute;right:1.5mm;bottom:1mm;font-size:9px;color:#6B7771">Stempel</span></div></div>'
-      + '<div class="sig"><b>Unterschrift ' + escape(d.unterzeichner || 'für den Vorstand') + '</b>'
-      + (d.unterzeichner ? 'für den Vorstand, ' : 'Vorstand, ') + escape(verein.name) + ' · Berlin, den ' + linie(28) + '</div></div>'
-      + '</div>'
-      + '<div class="beleg-foot"><p class="muted">Vereinsintern: sachlich richtig ' + linie(28) + ' · gebucht am ' + linie(24) + ' · Konto ' + linie(20) + ' · Belegtext Fassung ' + BELEG_26A_FASSUNG + '</p>'
-      + '<p class="muted" style="margin-top:3px">' + escape(verein.name) + ' · ' + escape(verein.adresse) + ' · ' + escape(verein.register) + ' · Vertreten durch den Vorstand · www.lebenpflegenreisen.de</p></div></div>';
-  }
 
   function belegHtml(d) {
     d = d || {};
     var c = d.claim || {};
-    if (c.source_type === 'taetigkeit') return belegTaetigkeitHtml(d);
     var person = d.person || {};
     var verein = d.verein || {};
     var jahresSumme = Number(d.jahresSumme) || 0;
@@ -285,6 +142,7 @@
     // Steuerpflicht. Antragsart und Unterart stehen an claims.kind bzw.
     // claims.auslage_art.
     var isAuslage = c.kind === 'auslage';
+    var isTaetigkeit = c.source_type === 'taetigkeit';
     var breakdown = c.amount_breakdown || [];
     // Es gibt zwei amount_breakdown-Formate in der Datenbank, und alte Antraege
     // werden nicht migriert: ein Beleg muss zeigen, was zum Zeitpunkt der
@@ -320,8 +178,11 @@
       var nacherfasst = isAuslage
         ? (c.auslage_art === 'anreise' ? 'Fahrtkosten Anreise' : 'Erstattete Auslagen')
         : 'Aufwandsentschädigung';
-      positionsHtml = '<tr><td colspan="' + totalColspan + '">' + nacherfasst + ' (Nacherfassung durch den Vorstand)</td>'
-        + '<td class="num">' + eur(c.amount) + '</td></tr>';
+      // Die Ehrenamtspauschale erfasst immer der Vorstand — dort ist das der
+      // regulaere Weg, keine Nacherfassung.
+      positionsHtml = '<tr><td colspan="' + totalColspan + '">'
+        + (isTaetigkeit ? 'Aufwandsentschädigung (Ehrenamtspauschale)' : nacherfasst + ' (Nacherfassung durch den Vorstand)')
+        + '</td><td class="num">' + eur(c.amount) + '</td></tr>';
     } else if (isSitz) {
       if (isNewFormat) {
         for (i = 0; i < breakdown.length; i++) {
@@ -342,6 +203,8 @@
         for (i = 0; i < breakdown.length; i++) {
           row = breakdown[i];
           var anzahl = row.factor != null ? (row.count != null ? row.count : row.factor) : '–';
+          // Deutsches Komma: aus 0.5 wird 0,5 (bis 17.11.2026 stand "0.5" da).
+          anzahl = String(anzahl).replace('.', ',');
           // Einarbeitungstag: Satz ist die volle Sitzwachen-Pauschale, gezahlt
           // wird die Haelfte — "1 × Satz = halber Betrag" saehe nach Rechenfehler
           // aus, deshalb steht hier der Faktor 0,5.
@@ -381,6 +244,10 @@
       aktivitaetSub = c.auslage_art === 'anreise'
         ? 'Fahrtkosten der Anreise'
         : (c.auslage_art === 'beleg' ? 'Erstattung gegen eingereichten Nachweis' : '');
+    } else if (isTaetigkeit) {
+      aktivitaet = escape(c.taetigkeit || '');
+      aktivitaetSub = (c.zweck ? 'Zweck: ' + escape(c.zweck) + '<br>' : '')
+        + 'Ort: ' + escape(c.ort || 'Berlin') + ' · unterstützende Tätigkeit im ideellen Bereich des Vereins';
     } else {
       aktivitaet = isSitz ? 'Ehrenamtliche Sitzwache'
         : isEinarbeitung ? 'Einarbeitungstag (halbe Sitzwachen-Pauschale)'
@@ -390,7 +257,12 @@
 
     var isPaid = c.status === 'paid';
     var art = c.pauschale_art === '26a' ? '26a' : '26';
-    var limit = FREIBETRAG[art];
+    // Ehrenamtspauschale: Freibetrag des Jahres aus steuer_freibetraege,
+    // vom Aufrufer mitgegeben (d.freibetrag.cents). Die alten Belege rechnen
+    // weiter mit FREIBETRAG.
+    var limit = (isTaetigkeit && d.freibetrag && d.freibetrag.cents) ? Number(d.freibetrag.cents) / 100 : FREIBETRAG[art];
+    var taetigkeitsArt = isTaetigkeit ? 'unterstützende' : 'pflegerisch-betreuende';
+    var nichtFrei = isTaetigkeit ? (Number(c.nicht_steuerfrei_cents) || 0) / 100 : 0;
     var paragraf = art === '26a'
       ? '§ 3 Nr. 26a EStG (Ehrenamtspauschale)'
       : '§ 3 Nr. 26 EStG (Übungsleiterpauschale)';
@@ -426,7 +298,7 @@
       yearBar = '<div class="beleg-block" style="grid-column:1/-1;margin-top:4px"><h4>Freibetrag ' + yr + ' bei ' + escape(verein.name) + '</h4>'
         + '<div style="background:#EDE8DB;border-radius:6px;height:14px;overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct.toFixed(0) + '%;background:' + (over ? '#C0392B' : '#2E7D46') + '"></div></div>'
         + '<p style="font-size:14px">' + eur(jahresSumme) + ' von ' + eur(limit) + ' ausgeschöpft' + (over ? ' <strong style="color:#C0392B">— Freibetrag überschritten</strong>' : '') + '</p>'
-        + '<p class="muted" style="font-size:13px">Diese Übersicht zählt nur Zahlungen von ' + escape(verein.name) + '. Gleichartige Vergütungen anderer Vereine oder Auftraggeber musst du selbst hinzurechnen.</p></div>';
+        + '<p class="muted" style="font-size:13px">Diese Übersicht zählt nur Zahlungen von ' + escape(String(verein.name || '').replace(/\.$/, '')) + '. Gleichartige Zahlungen anderer Vereine oder Einrichtungen musst du selbst hinzurechnen.</p></div>';
     }
 
     var declBlock;
@@ -469,14 +341,16 @@
       // Wortlaut vom Vorstand am 19.08.2026 freigegeben — kein Entwurf mehr.
       declBlock = '<div class="beleg-declaration"><h4>Steuerlicher Hinweis</h4><ul>'
         + '<li>Diese Zahlung ist eine Aufwandsentschädigung nach <strong>' + escape(paragraf)
-        + '</strong> für eine nebenberufliche, pflegerisch-betreuende Tätigkeit im ideellen '
+        + '</strong> für eine nebenberufliche, ' + taetigkeitsArt + ' Tätigkeit im ideellen '
         + 'Bereich eines gemeinnützigen Vereins. Sie ist <strong>kein Arbeitslohn und kein '
         + 'Honorar</strong>.</li>'
         + '<li>Sie ist <strong>bis ' + eur(limit) + ' im Kalenderjahr steuer- und '
         + 'sozialversicherungsfrei</strong>. Der Freibetrag gilt <strong>einmal pro Person '
-        + 'und Jahr über alle Vereine und Auftraggeber hinweg</strong> — ' + escape(verein.name)
+        + 'und Jahr über alle Vereine und Einrichtungen hinweg</strong> — ' + escape(verein.name)
         + ' kennt nur die hier gezahlten Beträge (in diesem Jahr: ' + eur(jahresSumme)
-        + ' von ' + eur(limit) + ').</li>'
+        + ' von ' + eur(limit) + ').'
+        + (nichtFrei > 0 ? ' <strong>Von dieser Zahlung übersteigen ' + eur(nichtFrei) + ' den Freibetrag.</strong>' : '')
+        + '</li>'
         + '<li><strong>Gib diese Zahlung in deiner Einkommensteuererklärung an.</strong> '
         + 'Steuerfreie Aufwandsentschädigungen nach ' + escape(paragraf) + ' werden in der '
         + '<strong>' + anlage + '</strong> eingetragen. Steuer fällt nur auf den Teil an, der '
@@ -484,7 +358,7 @@
         + 'ihn auf Nachfrage des Finanzamts vor.</li>'
         + '<li>Beträge über dem Freibetrag sind von dir zu versteuern und können '
         + 'sozialversicherungspflichtig sein. Die Auszahlung erfolgt auf Grundlage deiner '
-        + 'Selbstauskunft im Antrag; für Richtigkeit und Vollständigkeit bist du selbst '
+        + (isTaetigkeit ? 'Angaben gegenüber dem Verein' : 'Selbstauskunft im Antrag') + '; für Richtigkeit und Vollständigkeit bist du selbst '
         + 'verantwortlich.</li>'
         + '<li>Dieser Beleg ersetzt keine Steuerberatung. Der Verein übernimmt keine Haftung '
         + 'für die individuelle steuerliche oder sozialversicherungsrechtliche Behandlung; bei '
@@ -494,7 +368,7 @@
         + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '')
         + '</div>';
     } else {
-      declBlock = '<div class="beleg-declaration"><h4>Erklärungen der/des Ehrenamtlichen</h4><ul><li>Die angegebenen Zeiten und Tätigkeiten wurden tatsächlich und in der genannten Form erbracht.</li><li>Die Tätigkeit wird nebenberuflich ausgeübt (nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit).</li><li>Die Übungsleiterpauschale nach § 3 Nr. 26 EStG wurde im laufenden Kalenderjahr nicht anderweitig so in Anspruch genommen, dass der Jahresfreibetrag von 3.300 € überschritten wird.</li><li>Der/die Ehrenamtliche wurde über die Verarbeitung und zehnjährige Aufbewahrung der Angaben gemäß § 147 AO informiert (Art. 6 Abs. 1 lit. c DSGVO).</li></ul>' + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '') + '</div>';
+      declBlock = '<div class="beleg-declaration"><h4>Erklärungen der/des Ehrenamtlichen</h4><ul><li>Die angegebenen Zeiten und Tätigkeiten wurden tatsächlich und in der genannten Form erbracht.</li><li>Die Tätigkeit wird nebenberuflich ausgeübt (nicht mehr als ein Drittel einer vergleichbaren Vollzeittätigkeit).</li><li>Die ' + escape(paragraf.replace(/^(§ 3 Nr\. 26a? EStG) \((.*)\)$/, '$2 nach $1')) + ' wurde im laufenden Kalenderjahr nicht anderweitig so in Anspruch genommen, dass der Jahresfreibetrag von ' + eur(limit).replace(',00', '') + ' überschritten wird.</li><li>Der/die Ehrenamtliche wurde über die Verarbeitung und zehnjährige Aufbewahrung der Angaben gemäß § 147 AO informiert (Art. 6 Abs. 1 lit. c DSGVO).</li></ul>' + (c.notes ? '<p class="muted"><strong>Anmerkung:</strong> ' + escape(c.notes) + '</p>' : '') + '</div>';
     }
 
     var footInfo = isPaid
@@ -505,7 +379,10 @@
     // wie auf den Rechnungen (.beleg-claim in rechnung.html). Der Beleg verlaesst
     // das Portal und wird ausgedruckt weitergereicht; ohne diese Zeile ist ihm
     // auf Papier nicht anzusehen, von wem er kommt.
-    return '<div class="beleg-claim">' + escape(verein.claim || CLAIM) + '</div>'
+    var entwurf = isTaetigkeit && !d.fassungFreigegeben
+      ? '<div style="border:2px solid #C0392B;color:#C0392B;font-weight:700;text-align:center;padding:4px;margin-bottom:10px;letter-spacing:.1em">ENTWURF · Belegtext noch nicht freigegeben</div>'
+      : '';
+    return entwurf + '<div class="beleg-claim">' + escape(verein.claim || CLAIM) + '</div>'
       + '<div class="beleg-head"><div><div class="beleg-logo-name">' + escape(verein.name) + '</div><div class="beleg-logo-sub">' + escape(verein.adresse) + '</div></div><div class="beleg-nr">' + nrBlock + '</div></div>'
       + '<div class="beleg-title">' + belegTitle + '</div>'
       + '<div class="beleg-subtitle">' + untertitel + '</div>'
@@ -515,5 +392,5 @@
       + '<div class="beleg-foot"><p class="muted">' + footInfo + ' · Vereinsbeschluss vom ' + datum(d.beschlussDatum) + '</p></div>';
   }
 
-  global.LPRBeleg = { belegHtml: belegHtml, FREIBETRAG: FREIBETRAG, inWorten: inWorten, BELEG_26A_FASSUNG: BELEG_26A_FASSUNG, CSS: BELEG_CSS };
+  global.LPRBeleg = { belegHtml: belegHtml, FREIBETRAG: FREIBETRAG, BELEG_26A_FASSUNG: BELEG_26A_FASSUNG, CSS: BELEG_CSS };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

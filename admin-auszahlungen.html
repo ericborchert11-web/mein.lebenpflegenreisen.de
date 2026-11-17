@@ -537,7 +537,7 @@ async function onClaimAction(btn) {
   } else if (act === 'pay') {
     const c = _claims.find(x => x.id === id);
     const frage = c && c.source_type === 'taetigkeit'
-      ? 'Ist das Geld überwiesen bzw. bar übergeben? Es wird eine Belegnummer vergeben, und der Beleg geht per Mail an die Person. Danach den Beleg ausdrucken und unterschreiben lassen.'
+      ? 'Ist das Geld überwiesen bzw. bar übergeben? Es wird eine Belegnummer vergeben, und der Beleg geht per Mail an die Person.'
       : 'Bestätigen, dass die Überweisung erfolgt ist? Es wird eine Auszahlungs-Belegnummer vergeben.';
     if (!confirm(frage)) return;
     status = 'paid';
@@ -648,9 +648,9 @@ function musterOeffnen() {
       period_start: jahr + '-11-02', period_end: jahr + '-11-08', freibetrag_jahr: jahr,
       taetigkeit: 'Verteilung und Aushang von Flyern zur Gewinnung neuer Ehrenamtlicher',
       zweck: 'Gewinnung neuer Ehrenamtlicher für die Sitzwachen', ort: 'Berlin', nicht_steuerfrei_cents: 0 },
-    person: { full_name: 'Erika Beispiel' }, verein: VEREIN_BELEG, jahresSumme: 150,
-    anschrift: { strasse: 'Musterweg 1', plz: '10115', ort: 'Berlin' }, geburtsdatum: '1990-04-01',
-    freibetrag: fb, unterzeichner: 'Max Vorstand', fassungFreigegeben: belegFassungFrei()
+    person: { full_name: 'Erika Beispiel', email: 'erika@example.org', iban: 'DE02120300000000202051' },
+    verein: VEREIN_BELEG, jahresSumme: 150, beschlussDatum: '2026-01-15',
+    freibetrag: fb, fassungFreigegeben: belegFassungFrei()
   });
   blZeigen('Muster: Auszahlungsbeleg Ehrenamtspauschale', 'Erfundene Person, Fassung ' + LPRBeleg.BELEG_26A_FASSUNG,
     belegDokumentHtml('Muster Auszahlungsbeleg', inhalt));
@@ -664,8 +664,7 @@ async function bvOeffnen(c) {
   const inhalt = LPRBeleg.belegHtml({
     claim: c, person: { full_name: c.user_name }, verein: VEREIN_BELEG,
     jahresSumme: yearSum(c.user_id, '26a', jahr, c.id) + Number(c.amount || 0),
-    anschrift: d.anschrift, geburtsdatum: d.geburtsdatum, freibetrag: d.freibetrag,
-    unterzeichner: d.unterzeichner, fassungFreigegeben: d.fassungFreigegeben
+    beschlussDatum: '2026-01-15', freibetrag: d.freibetrag, fassungFreigegeben: d.fassungFreigegeben
   });
   blZeigen('Beleg-Vorschau', c.user_name + ' · die Belegnummer kommt mit „Als ausgezahlt markieren“',
     belegDokumentHtml('Beleg-Vorschau', inhalt));
@@ -1315,7 +1314,7 @@ init();
     <p class="ev-info">
       Was hier eingetragen wird, gilt als <strong>bereits freigegeben</strong>. Die Zahlungsanweisung geht danach
       automatisch an finanzen@. Die Belegnummer kommt erst mit „Als ausgezahlt markieren“; dann geht der Beleg
-      auch per Mail an die Person. Ausdrucken und von beiden Seiten unterschreiben.
+      per Mail an die Person, wie bei jeder Auszahlung.
     </p>
 
     <label class="ev-label" for="ep-person">Person</label>
@@ -1352,7 +1351,7 @@ init();
       <input type="checkbox" id="ep-bestaetigen"> Ich bestätige die Überschreitung. Der übersteigende Teil wird als nicht steuerfrei vermerkt.
     </label>
 
-    <label class="ev-label" for="ep-notiz" style="margin-top:12px">Anmerkung (optional, intern)</label>
+    <label class="ev-label" for="ep-notiz" style="margin-top:12px">Anmerkung (optional, steht auf dem Beleg)</label>
     <textarea id="ep-notiz" rows="2" maxlength="300"></textarea>
 
     <div class="ev-fehler" id="ep-fehler" hidden></div>

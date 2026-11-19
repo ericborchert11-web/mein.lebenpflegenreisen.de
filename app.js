@@ -7232,7 +7232,10 @@
   // Felder aus der Migration vom 23.08.2026 (Betreff, Kostenvoranschlag,
   // Begleitschreiben). Sie stehen getrennt, weil sie fehlen koennen — siehe
   // unten.
-  const INVOICE_COLS_BRIEF = 'betreff, kv_datum, mit_brief, brief';
+  // vermerk_kasse: Migration BZ1 (19.11.2026). Haengt bewusst an derselben
+  // Rueckfall-Gruppe — fehlt die Spalte, bleiben Brief und Vermerk gemeinsam aus,
+  // statt dass jedes Speichern scheitert. Reihenfolge deshalb: erst Migration, dann Push.
+  const INVOICE_COLS_BRIEF = 'betreff, kv_datum, mit_brief, brief, vermerk_kasse';
 
   /* ── WARUM DIESE KLAMMER ──────────────────────────────────────────────────
      Die Datenbank wird von Hand im Dashboard migriert, das Frontend geht beim
@@ -7389,7 +7392,7 @@
                      // Nur mitschicken, wenn die Migration durch ist — sonst
                      // wiese PostgREST das ganze Update zurueck und der Entwurf
                      // liesse sich gar nicht mehr speichern.
-                     .concat(hatBriefFelder() ? ['betreff','kv_datum','mit_brief','brief'] : []);
+                     .concat(hatBriefFelder() ? ['betreff','kv_datum','mit_brief','brief','vermerk_kasse'] : []);
     const row = {};
     // Leerer Hinweis ist Absicht (sonstige Einnahmen) — tax_note ist not null.
     allowed.forEach(k => { if (patch && k in patch) row[k] = patch[k] === '' && k !== 'tax_note' ? null : patch[k]; });

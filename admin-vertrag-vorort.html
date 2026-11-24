@@ -220,7 +220,13 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
       <div class="vv-karte" data-schritt="8">
         <h2><span data-nur="vertrag">8</span><span data-nur="kv">5</span> · Senden</h2>
         <p id="senden-text"></p>
-        <div class="vv-knoepfe"><button type="button" class="vv-knopf haupt" id="btn-senden" disabled>Senden …</button></div>
+        <div class="vv-fehlt" id="senden-haengt" hidden>
+          <p style="margin:0 0 8px;font-weight:700">Ein früherer Versand ist hängen geblieben.</p>
+          <p style="margin:0 0 10px">Bitte zuerst im Postfach vorstand@ nachsehen, ob die Kopie dieses Vorgangs angekommen ist. Ist sie da, ging die Mail raus — dann NICHT noch einmal senden.</p>
+          <button type="button" class="vv-knopf rot" onclick="sperreLoesen()">Kopie ist nicht da — Sperre lösen</button>
+        </div>
+        <div class="vv-knoepfe"><button type="button" class="vv-knopf haupt" id="btn-senden" disabled onclick="sendenFragen()">Senden …</button></div>
+        <div id="senden-ok" class="vv-gate offen" hidden></div>
       </div>
 
       <div class="vv-knoepfe" style="justify-content:space-between">
@@ -239,7 +245,15 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
   <button type="button" class="vv-knopf rot" onclick="verwerfen()">Ja, verwerfen</button></div>
 </dialog>
 
-<script src="app.js?v20261124a"></script>
+<dialog class="vv-dlg" id="dlg-senden">
+  <h2 id="ds-titel">Jetzt senden?</h2>
+  <table class="vv-tab" id="ds-tab"></table>
+  <p class="vv-klein" id="ds-hinweis" style="margin-top:10px"></p>
+  <div class="vv-knoepfe"><button type="button" class="vv-knopf" onclick="this.closest('dialog').close()">Abbrechen</button>
+  <button type="button" class="vv-knopf haupt" id="ds-los" onclick="senden()">Jetzt senden</button></div>
+</dialog>
+
+<script src="app.js?v20261124b"></script>
 <script src="rechnung-hinweise.js?v20261007b"></script>
 <script src="vertrag-vorort-vorlage.js?v20261124a"></script>
 <script src="vertrag-vorort-pdf.js?v20261124a"></script>
@@ -259,6 +273,9 @@ let ZEILEN = [];
 let aktSchritt = 1;
 let pdfUrl = null;
 let pdfStempel = null;
+let pdfBlob = null;       // bleibt im Speicher, bis gesendet oder verworfen
+let pdfAktuell = false;
+let MODUS = null;         // Antwort der Function: Gate, Testmodus
 
 function toast(msg, typ) { if (window.LPR && LPR.showToast) LPR.showToast(msg, typ); }
 function heute() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -593,6 +610,7 @@ window.addEventListener('resize', () => {
 
 // ── PDF ──────────────────────────────────────────────────────────────────
 function pdfVeraltet() {
+  pdfAktuell = false;
   if (!pdfUrl) return;
   $('pdf-stand').textContent = 'Seit dem letzten PDF wurde etwas geändert — bitte neu erzeugen.';
 }
@@ -620,7 +638,7 @@ async function pdfErzeugen() {
     const kennung = F.art === 'kv' ? 'KV-Nr. ' + F.nummern.kv : 'Vertrags-Nr. ' + F.nummern.vertrag;
     const blob = await VertragVorortPdf.erzeugen(html, { verein: LPR.VEREIN, entwurf: !g.freigegeben, kennung });
     if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-    pdfUrl = URL.createObjectURL(blob); pdfStempel = Date.now();
+    pdfUrl = URL.createObjectURL(blob); pdfStempel = Date.now(); pdfBlob = blob; pdfAktuell = true;
     const name = 'LPR_' + (F.art === 'kv' ? 'Kostenvoranschlag_' + F.nummern.kv : 'Vertrag_' + F.nummern.vertrag) + (g.freigegeben ? '' : '_ENTWURF') + '.pdf';
     $('pdf-rahmen').src = pdfUrl; $('pdf-rahmen').hidden = false;
     $('pdf-oeffnen').href = pdfUrl; $('pdf-oeffnen').hidden = false;
@@ -631,13 +649,82 @@ async function pdfErzeugen() {
   } finally { b.disabled = false; b.textContent = 'PDF erzeugen'; }
 }
 
-// ── Senden (Phase 4) ─────────────────────────────────────────────────────
-function renderSenden() {
-  const g = W ? VV.gate(W, F.art) : { freigegeben: false, fehlt: ['Werte'] };
-  $('btn-senden').disabled = true;
-  $('senden-text').textContent = !g.freigegeben
-    ? 'Versand gesperrt: Freigabe durch Sonja fehlt (' + g.fehlt.join(' · ') + '). Das PDF lässt sich trotzdem in Schritt Vorschau ansehen und speichern.'
-    : 'Der Versand per E-Mail wird in der nächsten Etappe angeschlossen. Bis dahin das PDF in der Vorschau speichern.';
+// ── Senden ───────────────────────────────────────────────────────────────
+function pdfName() { return $('pdf-speichern').download || 'Vertrag.pdf'; }
+async function renderSenden() {
+  const t = $('senden-text'), b = $('btn-senden');
+  b.disabled = true; $('senden-haengt').hidden = true; $('senden-ok').hidden = true;
+  if (!navigator.onLine) { t.textContent = 'Kein Netz. Das PDF lässt sich in der Vorschau speichern; gesendet wird, sobald wieder Netz da ist.'; return; }
+  t.textContent = 'Prüfe Freigabe und Stand …';
+  MODUS = await LPR.vertragVorortFunktion({ aktion: 'stand', art: F.art });
+  if (!MODUS || MODUS.ok === false) { t.textContent = 'Versanddienst nicht erreichbar: ' + ((MODUS && MODUS.fehler) || 'unbekannt'); return; }
+  if (F.vorgang) {
+    const st = await LPR.vertragVorortStand(F.vorgang.id);
+    if (st.ok && st.vorgang) {
+      if (st.vorgang.status === 'versendet') { t.textContent = 'Dieser Vorgang wurde bereits versendet (' + new Date(st.vorgang.versendet_am).toLocaleString('de-DE') + '). Nicht noch einmal senden.'; return; }
+      if (st.vorgang.status === 'verworfen') { t.textContent = 'Dieser Vorgang ist im Portal verworfen. Bitte „Verwerfen“ und neu anlegen.'; return; }
+      if (st.vorgang.status === 'reserviert' && st.vorgang.versand_sperre_am) { $('senden-haengt').hidden = false; t.textContent = ''; return; }
+    }
+  }
+  const fehlt = vorschauFehlt();
+  if (fehlt.length) { t.textContent = 'Erst vollständig ausfüllen und unterschreiben (siehe Vorschau).'; return; }
+  if (!pdfBlob || !pdfAktuell) { t.textContent = 'Bitte zuerst in der Vorschau das PDF (neu) erzeugen und ansehen.'; return; }
+  if (!MODUS.freigegeben && !MODUS.test) { t.textContent = 'Versand gesperrt: Die Freigabe durch Sonja fehlt.'; return; }
+  t.textContent = MODUS.test
+    ? 'TESTMODUS: Die Mail geht nur an ' + MODUS.test_an + ', nicht an die Kundin. Der Vorgang wird danach als Test verworfen.'
+    : 'Bereit. Vor dem Versand werden Empfänger und Anhang noch einmal angezeigt.';
+  b.textContent = MODUS.test ? 'Testversand …' : 'Senden …';
+  b.disabled = false;
+}
+function sendenFragen() {
+  const mail = F.art === 'kv' ? VV.kvMail(dokDaten(), LPR.VEREIN) : VV.vertragMail(dokDaten(), LPR.VEREIN);
+  const t = $('ds-tab'); t.textContent = '';
+  const zeile = (k, v) => { const r = t.insertRow(); r.insertCell().textContent = k; const c = r.insertCell(); c.textContent = v; c.style.fontWeight = '600'; };
+  zeile('An', MODUS.test ? MODUS.test_an + ' (Test statt ' + F.kundin.email + ')' : F.kundin.email);
+  zeile('Kopie', MODUS.test ? '— (Test)' : 'vorstand@lebenpflegenreisen.de');
+  zeile('Betreff', (MODUS.test ? '[TEST] ' : '') + mail.betreff);
+  zeile('Anhang', pdfName() + ' (' + Math.round(pdfBlob.size / 1024) + ' KB)');
+  $('ds-titel').textContent = MODUS.test ? 'Testversand?' : 'Jetzt an die Kundin senden?';
+  $('ds-hinweis').textContent = F.art === 'kv'
+    ? 'Kostenvoranschlag. Nach dem Versand wird der Entwurf auf diesem Gerät gelöscht.'
+    : 'Vertrag mit Widerrufsbelehrung, Muster-Widerrufsformular, Kostenvoranschlag und Datenschutzinformation in einem PDF. Nach dem Versand wird der Entwurf auf diesem Gerät gelöscht.';
+  $('ds-los').disabled = false; $('ds-los').textContent = MODUS.test ? 'Testversand' : 'Jetzt senden';
+  $('dlg-senden').showModal();
+}
+async function blobBase64(blob) {
+  const b = new Uint8Array(await blob.arrayBuffer()); let s = '';
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+async function senden() {
+  const los = $('ds-los'); los.disabled = true; los.textContent = 'Wird gesendet …';
+  const d = dokDaten(); const r = VV.berechne(d, W);
+  const mail = F.art === 'kv' ? VV.kvMail(d, LPR.VEREIN) : VV.vertragMail(d, LPR.VEREIN);
+  const res = await LPR.vertragVorortFunktion({
+    aktion: 'senden', vorgang_id: F.vorgang.id, an: String(F.kundin.email || '').trim(),
+    betreff: mail.betreff, text: mail.text, dateiname: pdfName(), pdf_base64: await blobBase64(pdfBlob),
+    eckdaten: { modell: F.modell || null, erste_nacht: F.ersteNacht || null, letzte_nacht: F.letzteNacht || null,
+      naechte: r.naechte > 0 ? r.naechte : null, betrag_cents: r.summe_cents,
+      unterschrift_kundin_am: F.unterschriftAm.kundin, unterschrift_verein_am: F.unterschriftAm.verein }
+  });
+  $('dlg-senden').close();
+  if (!res.ok) {
+    if (res.haengt) { $('senden-haengt').hidden = false; }
+    $('senden-text').textContent = 'Nicht gesendet: ' + (res.fehler || 'unbekannter Fehler') + ' Das PDF bleibt auf diesem Gerät und lässt sich in der Vorschau speichern.';
+    return;
+  }
+  const nr = F.art === 'kv' ? F.nummern.kv : F.nummern.vertrag;
+  await IDB.loeschen();
+  if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+  pdfUrl = null; pdfBlob = null; pdfAktuell = false; F = null;
+  $('arbeit').hidden = true; $('start').hidden = false; renderGate();
+  toast(res.test ? 'Testversand an ' + res.an + ' verschickt (' + nr + ').' : 'Gesendet: ' + nr + '. Der Entwurf auf diesem Gerät ist gelöscht.');
+}
+async function sperreLoesen() {
+  const r = await LPR.vertragVorortFunktion({ aktion: 'sperre_loesen', vorgang_id: F.vorgang.id });
+  if (!r.ok) { toast('Sperre nicht gelöst: ' + (r.fehler || r.status), 'warn'); return; }
+  toast('Sperre gelöst. Der Versand kann erneut versucht werden.');
+  renderSenden();
 }
 
 // ── Anlegen, Verwerfen ───────────────────────────────────────────────────
@@ -659,6 +746,7 @@ async function verwerfen() {
   await IDB.loeschen();
   F = null;
   if (pdfUrl) { URL.revokeObjectURL(pdfUrl); pdfUrl = null; }
+  pdfBlob = null; pdfAktuell = false;
   $('pdf-rahmen').removeAttribute('src');
   $('arbeit').hidden = true; $('start').hidden = false; renderGate();
   toast('Verworfen. Auf diesem Gerät ist nichts mehr gespeichert.');

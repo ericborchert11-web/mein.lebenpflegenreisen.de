@@ -6180,6 +6180,23 @@
     } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
   }
 
+  /**
+   * Aufruf der Function vertrag-versenden. body.aktion: 'stand' | 'senden' |
+   * 'sperre_loesen'. Beim Senden traegt body PDF, Adresse und Mailtext — sie
+   * gehen nur an die Function, nie in eine Tabelle, und werden hier nicht geloggt.
+   */
+  async function vertragVorortFunktion(body) {
+    try {
+      const { data, error } = await (await sb()).functions.invoke('vertrag-versenden', { body });
+      if (error) {
+        let j = null;
+        try { j = error.context && typeof error.context.json === 'function' ? await error.context.json() : null; } catch(e) {}
+        return Object.assign({ ok: false, status: 'fehler', fehler: (j && (j.fehler || j.error)) || error.message }, j || {}, { ok: false });
+      }
+      return data || { ok: false, fehler: 'Keine Antwort.' };
+    } catch(e) { return { ok: false, status: 'fehler', fehler: 'Netzwerkfehler.' }; }
+  }
+
   /** Stand eines Vorgangs (fuer den Versand-Check vor einem zweiten Versuch). */
   async function vertragVorortStand(id) {
     try {
@@ -8649,7 +8666,7 @@
     // Vereinsauslagen ohne Reise-Anmeldung und Belege dazu
     adminCreateVereinsAuslage, adminMitgliederFuerAuslage, pruefeBelegDatei,
     steuerFreibetraege, belegFreigaben, steuerFreigabe,
-    vertragVorortWerte, vertragVorortReservieren, vertragVorortVerwerfen, vertragVorortStand,
+    vertragVorortWerte, vertragVorortReservieren, vertragVorortVerwerfen, vertragVorortStand, vertragVorortFunktion,
     adminCreateTaetigkeitClaim, taetigkeitBelegDaten,
     meineAuslageEinreichen, meinenAuslageEntwurfEinreichen,
     uploadAuslageBelege, listAuslageBelege, zaehleAuslageBelege, auslageBelegUrl, deleteAuslageBeleg,

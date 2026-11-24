@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1A3A2A">
+<title>Vertrag vor Ort · Leben Pflegen Reisen e.V.</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="vertrag-vorort.css?v20261124a">
+<style>
+/* Tablet zuerst: Bedienelemente mind. 48 px, Schrift in Feldern 17 px
+   (unter 16 px zoomt iOS beim Antippen in das Feld). Keine Schatten. */
+.vv-wrap { max-width: 980px; margin: 20px auto 80px; padding: 0 18px; }
+.vv-kopfzeile { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.vv-kopfzeile h1 { font-family:'Bricolage Grotesque',sans-serif; font-size:26px; color:var(--green-deep,#1A3A2A); margin:0; }
+.vv-netz { font-size:13px; font-weight:700; padding:4px 10px; border-radius:20px; background:#E7F3EA; color:#2E7D46; }
+.vv-netz.aus { background:#FDECEA; color:#8A2A1E; }
+.vv-nummern { font-size:14px; color:#4A4A46; margin:0 0 12px; }
+.vv-gate { border:1.5px solid #B3261E; background:#FBEAEA; color:#7E1A14; border-radius:10px; padding:12px 16px; margin:0 0 14px; font-size:15px; }
+.vv-gate.offen { border-color:#2E7D46; background:#EEF6EF; color:#1E5B36; }
+.vv-schritte { position:sticky; top:0; z-index:5; background:#F5F5F0; display:flex; gap:6px; overflow-x:auto; padding:8px 0; margin:0 0 16px; -webkit-overflow-scrolling:touch; }
+.vv-schritte button { flex:none; min-height:48px; padding:0 14px; border-radius:10px; border:1.5px solid #CFC8B8; background:#fff; font:600 15px 'Instrument Sans',sans-serif; color:#1A3A2A; cursor:pointer; }
+.vv-schritte button.an { background:#1A3A2A; color:#fff; border-color:#1A3A2A; }
+.vv-karte { background:#fff; border:1px solid #E0DACE; border-radius:14px; padding:20px; margin-bottom:16px; }
+.vv-karte h2 { font-family:'Bricolage Grotesque',sans-serif; font-size:21px; color:#1A3A2A; margin:0 0 14px; }
+.vv-raster { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px 18px; }
+.vv-f label { display:block; font-size:14px; font-weight:600; color:#4A564C; margin-bottom:6px; }
+.vv-f input, .vv-f select { width:100%; min-height:50px; font:17px 'Instrument Sans',sans-serif; padding:10px 12px; border:1.5px solid #CFC8B8; border-radius:10px; background:#fff; color:#1A241E; box-sizing:border-box; }
+.vv-f input:focus, .vv-f select:focus { outline:3px solid #C8F135; border-color:#1A3A2A; }
+.vv-wahl { display:flex; gap:12px; flex-wrap:wrap; }
+.vv-wahl label { flex:1 1 220px; display:flex; gap:12px; align-items:flex-start; min-height:56px; padding:14px 16px; border:2px solid #CFC8B8; border-radius:12px; cursor:pointer; font-size:16px; background:#fff; }
+.vv-wahl label.an { border-color:#1A3A2A; background:#F4F9E1; }
+.vv-wahl input { width:24px; height:24px; flex:none; margin-top:1px; accent-color:#1A3A2A; }
+.vv-wahl b { display:block; font-size:17px; }
+.vv-summe { margin-top:16px; padding:14px 16px; border-radius:12px; background:#F5F5F0; font-size:17px; line-height:1.6; }
+.vv-summe strong { font-size:22px; color:#1A3A2A; }
+.vv-warn { color:#8A3A18; font-weight:600; font-size:15px; margin-top:10px; }
+.vv-erkl label { display:flex; gap:14px; align-items:flex-start; padding:16px; border:2px solid #CFC8B8; border-radius:12px; margin-bottom:12px; font-size:16px; line-height:1.5; cursor:pointer; background:#fff; }
+.vv-erkl label.an { border-color:#1A3A2A; background:#F4F9E1; }
+.vv-erkl input { width:28px; height:28px; flex:none; accent-color:#1A3A2A; }
+.vv-erkl small { display:block; color:#6E6C66; margin-top:4px; }
+.vv-lesen { background:#fff; border:1px solid #E0DACE; border-radius:14px; padding:22px; }
+.vv-lesen .vv-doc { font-size:13pt; }
+.vv-lesen .vv-umbruch { border-top:2px dashed #CFC8B8; margin-top:24px; padding-top:20px; }
+.vv-sigblock { margin-bottom:22px; }
+.vv-sigblock h3 { font-size:17px; margin:0 0 8px; color:#1A3A2A; }
+/* Eigener Name: .vv-sig gehoert dem Dokument (vertrag-vorort.css), sonst bekommt
+   der Unterschriftsblock im PDF den gestrichelten Rahmen des Zeichenfelds. */
+.vv-sigfeld { display:block; width:100%; height:200px; border:2px dashed #1A3A2A; border-radius:12px; background:#fff; touch-action:none; cursor:crosshair; }
+.vv-sigzeile { display:flex; gap:12px; align-items:center; justify-content:space-between; margin-top:8px; font-size:14px; color:#4A564C; }
+.vv-knopf { min-height:50px; padding:0 20px; border-radius:12px; border:2px solid #1A3A2A; background:#fff; color:#1A3A2A; font:700 16px 'Instrument Sans',sans-serif; cursor:pointer; }
+.vv-knopf.haupt { background:#1A3A2A; color:#fff; }
+.vv-knopf.rot { border-color:#B3261E; color:#B3261E; }
+.vv-knopf:disabled { opacity:.45; cursor:not-allowed; }
+.vv-knoepfe { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+.vv-fehlt { border:1.5px solid #C85B30; background:#FDF6F1; border-radius:12px; padding:14px 18px; margin-bottom:16px; }
+.vv-fehlt li { margin:6px 0; font-size:15px; }
+.vv-fehlt a { color:#8A3A18; font-weight:700; }
+.vv-pdf { width:100%; height:70vh; border:1px solid #E0DACE; border-radius:12px; background:#fff; }
+.vv-start { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+.vv-start button { min-height:120px; text-align:left; padding:20px; border-radius:14px; border:2px solid #1A3A2A; background:#fff; cursor:pointer; font:16px 'Instrument Sans',sans-serif; color:#1A241E; }
+.vv-start button b { display:block; font-family:'Bricolage Grotesque',sans-serif; font-size:21px; color:#1A3A2A; margin-bottom:6px; }
+.vv-tab { width:100%; border-collapse:collapse; font-size:15px; }
+.vv-tab td { padding:10px 8px; border-bottom:1px solid #EEE9DD; vertical-align:middle; }
+.vv-ok { color:#2E7D46; font-weight:700; }
+.vv-nein { color:#B3261E; font-weight:700; }
+.vv-klein { font-size:13px; color:#6E6C66; }
+dialog.vv-dlg { border:none; border-radius:16px; padding:24px; max-width:520px; width:calc(100% - 40px); }
+dialog.vv-dlg::backdrop { background:rgba(20,30,24,.55); }
+dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px; color:#1A3A2A; }
+[hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<div id="nav"></div>
+<main class="vv-wrap">
+
+  <div id="login-view" hidden>
+    <h1>Vertrag vor Ort</h1>
+    <p>Dieser Bereich ist dem Vorstand vorbehalten. Bitte mit einem Vorstands-Konto anmelden.</p>
+    <p><a href="login.html?next=admin-vertrag-vorort.html" class="btn btn-primary">Zur Anmeldung</a></p>
+  </div>
+
+  <div id="admin-view" hidden>
+    <div class="vv-kopfzeile">
+      <h1>Vertrag vor Ort</h1>
+      <span id="netz" class="vv-netz">online</span>
+    </div>
+    <div id="gate" class="vv-gate" hidden></div>
+    <div id="werte-fehlen" class="vv-gate" hidden>Preise und Freigaben konnten nicht geladen werden und liegen auf diesem Gerät noch nicht vor. Bitte die Seite einmal mit Netz öffnen.</div>
+
+    <!-- Start: kein Entwurf auf dem Gerät -->
+    <section id="start" hidden>
+      <div class="vv-start">
+        <button type="button" onclick="neu('vertrag')"><b>Neuer Vertrag</b>Dienstleistungsvertrag mit Widerrufsbelehrung, Widerrufsformular, Kostenvoranschlag und Datenschutzinformation. Zwei Unterschriften.</button>
+        <button type="button" onclick="neu('kv')"><b>Nur Kostenvoranschlag</b>Vor dem Vertrag, ohne Unterschrift.</button>
+      </div>
+      <p class="vv-klein" style="margin-top:14px">Eingaben bleiben nur auf diesem Gerät und werden nach dem Versand oder mit „Verwerfen“ gelöscht. Im Portal stehen nur Nummern, Zeitraum, Betrag und Status.</p>
+      <details class="vv-karte" id="freigaben-box" style="margin-top:18px">
+        <summary style="font-weight:700;cursor:pointer;min-height:40px">Freigaben (Sonja)</summary>
+        <table class="vv-tab" id="freigaben-tab"></table>
+        <p class="vv-klein">Freigeben kann nur Sonja mit ihrem eigenen Konto. Eine Preisänderung hebt die Freigabe wieder auf.</p>
+      </details>
+    </section>
+
+    <!-- Arbeitsbereich -->
+    <section id="arbeit" hidden>
+      <p class="vv-nummern" id="nummern"></p>
+      <nav class="vv-schritte" id="schritte" aria-label="Schritte"></nav>
+
+      <div class="vv-karte" data-schritt="1">
+        <h2>1 · Leistung</h2>
+        <div class="vv-wahl" id="modell-wahl"></div>
+        <div class="vv-raster" style="margin-top:16px">
+          <div class="vv-f"><label for="f-von">Beginn (Uhr)</label><input id="f-von" type="time" data-feld="von"></div>
+          <div class="vv-f"><label for="f-bis">Ende (Uhr)</label><input id="f-bis" type="time" data-feld="bis"></div>
+          <div class="vv-f"><label for="f-erste">Erste Nacht</label><input id="f-erste" type="date" data-feld="ersteNacht"></div>
+          <div class="vv-f"><label for="f-naechte">Anzahl Nächte</label><input id="f-naechte" type="number" min="1" max="366" inputmode="numeric" data-feld="naechte"></div>
+          <div class="vv-f"><label for="f-letzte">oder: letzte Nacht</label><input id="f-letzte" type="date" data-feld="letzteNacht"></div>
+        </div>
+        <div class="vv-summe" id="summe"></div>
+        <div class="vv-warn" id="dauer-warn" hidden></div>
+      </div>
+
+      <div class="vv-karte" data-schritt="2">
+        <h2>2 · Auftraggeberin / Auftraggeber</h2>
+        <div class="vv-raster">
+          <div class="vv-f"><label for="f-anrede">Anrede</label><select id="f-anrede" data-feld="kundin.anrede"><option value="">—</option><option>Frau</option><option>Herr</option></select></div>
+          <div class="vv-f"><label for="f-kvorname">Vorname</label><input id="f-kvorname" autocomplete="off" data-feld="kundin.vorname"></div>
+          <div class="vv-f"><label for="f-knachname">Nachname</label><input id="f-knachname" autocomplete="off" data-feld="kundin.nachname"></div>
+          <div class="vv-f"><label for="f-strasse">Straße, Hausnummer</label><input id="f-strasse" autocomplete="off" data-feld="kundin.strasse"></div>
+          <div class="vv-f"><label for="f-plzort">PLZ, Ort</label><input id="f-plzort" autocomplete="off" data-feld="kundin.plzOrt"></div>
+          <div class="vv-f"><label for="f-tel">Telefon</label><input id="f-tel" type="tel" autocomplete="off" data-feld="kundin.telefon"></div>
+          <div class="vv-f"><label for="f-mail">E-Mail</label><input id="f-mail" type="email" inputmode="email" autocapitalize="off" autocomplete="off" data-feld="kundin.email"></div>
+        </div>
+        <div data-nur="vertrag">
+          <h2 style="margin-top:20px;font-size:18px">Handlungsform</h2>
+          <div class="vv-wahl" id="handlung-wahl">
+            <label><input type="radio" name="handlung" value="eigen"><span><b>Im eigenen Namen</b>Zahlt selbst, zugunsten der begleiteten Person</span></label>
+            <label><input type="radio" name="handlung" value="vertretung"><span><b>In Vertretung</b>der begleiteten Person</span></label>
+          </div>
+          <div class="vv-wahl" id="grund-wahl" style="margin-top:12px" hidden>
+            <label><input type="radio" name="grund" value="vollmacht"><span><b>Vorsorgevollmacht</b></span></label>
+            <label><input type="radio" name="grund" value="betreuung"><span><b>Gerichtliche Betreuung</b></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="vv-karte" data-schritt="3">
+        <h2>3 · Begleitete Person und Einrichtung</h2>
+        <div class="vv-raster">
+          <div class="vv-f"><label for="f-pvorname">Vorname (begleitete Person)</label><input id="f-pvorname" autocomplete="off" data-feld="person.vorname"></div>
+          <div class="vv-f"><label for="f-pnachname">Nachname (begleitete Person)</label><input id="f-pnachname" autocomplete="off" data-feld="person.nachname"></div>
+          <div class="vv-f"><label for="f-einr">Einrichtung</label><input id="f-einr" autocomplete="off" data-feld="einrichtung.name"></div>
+          <div class="vv-f" data-nur="vertrag"><label for="f-einranschr">Anschrift der Einrichtung</label><input id="f-einranschr" autocomplete="off" data-feld="einrichtung.anschrift"></div>
+          <div class="vv-f" data-nur="vertrag"><label for="f-wb">Wohnbereich / Apartment</label><input id="f-wb" autocomplete="off" data-feld="einrichtung.wohnbereich"></div>
+          <div class="vv-f" data-nur="vertrag"><label for="f-apname">Ansprechperson (Name)</label><input id="f-apname" autocomplete="off" data-feld="einrichtung.ansprech.name"></div>
+          <div class="vv-f" data-nur="vertrag"><label for="f-apfkt">Funktion</label><input id="f-apfkt" autocomplete="off" data-feld="einrichtung.ansprech.funktion"></div>
+          <div class="vv-f" data-nur="vertrag"><label for="f-aptel">Telefon Ansprechperson</label><input id="f-aptel" type="tel" autocomplete="off" data-feld="einrichtung.ansprech.telefon"></div>
+          <div class="vv-f" data-nur="vertrag"><label for="f-zustam">Einrichtung hat zugestimmt am</label><input id="f-zustam" type="date" data-feld="einrichtung.zustimmungAm"></div>
+          <div class="vv-f" data-nur="vertrag"><label for="f-zustdurch">Zustimmung durch (Name)</label><input id="f-zustdurch" autocomplete="off" data-feld="einrichtung.zustimmungDurch"></div>
+        </div>
+      </div>
+
+      <div class="vv-karte" data-schritt="4" data-nur="vertrag">
+        <h2>4 · Vertrag lesen</h2>
+        <p class="vv-klein">Der vollständige Text mit den eingesetzten Angaben. Zum gemeinsamen Durchgehen.</p>
+        <div class="vv-lesen" id="lesen"></div>
+      </div>
+
+      <div class="vv-karte vv-erkl" data-schritt="5" data-nur="vertrag">
+        <h2>5 · Erklärungen der Auftraggeberin / des Auftraggebers</h2>
+        <p class="vv-klein">Jede Erklärung einzeln. Nichts ist vorausgewählt.</p>
+        <label><input type="checkbox" data-erkl="widerrufErhalten"><span>Ich habe die Widerrufsbelehrung (Anlage 1) und das Muster-Widerrufsformular (Anlage 2) erhalten.</span></label>
+        <label><input type="checkbox" data-erkl="leistungsbeginn"><span>Ich verlange ausdrücklich, dass der Verein vor Ablauf der Widerrufsfrist mit der Leistung beginnt. Mir ist bekannt, dass ich bei einem Widerruf für die bis dahin erbrachten Nächte die vereinbarte Vergütung anteilig zu zahlen habe.<small>Freiwillig, § 11 Abs. 2</small></span></label>
+        <label><input type="checkbox" data-erkl="emailPdf"><span>Ich bin einverstanden, dass ich diesen Vertrag mit allen Anlagen als PDF per E-Mail an die oben genannte Adresse erhalte.<small>§ 11 Abs. 3 — ohne dieses Einverständnis kann das Portal nicht versenden</small></span></label>
+        <label><input type="checkbox" data-erkl="datenschutzErhalten"><span>Ich habe die Datenschutzinformation des Vereins erhalten.</span></label>
+      </div>
+
+      <div class="vv-karte" data-schritt="6" data-nur="vertrag">
+        <h2>6 · Unterschriften</h2>
+        <div class="vv-fehlt" id="fehlt6" hidden></div>
+        <div id="sig-bereich">
+          <div class="vv-raster" style="margin-bottom:18px">
+            <div class="vv-f"><label for="f-ort">Ort</label><input id="f-ort" autocomplete="off" data-feld="ort"></div>
+            <div class="vv-f"><label for="f-datum">Datum</label><input id="f-datum" type="date" data-feld="datum"></div>
+            <div class="vv-f"><label for="f-namedruck">Name der Auftraggeberin / des Auftraggebers in Druckschrift</label><input id="f-namedruck" autocomplete="off" data-feld="nameDruck"></div>
+          </div>
+          <div class="vv-sigblock">
+            <h3>Unterschrift Auftraggeberin / Auftraggeber</h3>
+            <canvas class="vv-sigfeld" id="sig-kundin" aria-label="Unterschriftfeld Auftraggeberin"></canvas>
+            <div class="vv-sigzeile"><span id="sig-kundin-stand">noch nicht unterschrieben</span><button type="button" class="vv-knopf" onclick="sigLoeschen('kundin')">Löschen und neu</button></div>
+          </div>
+          <div class="vv-sigblock">
+            <h3>Unterschrift Verein — Eric Borchert</h3>
+            <canvas class="vv-sigfeld" id="sig-verein" aria-label="Unterschriftfeld Verein"></canvas>
+            <div class="vv-sigzeile"><span id="sig-verein-stand">noch nicht unterschrieben</span><button type="button" class="vv-knopf" onclick="sigLoeschen('verein')">Löschen und neu</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vv-karte" data-schritt="7">
+        <h2><span data-nur="vertrag">7</span><span data-nur="kv">4</span> · Vorschau</h2>
+        <div class="vv-fehlt" id="fehlt7" hidden></div>
+        <div class="vv-knoepfe">
+          <button type="button" class="vv-knopf haupt" id="btn-pdf" onclick="pdfErzeugen()">PDF erzeugen</button>
+          <a class="vv-knopf" id="pdf-oeffnen" target="_blank" rel="noopener" hidden style="display:inline-flex;align-items:center;text-decoration:none">PDF öffnen</a>
+          <a class="vv-knopf" id="pdf-speichern" hidden style="display:inline-flex;align-items:center;text-decoration:none">PDF speichern</a>
+        </div>
+        <p class="vv-klein" id="pdf-stand" style="margin-top:10px"></p>
+        <iframe class="vv-pdf" id="pdf-rahmen" title="PDF-Vorschau" hidden></iframe>
+      </div>
+
+      <div class="vv-karte" data-schritt="8">
+        <h2><span data-nur="vertrag">8</span><span data-nur="kv">5</span> · Senden</h2>
+        <p id="senden-text"></p>
+        <div class="vv-knoepfe"><button type="button" class="vv-knopf haupt" id="btn-senden" disabled>Senden …</button></div>
+      </div>
+
+      <div class="vv-knoepfe" style="justify-content:space-between">
+        <button type="button" class="vv-knopf" onclick="schritt(-1, true)">← Zurück</button>
+        <button type="button" class="vv-knopf rot" onclick="verwerfenFragen()">Verwerfen</button>
+        <button type="button" class="vv-knopf haupt" onclick="schritt(1, true)">Weiter →</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<dialog class="vv-dlg" id="dlg-verwerfen">
+  <h2>Alles verwerfen?</h2>
+  <p>Alle Eingaben und Unterschriften auf diesem Gerät werden gelöscht. Die reservierte Nummer wird als „verworfen“ markiert. Das lässt sich nicht rückgängig machen.</p>
+  <div class="vv-knoepfe"><button type="button" class="vv-knopf" onclick="this.closest('dialog').close()">Abbrechen</button>
+  <button type="button" class="vv-knopf rot" onclick="verwerfen()">Ja, verwerfen</button></div>
+</dialog>
+
+<script src="app.js?v20261124a"></script>
+<script src="rechnung-hinweise.js?v20261007b"></script>
+<script src="vertrag-vorort-vorlage.js?v20261124a"></script>
+<script src="vertrag-vorort-pdf.js?v20261124a"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+LPR_Layout.init({ page: 'vertrag-vorort' });
+
+const $ = (id) => document.getElementById(id);
+const VV = window.VertragVorort;
+const WERTE_CACHE = 'lpr-vv-werte';          // keine Personendaten: nur Preise und Freigabestand
+const VERWERFEN_QUEUE = 'lpr-vv-verwerfen';  // nur Vorgangs-IDs, die offline verworfen wurden
+let F = null;            // Entwurf (Personendaten) — lebt nur hier und in IndexedDB
+let W = null;            // Werte fuer die Vorlage
+let G = null;            // Gate-Stand
+let ZEILEN = [];
+let aktSchritt = 1;
+let pdfUrl = null;
+let pdfStempel = null;
+
+function toast(msg, typ) { if (window.LPR && LPR.showToast) LPR.showToast(msg, typ); }
+function heute() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
+// ── Entwurf auf dem Geraet (IndexedDB) ───────────────────────────────────
+const IDB = {
+  db: null,
+  async open() {
+    if (this.db) return this.db;
+    this.db = await new Promise((ok, nein) => {
+      const r = indexedDB.open('lpr-vertrag-vorort', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('entwurf');
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => nein(r.error);
+    });
+    return this.db;
+  },
+  async tx(modus, fn) {
+    const db = await this.open();
+    return new Promise((ok, nein) => {
+      const t = db.transaction('entwurf', modus);
+      const req = fn(t.objectStore('entwurf'));
+      t.oncomplete = () => ok(req && req.result);
+      t.onerror = () => nein(t.error);
+    });
+  },
+  lesen() { return this.tx('readonly', (s) => s.get('aktuell')); },
+  schreiben(v) { return this.tx('readwrite', (s) => s.put(v, 'aktuell')); },
+  loeschen() { return this.tx('readwrite', (s) => s.delete('aktuell')); }
+};
+let speicherUhr = null;
+function speichern() {
+  clearTimeout(speicherUhr);
+  speicherUhr = setTimeout(() => { F.geaendert = Date.now(); IDB.schreiben(F).catch(() => toast('Entwurf konnte auf dem Gerät nicht gesichert werden.', 'warn')); }, 300);
+}
+
+// ── Werte und Gate ────────────────────────────────────────────────────────
+function werteAus(zeilen, gate) {
+  const z = Object.fromEntries((zeilen || []).map((r) => [r.schluessel, r]));
+  if (!z.modell_a || !z.modell_b || !z.zusatzstunde || !z.ausfall || !z.steuer) return null;
+  return {
+    modelle: { A: { stunden: z.modell_a.stunden, pauschale_cents: z.modell_a.betrag_cents },
+               B: { stunden: z.modell_b.stunden, pauschale_cents: z.modell_b.betrag_cents } },
+    zusatzstunde_cents: z.zusatzstunde.betrag_cents,
+    ausfall_prozent: z.ausfall.prozent,
+    steuerhinweis: RechnungHinweise.hinweisFuer(z.steuer.steuer_konto, true),
+    freigabe: { werte: gate.werte === true, vertrag: gate.vertrag === true, kv: gate.kv === true, datenschutz: gate.datenschutz === true }
+  };
+}
+async function werteLaden() {
+  const res = navigator.onLine ? await LPR.vertragVorortWerte() : { ok: false };
+  if (res.ok) {
+    ZEILEN = res.zeilen; G = res.gate;
+    try { localStorage.setItem(WERTE_CACHE, JSON.stringify({ zeilen: ZEILEN, gate: G, stand: Date.now() })); } catch (e) {}
+  } else {
+    try { const c = JSON.parse(localStorage.getItem(WERTE_CACHE) || 'null'); if (c) { ZEILEN = c.zeilen; G = c.gate; } } catch (e) {}
+  }
+  W = G ? werteAus(ZEILEN, G) : null;
+  $('werte-fehlen').hidden = !!W;
+  renderGate();
+  renderFreigaben();
+}
+function renderGate() {
+  const el = $('gate');
+  if (!W) { el.hidden = true; return; }
+  const g = VV.gate(W, F ? F.art : 'vertrag');
+  el.hidden = false;
+  el.classList.toggle('offen', g.freigegeben);
+  el.textContent = g.freigegeben
+    ? 'Freigegeben: Dokumente ohne ENTWURF, Versand möglich.'
+    : 'ENTWURF — Versand gesperrt. Es fehlt die Freigabe durch Sonja für: ' + g.fehlt.join(' · ') + '.';
+}
+const FREIGABE_NAMEN = {
+  modell_a: 'Modell A (Stunden, Nachtpauschale)', modell_b: 'Modell B (Stunden, Nachtpauschale)',
+  zusatzstunde: 'Zusatzstunde', ausfall: 'Ausfallpauschale (%)', steuer: 'Steuerhinweis'
+};
+function wertText(r) {
+  if (r.schluessel === 'steuer') return RechnungHinweise.hinweisFuer(r.steuer_konto, true);
+  if (r.schluessel === 'ausfall') return r.prozent + ' % der Nachtpauschale';
+  return (r.stunden ? r.stunden + ' Std. · ' : '') + VV.eur(r.betrag_cents);
+}
+function renderFreigaben() {
+  const t = $('freigaben-tab'); t.textContent = '';
+  const zeile = (name, wert, frei, ziel) => {
+    const tr = t.insertRow();
+    tr.insertCell().textContent = name;
+    tr.insertCell().textContent = wert;
+    const c = tr.insertCell(); const s = document.createElement('span');
+    s.className = frei ? 'vv-ok' : 'vv-nein'; s.textContent = frei ? 'freigegeben' : 'offen'; c.appendChild(s);
+    const k = tr.insertCell();
+    if (!frei && navigator.onLine) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'vv-knopf'; b.textContent = 'Freigeben';
+      b.onclick = async () => { b.disabled = true; const r = await LPR.steuerFreigabe(ziel, true); if (!r.ok) { toast(r.error, 'warn'); b.disabled = false; return; } await werteLaden(); };
+      k.appendChild(b);
+    }
+  };
+  ZEILEN.slice().sort((a, b) => a.schluessel.localeCompare(b.schluessel))
+    .forEach((r) => zeile(FREIGABE_NAMEN[r.schluessel] || r.schluessel, wertText(r), !!r.freigabe_sonja_am, { tabelle: 'vertrag_werte', schluessel: r.schluessel }));
+  if (G) {
+    zeile('Wortlaut Vertrag', 'Fassung ' + VV.FASSUNG, G.vertrag === true, { tabelle: 'beleg_freigaben', variante: VV.VARIANTEN.vertrag, fassung: VV.FASSUNG });
+    zeile('Wortlaut Kostenvoranschlag', 'Fassung ' + VV.FASSUNG, G.kv === true, { tabelle: 'beleg_freigaben', variante: VV.VARIANTEN.kv, fassung: VV.FASSUNG });
+    zeile('Datenschutzinformation', 'Fassung ' + VV.FASSUNG, G.datenschutz === true, { tabelle: 'beleg_freigaben', variante: VV.VARIANTEN.datenschutz, fassung: VV.FASSUNG });
+  }
+}
+
+// ── Nummern ──────────────────────────────────────────────────────────────
+async function nummerHolen() {
+  if (!F || F.vorgang || !navigator.onLine) return;
+  const res = await LPR.vertragVorortReservieren(F.art);
+  if (!res.ok) { toast('Nummer nicht reserviert: ' + res.error, 'warn'); return; }
+  F.vorgang = res.vorgang;
+  F.nummern = { vertrag: res.vorgang.vertrags_nr || '', kv: res.vorgang.kv_nr || '', fall: res.vorgang.fall_nr || '' };
+  speichern(); renderNummern();
+}
+async function verwerfenQueueAbarbeiten() {
+  if (!navigator.onLine) return;
+  let q = [];
+  try { q = JSON.parse(localStorage.getItem(VERWERFEN_QUEUE) || '[]'); } catch (e) {}
+  const rest = [];
+  for (const id of q) { const r = await LPR.vertragVorortVerwerfen(id); if (!r.ok) rest.push(id); }
+  localStorage.setItem(VERWERFEN_QUEUE, JSON.stringify(rest));
+}
+function renderNummern() {
+  const n = F.nummern || {};
+  const teile = [];
+  teile.push(F.art === 'kv' ? 'Kostenvoranschlag' : 'Vertrag');
+  if (F.art === 'vertrag') teile.push('Vertrags-Nr. ' + (n.vertrag || '— (kommt, sobald Netz da ist)'));
+  teile.push('KV-Nr. ' + (n.kv || '— (kommt, sobald Netz da ist)'));
+  if (F.art === 'vertrag' && n.fall) teile.push('Fall-Nr. ' + n.fall);
+  $('nummern').textContent = teile.join(' · ');
+}
+
+// ── Formular ─────────────────────────────────────────────────────────────
+function leererEntwurf(art) {
+  const d = heute();
+  return {
+    art, angelegt: Date.now(), geaendert: Date.now(), vorgang: null, nummern: {},
+    modell: '', von: '', bis: '', ersteNacht: '', naechte: '', letzteNacht: '',
+    kundin: {}, handlung: '', vertretungsgrund: '', person: {}, einrichtung: { ansprech: {} },
+    erkl: {}, ort: 'Berlin', datum: d, nameDruck: '', kvGueltigBis: VV.plusTage(d, 14),
+    unterschriften: { kundin: null, verein: null }, unterschriftAm: { kundin: null, verein: null }
+  };
+}
+function holen(pfad) { return pfad.split('.').reduce((o, k) => (o == null ? undefined : o[k]), F); }
+function setzen(pfad, wert) {
+  const teile = pfad.split('.'); let o = F;
+  for (let i = 0; i < teile.length - 1; i++) { if (o[teile[i]] == null || typeof o[teile[i]] !== 'object') o[teile[i]] = {}; o = o[teile[i]]; }
+  o[teile[teile.length - 1]] = wert;
+}
+function felderFuellen() {
+  document.querySelectorAll('[data-feld]').forEach((el) => { const v = holen(el.dataset.feld); el.value = v == null ? '' : v; });
+  document.querySelectorAll('input[name="handlung"]').forEach((r) => { r.checked = r.value === F.handlung; });
+  document.querySelectorAll('input[name="grund"]').forEach((r) => { r.checked = r.value === F.vertretungsgrund; });
+  document.querySelectorAll('[data-erkl]').forEach((c) => { c.checked = F.erkl[c.dataset.erkl] === true; });
+  renderModell(); markieren(); renderSumme();
+}
+function markieren() {
+  document.querySelectorAll('.vv-wahl label, .vv-erkl label').forEach((l) => { const i = l.querySelector('input'); l.classList.toggle('an', !!(i && i.checked)); });
+  $('grund-wahl').hidden = F.handlung !== 'vertretung';
+}
+function renderModell() {
+  const box = $('modell-wahl'); box.textContent = '';
+  if (!W) return;
+  ['A', 'B'].forEach((m) => {
+    const l = document.createElement('label');
+    const i = document.createElement('input'); i.type = 'radio'; i.name = 'modell'; i.value = m; i.checked = F.modell === m;
+    i.onchange = () => { F.modell = m; markieren(); renderSumme(); speichern(); };
+    const s = document.createElement('span'); const b = document.createElement('b');
+    b.textContent = 'Modell ' + m + ' – ' + W.modelle[m].stunden + ' Stunden';
+    s.appendChild(b); s.appendChild(document.createTextNode(VV.eur(W.modelle[m].pauschale_cents) + ' je Nacht'));
+    l.appendChild(i); l.appendChild(s); box.appendChild(l);
+  });
+}
+function renderSumme() {
+  if (!W) return;
+  const r = VV.berechne(F, W);
+  const el = $('summe'); el.textContent = '';
+  const z = (t) => { const d = document.createElement('div'); d.textContent = t; el.appendChild(d); return d; };
+  z('Nachtpauschale: ' + (r.pauschale_cents != null ? VV.eur(r.pauschale_cents) : '—'));
+  const s = z('Voraussichtliche Gesamtvergütung: ');
+  const st = document.createElement('strong'); st.textContent = r.summe_cents != null ? VV.eur(r.summe_cents) : '—'; s.appendChild(st);
+  if (r.naechte > 0 && r.pauschale_cents != null) z(r.naechte + ' Nächte × ' + VV.eur(r.pauschale_cents));
+  const w = $('dauer-warn'); const dau = VV.dauer(F.von, F.bis);
+  if (F.modell && dau != null && W.modelle[F.modell] && dau !== Number(W.modelle[F.modell].stunden)) {
+    w.hidden = false; w.textContent = 'Hinweis: ' + F.von + '–' + F.bis + ' sind ' + String(dau).replace('.', ',') + ' Stunden, Modell ' + F.modell + ' hat ' + W.modelle[F.modell].stunden + '.';
+  } else w.hidden = true;
+}
+function feldGeaendert(el) {
+  const pfad = el.dataset.feld; let v = el.value;
+  if (pfad === 'naechte') {
+    v = v === '' ? '' : Math.max(0, parseInt(v, 10) || 0);
+    F.naechte = v;
+    F.letzteNacht = (v > 0 && F.ersteNacht) ? VV.plusTage(F.ersteNacht, v - 1) : '';
+    $('f-letzte').value = F.letzteNacht;
+  } else if (pfad === 'letzteNacht') {
+    F.letzteNacht = v;
+    const n = VV.naechteZwischen(F.ersteNacht, v);
+    F.naechte = n > 0 ? n : '';
+    $('f-naechte').value = F.naechte;
+  } else if (pfad === 'ersteNacht') {
+    F.ersteNacht = v;
+    if (Number(F.naechte) > 0 && v) { F.letzteNacht = VV.plusTage(v, Number(F.naechte) - 1); $('f-letzte').value = F.letzteNacht; }
+  } else if (pfad === 'datum') {
+    F.datum = v; F.kvGueltigBis = v ? VV.plusTage(v, 14) : '';
+  } else {
+    setzen(pfad, v);
+  }
+  renderSumme(); pdfVeraltet(); speichern();
+}
+
+// ── Schritte ─────────────────────────────────────────────────────────────
+function sichtbareSchritte() { return F.art === 'kv' ? [1, 2, 3, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8]; }
+const SCHRITT_NAME = { 1: 'Leistung', 2: 'Auftraggeberin', 3: 'Person & Einrichtung', 4: 'Lesen', 5: 'Erklärungen', 6: 'Unterschriften', 7: 'Vorschau', 8: 'Senden' };
+function renderSchritte() {
+  const nav = $('schritte'); nav.textContent = '';
+  sichtbareSchritte().forEach((n, i) => {
+    const b = document.createElement('button'); b.type = 'button';
+    b.textContent = (i + 1) + ' ' + SCHRITT_NAME[n]; b.className = n === aktSchritt ? 'an' : '';
+    b.onclick = () => zeige(n); nav.appendChild(b);
+  });
+}
+function zeige(n) {
+  aktSchritt = n;
+  document.querySelectorAll('[data-schritt]').forEach((k) => { k.hidden = Number(k.dataset.schritt) !== n; });
+  document.querySelectorAll('[data-nur]').forEach((e) => { if (!e.hasAttribute('data-schritt')) e.hidden = e.dataset.nur !== F.art; });
+  document.querySelectorAll('[data-schritt][data-nur]').forEach((k) => { if (k.dataset.nur !== F.art) k.hidden = true; });
+  renderSchritte();
+  if (n === 4) renderLesen();
+  if (n === 6) renderUnterschriften();
+  if (n === 7) renderVorschauStand();
+  if (n === 8) renderSenden();
+  window.scrollTo(0, 0);
+}
+function schritt(delta) {
+  const s = sichtbareSchritte(); const i = s.indexOf(aktSchritt);
+  const j = Math.min(s.length - 1, Math.max(0, i + delta)); zeige(s[j]);
+}
+
+function dokDaten() { return Object.assign({}, F, { naechte: Number(F.naechte) || 0 }); }
+function renderLesen() {
+  if (!W) return;
+  // Unterschriften nicht im Lesetext: die entstehen erst in Schritt 6.
+  $('lesen').innerHTML = VV.paketHtml(Object.assign(dokDaten(), { unterschriften: {} }), W, LPR.VEREIN);
+}
+
+// ── Unterschriften ───────────────────────────────────────────────────────
+const NUR_UNTERSCHRIFT = ['Ort und Datum', 'Name in Druckschrift'];
+function fehltListe(el, liste) {
+  el.textContent = '';
+  if (!liste.length) { el.hidden = true; return; }
+  el.hidden = false;
+  const p = document.createElement('p'); p.style.margin = '0 0 6px'; p.style.fontWeight = '700';
+  p.textContent = 'Vorher noch ausfüllen:'; el.appendChild(p);
+  const ul = document.createElement('ul'); ul.style.margin = '0'; ul.style.paddingLeft = '20px';
+  liste.forEach((t) => {
+    const li = document.createElement('li'); li.textContent = t;
+    const ziel = /Nummer/.test(t) ? null : /Unterschrift|Ort und Datum|Druckschrift/.test(t) ? 6
+      : /Modell|Uhrzeit|Nacht/.test(t) ? 1 : /Erklärung/.test(t) ? 5
+      : /begleiteten Person|Einrichtung/.test(t) ? 3 : 2;
+    if (ziel && ziel !== aktSchritt && sichtbareSchritte().indexOf(ziel) >= 0) { li.appendChild(document.createTextNode(' — ')); const a = document.createElement('a'); a.href = '#'; a.textContent = 'zu Schritt ' + SCHRITT_NAME[ziel]; a.onclick = (e) => { e.preventDefault(); zeige(ziel); }; li.appendChild(a); }
+    ul.appendChild(li);
+  });
+  el.appendChild(ul);
+}
+function renderUnterschriften() {
+  const fehlt = VV.pflichtfehlt(dokDaten(), 'vertrag').filter((t) => NUR_UNTERSCHRIFT.indexOf(t) < 0);
+  fehltListe($('fehlt6'), fehlt);
+  $('sig-bereich').hidden = fehlt.length > 0;
+  if (fehlt.length) return;
+  ['kundin', 'verein'].forEach((wer) => sigInit(wer));
+}
+const SIG = { kundin: { ctx: null, ink: false, verdrahtet: false }, verein: { ctx: null, ink: false, verdrahtet: false } };
+// Muster aus einsatz.html: Pointer ODER Touch, Canvas bei jedem Betreten neu vermessen.
+function sigInit(wer) {
+  const c = $('sig-' + wer), st = SIG[wer];
+  const r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const bw = Math.round(r.width * dpr), bh = Math.round(r.height * dpr);
+  if (c.width !== bw || c.height !== bh) {
+    c.width = bw; c.height = bh;
+    st.ctx = c.getContext('2d'); st.ctx.scale(dpr, dpr);
+    st.ctx.lineWidth = 2.6; st.ctx.lineCap = 'round'; st.ctx.lineJoin = 'round'; st.ctx.strokeStyle = '#1A241E';
+    st.ink = false;
+    // Gespeicherte Unterschrift wieder zeichnen (nach Drehen oder Neuladen).
+    const bild = F.unterschriften[wer];
+    if (bild) { const img = new Image(); img.onload = () => { st.ctx.drawImage(img, 0, 0, r.width, r.height); st.ink = true; }; img.src = bild; }
+  }
+  sigStand(wer);
+  if (st.verdrahtet) return;
+  let zeichnet = false, px = 0, py = 0;
+  const pkt = (x, y) => { const b = c.getBoundingClientRect(); return [x - b.left, y - b.top]; };
+  const beginn = (x, y) => { zeichnet = true; [px, py] = pkt(x, y); };
+  const zug = (x, y) => {
+    if (!zeichnet || !st.ctx) return;
+    const [nx, ny] = pkt(x, y);
+    st.ctx.beginPath(); st.ctx.moveTo(px, py); st.ctx.lineTo(nx, ny); st.ctx.stroke(); px = nx; py = ny; st.ink = true;
+  };
+  const ende = () => {
+    if (!zeichnet) return; zeichnet = false;
+    if (!st.ink) return;
+    F.unterschriften[wer] = c.toDataURL('image/png');
+    if (!F.unterschriftAm[wer]) F.unterschriftAm[wer] = new Date().toISOString();
+    sigStand(wer); pdfVeraltet(); speichern();
+  };
+  if (window.PointerEvent) {
+    c.addEventListener('pointerdown', (e) => { e.preventDefault(); beginn(e.clientX, e.clientY); try { c.setPointerCapture(e.pointerId); } catch (x) {} });
+    c.addEventListener('pointermove', (e) => { if (zeichnet) { e.preventDefault(); zug(e.clientX, e.clientY); } });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => c.addEventListener(ev, ende));
+  } else {
+    c.addEventListener('touchstart', (e) => { e.preventDefault(); const t = e.touches[0]; if (t) beginn(t.clientX, t.clientY); }, { passive: false });
+    c.addEventListener('touchmove', (e) => { e.preventDefault(); const t = e.touches[0]; if (t) zug(t.clientX, t.clientY); }, { passive: false });
+    ['touchend', 'touchcancel'].forEach((ev) => c.addEventListener(ev, ende));
+  }
+  st.verdrahtet = true;
+}
+function sigStand(wer) {
+  const am = F.unterschriftAm[wer];
+  $('sig-' + wer + '-stand').textContent = F.unterschriften[wer]
+    ? 'unterschrieben um ' + new Date(am).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr'
+    : 'noch nicht unterschrieben';
+}
+function sigLoeschen(wer) {
+  const c = $('sig-' + wer), st = SIG[wer];
+  if (st.ctx) { const dpr = window.devicePixelRatio || 1; st.ctx.clearRect(0, 0, c.width / dpr, c.height / dpr); }
+  st.ink = false; F.unterschriften[wer] = null; F.unterschriftAm[wer] = null;
+  sigStand(wer); pdfVeraltet(); speichern();
+}
+window.addEventListener('resize', () => {
+  if (aktSchritt !== 6 || !F) return;
+  // Neu vermessen; die gespeicherte Unterschrift wird dabei neu gezeichnet.
+  ['kundin', 'verein'].forEach((wer) => { const c = $('sig-' + wer); c.width = 0; sigInit(wer); });
+});
+
+// ── PDF ──────────────────────────────────────────────────────────────────
+function pdfVeraltet() {
+  if (!pdfUrl) return;
+  $('pdf-stand').textContent = 'Seit dem letzten PDF wurde etwas geändert — bitte neu erzeugen.';
+}
+function vorschauFehlt() {
+  const d = dokDaten();
+  const f = VV.pflichtfehlt(d, F.art);
+  if (F.art === 'vertrag') {
+    if (!F.unterschriften.kundin) f.push('Unterschrift Auftraggeberin / Auftraggeber');
+    if (!F.unterschriften.verein) f.push('Unterschrift Verein');
+  }
+  if (!F.vorgang) f.push(navigator.onLine ? 'Nummer wird gerade reserviert …' : 'Nummer fehlt: Gerät war beim Anlegen offline. Mit Netz wird sie automatisch geholt.');
+  return f;
+}
+function renderVorschauStand() {
+  const f = vorschauFehlt();
+  fehltListe($('fehlt7'), f);
+  $('btn-pdf').disabled = f.length > 0 || !W;
+  if (!F.vorgang && navigator.onLine) nummerHolen().then(() => { if (aktSchritt === 7) renderVorschauStand(); });
+}
+async function pdfErzeugen() {
+  const b = $('btn-pdf'); b.disabled = true; b.textContent = 'PDF wird erzeugt …';
+  try {
+    const g = VV.gate(W, F.art);
+    const html = F.art === 'kv' ? VV.kvHtml(dokDaten(), W, LPR.VEREIN) : VV.paketHtml(dokDaten(), W, LPR.VEREIN);
+    const kennung = F.art === 'kv' ? 'KV-Nr. ' + F.nummern.kv : 'Vertrags-Nr. ' + F.nummern.vertrag;
+    const blob = await VertragVorortPdf.erzeugen(html, { verein: LPR.VEREIN, entwurf: !g.freigegeben, kennung });
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    pdfUrl = URL.createObjectURL(blob); pdfStempel = Date.now();
+    const name = 'LPR_' + (F.art === 'kv' ? 'Kostenvoranschlag_' + F.nummern.kv : 'Vertrag_' + F.nummern.vertrag) + (g.freigegeben ? '' : '_ENTWURF') + '.pdf';
+    $('pdf-rahmen').src = pdfUrl; $('pdf-rahmen').hidden = false;
+    $('pdf-oeffnen').href = pdfUrl; $('pdf-oeffnen').hidden = false;
+    $('pdf-speichern').href = pdfUrl; $('pdf-speichern').download = name; $('pdf-speichern').hidden = false;
+    $('pdf-stand').textContent = 'Erzeugt um ' + new Date(pdfStempel).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr · ' + Math.round(blob.size / 1024) + ' KB' + (g.freigegeben ? '' : ' · ENTWURF');
+  } catch (e) {
+    toast('PDF nicht erzeugt: ' + (e && e.message ? e.message : e), 'warn');
+  } finally { b.disabled = false; b.textContent = 'PDF erzeugen'; }
+}
+
+// ── Senden (Phase 4) ─────────────────────────────────────────────────────
+function renderSenden() {
+  const g = W ? VV.gate(W, F.art) : { freigegeben: false, fehlt: ['Werte'] };
+  $('btn-senden').disabled = true;
+  $('senden-text').textContent = !g.freigegeben
+    ? 'Versand gesperrt: Freigabe durch Sonja fehlt (' + g.fehlt.join(' · ') + '). Das PDF lässt sich trotzdem in Schritt Vorschau ansehen und speichern.'
+    : 'Der Versand per E-Mail wird in der nächsten Etappe angeschlossen. Bis dahin das PDF in der Vorschau speichern.';
+}
+
+// ── Anlegen, Verwerfen ───────────────────────────────────────────────────
+async function neu(art) {
+  if (!W) { toast('Ohne Preise kein Vertrag: bitte einmal mit Netz öffnen.', 'warn'); return; }
+  F = leererEntwurf(art);
+  await IDB.schreiben(F);
+  arbeitZeigen();
+  nummerHolen();
+}
+function verwerfenFragen() { $('dlg-verwerfen').showModal(); }
+async function verwerfen() {
+  $('dlg-verwerfen').close();
+  const id = F && F.vorgang && F.vorgang.id;
+  if (id) {
+    const r = navigator.onLine ? await LPR.vertragVorortVerwerfen(id) : { ok: false };
+    if (!r.ok) { let q = []; try { q = JSON.parse(localStorage.getItem(VERWERFEN_QUEUE) || '[]'); } catch (e) {} q.push(id); localStorage.setItem(VERWERFEN_QUEUE, JSON.stringify(q)); }
+  }
+  await IDB.loeschen();
+  F = null;
+  if (pdfUrl) { URL.revokeObjectURL(pdfUrl); pdfUrl = null; }
+  $('pdf-rahmen').removeAttribute('src');
+  $('arbeit').hidden = true; $('start').hidden = false; renderGate();
+  toast('Verworfen. Auf diesem Gerät ist nichts mehr gespeichert.');
+}
+function arbeitZeigen() {
+  $('start').hidden = true; $('arbeit').hidden = false;
+  felderFuellen(); renderNummern(); renderGate();
+  zeige(1);
+}
+
+// ── Netz ─────────────────────────────────────────────────────────────────
+function netzAnzeige() {
+  const an = navigator.onLine; const el = $('netz');
+  el.textContent = an ? 'online' : 'offline'; el.classList.toggle('aus', !an);
+}
+window.addEventListener('online', async () => { netzAnzeige(); await werteLaden(); await verwerfenQueueAbarbeiten(); if (F) { await nummerHolen(); if (aktSchritt === 7) renderVorschauStand(); } });
+window.addEventListener('offline', netzAnzeige);
+
+// ── Start ────────────────────────────────────────────────────────────────
+async function init() {
+  const s = LPR.getSession();
+  if (!s) { location.href = 'login.html?next=admin-vertrag-vorort.html'; return; }
+  if (s.role !== 'admin') { $('login-view').hidden = false; return; }
+  $('admin-view').hidden = false;
+  netzAnzeige();
+  // Offline-Faehigkeit: der Worker legt Seite, Vorlage, html2pdf und Schriften
+  // in den Cache (sw.js, SHELL). Ohne ihn laedt die Seite ohne Netz gar nicht.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  // PDF-Bibliothek und Schriften JETZT laden — spaeter ist vielleicht kein Netz da.
+  VertragVorortPdf.vorbereiten().catch(() => toast('PDF-Bibliothek nicht geladen — bitte Seite mit Netz neu öffnen.', 'warn'));
+  document.querySelectorAll('[data-feld]').forEach((el) => {
+    el.addEventListener(el.tagName === 'SELECT' || el.type === 'date' || el.type === 'time' ? 'change' : 'input', () => feldGeaendert(el));
+  });
+  document.querySelectorAll('input[name="handlung"]').forEach((r) => r.addEventListener('change', () => { F.handlung = r.value; if (r.value !== 'vertretung') F.vertretungsgrund = ''; felderFuellen(); pdfVeraltet(); speichern(); }));
+  document.querySelectorAll('input[name="grund"]').forEach((r) => r.addEventListener('change', () => { F.vertretungsgrund = r.value; markieren(); pdfVeraltet(); speichern(); }));
+  document.querySelectorAll('[data-erkl]').forEach((c) => c.addEventListener('change', () => { F.erkl[c.dataset.erkl] = c.checked; markieren(); pdfVeraltet(); speichern(); }));
+  await werteLaden();
+  await verwerfenQueueAbarbeiten();
+  let e = null;
+  try { e = await IDB.lesen(); } catch (x) { toast('Gerätespeicher nicht verfügbar (privates Fenster?). Eingaben gehen beim Schließen verloren.', 'warn'); }
+  if (e) { F = e; arbeitZeigen(); nummerHolen(); }
+  else { $('start').hidden = false; }
+}
+init();
+</script>
+</body>
+</html>

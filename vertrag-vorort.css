@@ -1,0 +1,124 @@
+/*
+ * Vertrag vor Ort — Dokumentstil (KV, Vertrag, Anlagen, Datenschutzinformation).
+ * Werte aus dem Vertrags-Buildkit vom 08.09.2026 (vertrag_design.html),
+ * umgestellt von WeasyPrint auf html2pdf: keine @page-Randboxen (Kopf- und
+ * Fusszeile setzt vertrag-vorort-pdf.js mit jsPDF), Umbrueche ueber
+ * .vv-umbruch und die avoid-Liste. Keine Schatten (SMask-Falle).
+ *
+ * Schriften liegen im Repo (fonts/, SIL OFL), damit das PDF ohne Netz
+ * entsteht. Eigene Familiennamen, damit sie nicht mit den Google-Fonts der
+ * Portalseiten verwechselt werden.
+ */
+@font-face { font-family:"VV Bricolage"; src:url("fonts/BricolageGrotesque-ExtraBold.ttf") format("truetype"); font-weight:800; }
+@font-face { font-family:"VV Bricolage"; src:url("fonts/BricolageGrotesque-Bold.ttf") format("truetype"); font-weight:700; }
+@font-face { font-family:"VV Instrument"; src:url("fonts/InstrumentSans-Regular.ttf") format("truetype"); font-weight:400; }
+@font-face { font-family:"VV Instrument"; src:url("fonts/InstrumentSans-Medium.ttf") format("truetype"); font-weight:500; }
+@font-face { font-family:"VV Instrument"; src:url("fonts/InstrumentSans-SemiBold.ttf") format("truetype"); font-weight:600; }
+@font-face { font-family:"VV Instrument"; src:url("fonts/InstrumentSans-Bold.ttf") format("truetype"); font-weight:700; }
+
+.vv-doc {
+  --vv-green:#1A3A2A; --vv-lime:#C8F135; --vv-sand:#E8E4DC; --vv-muted:#5E8A6C;
+  --vv-ink:#22261F; --vv-grey:#6E6C66; --vv-line:#A9A49A; --vv-red:#B3261E; --vv-redbg:#FBEAEA;
+  font-family:"VV Instrument", "Instrument Sans", sans-serif;
+  font-size:9.4pt; line-height:1.42; color:var(--vv-ink);
+  background:#fff;
+  /* Keine automatische Silbentrennung: html2canvas bricht dann mitten im Wort
+     OHNE Trennstrich um ("Kostenvora|nschlag"). */
+  hyphens:manual; -webkit-hyphens:manual;
+}
+.vv-doc * { box-sizing:border-box; }
+/* html2canvas verschluckt bei tabular-nums Leerzeichen (Fund aus rechnung.html). */
+.vv-doc, .vv-doc * { font-variant-numeric:normal; }
+.vv-doc p { text-align:justify; margin:0 0 2.4mm; }
+.vv-doc b { font-weight:600; }
+
+/* Kopf */
+.vv-logo { display:flex; align-items:center; gap:4mm; margin-bottom:6mm; }
+.vv-logo-zeichen { width:9.5mm; height:11mm; flex:none; }
+.vv-wm { line-height:1.12; }
+.vv-wm .n { font-family:"VV Bricolage", sans-serif; font-weight:800; font-size:14.5pt; color:var(--vv-green); letter-spacing:-0.2pt; white-space:nowrap; }
+.vv-wm .s { font-size:6.8pt; color:var(--vv-muted); letter-spacing:1.1pt; margin-top:0.8mm; }
+.vv-anlage-kopf { font-size:7.8pt; color:var(--vv-grey); margin-bottom:4mm; }
+
+/* ENTWURF */
+.vv-entwurf { border:1pt solid var(--vv-red); background:var(--vv-redbg); padding:3.2mm 4mm; margin-bottom:7mm; }
+.vv-entwurf h3 { font-family:"VV Instrument", sans-serif; font-weight:700; font-size:8.6pt; color:var(--vv-red); margin:0 0 1.4mm; letter-spacing:0.3pt; }
+.vv-entwurf p { font-size:7.6pt; color:var(--vv-red); text-align:left; margin:0 0 0.9mm; }
+
+/* Titel */
+.vv-titel { margin-bottom:7mm; }
+.vv-akzent { width:16mm; height:1.6mm; background:var(--vv-lime); margin-bottom:3mm; }
+.vv-doc h1 { font-family:"VV Bricolage", sans-serif; font-weight:800; font-size:19pt; line-height:1.15; color:var(--vv-green); letter-spacing:-0.4pt; margin:0 0 1.6mm; hyphens:manual; -webkit-hyphens:manual; }
+.vv-doc h1.vv-anlage { font-size:15pt; margin-bottom:4mm; }
+.vv-unter { font-size:10pt; color:var(--vv-muted); margin-bottom:2.5mm; }
+.vv-meta { font-size:8pt; color:var(--vv-grey); }
+
+/* Abschnitte */
+.vv-doc h2 { font-family:"VV Bricolage", sans-serif; font-weight:800; font-size:10.6pt; color:var(--vv-green);
+             margin:5.6mm 0 2.6mm; padding-top:2.4mm; border-top:0.5pt solid var(--vv-sand); hyphens:manual; -webkit-hyphens:manual; }
+.vv-doc h2.first { border-top:none; padding-top:0; margin-top:0; }
+
+/* Felder: eingetragener Wert oder Ausfuellinie */
+.vv-wert { font-weight:600; color:var(--vv-green); }
+.vv-linie { display:inline-block; vertical-align:baseline; min-width:48mm; border-bottom:0.5pt solid var(--vv-line); height:3.6mm; }
+.vv-linie.kurz { min-width:18mm; }
+.vv-linie.lang { min-width:80mm; }
+.vv-feld { margin-bottom:2.2mm; }
+.vv-feld .lab { font-weight:600; color:var(--vv-green); margin-right:2.5mm; }
+.vv-parteien p { text-align:left; }
+.vv-adresse { margin:0 0 7mm; line-height:1.5; }
+
+/* Kaestchen — angekreuzt als gefuelltes Quadrat (keine Glyphe, rastert sicher) */
+.vv-opt { display:flex; gap:2.8mm; margin-bottom:2.6mm; align-items:flex-start; }
+.vv-opt p, .vv-optext { flex:1; min-width:0; margin:0; }
+.vv-optext p { margin:0 0 1mm; }
+.vv-unteropt { display:flex; flex-wrap:wrap; gap:1mm 6mm; margin:0.5mm 0 1mm; }
+.vv-unteropt span { white-space:nowrap; }
+.vv-cb { position:relative; flex:none; display:inline-block; width:3.4mm; height:3.4mm; border:0.8pt solid var(--vv-green); margin-top:0.5mm; background:#fff; }
+.vv-cb.an::after { content:""; position:absolute; left:0.55mm; top:0.55mm; right:0.55mm; bottom:0.55mm; background:var(--vv-green); }
+.vv-cb.klein { width:2.8mm; height:2.8mm; vertical-align:-0.4mm; margin:0 1.2mm 0 0.6mm; }
+.vv-cb.klein.an::after { left:0.45mm; top:0.45mm; right:0.45mm; bottom:0.45mm; }
+.vv-nr { flex:none; }
+.vv-optin { background:#F5F5F0; border-left:2.5pt solid var(--vv-lime); padding:3mm 3.5mm; margin:2.5mm 0; }
+.vv-optin .vv-opt { margin:0; }
+
+/* Listen */
+.vv-abc { list-style:none; margin:0 0 2.6mm 5mm; padding:0; }
+.vv-abc li { display:flex; gap:2mm; margin-bottom:1.1mm; text-align:left; }
+.vv-abc li span { flex:none; width:4mm; color:var(--vv-green); font-weight:600; }
+.vv-strich, .vv-doc ul { list-style:none; margin:0 0 2.6mm 5.5mm; padding:0; }
+.vv-doc ul li { margin-bottom:1.3mm; padding-left:1mm; text-align:left; }
+.vv-doc ul li::before { content:"–"; color:var(--vv-green); display:inline-block; width:3.4mm; margin-left:-3.4mm; }
+
+/* Tabelle KV */
+.vv-tab { width:100%; border-collapse:collapse; margin:1mm 0 4mm; font-size:9pt; }
+.vv-tab th { text-align:left; font-size:7.4pt; font-weight:700; text-transform:uppercase; letter-spacing:0.4pt; color:var(--vv-grey);
+             border-bottom:0.8pt solid var(--vv-green); padding:1.6mm 2mm; }
+.vv-tab td { border-bottom:0.5pt solid var(--vv-sand); padding:2mm; vertical-align:baseline; }
+.vv-tab tr.gewaehlt td { background:#F4F9E1; }
+.vv-tab .r { text-align:right; white-space:nowrap; }
+.vv-umfang { text-align:left !important; line-height:1.7; }
+
+.vv-wirkt { background:#F5F5F0; border-left:2.5pt solid var(--vv-lime); padding:3.5mm 4mm; margin:4mm 0; }
+.vv-wirkt p { margin:0; }
+.vv-gruss { text-align:left !important; }
+
+/* Unterschriften */
+.vv-sig { margin-top:8mm; }
+.vv-ortdatum { text-align:left !important; margin-bottom:3mm !important; }
+.vv-sig-reihe { display:flex; gap:12mm; }
+.vv-sig .col { flex:1; min-width:0; }
+.vv-sig-flaeche { height:22mm; border-bottom:0.6pt solid #55534D; display:flex; align-items:flex-end; justify-content:flex-start; }
+.vv-sig-flaeche img { max-height:21mm; max-width:100%; display:block; }
+.vv-sig .cap { font-size:7.6pt; color:var(--vv-grey); margin-top:1.2mm; }
+.vv-sig .cap b { color:var(--vv-ink); }
+
+.vv-formzeile { text-align:left !important; margin-top:4mm !important; }
+.vv-klein { font-size:7.8pt; color:var(--vv-grey); }
+/* Als eigene Zeile: inline umbrochen rastert html2canvas den Hintergrund falsch. */
+.vv-pruef { display:block; background:#FFF2B3; color:#6B4E00; font-size:7.8pt; padding:0.6mm 1.6mm; margin:1mm 0; text-align:left; }
+
+/* Seitenumbruch fuer html2pdf (mode 'css') und Druck */
+/* padding-top: html2pdf schneidet die Seiten mit 1-2 mm Rundungsfehler;
+   ohne weissen Vorlauf ragt der Anfang der Anlage ans Ende der Vorseite. */
+.vv-umbruch { break-before:page; page-break-before:always; padding-top:6mm; }

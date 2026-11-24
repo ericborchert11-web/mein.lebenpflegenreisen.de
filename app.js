@@ -7027,6 +7027,8 @@
     bic:          'BELADEBEXXX',
     bank:         'Berliner Sparkasse',
     email:        'info@lebenpflegenreisen.de',
+    // Seit 01.08.2026 sitewide; steht u. a. in der Widerrufsbelehrung (Pflichtangabe).
+    telefon:      '0174 3409116',
     web:          'lebenpflegenreisen.de',
     vorstand:     'Eric Borchert · Sonja Vogl',
     claim:        'Menschen begleiten. Würde bewahren. Teilhabe ermöglichen.'

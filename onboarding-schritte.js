@@ -80,7 +80,8 @@
           bringMit: [], wartetAuf: 'verein', aktion: null };
         return {
           text: (st.antrag_status === 'abgelehnt' ? 'Dein Antrag konnte so nicht angenommen werden — bitte prüfe deine Angaben und reiche ihn neu ein. ' : '')
-            + 'Deine BZR-Abfrage ist da. Jetzt fehlen noch dein Mitgliedsantrag und deine Bestätigung zu Datenschutz und Schweigepflicht. Das dauert etwa fünf Minuten.',
+            + (st.antrag_vorab && !st.bzr_ok ? 'Du kannst deinen Mitgliedsantrag schon jetzt stellen. Dazu kommt' : 'Deine BZR-Abfrage ist da. Jetzt fehlen noch dein Mitgliedsantrag und')
+            + ' deine Bestätigung zu Datenschutz und Schweigepflicht. Das dauert etwa fünf Minuten.',
           bringMit: [], wartetAuf: 'dich', aktion: 'antrag' };
       case 4:
         return {

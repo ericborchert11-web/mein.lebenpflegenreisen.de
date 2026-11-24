@@ -527,6 +527,11 @@
       + '</div>';
   }
 
+  /** Datenschutzinformation allein (zum Aushaendigen, Ablage im Drive). */
+  function datenschutzHtml(verein) {
+    return '<div class="vv-doc">' + kopf() + datenschutzBlatt({}, verein) + '</div>';
+  }
+
   /** Betreff und Text der Vertragsmail (Briefing 3., Wortlaut fest). */
   function vertragMail(d, verein) {
     var k = d.kundin || {}, p = d.person || {};
@@ -570,7 +575,7 @@
     berechne: berechne, gate: gate, pflichtfehlt: pflichtfehlt,
     naechteZwischen: naechteZwischen, plusTage: plusTage, uhrPlus: uhrPlus, dauer: dauer,
     eur: eur, datum: datum, initialen: initialen,
-    kvHtml: kvHtml, paketHtml: paketHtml, vertragMail: vertragMail, kvMail: kvMail
+    kvHtml: kvHtml, paketHtml: paketHtml, datenschutzHtml: datenschutzHtml, vertragMail: vertragMail, kvMail: kvMail
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = VertragVorort;

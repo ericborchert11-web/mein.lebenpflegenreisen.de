@@ -94,6 +94,11 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
     </div>
     <div id="gate" class="vv-gate" hidden></div>
     <div id="werte-fehlen" class="vv-gate" hidden>Preise und Freigaben konnten nicht geladen werden und liegen auf diesem Gerät noch nicht vor. Bitte die Seite einmal mit Netz öffnen.</div>
+  <details class="vv-karte" id="freigaben-box">
+      <summary style="font-weight:700;cursor:pointer;min-height:40px">Freigaben (Vorstand)</summary>
+      <table class="vv-tab" id="freigaben-tab"></table>
+      <p class="vv-klein">Freigeben kann jedes Vorstandsmitglied mit dem eigenen Konto; gestempelt wird, wer es war. Eine Änderung von Preis oder Fassung hebt die Freigabe wieder auf.</p>
+    </details>
 
     <!-- Start: kein Entwurf auf dem Gerät -->
     <section id="start" hidden>
@@ -102,11 +107,6 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
         <button type="button" onclick="neu('kv')"><b>Nur Kostenvoranschlag</b>Vor dem Vertrag, ohne Unterschrift.</button>
       </div>
       <p class="vv-klein" style="margin-top:14px">Eingaben bleiben nur auf diesem Gerät und werden nach dem Versand oder mit „Verwerfen“ gelöscht. Im Portal stehen nur Nummern, Zeitraum, Betrag und Status.</p>
-      <details class="vv-karte" id="freigaben-box" style="margin-top:18px">
-        <summary style="font-weight:700;cursor:pointer;min-height:40px">Freigaben (Vorstand)</summary>
-        <table class="vv-tab" id="freigaben-tab"></table>
-        <p class="vv-klein">Freigeben kann jedes Vorstandsmitglied mit dem eigenen Konto; gestempelt wird, wer es war. Eine Änderung von Preis oder Fassung hebt die Freigabe wieder auf.</p>
-      </details>
     </section>
 
     <!-- Arbeitsbereich -->
@@ -346,7 +346,7 @@ function renderGate() {
   el.classList.toggle('offen', g.freigegeben);
   el.textContent = g.freigegeben
     ? 'Freigegeben: Dokumente ohne ENTWURF, Versand möglich.'
-    : 'ENTWURF — Versand gesperrt. Es fehlt die Freigabe durch den Vorstand für: ' + g.fehlt.join(' · ') + '. Freigeben: unten bei „Freigaben (Vorstand)“ (Startseite).';
+    : 'ENTWURF — Versand gesperrt. Es fehlt die Freigabe durch den Vorstand für: ' + g.fehlt.join(' · ') + '. Freigeben: direkt darunter bei „Freigaben (Vorstand)“.';
 }
 const FREIGABE_NAMEN = {
   modell_a: 'Modell A (Stunden, Nachtpauschale)', modell_b: 'Modell B (Stunden, Nachtpauschale)',

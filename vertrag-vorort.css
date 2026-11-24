@@ -29,7 +29,12 @@
 .vv-doc * { box-sizing:border-box; }
 /* html2canvas verschluckt bei tabular-nums Leerzeichen (Fund aus rechnung.html). */
 .vv-doc, .vv-doc * { font-variant-numeric:normal; }
-.vv-doc p { text-align:justify; margin:0 0 2.4mm; }
+.vv-doc p { text-align:justify; margin:0 0 1.2mm; padding-bottom:1.2mm; }
+/* Weisser Rand UNTER jeder Zeilengruppe statt nur Aussenabstand: html2pdf
+   schneidet ueber viele Seiten mit 2-3 px Versatz. Faellt der Schnitt in
+   diesen Rand, wiederholt sich oben auf der Folgeseite nur Weissraum statt
+   der Unterlaengen der letzten Zeile (gesehen 24.11.2026, Seite 9). */
+.vv-doc li, .vv-opt, .vv-feld, .vv-tab td { padding-bottom:1.2mm; }
 .vv-doc b { font-weight:600; }
 
 /* Kopf */

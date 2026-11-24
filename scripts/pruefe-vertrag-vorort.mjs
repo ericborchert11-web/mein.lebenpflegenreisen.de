@@ -96,6 +96,13 @@ pruefe('Paket: alle Teile', ['Dienstleistungsvertrag', 'Anlage 1 – Widerrufsbe
   'Kostenvoranschlag – Nachtbegleitung', 'Datenschutzinformation'].every((t) => voll.includes(t)), '');
 pruefe('Paket: drei Seitenumbrüche + einer', (voll.match(/class="vv-umbruch"/g) || []).length === 4, '');
 
+// 4b — Datenschutzinformation fertig (seit 24.11.2026, Fassung 2026-11-24-2)
+pruefe('Datenschutz: keine Pruefvermerke', !voll.includes('[prüfen') && !voll.includes('vv-pruef') && !/Frist festlegen/.test(voll), '');
+pruefe('Datenschutz: eigene Fassung', VV.FASSUNG_DATENSCHUTZ === '2026-11-24-2', VV.FASSUNG_DATENSCHUTZ);
+pruefe('Datenschutz: Notfall-Grundlage', voll.includes('Art. 9 Abs. 2 Buchst. c DSGVO'), '');
+pruefe('Datenschutz: USA-Grundlage', voll.includes('Data Privacy Framework') && voll.includes('Art. 46 Abs. 2 Buchst. c DSGVO'), '');
+pruefe('Datenschutz: Löschfrist drei Monate', voll.includes('spätestens drei Monate nach dem Ende des Einsatzes'), '');
+
 // 5 — Gate
 pruefe('ohne Freigabe: Banner', paketKrumm.includes('ENTWURF – FREIGABE AUSSTEHEND') && kvKrumm.includes('ENTWURF – FREIGABE AUSSTEHEND'), '');
 pruefe('mit Freigabe: kein Banner', !voll.includes('ENTWURF') && !VV.kvHtml(FALL, WERTE, VEREIN).includes('ENTWURF'), '');

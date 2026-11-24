@@ -24,6 +24,10 @@
   'use strict';
 
   var FASSUNG = '2026-11-24';
+  // Eigene Fassung, seit die Datenschutzinformation am 24.11.2026 fertig
+  // geschrieben wurde (Pruefvermerke aufgeloest). Muss zu vertrag_werte
+  // (fassung_datenschutz) und vertrag_vorort_gate() passen.
+  var FASSUNG_DATENSCHUTZ = '2026-11-24-2';
   var VARIANTEN = {
     vertrag:     'vertrag-nachtbegleitung',
     kv:          'kv-nachtbegleitung',
@@ -98,7 +102,6 @@
     return '<span class="vv-cb' + (klein ? ' klein' : '') + (an === true ? ' an' : '') + '"'
       + ' role="img" aria-label="' + (an === true ? 'angekreuzt' : 'nicht angekreuzt') + '"></span>';
   }
-  function pruef(text) { return '<mark class="vv-pruef">[' + esc(text) + ']</mark>'; }
 
   // ── Werte und Gate ──────────────────────────────────────────────────────
 
@@ -127,7 +130,7 @@
     if (f.werte !== true) fehlt.push('Preise, Zusatzstunde, Ausfallpauschale und Steuerhinweis');
     if (art !== 'kv' && f.vertrag !== true) fehlt.push('Wortlaut Dienstleistungsvertrag (Fassung ' + FASSUNG + ')');
     if (f.kv !== true) fehlt.push('Wortlaut Kostenvoranschlag (Fassung ' + FASSUNG + ')');
-    if (art !== 'kv' && f.datenschutz !== true) fehlt.push('Datenschutzinformation (Fassung ' + FASSUNG + ')');
+    if (art !== 'kv' && f.datenschutz !== true) fehlt.push('Datenschutzinformation (Fassung ' + FASSUNG_DATENSCHUTZ + ')');
     return { freigegeben: fehlt.length === 0, fehlt: fehlt };
   }
 
@@ -459,46 +462,43 @@
       + '<p>(*) Unzutreffendes streichen.</p>';
   }
 
-  // ── Datenschutzinformation (ENTWURF, Fassung FASSUNG) ──────────────────
-  // Neu geschrieben am 24.11.2026, weil es keine gab. Die markierten Stellen
-  // muss jemand mit Datenschutz-Sachverstand pruefen, bevor der Vorstand freigibt.
+  // ── Datenschutzinformation (Fassung FASSUNG_DATENSCHUTZ) ───────────────
+  // Neu geschrieben am 24.11.2026 (es gab keine) und am selben Tag fertig
+  // gemacht: Rechtsgrundlagen, Anbieter und Fristen ohne offene Pruefvermerke.
+  // Keine anwaltlich gepruefte Fassung.
 
   function datenschutzBlatt(d, v) {
     return '<div class="vv-akzent"></div><h1 class="vv-anlage">Datenschutzinformation</h1>'
       + '<div class="vv-unter">für Auftraggeberinnen und Auftraggeber einer Nachtbegleitung (Art. 13 und 14 DSGVO)</div>'
       + '<h2>1. Wer ist verantwortlich?</h2>'
-      + '<p>Leben Pflegen Reisen e. V., ' + vereinAnschrift(v) + ', vertreten durch den Vorstand. Telefon ' + esc(v.telefon)
-      + '. Fragen zum Datenschutz richten Sie bitte an datenschutz@lebenpflegenreisen.de.</p>'
+      + '<p>Leben Pflegen Reisen e. V., ' + vereinAnschrift(v) + ', ' + esc(v.register) + ', vertreten durch den Vorstand. Telefon ' + esc(v.telefon)
+      + '. Fragen zum Datenschutz richten Sie bitte an datenschutz@lebenpflegenreisen.de oder an die genannte Anschrift.</p>'
       + '<h2>2. Welche Daten wir verarbeiten</h2>'
       + '<ul class="vv-strich">'
       + '<li>Von Ihnen: Name, Anschrift, Telefon, E-Mail-Adresse, die Handlungsform (eigener Name oder Vertretung), Ihre Unterschrift und die Angaben aus der Abrechnung.</li>'
       + '<li>Von der begleiteten Person: Name, Einrichtung, Wohnbereich oder Apartment sowie Angaben zu Gewohnheiten und zum Verhalten in der Nacht, soweit Sie oder die Einrichtung sie uns für die Begleitung mitteilen. Darunter können Angaben zur Gesundheit sein, zum Beispiel eine Sturzgefahr.</li>'
       + '<li>Von der Einrichtung: Name, Funktion und Telefon der Ansprechperson.</li>'
       + '</ul>'
-      + '<p>Die Angaben zur begleiteten Person und zur Ansprechperson der Einrichtung erhalten wir von Ihnen.</p>'
+      + '<p>Die Angaben zur begleiteten Person und zur Ansprechperson der Einrichtung erhalten wir von Ihnen oder von der Einrichtung.</p>'
       + '<h2>3. Wofür und auf welcher Grundlage</h2>'
       + '<ul class="vv-strich">'
       + '<li>Abschluss und Durchführung des Vertrags, Einsatzplanung, Abstimmung mit der Einrichtung, Rückmeldungen und Abrechnung: Art. 6 Abs. 1 Buchst. b DSGVO.</li>'
-      + '<li>Angaben zur Gesundheit der begleiteten Person, nur soweit sie für die Begleitung erforderlich sind: Art. 9 Abs. 2 Buchst. h und Abs. 3 DSGVO in Verbindung mit § 22 Abs. 1 Nr. 1 Buchst. b BDSG. Unsere Begleitpersonen sind schriftlich zur Verschwiegenheit verpflichtet. '
-      + pruef('prüfen: Rechtsgrundlage für Gesundheitsangaben bei nicht-pflegerischer Begleitung, ggf. Einwilligung') + '</li>'
-      + '<li>Ansprechperson der Einrichtung: Art. 6 Abs. 1 Buchst. f DSGVO; unser berechtigtes Interesse ist die Abstimmung des Einsatzes.</li>'
-      + '<li>Aufbewahrung nach Steuer- und Handelsrecht: Art. 6 Abs. 1 Buchst. c DSGVO in Verbindung mit § 147 AO.</li>'
+      + '<li>Angaben zur Gesundheit der begleiteten Person verarbeiten wir nur, soweit sie für eine sichere Begleitung erforderlich sind: Art. 9 Abs. 2 Buchst. h und Abs. 3 DSGVO in Verbindung mit § 22 Abs. 1 Nr. 1 Buchst. b BDSG (Versorgung im Sozialbereich). Unsere Begleitpersonen sind schriftlich zur Verschwiegenheit verpflichtet. In einem Notfall geben wir die nötigen Angaben an das Personal der Einrichtung und den Rettungsdienst weiter: Art. 9 Abs. 2 Buchst. c DSGVO.</li>'
+      + '<li>Name und Telefon der Ansprechperson der Einrichtung: Art. 6 Abs. 1 Buchst. f DSGVO; unser berechtigtes Interesse ist die Abstimmung des Einsatzes.</li>'
+      + '<li>Aufbewahrung nach Steuerrecht: Art. 6 Abs. 1 Buchst. c DSGVO in Verbindung mit § 147 der Abgabenordnung.</li>'
       + '</ul>'
       + '<h2>4. Wie wir die Daten ablegen</h2>'
-      + '<p>Vertrag, Kostenvoranschlag und Anlagen entstehen beim Termin auf einem Tablet des Vereins. Sie erhalten sie per E-Mail, eine Kopie geht an das Vorstandspostfach des Vereins. In unserem Portal stehen nur Vertragsnummer, Fallnummer, Zeitraum, Anzahl der Nächte, Betrag und Bearbeitungsstand, keine Namen. Die Einsatzdokumentation führen wir unter der Fallnummer. Auf dem Tablet werden Ihre Eingaben nach dem Versand gelöscht.</p>'
+      + '<p>Vertrag, Kostenvoranschlag und Anlagen entstehen beim Termin auf einem Tablet des Vereins. Sie erhalten sie per E-Mail, eine Kopie geht an das Vorstandspostfach des Vereins und wird dort für die Dauer der Aufbewahrungspflicht aufbewahrt. In unserem Portal stehen nur Vertragsnummer, Fallnummer, Zeitraum, Anzahl der Nächte, Betrag und Bearbeitungsstand, keine Namen. Die Einsatzdokumentation führen wir unter der Fallnummer. Auf dem Tablet werden Ihre Eingaben nach dem Versand gelöscht.</p>'
       + '<h2>5. Wer die Daten erhält</h2>'
       + '<ul class="vv-strich">'
       + '<li>die eingesetzten Begleitpersonen, und nur das, was sie für die Nacht brauchen,</li>'
       + '<li>die Einrichtung, zur Abstimmung des Einsatzes und für die Übergabe,</li>'
-      + '<li>Dienstleister, die in unserem Auftrag arbeiten (Art. 28 DSGVO): E-Mail-Postfach (Google Workspace), E-Mail-Versand (Resend), Portal-Datenbank (Supabase, Rechenzentrum Frankfurt am Main). '
-      + pruef('prüfen: Sitz der Anbieter, Übermittlung in die USA und deren Grundlage') + '</li>'
+      + '<li>Dienstleister, die in unserem Auftrag und nach unseren Weisungen arbeiten (Art. 28 DSGVO): E-Mail-Postfach (Google Workspace, Google Ireland Ltd., Dublin), E-Mail-Versand (Resend, Inc., USA) und Portal-Datenbank (Supabase, Inc., USA, Rechenzentrum in Frankfurt am Main),</li>'
       + '<li>Steuerberatung und Finanzbehörden, soweit das Gesetz es verlangt.</li>'
       + '</ul>'
-      + '<p>Zu Werbezwecken geben wir keine Daten weiter.</p>'
+      + '<p>Soweit dabei Daten in die USA gelangen, stützen wir uns auf den Angemessenheitsbeschluss der EU-Kommission zum EU-US Data Privacy Framework (Art. 45 DSGVO) oder, wo dieser nicht greift, auf die Standardvertragsklauseln der EU-Kommission (Art. 46 Abs. 2 Buchst. c DSGVO). Zu Werbezwecken geben wir keine Daten weiter.</p>'
       + '<h2>6. Wie lange wir die Daten speichern</h2>'
-      + '<p>Vertragsunterlagen und Rechnungen bewahren wir so lange auf, wie Steuer- und Handelsrecht es verlangen, in der Regel sechs bzw. acht Jahre ab Ende des Kalenderjahres. '
-      + pruef('prüfen: Fristen') + ' Angaben zur begleiteten Person, die nur für die Begleitung nötig waren, löschen wir spätestens '
-      + pruef('Frist festlegen, Vorschlag: drei Monate') + ' nach dem Ende des Einsatzes, soweit keine Aufbewahrungspflicht besteht.</p>'
+      + '<p>Rechnungen bewahren wir acht Jahre auf, Vertrag, Kostenvoranschlag und die übrigen steuerlich bedeutsamen Unterlagen sechs Jahre, jeweils ab Ende des Kalenderjahres (§ 147 Abgabenordnung). Angaben zur begleiteten Person, die nur für die Begleitung nötig waren, etwa zu Gewohnheiten oder zur Gesundheit, löschen wir spätestens drei Monate nach dem Ende des Einsatzes. Darüber hinaus speichern wir Daten nur, solange Ansprüche aus dem Vertrag geltend gemacht werden können.</p>'
       + '<h2>7. Ihre Rechte</h2>'
       + '<p>Sie haben das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18) und Datenübertragbarkeit (Art. 20). Einer Verarbeitung auf Grundlage unseres berechtigten Interesses können Sie widersprechen (Art. 21). Sie können sich bei einer Datenschutz-Aufsichtsbehörde beschweren, zum Beispiel bei der Berliner Beauftragten für Datenschutz und Informationsfreiheit.</p>'
       + '<h2>8. Müssen Sie die Daten angeben?</h2>'
@@ -566,7 +566,7 @@
   }
 
   var VertragVorort = {
-    FASSUNG: FASSUNG, VARIANTEN: VARIANTEN,
+    FASSUNG: FASSUNG, FASSUNG_DATENSCHUTZ: FASSUNG_DATENSCHUTZ, VARIANTEN: VARIANTEN,
     berechne: berechne, gate: gate, pflichtfehlt: pflichtfehlt,
     naechteZwischen: naechteZwischen, plusTage: plusTage, uhrPlus: uhrPlus, dauer: dauer,
     eur: eur, datum: datum, initialen: initialen,

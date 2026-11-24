@@ -16,7 +16,7 @@
  * diesen Worker gibt: eine Schicht, die in einer halben Stunde beginnt,
  * erreicht per E-Mail niemanden, der schon unterwegs ist.
  */
-const CACHE = 'lpr-shell-v6';
+const CACHE = 'lpr-shell-v7';
 
 const SHELL = [
   '/einsatz.html',
@@ -25,6 +25,20 @@ const SHELL = [
   '/app.js',
   '/layout.js',
   '/unterlagen-regel.js',
+  // Vertrag vor Ort: muss nach einmaligem Oeffnen auch ohne Netz laden
+  // und ein PDF erzeugen koennen (Termin in der Einrichtung, schwaches Netz).
+  '/admin-vertrag-vorort.html',
+  '/vertrag-vorort.css',
+  '/vertrag-vorort-vorlage.js',
+  '/vertrag-vorort-pdf.js',
+  '/rechnung-hinweise.js',
+  '/vendor/html2pdf-0.14.0.bundle.min.js',
+  '/fonts/BricolageGrotesque-ExtraBold.ttf',
+  '/fonts/BricolageGrotesque-Bold.ttf',
+  '/fonts/InstrumentSans-Regular.ttf',
+  '/fonts/InstrumentSans-Medium.ttf',
+  '/fonts/InstrumentSans-SemiBold.ttf',
+  '/fonts/InstrumentSans-Bold.ttf',
   '/favicon.svg',
   '/favicon-192.png',
   '/favicon-512.png'

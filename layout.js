@@ -179,10 +179,11 @@
             punkt('admin-reisen.html', 'reisen-admin', 'Reisen') +
             punkt('admin-jahreskalender.html', 'jahreskalender', 'Jahreskalender')) +
           gruppe('Finanzen',
-            ['auszahlungen-admin', 'pauschalen-admin', 'rechnungen-admin', 'kassenbuch', 'pruefung', 'kalkulation', 'foerdermittel'],
+            ['auszahlungen-admin', 'pauschalen-admin', 'rechnungen-admin', 'vertrag-vorort', 'kassenbuch', 'pruefung', 'kalkulation', 'foerdermittel'],
             punkt('admin-auszahlungen.html', 'auszahlungen-admin', 'Auszahlungen') +
             punkt('admin-pauschalen.html', 'pauschalen-admin', 'Pauschalen') +
             punkt('admin-rechnungen.html', 'rechnungen-admin', 'Rechnungen') +
+            punkt('admin-vertrag-vorort.html', 'vertrag-vorort', 'Vertrag vor Ort') +
             punkt('admin-kassenbuch.html', 'kassenbuch', 'Kassenbuch') +
             punkt('pruefung.html', 'pruefung', 'Kassenprüfung') +
             punkt('kalkulation.html', 'kalkulation', 'Kalkulation') +

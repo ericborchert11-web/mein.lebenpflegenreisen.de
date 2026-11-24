@@ -6127,6 +6127,9 @@
       if (ziel.tabelle === 'steuer_freibetraege') {
         res = await client.from('steuer_freibetraege').update(wert)
           .eq('vorschrift', ziel.vorschrift).eq('ab_jahr', ziel.ab_jahr).select().single();
+      } else if (ziel.tabelle === 'vertrag_werte') {
+        res = await client.from('vertrag_werte').update(wert)
+          .eq('schluessel', ziel.schluessel).select().single();
       } else if (ziel.tabelle === 'beleg_freigaben') {
         res = await client.from('beleg_freigaben')
           .upsert({ variante: ziel.variante, fassung: ziel.fassung, ...wert }, { onConflict: 'variante,fassung' })
@@ -6138,6 +6141,54 @@
       console.error('[LPR] steuerFreigabe:', e);
       return { ok: false, error: 'Netzwerkfehler.' };
     }
+  }
+
+  // ── Vertrag vor Ort (Migration CA, 24.11.2026) ───────────────────────────
+  // Board-only. In der Datenbank stehen nur Nummern, Eckdaten und Status —
+  // nie Namen, Adressen, Unterschriften oder PDFs. Deshalb nimmt keine dieser
+  // Funktionen Personendaten entgegen.
+
+  /** Werte (Preise, Steuerkonto) und Stand der Freigaben. */
+  async function vertragVorortWerte() {
+    try {
+      const client = await sb();
+      const [w, g] = await Promise.all([
+        client.from('vertrag_werte').select('schluessel, stunden, betrag_cents, prozent, steuer_konto, freigabe_sonja_am, freigabe_vermerk'),
+        client.rpc('vertrag_vorort_gate')
+      ]);
+      if (w.error) return { ok: false, error: w.error.message };
+      if (g.error) return { ok: false, error: g.error.message };
+      return { ok: true, zeilen: w.data || [], gate: g.data || {} };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Nummern reservieren: art 'kv' (nur KV-Nr.) oder 'vertrag' (Vertrags-, KV- und Fall-Nr.). */
+  async function vertragVorortReservieren(art) {
+    try {
+      const { data, error } = await (await sb()).rpc('vertrag_vorort_reservieren', { p_art: art });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, vorgang: data };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Reservierten oder gescheiterten Vorgang verwerfen (nicht nach dem Versand). */
+  async function vertragVorortVerwerfen(id) {
+    try {
+      const { data, error } = await (await sb()).rpc('vertrag_vorort_verwerfen', { p_id: id });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, verworfen: data === true };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /** Stand eines Vorgangs (fuer den Versand-Check vor einem zweiten Versuch). */
+  async function vertragVorortStand(id) {
+    try {
+      const { data, error } = await (await sb()).from('vertraege_vorort')
+        .select('id, art, status, kv_nr, vertrags_nr, fall_nr, versendet_am, versand_sperre_am, fehler')
+        .eq('id', id).maybeSingle();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, vorgang: data };
+    } catch(e) { return { ok: false, error: 'Netzwerkfehler.' }; }
   }
 
   /**
@@ -8597,7 +8648,9 @@
     adminCreateAuslageClaim,
     // Vereinsauslagen ohne Reise-Anmeldung und Belege dazu
     adminCreateVereinsAuslage, adminMitgliederFuerAuslage, pruefeBelegDatei,
-    steuerFreibetraege, belegFreigaben, steuerFreigabe, adminCreateTaetigkeitClaim, taetigkeitBelegDaten,
+    steuerFreibetraege, belegFreigaben, steuerFreigabe,
+    vertragVorortWerte, vertragVorortReservieren, vertragVorortVerwerfen, vertragVorortStand,
+    adminCreateTaetigkeitClaim, taetigkeitBelegDaten,
     meineAuslageEinreichen, meinenAuslageEntwurfEinreichen,
     uploadAuslageBelege, listAuslageBelege, zaehleAuslageBelege, auslageBelegUrl, deleteAuslageBeleg,
     // Fördermittel-Cockpit

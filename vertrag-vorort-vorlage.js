@@ -12,7 +12,7 @@
  * Wer hier Text aendert, muss FASSUNG anheben — die Freigabe haengt an der
  * Fassung (vertrag_werte, schluessel fassung_*), eine neue Fassung ist wieder Entwurf.
  *
- * KEINE BETRAEGE IM TEXT. Preise, Stundensatz, Ausfallquote und
+ * KEINE BETRAEGE IM TEXT. Nachtpauschale, Stundensatz und
  * Steuerhinweis kommen als Parameter `werte` (Tabelle vertrag_werte), die
  * Vereinsdaten als `verein` (LPR.VEREIN). Das Pruefskript sucht nach
  * Eurobetraegen in dieser Datei und schlaegt an, wenn eine auftaucht.
@@ -23,7 +23,9 @@
 (function () {
   'use strict';
 
-  var FASSUNG = '2026-11-24';
+  // 2026-11-24-3: ein Modell (12 h), Ausfallpauschale und Storno raus, Variante
+  // "muendlich geschlossen, Bestaetigung per Mail" (Eric, 24.11.2026 nach dem Termin).
+  var FASSUNG = '2026-11-24-3';
   // Eigene Fassung, seit die Datenschutzinformation am 24.11.2026 fertig
   // geschrieben wurde (Pruefvermerke aufgeloest). Muss zu vertrag_werte
   // (fassung_datenschutz) und vertrag_vorort_gate() passen.
@@ -107,11 +109,12 @@
 
   /**
    * Die Nachtpauschale des Modells und alles, was daraus folgt.
-   * werte: { modelle: { A: {stunden, pauschale_cents}, B: {...} },
-   *          zusatzstunde_cents, ausfall_prozent, steuerhinweis, freigabe: {...} }
+   * Seit Fassung 2026-11-24-3 gibt es nur EIN Modell (A).
+   * werte: { modelle: { A: {stunden, pauschale_cents} },
+   *          zusatzstunde_cents, steuerhinweis, freigabe: {...} }
    */
   function berechne(d, werte) {
-    var m = werte && werte.modelle && werte.modelle[d && d.modell];
+    var m = werte && werte.modelle && werte.modelle.A;
     var naechte = Number(d && d.naechte) || 0;
     if (!m) return { pauschale_cents: null, naechte: naechte, summe_cents: null };
     var p = Number(m.pauschale_cents);
@@ -127,7 +130,7 @@
   function gate(werte, art) {
     var f = (werte && werte.freigabe) || {};
     var fehlt = [];
-    if (f.werte !== true) fehlt.push('Preise, Zusatzstunde, Ausfallpauschale und Steuerhinweis');
+    if (f.werte !== true) fehlt.push('Nachtpauschale, Zusatzstunde und Steuerhinweis');
     if (art !== 'kv' && f.vertrag !== true) fehlt.push('Wortlaut Dienstleistungsvertrag (Fassung ' + FASSUNG + ')');
     if (f.kv !== true) fehlt.push('Wortlaut Kostenvoranschlag (Fassung ' + FASSUNG + ')');
     if (art !== 'kv' && f.datenschutz !== true) fehlt.push('Datenschutzinformation (Fassung ' + FASSUNG_DATENSCHUTZ + ')');
@@ -138,11 +141,13 @@
    * Pflichtfelder — erst vor den Unterschriften geprueft (Briefing 3.).
    * Liefert eine Liste lesbarer Hinweise, leer = vollstaendig.
    */
+  /** Vertrag muendlich geschlossen, Bestaetigung per Mail (§ 312f Abs. 1 BGB) statt Unterschrift der Kundin. */
+  function muendlich(d) { return !!d && d.abschluss === 'muendlich'; }
+
   var MAIL_RE = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
   function pflichtfehlt(d, art) {
     var f = [];
     var k = (d && d.kundin) || {}, p = (d && d.person) || {}, e = (d && d.einrichtung) || {};
-    if (d.modell !== 'A' && d.modell !== 'B') f.push('Modell A oder B wählen');
     if (leer(d.von) || leer(d.bis)) f.push('Uhrzeit von/bis');
     if (leer(d.ersteNacht)) f.push('Erste Nacht');
     if (!(Number(d.naechte) > 0)) f.push('Anzahl Nächte bzw. letzte Nacht');
@@ -161,6 +166,12 @@
     if (leer(e.anschrift)) f.push('Anschrift der Einrichtung');
     if (leer(e.zustimmungAm) || leer(e.zustimmungDurch)) f.push('Zustimmung der Einrichtung (Datum und Name)');
     var er = d.erkl || {};
+    if (muendlich(d)) {
+      // Muendlich geschlossen: Empfang und Leistungsbeginn bestaetigt die Kundin per Antwortmail.
+      if (er.emailPdf !== true) f.push('Erklärung: Einverständnis mit Versand per E-Mail (ohne sie kann das Portal nicht senden)');
+      if (leer(d.ort) || leer(d.datum)) f.push('Ort und Datum');
+      return f;
+    }
     if (er.widerrufErhalten !== true) f.push('Erklärung: Widerrufsbelehrung und Muster-Widerrufsformular erhalten');
     if (er.emailPdf !== true) f.push('Erklärung: Einverständnis mit Versand per E-Mail (ohne sie kann das Portal nicht senden)');
     if (er.datenschutzErhalten !== true) f.push('Erklärung: Datenschutzinformation erhalten');
@@ -201,13 +212,6 @@
       .map(function (s) { return String(s).trim().charAt(0).toUpperCase() + '.'; }).join(' ');
   }
 
-  /** Die Zeit fuer ein Modell: beim gewaehlten die Eingabe, beim anderen Beginn + Dauer. */
-  function zeitFuer(d, werte, modell) {
-    var m = werte && werte.modelle && werte.modelle[modell];
-    if (d.modell === modell) return { von: d.von || '', bis: d.bis || '' };
-    if (!m || leer(d.von)) return { von: '', bis: '' };
-    return { von: d.von, bis: uhrPlus(d.von, Number(m.stunden)) };
-  }
 
   function letzteNacht(d) {
     if (!leer(d.letzteNacht)) return d.letzteNacht;
@@ -219,8 +223,7 @@
   function kvBlatt(d, werte, v, alsAnlage) {
     var k = d.kundin || {}, p = d.person || {}, e = d.einrichtung || {};
     var r = berechne(d, werte);
-    var mA = werte.modelle.A, mB = werte.modelle.B;
-    var zA = zeitFuer(d, werte, 'A'), zB = zeitFuer(d, werte, 'B');
+    var mA = werte.modelle.A;
     var n = d.nummern || {};
     var h = [];
     if (alsAnlage) {
@@ -245,21 +248,13 @@
     h.push('<h2>Unsere Leistung je Nacht</h2>');
     h.push('<p>Eine geschulte Begleitperson des Vereins ist die vereinbarte Zeit durchgehend anwesend. Sie gibt Orientierung und Sicherheit, beruhigt, ist für Gespräche da und holt bei Bedarf das Pflegepersonal der Einrichtung. Pflegerische und medizinische Aufgaben bleiben bei der Einrichtung.</p>');
 
-    function zeile(pos, m, z) {
-      return '<tr' + (d.modell === pos ? ' class="gewaehlt"' : '') + '><td>' + pos + '</td>'
-        + '<td>Nachtbegleitung, ' + esc(m.stunden) + ' Stunden, ' + feld(z.von, 'kurz') + '–' + feld(z.bis, 'kurz') + ' Uhr</td>'
-        + '<td>' + esc(m.stunden) + ' Std.</td><td class="r">' + eur(m.pauschale_cents) + '</td></tr>';
-    }
     h.push('<table class="vv-tab"><thead><tr><th>Pos.</th><th>Leistung</th><th>Dauer</th><th class="r">Preis je Nacht</th></tr></thead><tbody>'
-      + zeile('A', mA, zA) + zeile('B', mB, zB) + '</tbody></table>');
+      + '<tr><td>1</td><td>Nachtbegleitung, ' + esc(mA.stunden) + ' Stunden, ' + feld(d.von, 'kurz') + '–' + feld(d.bis, 'kurz') + ' Uhr</td>'
+      + '<td>' + esc(mA.stunden) + ' Std.</td><td class="r">' + eur(mA.pauschale_cents) + '</td></tr></tbody></table>');
 
     h.push('<p class="vv-umfang"><b>Voraussichtlicher Umfang:</b> ' + feld(r.naechte > 0 ? String(r.naechte) : '', 'kurz')
-      + ' Nächte vom ' + feld(datum(d.ersteNacht), 'kurz') + ' bis ' + feld(datum(letzteNacht(d)), 'kurz')
-      + ', Modell ' + feld(d.modell, 'kurz') + '<br>'
+      + ' Nächte vom ' + feld(datum(d.ersteNacht), 'kurz') + ' bis ' + feld(datum(letzteNacht(d)), 'kurz') + '<br>'
       + '<b>Voraussichtlicher Gesamtbetrag:</b> ' + (r.summe_cents != null ? '<b>' + eur(r.summe_cents) + '</b>' : feld('') + ' €') + '</p>');
-
-    h.push('<p>Zum Vergleich: Zehn Nächte kosten im Modell A ' + eur(10 * mA.pauschale_cents)
-      + ', im Modell B ' + eur(10 * mB.pauschale_cents) + '.</p>');
 
     h.push('<div class="vv-block"><h2>Im Preis enthalten</h2><ul>'
       + '<li>Kennenlerntermin vor Ort und Aufnahmegespräch zu Gewohnheiten, Tagesablauf und nächtlichen Routinen</li>'
@@ -289,7 +284,8 @@
     var k = d.kundin || {}, p = d.person || {}, e = d.einrichtung || {}, ap = e.ansprech || {};
     var n = d.nummern || {}, er = d.erkl || {}, u = d.unterschriften || {};
     var r = berechne(d, werte);
-    var mA = werte.modelle.A, mB = werte.modelle.B;
+    var mA = werte.modelle.A;
+    var mu = muendlich(d);
     var h = [];
 
     h.push(kopf());
@@ -297,6 +293,10 @@
     h.push('<div class="vv-titel"><div class="vv-akzent"></div><h1>Dienstleistungsvertrag</h1>'
       + '<div class="vv-unter">Nachtbegleitung in einer Pflege- oder Wohneinrichtung – Privatauftrag</div>'
       + '<div class="vv-meta">Vertrags-Nr. ' + feld(n.vertrag) + (leer(n.fall) ? '' : ' · Fall-Nr. ' + esc(n.fall)) + '</div></div>');
+    if (mu) {
+      h.push('<div class="vv-block"><p><b>Vertragsbestätigung.</b> Die Parteien haben diesen Vertrag am ' + feld(datum(d.datum), 'kurz')
+        + ' in ' + feld(d.ort, 'kurz') + ' mündlich geschlossen. Dieses Dokument bestätigt seinen Inhalt (§ 312f Abs. 1 BGB); einer Unterschrift der Auftraggeberin / des Auftraggebers bedarf es nicht.</p></div>');
+    }
 
     h.push('<div class="vv-parteien"><p>zwischen</p>'
       + '<p><b>Leben Pflegen Reisen e. V.</b>, ' + vereinAnschrift(v) + ', ' + esc(v.register)
@@ -345,11 +345,8 @@
       + '</ol>'
       + para(2, 'Die pflegerische und medizinische Verantwortung für die begleitete Person bleibt vollständig bei der Einrichtung. Im Notfall verständigt die Begleitperson das Personal der Einrichtung und, falls erforderlich, den Rettungsdienst.'));
 
-    var zA = d.modell === 'A' ? d : {}, zB = d.modell === 'B' ? d : {};
     h.push('<div class="vv-block"><h2>§ 4 Einsatzzeiten, Einrichtung</h2>'
-      + para(1, 'Vereinbartes Modell (Zutreffendes ankreuzen):') + '</div>'
-      + '<div class="vv-opt">' + cb(d.modell === 'A') + '<p><b>Modell A – ' + esc(mA.stunden) + ' Stunden je Nacht</b>, von ' + feld(zA.von, 'kurz') + ' Uhr bis ' + feld(zA.bis, 'kurz') + ' Uhr</p></div>'
-      + '<div class="vv-opt">' + cb(d.modell === 'B') + '<p><b>Modell B – ' + esc(mB.stunden) + ' Stunden je Nacht</b>, von ' + feld(zB.von, 'kurz') + ' Uhr bis ' + feld(zB.bis, 'kurz') + ' Uhr</p></div>'
+      + para(1, 'Einsatzzeit: <b>' + esc(mA.stunden) + ' Stunden je Nacht</b>, von ' + feld(d.von, 'kurz') + ' Uhr bis ' + feld(d.bis, 'kurz') + ' Uhr.') + '</div>'
       + para(2, 'Zeitraum: erste Nacht ' + feld(datum(d.ersteNacht), 'kurz') + ', letzte Nacht ' + feld(datum(letzteNacht(d)), 'kurz')
         + ', insgesamt ' + feld(r.naechte > 0 ? String(r.naechte) : '', 'kurz') + ' Nächte.')
       + para(3, 'Änderungen von Terminen und Umfang sowie eine Verlängerung vereinbaren die Parteien in Textform (E-Mail genügt). Für eine Verlängerung gelten die Bedingungen dieses Vertrags.')
@@ -358,10 +355,7 @@
       + para(5, 'Untersagt, unterbricht oder beendet die Einrichtung einen Einsatz, ist das keine Pflichtverletzung des Vereins.'));
 
     h.push('<div class="vv-block"><h2>§ 5 Vergütung, Abrechnung</h2>'
-      + para(1, 'Die Vergütung beträgt je Nacht pauschal') + '</div>'
-      + '<ul class="vv-strich"><li>im Modell A (' + esc(mA.stunden) + ' Stunden): <b>' + eur(mA.pauschale_cents) + '</b>,</li>'
-      + '<li>im Modell B (' + esc(mB.stunden) + ' Stunden): <b>' + eur(mB.pauschale_cents) + '</b>.</li></ul>'
-      + '<p>Eine begonnene Nacht gilt als vollständig erbracht.</p>'
+      + para(1, 'Die Vergütung beträgt je Nacht (' + esc(mA.stunden) + ' Stunden) pauschal <b>' + eur(mA.pauschale_cents) + '</b>. Eine begonnene Nacht gilt als vollständig erbracht.') + '</div>'
       + para(2, 'Voraussichtliche Gesamtvergütung: ' + feld(r.naechte > 0 ? String(r.naechte) : '', 'kurz') + ' Nächte × '
         + (r.pauschale_cents != null ? eur(r.pauschale_cents) : feld('', 'kurz') + ' €') + ' = <b>'
         + (r.summe_cents != null ? eur(r.summe_cents) : feld('', 'kurz') + ' €') + '</b>.')
@@ -370,11 +364,10 @@
       + para(5, 'Der Verein rechnet nach Abschluss des Einsatzes ab, bei Einsätzen von mehr als 14 Nächten zusätzlich nach der 14. Nacht, jeweils auf Grundlage des Leistungsnachweises. Rechnungen sind innerhalb von 14 Tagen ohne Abzug auf das in der Rechnung genannte Konto des Vereins zu zahlen.')
       + para(6, 'Entgelte nach diesem Vertrag sind keine Spenden. Zuwendungsbestätigungen werden dafür nicht ausgestellt.'));
 
-    h.push('<div class="vv-block"><h2>§ 6 Absagen, Ausfall</h2>'
-      + para(1, 'Einzelne Nächte können bis 24 Stunden vor Beginn kostenfrei in Textform abgesagt werden.') + '</div>'
-      + para(2, 'Bei späterer Absage oder wenn der Einsatz aus Gründen nicht stattfindet, die bei der Auftraggeberin / dem Auftraggeber liegen, kann der Verein eine Ausfallpauschale von ' + esc(werte.ausfall_prozent) + ' % der Nachtpauschale verlangen. Der Nachweis, dass kein oder ein wesentlich geringerer Aufwand entstanden ist, bleibt gestattet.')
-      + para(3, 'Keine Ausfallpauschale fällt an, wenn eine Nacht wegen Krankenhausaufnahme, Auszugs oder Versterbens der begleiteten Person entfällt und der Verein unverzüglich informiert wird.')
-      + para(4, 'Kann der Verein eine Nacht nicht besetzen, informiert er unverzüglich und bemüht sich um Ersatz. Die Vergütung für diese Nacht entfällt. Weitergehende Ansprüche bestehen nur nach Maßgabe von § 8.'));
+    // Fassung 2026-11-24-3: keine Ausfallpauschale, keine Stornoregel (Absprache mit der Kundin).
+    h.push('<div class="vv-block"><h2>§ 6 Nächte, die nicht stattfinden</h2>'
+      + para(1, 'Berechnet werden nur Nächte, in denen die Begleitung tatsächlich stattgefunden hat.') + '</div>'
+      + para(2, 'Kann der Verein eine Nacht nicht besetzen, informiert er unverzüglich und bemüht sich um Ersatz. Die Vergütung für diese Nacht entfällt. Weitergehende Ansprüche bestehen nur nach Maßgabe von § 8.'));
 
     h.push('<div class="vv-block"><h2>§ 7 Mitwirkung</h2>'
       + para(1, 'Die Auftraggeberin / der Auftraggeber informiert den Verein wahrheitsgemäß über die für die Begleitung wesentlichen Umstände (z. B. Gewohnheiten, Verhalten in der Nacht, Sturzgefahr, Vorgaben der Einrichtung) und teilt Änderungen unverzüglich mit.') + '</div>'
@@ -387,19 +380,23 @@
 
     h.push('<div class="vv-block"><h2>§ 9 Laufzeit, Kündigung</h2>'
       + para(1, 'Der Vertrag beginnt mit der ersten und endet mit der letzten vereinbarten Nacht, ohne dass es einer Kündigung bedarf.') + '</div>'
-      + para(2, 'Die Auftraggeberin / der Auftraggeber kann den Vertrag jederzeit in Textform kündigen. Für bereits vereinbarte Nächte innerhalb von 24 Stunden nach Zugang der Kündigung gilt § 6 Abs. 2.')
+      + para(2, 'Die Auftraggeberin / der Auftraggeber kann den Vertrag jederzeit in Textform kündigen.')
       + para(3, 'Der Verein kann mit einer Frist von drei Tagen in Textform kündigen. Das Recht beider Parteien zur fristlosen Kündigung aus wichtigem Grund bleibt unberührt.')
       + para(4, 'Der Vertrag endet ohne Kündigung, wenn die begleitete Person verstirbt oder dauerhaft aus der Einrichtung auszieht.'));
 
     h.push('<div class="vv-block"><h2>§ 10 Datenschutz</h2>'
       + para(1, 'Der Verein verarbeitet personenbezogene Daten der Vertragsparteien und der begleiteten Person ausschließlich zur Durchführung dieses Vertrags nach Maßgabe der DSGVO. Angaben zur Gesundheit werden nur erhoben, soweit sie für die Begleitung erforderlich sind.') + '</div>'
       + para(2, 'Die Einsatzdokumentation des Vereins wird unter einer Fallnummer geführt.')
-      + para(3, 'Einzelheiten ergeben sich aus der Datenschutzinformation des Vereins, die die Auftraggeberin / der Auftraggeber erhalten hat.'));
+      + para(3, mu ? 'Einzelheiten ergeben sich aus der Datenschutzinformation des Vereins, die dieser Vertragsbestätigung beiliegt.'
+        : 'Einzelheiten ergeben sich aus der Datenschutzinformation des Vereins, die die Auftraggeberin / der Auftraggeber erhalten hat.'));
 
     h.push('<div class="vv-block"><h2>§ 11 Widerrufsrecht, Beginn der Leistung, Übermittlung</h2>'
       + para(1, 'Der Auftraggeberin / dem Auftraggeber steht als Verbraucher ein Widerrufsrecht nach Maßgabe der Widerrufsbelehrung in Anlage 1 zu. Das Muster-Widerrufsformular ist als Anlage 2 beigefügt.') + '</div>'
-      + '<div class="vv-optin"><div class="vv-opt"><span class="vv-nr">(2)</span>' + cb(er.leistungsbeginn) + '<p>Ich verlange ausdrücklich, dass der Verein vor Ablauf der Widerrufsfrist mit der Leistung beginnt. Mir ist bekannt, dass ich bei einem Widerruf für die bis dahin erbrachten Nächte die vereinbarte Vergütung anteilig zu zahlen habe.</p></div></div>'
-      + '<div class="vv-optin"><div class="vv-opt"><span class="vv-nr">(3)</span>' + cb(er.emailPdf) + '<p>Ich bin einverstanden, dass ich diesen Vertrag mit allen Anlagen als PDF per E-Mail an die oben genannte Adresse erhalte.</p></div></div>');
+      + (mu
+        ? para(2, 'Soll der Verein vor Ablauf der Widerrufsfrist mit der Leistung beginnen, bestätigt die Auftraggeberin / der Auftraggeber das bitte in Textform, zum Beispiel als Antwort auf die E-Mail mit dieser Vertragsbestätigung, mit dem Satz: „Ich verlange ausdrücklich, dass der Verein vor Ablauf der Widerrufsfrist mit der Leistung beginnt.“ Bei einem Widerruf ist für die bis dahin erbrachten Nächte die vereinbarte Vergütung anteilig zu zahlen.')
+          + '<div class="vv-optin"><div class="vv-opt"><span class="vv-nr">(3)</span>' + cb(er.emailPdf) + '<p>Die Auftraggeberin / der Auftraggeber ist einverstanden, diese Vertragsbestätigung mit allen Anlagen als PDF per E-Mail an die oben genannte Adresse zu erhalten.</p></div></div>'
+        : '<div class="vv-optin"><div class="vv-opt"><span class="vv-nr">(2)</span>' + cb(er.leistungsbeginn) + '<p>Ich verlange ausdrücklich, dass der Verein vor Ablauf der Widerrufsfrist mit der Leistung beginnt. Mir ist bekannt, dass ich bei einem Widerruf für die bis dahin erbrachten Nächte die vereinbarte Vergütung anteilig zu zahlen habe.</p></div></div>'
+          + '<div class="vv-optin"><div class="vv-opt"><span class="vv-nr">(3)</span>' + cb(er.emailPdf) + '<p>Ich bin einverstanden, dass ich diesen Vertrag mit allen Anlagen als PDF per E-Mail an die oben genannte Adresse erhalte.</p></div></div>'));
 
     h.push('<div class="vv-block"><h2>§ 12 Schlussbestimmungen</h2>'
       + para(1, 'Änderungen und Ergänzungen dieses Vertrags bedürfen der Textform.') + '</div>'
@@ -412,19 +409,28 @@
 
     // Empfangsbestaetigungen: Briefing Ablauf Schritt 5 verlangt sie einzeln und
     // im PDF sichtbar; Anlage B hat dafuer keinen eigenen Text (Checkpoint 2).
-    h.push('<div class="vv-bestaet"><h2>Empfangsbestätigungen der Auftraggeberin / des Auftraggebers</h2>'
-      + '<div class="vv-opt">' + cb(er.widerrufErhalten) + '<p>Ich habe die Widerrufsbelehrung (Anlage 1) und das Muster-Widerrufsformular (Anlage 2) erhalten.</p></div>'
-      + '<div class="vv-opt">' + cb(er.datenschutzErhalten) + '<p>Ich habe die Datenschutzinformation des Vereins erhalten.</p></div></div>');
+    if (!mu) {
+      h.push('<div class="vv-bestaet"><h2>Empfangsbestätigungen der Auftraggeberin / des Auftraggebers</h2>'
+        + '<div class="vv-opt">' + cb(er.widerrufErhalten) + '<p>Ich habe die Widerrufsbelehrung (Anlage 1) und das Muster-Widerrufsformular (Anlage 2) erhalten.</p></div>'
+        + '<div class="vv-opt">' + cb(er.datenschutzErhalten) + '<p>Ich habe die Datenschutzinformation des Vereins erhalten.</p></div></div>');
+    } else {
+      h.push('<p>Dieser Vertragsbestätigung liegt außerdem die Datenschutzinformation des Vereins bei.</p>');
+    }
 
     function unterschrift(bild, zeile2) {
       return '<div class="col"><div class="vv-sig-flaeche">'
         + (bild ? '<img src="' + esc(bild) + '" alt="Unterschrift">' : '') + '</div>'
         + '<div class="cap">' + zeile2 + '</div></div>';
     }
+    function ohneUnterschrift(zeile2) {
+      return '<div class="col"><div class="vv-sig-flaeche vv-sig-muendlich"><p>mündlich geschlossen am ' + feld(datum(d.datum), 'kurz') + '</p></div>'
+        + '<div class="cap">' + zeile2 + '</div></div>';
+    }
     h.push('<div class="vv-sig">'
-      + '<p class="vv-ortdatum">' + feld(d.ort, 'kurz') + ', ' + feld(datum(d.datum), 'kurz') + '</p>'
+      + '<p class="vv-ortdatum">' + feld(d.ort, 'kurz') + ', ' + feld(datum(mu && !leer(d.bestaetigtAm) ? d.bestaetigtAm : d.datum), 'kurz') + '</p>'
       + '<div class="vv-sig-reihe">'
-      + unterschrift(u.kundin, '<b>Auftraggeberin / Auftraggeber</b> – ' + feld(d.nameDruck))
+      + (mu ? ohneUnterschrift('<b>Auftraggeberin / Auftraggeber</b> – ' + feld(nameVoll(k)))
+        : unterschrift(u.kundin, '<b>Auftraggeberin / Auftraggeber</b> – ' + feld(d.nameDruck)))
       + unterschrift(u.verein, '<b>Für den Verein</b> – Eric Borchert, Vorstandsvorsitzender, Leben Pflegen Reisen e. V.')
       + '</div></div>');
     h.push('</div>');
@@ -535,6 +541,27 @@
   /** Betreff und Text der Vertragsmail (Briefing 3., Wortlaut fest). */
   function vertragMail(d, verein) {
     var k = d.kundin || {}, p = d.person || {};
+    if (muendlich(d)) {
+      return {
+        // Gleicher Betreff wie beim Vertrag vor Ort: die Edge Function prueft ihn gegen ein festes Muster.
+        betreff: 'Ihr Vertrag mit Leben Pflegen Reisen e. V. – Nachtbegleitung ' + initialen(p),
+        text: [
+          'Guten Tag ' + anredeName(k) + ',',
+          '',
+          'vielen Dank für das Gespräch am ' + datum(d.datum) + '. Wie besprochen erhalten Sie im Anhang die schriftliche Bestätigung unseres Dienstleistungsvertrags über die Nachtbegleitung, mit Widerrufsbelehrung, Muster-Widerrufsformular, Kostenvoranschlag und Datenschutzinformation.',
+          '',
+          'Damit wir wie vereinbart schon vor Ablauf der Widerrufsfrist beginnen dürfen, antworten Sie bitte kurz auf diese E-Mail mit diesen beiden Sätzen:',
+          '',
+          '„Ich verlange ausdrücklich, dass der Verein vor Ablauf der Widerrufsfrist mit der Leistung beginnt. Die Widerrufsbelehrung, das Muster-Widerrufsformular und die Datenschutzinformation habe ich erhalten.“',
+          '',
+          'Bei Fragen erreichen Sie mich jederzeit unter ' + verein.telefon + '.',
+          '',
+          'Herzliche Grüße',
+          'Eric Borchert',
+          'Vorstandsvorsitzender, Leben Pflegen Reisen e. V.'
+        ].join('\n')
+      };
+    }
     return {
       betreff: 'Ihr Vertrag mit Leben Pflegen Reisen e. V. – Nachtbegleitung ' + initialen(p),
       text: [
@@ -572,7 +599,7 @@
 
   var VertragVorort = {
     FASSUNG: FASSUNG, FASSUNG_DATENSCHUTZ: FASSUNG_DATENSCHUTZ, VARIANTEN: VARIANTEN,
-    berechne: berechne, gate: gate, pflichtfehlt: pflichtfehlt,
+    berechne: berechne, gate: gate, pflichtfehlt: pflichtfehlt, muendlich: muendlich,
     naechteZwischen: naechteZwischen, plusTage: plusTage, uhrPlus: uhrPlus, dauer: dauer,
     eur: eur, datum: datum, initialen: initialen,
     kvHtml: kvHtml, paketHtml: paketHtml, datenschutzHtml: datenschutzHtml, vertragMail: vertragMail, kvMail: kvMail

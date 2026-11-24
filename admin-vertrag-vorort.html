@@ -12,7 +12,7 @@
 <meta name="robots" content="noindex, nofollow">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared.css">
-<link rel="stylesheet" href="vertrag-vorort.css?v20261124b">
+<link rel="stylesheet" href="vertrag-vorort.css?v20261124c">
 <style>
 /* Tablet zuerst: Bedienelemente mind. 48 px, Schrift in Feldern 17 px
    (unter 16 px zoomt iOS beim Antippen in das Feld). Keine Schatten. */
@@ -103,7 +103,8 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
     <!-- Start: kein Entwurf auf dem Gerät -->
     <section id="start" hidden>
       <div class="vv-start">
-        <button type="button" onclick="neu('vertrag')"><b>Neuer Vertrag</b>Dienstleistungsvertrag mit Widerrufsbelehrung, Widerrufsformular, Kostenvoranschlag und Datenschutzinformation. Zwei Unterschriften.</button>
+        <button type="button" onclick="neu('vertrag')"><b>Neuer Vertrag vor Ort</b>Dienstleistungsvertrag mit Widerrufsbelehrung, Widerrufsformular, Kostenvoranschlag und Datenschutzinformation. Zwei Unterschriften auf dem Tablet.</button>
+        <button type="button" onclick="neu('vertrag', 'muendlich')"><b>Vertragsbestätigung</b>Vertrag wurde mündlich geschlossen. Dasselbe Paket per Mail, nur Ihre Unterschrift; die Kundin bestätigt per Antwortmail.</button>
         <button type="button" onclick="neu('kv')"><b>Nur Kostenvoranschlag</b>Vor dem Vertrag, ohne Unterschrift.</button>
       </div>
       <p class="vv-klein" style="margin-top:14px">Eingaben bleiben nur auf diesem Gerät und werden nach dem Versand oder mit „Verwerfen“ gelöscht. Im Portal stehen nur Nummern, Zeitraum, Betrag und Status.</p>
@@ -116,7 +117,13 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
 
       <div class="vv-karte" data-schritt="1">
         <h2>1 · Leistung</h2>
-        <div class="vv-wahl" id="modell-wahl"></div>
+        <div data-nur="vertrag" style="margin-bottom:16px">
+          <div class="vv-wahl" id="abschluss-wahl">
+            <label><input type="radio" name="abschluss" value="vorort"><span><b>Vor Ort unterschreiben</b>Beide unterschreiben auf dem Tablet</span></label>
+            <label><input type="radio" name="abschluss" value="muendlich"><span><b>Mündlich geschlossen</b>Bestätigung per Mail, Kundin bestätigt per Antwort</span></label>
+          </div>
+        </div>
+        <div class="vv-summe" id="modell-wahl"></div>
         <div class="vv-raster" style="margin-top:16px">
           <div class="vv-f"><label for="f-von">Beginn (Uhr)</label><input id="f-von" type="time" data-feld="von"></div>
           <div class="vv-f"><label for="f-bis">Ende (Uhr)</label><input id="f-bis" type="time" data-feld="bis"></div>
@@ -176,23 +183,25 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
 
       <div class="vv-karte vv-erkl" data-schritt="5" data-nur="vertrag">
         <h2>5 · Erklärungen der Auftraggeberin / des Auftraggebers</h2>
-        <p class="vv-klein">Jede Erklärung einzeln. Nichts ist vorausgewählt.</p>
-        <label><input type="checkbox" data-erkl="widerrufErhalten"><span>Ich habe die Widerrufsbelehrung (Anlage 1) und das Muster-Widerrufsformular (Anlage 2) erhalten.</span></label>
-        <label><input type="checkbox" data-erkl="leistungsbeginn"><span>Ich verlange ausdrücklich, dass der Verein vor Ablauf der Widerrufsfrist mit der Leistung beginnt. Mir ist bekannt, dass ich bei einem Widerruf für die bis dahin erbrachten Nächte die vereinbarte Vergütung anteilig zu zahlen habe.<small>Freiwillig, § 11 Abs. 2</small></span></label>
-        <label><input type="checkbox" data-erkl="emailPdf"><span>Ich bin einverstanden, dass ich diesen Vertrag mit allen Anlagen als PDF per E-Mail an die oben genannte Adresse erhalte.<small>§ 11 Abs. 3 — ohne dieses Einverständnis kann das Portal nicht versenden</small></span></label>
-        <label><input type="checkbox" data-erkl="datenschutzErhalten"><span>Ich habe die Datenschutzinformation des Vereins erhalten.</span></label>
+        <p class="vv-klein" data-abschluss="vorort">Jede Erklärung einzeln. Nichts ist vorausgewählt.</p>
+        <p class="vv-klein" data-abschluss="muendlich">Mündlich geschlossen: Leistungsbeginn vor Fristende und den Erhalt der Unterlagen bestätigt die Kundin per Antwort auf die Mail (der Satz steht im Mailtext). Hier nur, was sie im Gespräch zugesagt hat.</p>
+        <label data-abschluss="muendlich"><input type="checkbox" data-erkl="emailPdf"><span>Die Auftraggeberin / der Auftraggeber ist einverstanden, die Vertragsbestätigung mit allen Anlagen als PDF per E-Mail zu erhalten.<small>§ 11 Abs. 3 — ohne dieses Einverständnis kann das Portal nicht versenden</small></span></label>
+        <label data-abschluss="vorort"><input type="checkbox" data-erkl="widerrufErhalten"><span>Ich habe die Widerrufsbelehrung (Anlage 1) und das Muster-Widerrufsformular (Anlage 2) erhalten.</span></label>
+        <label data-abschluss="vorort"><input type="checkbox" data-erkl="leistungsbeginn"><span>Ich verlange ausdrücklich, dass der Verein vor Ablauf der Widerrufsfrist mit der Leistung beginnt. Mir ist bekannt, dass ich bei einem Widerruf für die bis dahin erbrachten Nächte die vereinbarte Vergütung anteilig zu zahlen habe.<small>Freiwillig, § 11 Abs. 2</small></span></label>
+        <label data-abschluss="vorort"><input type="checkbox" data-erkl="emailPdf"><span>Ich bin einverstanden, dass ich diesen Vertrag mit allen Anlagen als PDF per E-Mail an die oben genannte Adresse erhalte.<small>§ 11 Abs. 3 — ohne dieses Einverständnis kann das Portal nicht versenden</small></span></label>
+        <label data-abschluss="vorort"><input type="checkbox" data-erkl="datenschutzErhalten"><span>Ich habe die Datenschutzinformation des Vereins erhalten.</span></label>
       </div>
 
       <div class="vv-karte" data-schritt="6" data-nur="vertrag">
-        <h2>6 · Unterschriften</h2>
+        <h2>6 · <span data-abschluss="vorort">Unterschriften</span><span data-abschluss="muendlich">Unterschrift Verein</span></h2>
         <div class="vv-fehlt" id="fehlt6" hidden></div>
         <div id="sig-bereich">
           <div class="vv-raster" style="margin-bottom:18px">
             <div class="vv-f"><label for="f-ort">Ort</label><input id="f-ort" autocomplete="off" data-feld="ort"></div>
-            <div class="vv-f"><label for="f-datum">Datum</label><input id="f-datum" type="date" data-feld="datum"></div>
-            <div class="vv-f"><label for="f-namedruck">Name der Auftraggeberin / des Auftraggebers in Druckschrift</label><input id="f-namedruck" autocomplete="off" data-feld="nameDruck"></div>
+            <div class="vv-f"><label for="f-datum"><span data-abschluss="vorort">Datum</span><span data-abschluss="muendlich">Datum der mündlichen Vereinbarung</span></label><input id="f-datum" type="date" data-feld="datum"></div>
+            <div class="vv-f" data-abschluss="vorort"><label for="f-namedruck">Name der Auftraggeberin / des Auftraggebers in Druckschrift</label><input id="f-namedruck" autocomplete="off" data-feld="nameDruck"></div>
           </div>
-          <div class="vv-sigblock">
+          <div class="vv-sigblock" data-abschluss="vorort">
             <h3>Unterschrift Auftraggeberin / Auftraggeber</h3>
             <canvas class="vv-sigfeld" id="sig-kundin" aria-label="Unterschriftfeld Auftraggeberin"></canvas>
             <div class="vv-sigzeile"><span id="sig-kundin-stand">noch nicht unterschrieben</span><button type="button" class="vv-knopf" onclick="sigLoeschen('kundin')">Löschen und neu</button></div>
@@ -255,7 +264,7 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
 
 <script src="app.js?v20261124c"></script>
 <script src="rechnung-hinweise.js?v20261007b"></script>
-<script src="vertrag-vorort-vorlage.js?v20261124c"></script>
+<script src="vertrag-vorort-vorlage.js?v20261124d"></script>
 <script src="vertrag-vorort-pdf.js?v20261124a"></script>
 <script src="layout.js"></script>
 <script>
@@ -315,12 +324,10 @@ function speichern() {
 // ── Werte und Gate ────────────────────────────────────────────────────────
 function werteAus(zeilen, gate) {
   const z = Object.fromEntries((zeilen || []).map((r) => [r.schluessel, r]));
-  if (!z.modell_a || !z.modell_b || !z.zusatzstunde || !z.ausfall || !z.steuer) return null;
+  if (!z.modell_a || !z.zusatzstunde || !z.steuer) return null;
   return {
-    modelle: { A: { stunden: z.modell_a.stunden, pauschale_cents: z.modell_a.betrag_cents },
-               B: { stunden: z.modell_b.stunden, pauschale_cents: z.modell_b.betrag_cents } },
+    modelle: { A: { stunden: z.modell_a.stunden, pauschale_cents: z.modell_a.betrag_cents } },
     zusatzstunde_cents: z.zusatzstunde.betrag_cents,
-    ausfall_prozent: z.ausfall.prozent,
     steuerhinweis: RechnungHinweise.hinweisFuer(z.steuer.steuer_konto, true),
     freigabe: { werte: gate.werte === true, vertrag: gate.vertrag === true, kv: gate.kv === true, datenschutz: gate.datenschutz === true }
   };
@@ -349,15 +356,14 @@ function renderGate() {
     : 'ENTWURF — Versand gesperrt. Es fehlt die Freigabe durch den Vorstand für: ' + g.fehlt.join(' · ') + '. Freigeben: direkt darunter bei „Freigaben (Vorstand)“.';
 }
 const FREIGABE_NAMEN = {
-  modell_a: 'Modell A (Stunden, Nachtpauschale)', modell_b: 'Modell B (Stunden, Nachtpauschale)',
-  zusatzstunde: 'Zusatzstunde', ausfall: 'Ausfallpauschale (%)', steuer: 'Steuerhinweis',
+  modell_a: 'Nachtpauschale (Stunden, Preis)',
+  zusatzstunde: 'Zusatzstunde', steuer: 'Steuerhinweis',
   fassung_vertrag: 'Wortlaut Dienstleistungsvertrag', fassung_kv: 'Wortlaut Kostenvoranschlag', fassung_datenschutz: 'Datenschutzinformation'
 };
-const FREIGABE_REIHE = ['modell_a', 'modell_b', 'zusatzstunde', 'ausfall', 'steuer', 'fassung_vertrag', 'fassung_kv', 'fassung_datenschutz'];
+const FREIGABE_REIHE = ['modell_a', 'zusatzstunde', 'steuer', 'fassung_vertrag', 'fassung_kv', 'fassung_datenschutz'];
 function wertText(r) {
   if (r.fassung) { const soll = r.schluessel === 'fassung_datenschutz' ? VV.FASSUNG_DATENSCHUTZ : VV.FASSUNG; return 'Fassung ' + r.fassung + (r.fassung === soll ? '' : ' (Seite hat ' + soll + '!)'); }
   if (r.schluessel === 'steuer') return RechnungHinweise.hinweisFuer(r.steuer_konto, true);
-  if (r.schluessel === 'ausfall') return r.prozent + ' % der Nachtpauschale';
   return (r.stunden ? r.stunden + ' Std. · ' : '') + VV.eur(r.betrag_cents);
 }
 function renderFreigaben() {
@@ -407,11 +413,12 @@ function renderNummern() {
 }
 
 // ── Formular ─────────────────────────────────────────────────────────────
-function leererEntwurf(art) {
+function leererEntwurf(art, abschluss) {
   const d = heute();
   return {
-    art, angelegt: Date.now(), geaendert: Date.now(), vorgang: null, nummern: {},
-    modell: '', von: '', bis: '', ersteNacht: '', naechte: '', letzteNacht: '',
+    art, abschluss: art === 'vertrag' && abschluss === 'muendlich' ? 'muendlich' : 'vorort',
+    angelegt: Date.now(), geaendert: Date.now(), vorgang: null, nummern: {},
+    modell: 'A', von: '', bis: '', ersteNacht: '', naechte: '', letzteNacht: '',
     kundin: {}, handlung: '', vertretungsgrund: '', person: {}, einrichtung: { ansprech: {} },
     erkl: {}, ort: 'Berlin', datum: d, nameDruck: '', kvGueltigBis: VV.plusTage(d, 14),
     unterschriften: { kundin: null, verein: null }, unterschriftAm: { kundin: null, verein: null }
@@ -427,6 +434,7 @@ function felderFuellen() {
   document.querySelectorAll('[data-feld]').forEach((el) => { const v = holen(el.dataset.feld); el.value = v == null ? '' : v; });
   document.querySelectorAll('input[name="handlung"]').forEach((r) => { r.checked = r.value === F.handlung; });
   document.querySelectorAll('input[name="grund"]').forEach((r) => { r.checked = r.value === F.vertretungsgrund; });
+  document.querySelectorAll('input[name="abschluss"]').forEach((r) => { r.checked = r.value === abschluss(); });
   document.querySelectorAll('[data-erkl]').forEach((c) => { c.checked = F.erkl[c.dataset.erkl] === true; });
   renderModell(); markieren(); renderSumme();
 }
@@ -434,18 +442,15 @@ function markieren() {
   document.querySelectorAll('.vv-wahl label, .vv-erkl label').forEach((l) => { const i = l.querySelector('input'); l.classList.toggle('an', !!(i && i.checked)); });
   $('grund-wahl').hidden = F.handlung !== 'vertretung';
 }
+// Seit Fassung 2026-11-24-3 gibt es nur ein Modell: nur anzeigen, nichts waehlen.
+function abschluss() { return F && F.art === 'vertrag' && F.abschluss === 'muendlich' ? 'muendlich' : 'vorort'; }
 function renderModell() {
   const box = $('modell-wahl'); box.textContent = '';
   if (!W) return;
-  ['A', 'B'].forEach((m) => {
-    const l = document.createElement('label');
-    const i = document.createElement('input'); i.type = 'radio'; i.name = 'modell'; i.value = m; i.checked = F.modell === m;
-    i.onchange = () => { F.modell = m; markieren(); renderSumme(); speichern(); };
-    const s = document.createElement('span'); const b = document.createElement('b');
-    b.textContent = 'Modell ' + m + ' – ' + W.modelle[m].stunden + ' Stunden';
-    s.appendChild(b); s.appendChild(document.createTextNode(VV.eur(W.modelle[m].pauschale_cents) + ' je Nacht'));
-    l.appendChild(i); l.appendChild(s); box.appendChild(l);
-  });
+  F.modell = 'A';
+  const b = document.createElement('b'); b.textContent = W.modelle.A.stunden + ' Stunden je Nacht · ' + VV.eur(W.modelle.A.pauschale_cents);
+  box.appendChild(b);
+  box.appendChild(document.createTextNode(' · Zusatzstunde ' + VV.eur(W.zusatzstunde_cents)));
 }
 function renderSumme() {
   if (!W) return;
@@ -457,8 +462,8 @@ function renderSumme() {
   const st = document.createElement('strong'); st.textContent = r.summe_cents != null ? VV.eur(r.summe_cents) : '—'; s.appendChild(st);
   if (r.naechte > 0 && r.pauschale_cents != null) z(r.naechte + ' Nächte × ' + VV.eur(r.pauschale_cents));
   const w = $('dauer-warn'); const dau = VV.dauer(F.von, F.bis);
-  if (F.modell && dau != null && W.modelle[F.modell] && dau !== Number(W.modelle[F.modell].stunden)) {
-    w.hidden = false; w.textContent = 'Hinweis: ' + F.von + '–' + F.bis + ' sind ' + String(dau).replace('.', ',') + ' Stunden, Modell ' + F.modell + ' hat ' + W.modelle[F.modell].stunden + '.';
+  if (dau != null && dau !== Number(W.modelle.A.stunden)) {
+    w.hidden = false; w.textContent = 'Hinweis: ' + F.von + '–' + F.bis + ' sind ' + String(dau).replace('.', ',') + ' Stunden, vereinbart sind ' + W.modelle.A.stunden + '.';
   } else w.hidden = true;
 }
 function feldGeaendert(el) {
@@ -488,6 +493,7 @@ function feldGeaendert(el) {
 function sichtbareSchritte() { return F.art === 'kv' ? [1, 2, 3, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8]; }
 const SCHRITT_NAME = { 1: 'Leistung', 2: 'Auftraggeberin', 3: 'Person & Einrichtung', 4: 'Lesen', 5: 'Erklärungen', 6: 'Unterschriften', 7: 'Vorschau', 8: 'Senden' };
 function renderSchritte() {
+  SCHRITT_NAME[6] = abschluss() === 'muendlich' ? 'Unterschrift' : 'Unterschriften';
   const nav = $('schritte'); nav.textContent = '';
   sichtbareSchritte().forEach((n, i) => {
     const b = document.createElement('button'); b.type = 'button';
@@ -500,6 +506,7 @@ function zeige(n) {
   document.querySelectorAll('[data-schritt]').forEach((k) => { k.hidden = Number(k.dataset.schritt) !== n; });
   document.querySelectorAll('[data-nur]').forEach((e) => { if (!e.hasAttribute('data-schritt')) e.hidden = e.dataset.nur !== F.art; });
   document.querySelectorAll('[data-schritt][data-nur]').forEach((k) => { if (k.dataset.nur !== F.art) k.hidden = true; });
+  document.querySelectorAll('[data-abschluss]').forEach((e) => { e.hidden = e.dataset.abschluss !== abschluss(); });
   renderSchritte();
   if (n === 4) renderLesen();
   if (n === 6) renderUnterschriften();
@@ -512,7 +519,7 @@ function schritt(delta) {
   const j = Math.min(s.length - 1, Math.max(0, i + delta)); zeige(s[j]);
 }
 
-function dokDaten() { return Object.assign({}, F, { naechte: Number(F.naechte) || 0 }); }
+function dokDaten() { return Object.assign({}, F, { naechte: Number(F.naechte) || 0, modell: 'A', abschluss: abschluss(), bestaetigtAm: abschluss() === 'muendlich' ? heute() : '' }); }
 function renderLesen() {
   if (!W) return;
   // Unterschriften nicht im Lesetext: die entstehen erst in Schritt 6.
@@ -543,8 +550,9 @@ function renderUnterschriften() {
   fehltListe($('fehlt6'), fehlt);
   $('sig-bereich').hidden = fehlt.length > 0;
   if (fehlt.length) return;
-  ['kundin', 'verein'].forEach((wer) => sigInit(wer));
+  sigWer().forEach((wer) => sigInit(wer));
 }
+function sigWer() { return abschluss() === 'muendlich' ? ['verein'] : ['kundin', 'verein']; }
 const SIG = { kundin: { ctx: null, ink: false, verdrahtet: false }, verein: { ctx: null, ink: false, verdrahtet: false } };
 // Muster aus einsatz.html: Pointer ODER Touch, Canvas bei jedem Betreten neu vermessen.
 function sigInit(wer) {
@@ -603,7 +611,7 @@ function sigLoeschen(wer) {
 window.addEventListener('resize', () => {
   if (aktSchritt !== 6 || !F) return;
   // Neu vermessen; die gespeicherte Unterschrift wird dabei neu gezeichnet.
-  ['kundin', 'verein'].forEach((wer) => { const c = $('sig-' + wer); c.width = 0; sigInit(wer); });
+  sigWer().forEach((wer) => { const c = $('sig-' + wer); c.width = 0; sigInit(wer); });
 });
 
 // ── PDF ──────────────────────────────────────────────────────────────────
@@ -616,7 +624,7 @@ function vorschauFehlt() {
   const d = dokDaten();
   const f = VV.pflichtfehlt(d, F.art);
   if (F.art === 'vertrag') {
-    if (!F.unterschriften.kundin) f.push('Unterschrift Auftraggeberin / Auftraggeber');
+    if (abschluss() !== 'muendlich' && !F.unterschriften.kundin) f.push('Unterschrift Auftraggeberin / Auftraggeber');
     if (!F.unterschriften.verein) f.push('Unterschrift Verein');
   }
   if (!F.vorgang) f.push(navigator.onLine ? 'Nummer wird gerade reserviert …' : 'Nummer fehlt: Gerät war beim Anlegen offline. Mit Netz wird sie automatisch geholt.');
@@ -685,6 +693,8 @@ function sendenFragen() {
   $('ds-titel').textContent = MODUS.test ? 'Testversand?' : 'Jetzt an die Kundin senden?';
   $('ds-hinweis').textContent = F.art === 'kv'
     ? 'Kostenvoranschlag. Nach dem Versand wird der Entwurf auf diesem Gerät gelöscht.'
+    : abschluss() === 'muendlich'
+    ? 'Vertragsbestätigung (mündlich geschlossen) mit Widerrufsbelehrung, Muster-Widerrufsformular, Kostenvoranschlag und Datenschutzinformation in einem PDF. Die Antwort der Kundin geht an vorstand@. Nach dem Versand wird der Entwurf auf diesem Gerät gelöscht.'
     : 'Vertrag mit Widerrufsbelehrung, Muster-Widerrufsformular, Kostenvoranschlag und Datenschutzinformation in einem PDF. Nach dem Versand wird der Entwurf auf diesem Gerät gelöscht.';
   $('ds-los').disabled = false; $('ds-los').textContent = MODUS.test ? 'Testversand' : 'Jetzt senden';
   $('dlg-senden').showModal();
@@ -701,9 +711,9 @@ async function senden() {
   const res = await LPR.vertragVorortFunktion({
     aktion: 'senden', vorgang_id: F.vorgang.id, an: String(F.kundin.email || '').trim(),
     betreff: mail.betreff, text: mail.text, dateiname: pdfName(), pdf_base64: await blobBase64(pdfBlob),
-    eckdaten: { modell: F.modell || null, erste_nacht: F.ersteNacht || null, letzte_nacht: F.letzteNacht || null,
+    eckdaten: { modell: 'A', abschluss: abschluss(), erste_nacht: F.ersteNacht || null, letzte_nacht: F.letzteNacht || null,
       naechte: r.naechte > 0 ? r.naechte : null, betrag_cents: r.summe_cents,
-      unterschrift_kundin_am: F.unterschriftAm.kundin, unterschrift_verein_am: F.unterschriftAm.verein }
+      unterschrift_kundin_am: abschluss() === 'muendlich' ? null : F.unterschriftAm.kundin, unterschrift_verein_am: F.unterschriftAm.verein }
   });
   $('dlg-senden').close();
   if (!res.ok) {
@@ -726,9 +736,9 @@ async function sperreLoesen() {
 }
 
 // ── Anlegen, Verwerfen ───────────────────────────────────────────────────
-async function neu(art) {
+async function neu(art, abschlussArt) {
   if (!W) { toast('Ohne Preise kein Vertrag: bitte einmal mit Netz öffnen.', 'warn'); return; }
-  F = leererEntwurf(art);
+  F = leererEntwurf(art, abschlussArt);
   await IDB.schreiben(F);
   arbeitZeigen();
   nummerHolen();
@@ -779,6 +789,7 @@ async function init() {
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'date' || el.type === 'time' ? 'change' : 'input', () => feldGeaendert(el));
   });
   document.querySelectorAll('input[name="handlung"]').forEach((r) => r.addEventListener('change', () => { F.handlung = r.value; if (r.value !== 'vertretung') F.vertretungsgrund = ''; felderFuellen(); pdfVeraltet(); speichern(); }));
+  document.querySelectorAll('input[name="abschluss"]').forEach((r) => r.addEventListener('change', () => { F.abschluss = r.value; felderFuellen(); pdfVeraltet(); speichern(); zeige(aktSchritt); }));
   document.querySelectorAll('input[name="grund"]').forEach((r) => r.addEventListener('change', () => { F.vertretungsgrund = r.value; markieren(); pdfVeraltet(); speichern(); }));
   document.querySelectorAll('[data-erkl]').forEach((c) => c.addEventListener('change', () => { F.erkl[c.dataset.erkl] = c.checked; markieren(); pdfVeraltet(); speichern(); }));
   await werteLaden();

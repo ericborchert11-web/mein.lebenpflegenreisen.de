@@ -115,6 +115,7 @@
 .vv-sig .col { flex:1; min-width:0; }
 .vv-sig-flaeche { height:22mm; border-bottom:0.6pt solid #55534D; display:flex; align-items:flex-end; justify-content:flex-start; }
 .vv-sig-flaeche img { max-height:21mm; max-width:100%; display:block; }
+.vv-sig-muendlich p { margin:0 0 1.5mm; padding-bottom:0; font-style:italic; color:var(--vv-grey); }
 .vv-sig .cap { font-size:7.6pt; color:var(--vv-grey); margin-top:1.2mm; }
 .vv-sig .cap b { color:var(--vv-ink); }
 

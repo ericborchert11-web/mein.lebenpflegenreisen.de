@@ -25,15 +25,15 @@ const pruefe = (name, bedingung, hinweis = '') => { if (!bedingung) fehler.push(
 const VEREIN = { name: 'Leben Pflegen Reisen e.V.', strasse: 'Stephanstr. 46', ort: '10559 Berlin',
   register: 'Amtsgericht Charlottenburg, VR 42682 B', email: 'info@lebenpflegenreisen.de', telefon: '0174 3409116' };
 // Absichtlich KRUMME Werte: taucht im Dokument trotzdem 300,00 auf, stammt es aus dem Template.
-const WERTE_KRUMM = { modelle: { A: { stunden: 8, pauschale_cents: 31111 }, B: { stunden: 10, pauschale_cents: 38888 } },
-  zusatzstunde_cents: 3999, ausfall_prozent: 47, steuerhinweis: 'STEUERHINWEIS-AUS-KONFIG',
+const WERTE_KRUMM = { modelle: { A: { stunden: 11, pauschale_cents: 31111 } },
+  zusatzstunde_cents: 3999, steuerhinweis: 'STEUERHINWEIS-AUS-KONFIG',
   freigabe: { werte: false, vertrag: false, kv: false, datenschutz: false } };
-const WERTE = { modelle: { A: { stunden: 8, pauschale_cents: 30000 }, B: { stunden: 10, pauschale_cents: 37500 } },
-  zusatzstunde_cents: 3750, ausfall_prozent: 50, steuerhinweis: 'Umsatzsteuerfrei nach § 19 UStG (Kleinunternehmerregelung).',
+const WERTE = { modelle: { A: { stunden: 12, pauschale_cents: 30000 } },
+  zusatzstunde_cents: 2500, steuerhinweis: 'Umsatzsteuerfrei nach § 19 UStG (Kleinunternehmerregelung).',
   freigabe: { werte: true, vertrag: true, kv: true, datenschutz: true } };
 
 const FALL = {
-  modell: 'A', von: '22:00', bis: '06:00', ersteNacht: '2026-12-01', naechte: 10,
+  modell: 'A', von: '19:00', bis: '07:00', ersteNacht: '2026-12-01', naechte: 10,
   kundin: { anrede: 'Frau', vorname: 'Erika', nachname: 'Musterfrau', strasse: 'Musterweg 1', plzOrt: '10115 Berlin',
     telefon: '030 1234567', email: 'erika.musterfrau@example.org' },
   handlung: 'eigen', person: { vorname: 'Gertrud', nachname: 'Musterfrau' },
@@ -47,9 +47,10 @@ const FALL = {
 
 // 1 — Rechnung
 pruefe('A: 10 × 300 = 3.000', VV.berechne(FALL, WERTE).summe_cents === 300000, JSON.stringify(VV.berechne(FALL, WERTE)));
-pruefe('B: 10 × 375 = 3.750', VV.berechne({ ...FALL, modell: 'B' }, WERTE).summe_cents === 375000, '');
-pruefe('B: 7 Nächte', VV.berechne({ ...FALL, modell: 'B', naechte: 7 }, WERTE).summe_cents === 262500, '');
-pruefe('ohne Modell keine Summe', VV.berechne({ ...FALL, modell: '' }, WERTE).summe_cents === null, '');
+pruefe('7 Nächte = 2.100', VV.berechne({ ...FALL, naechte: 7 }, WERTE).summe_cents === 210000, '');
+pruefe('ein Modell: Feld modell egal', VV.berechne({ ...FALL, modell: '' }, WERTE).summe_cents === 300000, '');
+pruefe('ohne Nächte keine Summe', VV.berechne({ ...FALL, naechte: 0 }, WERTE).summe_cents === null, '');
+pruefe('Dauer 19–07 = 12', VV.dauer('19:00', '07:00') === 12, '');
 pruefe('Nächte 01.–10.12. = 10', VV.naechteZwischen('2026-12-01', '2026-12-10') === 10, '');
 pruefe('Nächte über Zeitumstellung (24.–31.03.2027) = 8', VV.naechteZwischen('2027-03-24', '2027-03-31') === 8,
   VV.naechteZwischen('2027-03-24', '2027-03-31'));
@@ -63,14 +64,21 @@ pruefe('Eurobetrag deutsch', VV.eur(375000) === '3.750,00 €', VV.eur(375000))
 const paketKrumm = VV.paketHtml(FALL, WERTE_KRUMM, VEREIN);
 const kvKrumm = VV.kvHtml(FALL, WERTE_KRUMM, VEREIN);
 for (const [name, html] of [['Paket', paketKrumm], ['KV', kvKrumm]]) {
-  for (const fest of ['300,00', '375,00', '37,50', '3.000,00', '3.750,00', '50 %', '50 %', '§ 19']) {
+  for (const fest of ['300,00', '25,00', '3.000,00', '12 Stunden', '§ 19']) {
     pruefe(`${name}: kein fester Wert "${fest}"`, !html.includes(fest), 'Wert steht im Template statt in der Konfiguration');
   }
   pruefe(`${name}: Steuerhinweis aus der Konfiguration`, html.includes('STEUERHINWEIS-AUS-KONFIG'), '');
 }
 pruefe('Paket: Pauschale A aus Werten', paketKrumm.includes('311,11'), '');
-pruefe('Paket: Ausfallquote aus Werten', paketKrumm.includes('47 %'), '');
-pruefe('KV: Zehn-Nächte-Vergleich aus Werten', kvKrumm.includes('3.111,10') && kvKrumm.includes('3.888,80'), '');
+pruefe('Paket: Zusatzstunde aus Werten', paketKrumm.includes('39,99') && kvKrumm.includes('39,99'), '');
+pruefe('Paket: Stunden aus Werten', paketKrumm.includes('11 Stunden je Nacht') && kvKrumm.includes('11 Stunden'), '');
+// Fassung 2026-11-24-3: kein Ausfall, kein Storno, kein zweites Modell
+for (const [name, html] of [['Paket', VV.paketHtml(FALL, WERTE, VEREIN)], ['KV', VV.kvHtml(FALL, WERTE, VEREIN)]]) {
+  for (const weg of ['Ausfall', 'Storno', 'stornier', 'abgesagt', 'Modell B', 'Modell A', '24 Stunden vor']) {
+    pruefe(`${name}: kein "${weg}"`, !html.includes(weg), '');
+  }
+}
+pruefe('Fassung 2026-11-24-3', VV.FASSUNG === '2026-11-24-3', VV.FASSUNG);
 // Quelltext selbst: kein Eurobetrag
 const ohneKommentare = quelle.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 pruefe('Quelltext ohne Eurobetrag', !/\d+,\d{2}\s*(€|EUR)/.test(ohneKommentare), (ohneKommentare.match(/\d+,\d{2}\s*(€|EUR)/) || [''])[0]);
@@ -82,8 +90,8 @@ pruefe('leeres Formular: kein Kästchen angekreuzt', !/vv-cb[^"]*\ban\b/.test(le
 pruefe('leeres Formular: Ausfülllinien statt Werte', (leerPaket.match(/vv-linie/g) || []).length > 20, '');
 const voll = VV.paketHtml(FALL, WERTE, VEREIN);
 const angekreuzt = (voll.match(/class="vv-cb[^"]*\ban\b/g) || []).length;
-// eigen + Modell A + Leistungsbeginn + E-Mail + Widerruf erhalten + Datenschutz erhalten = 6
-pruefe('volles Formular: genau 6 Kreuze', angekreuzt === 6, String(angekreuzt));
+// eigen + Leistungsbeginn + E-Mail + Widerruf erhalten + Datenschutz erhalten = 5
+pruefe('volles Formular: genau 5 Kreuze', angekreuzt === 5, String(angekreuzt));
 
 // 4 — Fester Wortlaut
 const WIRKT = 'Leben Pflegen Reisen ist ein gemeinnütziger Verein. Niemand verdient hier an Gewinnen. Was nach Deckung unserer Kosten bleibt, fließt vollständig in unsere Arbeit: in Sitzwachen für Menschen, die nachts im Krankenhaus nicht allein sein sollen, in die Schulung unserer Ehrenamtlichen und in begleitete Reisen für Menschen mit Pflegebedarf und ihre Angehörigen. Mit Ihrer Rechnung ermöglichen Sie uns, mehr Gutes zu tun. Dafür danken wir Ihnen.';
@@ -126,6 +134,25 @@ const m = VV.vertragMail(FALL, VEREIN);
 pruefe('Mail-Betreff nur mit Initialen', m.betreff === 'Ihr Vertrag mit Leben Pflegen Reisen e. V. – Nachtbegleitung G. M.', m.betreff);
 pruefe('Mail-Anrede', m.text.startsWith('Guten Tag Frau Musterfrau,'), m.text.split('\n')[0]);
 pruefe('Mail: kein Name der begleiteten Person', !m.text.includes('Gertrud') && !m.betreff.includes('Gertrud'), '');
+
+// 8 — Muendlich geschlossen, Bestaetigung per Mail
+const MU = { ...FALL, abschluss: 'muendlich', nameDruck: '', erkl: { emailPdf: true }, bestaetigtAm: '2026-11-26' };
+pruefe('mündlich: nichts fehlt ohne Druckname und Empfangskreuze', VV.pflichtfehlt(MU, 'vertrag').length === 0, VV.pflichtfehlt(MU, 'vertrag').join(' | '));
+pruefe('mündlich: E-Mail-Einverständnis Pflicht', VV.pflichtfehlt({ ...MU, erkl: {} }, 'vertrag').some((t) => /E-Mail/.test(t)), '');
+const muPaket = VV.paketHtml(MU, WERTE, VEREIN);
+pruefe('mündlich: Bestätigungstext', muPaket.includes('mündlich geschlossen') && muPaket.includes('§ 312f Abs. 1 BGB'), '');
+pruefe('mündlich: keine Empfangskästchen', !muPaket.includes('Empfangsbestätigungen'), '');
+pruefe('mündlich: Leistungsbeginn als Bitte um Textform', muPaket.includes('„Ich verlange ausdrücklich, dass der Verein vor Ablauf der Widerrufsfrist mit der Leistung beginnt.“'), '');
+pruefe('mündlich: genau 2 Kreuze (eigen + E-Mail)', (muPaket.match(/class="vv-cb[^"]*\ban\b/g) || []).length === 2, '');
+pruefe('mündlich: Unterschriftsfeld Kundin ohne Bild', (muPaket.match(/alt="Unterschrift"/g) || []).length === 0, '');
+pruefe('mündlich: Ort, Datum = Bestätigungstag', muPaket.includes('26.11.2026') && muPaket.includes('am <span class="vv-wert">24.11.2026</span>'), '');
+pruefe('vor Ort: kein Bestätigungstext', !voll.includes('§ 312f'), '');
+const mm = VV.vertragMail(MU, VEREIN);
+pruefe('mündlich: Betreff wie Vertrag (Edge-Muster)', mm.betreff === m.betreff, mm.betreff);
+pruefe('mündlich: Mail bittet um beide Sätze', mm.text.includes('Ich verlange ausdrücklich') && mm.text.includes('habe ich erhalten'), '');
+pruefe('mündlich: Mail ohne Namen der Person', !mm.text.includes('Gertrud'), '');
+const BETREFF_RE = /^Ihr (Vertrag mit|Kostenvoranschlag von) Leben Pflegen Reisen e\. V\. – Nachtbegleitung [A-ZÄÖÜ. ]{0,20}$/;
+pruefe('Betreff passt zum Muster der Edge Function', BETREFF_RE.test(mm.betreff) && BETREFF_RE.test(VV.kvMail(FALL, VEREIN).betreff), '');
 
 if (fehler.length) {
   console.error(`✗ ${fehler.length} Prüfung(en) fehlgeschlagen:\n  - ` + fehler.join('\n  - '));

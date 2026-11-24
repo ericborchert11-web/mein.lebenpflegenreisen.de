@@ -103,9 +103,9 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
       </div>
       <p class="vv-klein" style="margin-top:14px">Eingaben bleiben nur auf diesem Gerät und werden nach dem Versand oder mit „Verwerfen“ gelöscht. Im Portal stehen nur Nummern, Zeitraum, Betrag und Status.</p>
       <details class="vv-karte" id="freigaben-box" style="margin-top:18px">
-        <summary style="font-weight:700;cursor:pointer;min-height:40px">Freigaben (Sonja)</summary>
+        <summary style="font-weight:700;cursor:pointer;min-height:40px">Freigaben (Vorstand)</summary>
         <table class="vv-tab" id="freigaben-tab"></table>
-        <p class="vv-klein">Freigeben kann nur Sonja mit ihrem eigenen Konto. Eine Preisänderung hebt die Freigabe wieder auf.</p>
+        <p class="vv-klein">Freigeben kann jedes Vorstandsmitglied mit dem eigenen Konto; gestempelt wird, wer es war. Eine Änderung von Preis oder Fassung hebt die Freigabe wieder auf.</p>
       </details>
     </section>
 
@@ -253,9 +253,9 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
   <button type="button" class="vv-knopf haupt" id="ds-los" onclick="senden()">Jetzt senden</button></div>
 </dialog>
 
-<script src="app.js?v20261124b"></script>
+<script src="app.js?v20261124c"></script>
 <script src="rechnung-hinweise.js?v20261007b"></script>
-<script src="vertrag-vorort-vorlage.js?v20261124a"></script>
+<script src="vertrag-vorort-vorlage.js?v20261124b"></script>
 <script src="vertrag-vorort-pdf.js?v20261124a"></script>
 <script src="layout.js"></script>
 <script>
@@ -346,13 +346,16 @@ function renderGate() {
   el.classList.toggle('offen', g.freigegeben);
   el.textContent = g.freigegeben
     ? 'Freigegeben: Dokumente ohne ENTWURF, Versand möglich.'
-    : 'ENTWURF — Versand gesperrt. Es fehlt die Freigabe durch Sonja für: ' + g.fehlt.join(' · ') + '.';
+    : 'ENTWURF — Versand gesperrt. Es fehlt die Freigabe durch den Vorstand für: ' + g.fehlt.join(' · ') + '. Freigeben: unten bei „Freigaben (Vorstand)“ (Startseite).';
 }
 const FREIGABE_NAMEN = {
   modell_a: 'Modell A (Stunden, Nachtpauschale)', modell_b: 'Modell B (Stunden, Nachtpauschale)',
-  zusatzstunde: 'Zusatzstunde', ausfall: 'Ausfallpauschale (%)', steuer: 'Steuerhinweis'
+  zusatzstunde: 'Zusatzstunde', ausfall: 'Ausfallpauschale (%)', steuer: 'Steuerhinweis',
+  fassung_vertrag: 'Wortlaut Dienstleistungsvertrag', fassung_kv: 'Wortlaut Kostenvoranschlag', fassung_datenschutz: 'Datenschutzinformation'
 };
+const FREIGABE_REIHE = ['modell_a', 'modell_b', 'zusatzstunde', 'ausfall', 'steuer', 'fassung_vertrag', 'fassung_kv', 'fassung_datenschutz'];
 function wertText(r) {
+  if (r.fassung) return 'Fassung ' + r.fassung + (r.fassung === VV.FASSUNG ? '' : ' (Seite hat ' + VV.FASSUNG + '!)');
   if (r.schluessel === 'steuer') return RechnungHinweise.hinweisFuer(r.steuer_konto, true);
   if (r.schluessel === 'ausfall') return r.prozent + ' % der Nachtpauschale';
   return (r.stunden ? r.stunden + ' Std. · ' : '') + VV.eur(r.betrag_cents);
@@ -372,13 +375,8 @@ function renderFreigaben() {
       k.appendChild(b);
     }
   };
-  ZEILEN.slice().sort((a, b) => a.schluessel.localeCompare(b.schluessel))
+  ZEILEN.slice().sort((a, b) => FREIGABE_REIHE.indexOf(a.schluessel) - FREIGABE_REIHE.indexOf(b.schluessel))
     .forEach((r) => zeile(FREIGABE_NAMEN[r.schluessel] || r.schluessel, wertText(r), !!r.freigabe_sonja_am, { tabelle: 'vertrag_werte', schluessel: r.schluessel }));
-  if (G) {
-    zeile('Wortlaut Vertrag', 'Fassung ' + VV.FASSUNG, G.vertrag === true, { tabelle: 'beleg_freigaben', variante: VV.VARIANTEN.vertrag, fassung: VV.FASSUNG });
-    zeile('Wortlaut Kostenvoranschlag', 'Fassung ' + VV.FASSUNG, G.kv === true, { tabelle: 'beleg_freigaben', variante: VV.VARIANTEN.kv, fassung: VV.FASSUNG });
-    zeile('Datenschutzinformation', 'Fassung ' + VV.FASSUNG, G.datenschutz === true, { tabelle: 'beleg_freigaben', variante: VV.VARIANTEN.datenschutz, fassung: VV.FASSUNG });
-  }
 }
 
 // ── Nummern ──────────────────────────────────────────────────────────────
@@ -669,7 +667,7 @@ async function renderSenden() {
   const fehlt = vorschauFehlt();
   if (fehlt.length) { t.textContent = 'Erst vollständig ausfüllen und unterschreiben (siehe Vorschau).'; return; }
   if (!pdfBlob || !pdfAktuell) { t.textContent = 'Bitte zuerst in der Vorschau das PDF (neu) erzeugen und ansehen.'; return; }
-  if (!MODUS.freigegeben && !MODUS.test) { t.textContent = 'Versand gesperrt: Die Freigabe durch Sonja fehlt.'; return; }
+  if (!MODUS.freigegeben && !MODUS.test) { t.textContent = 'Versand gesperrt: Die Freigabe durch den Vorstand fehlt.'; return; }
   t.textContent = MODUS.test
     ? 'TESTMODUS: Die Mail geht nur an ' + MODUS.test_an + ', nicht an die Kundin. Der Vorgang wird danach als Test verworfen.'
     : 'Bereit. Vor dem Versand werden Empfänger und Anhang noch einmal angezeigt.';

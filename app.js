@@ -6153,7 +6153,7 @@
     try {
       const client = await sb();
       const [w, g] = await Promise.all([
-        client.from('vertrag_werte').select('schluessel, stunden, betrag_cents, prozent, steuer_konto, freigabe_sonja_am, freigabe_vermerk'),
+        client.from('vertrag_werte').select('schluessel, stunden, betrag_cents, prozent, steuer_konto, fassung, freigabe_sonja_am, freigabe_sonja_von, freigabe_vermerk'),
         client.rpc('vertrag_vorort_gate')
       ]);
       if (w.error) return { ok: false, error: w.error.message };

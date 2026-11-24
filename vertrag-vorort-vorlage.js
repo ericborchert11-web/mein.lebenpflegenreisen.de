@@ -10,7 +10,7 @@
  * Muster-Widerrufsformular folgen dem gesetzlichen Muster (Anlagen 1 und 2
  * zu Art. 246a § 1 Abs. 2 EGBGB), wo Anlage B davon abwich (Checkpoint 1).
  * Wer hier Text aendert, muss FASSUNG anheben — die Freigabe haengt an der
- * Fassung (Tabelle beleg_freigaben), eine neue Fassung ist wieder Entwurf.
+ * Fassung (vertrag_werte, schluessel fassung_*), eine neue Fassung ist wieder Entwurf.
  *
  * KEINE BETRAEGE IM TEXT. Preise, Stundensatz, Ausfallquote und
  * Steuerhinweis kommen als Parameter `werte` (Tabelle vertrag_werte), die
@@ -117,7 +117,8 @@
 
   /**
    * Ist das Dokument freigegeben? Nur wenn ALLE Werte und die Fassung des
-   * Wortlauts eine Freigabe von Sonja tragen. Der Server prueft dasselbe
+   * Wortlauts eine Freigabe des Vorstands tragen (seit Migration CC jedes
+   * Vorstandsmitglied, einzelvertretungsberechtigt). Der Server prueft dasselbe
    * noch einmal vor dem Versand — diese Funktion steuert nur Banner und Knopf.
    */
   function gate(werte, art) {
@@ -181,7 +182,7 @@
   function banner(g) {
     if (g.freigegeben) return '';
     return '<div class="vv-entwurf"><h3>ENTWURF – FREIGABE AUSSTEHEND</h3>'
-      + '<p>Nicht zur Verwendung gegenüber Kundinnen und Kunden. Es fehlt die schriftliche Freigabe durch Sonja Vogl für:</p>'
+      + '<p>Nicht zur Verwendung gegenüber Kundinnen und Kunden. Es fehlt die Freigabe durch den Vorstand für:</p>'
       + '<p>' + g.fehlt.map(esc).join(' · ') + '</p></div>';
   }
 
@@ -460,7 +461,7 @@
 
   // ── Datenschutzinformation (ENTWURF, Fassung FASSUNG) ──────────────────
   // Neu geschrieben am 24.11.2026, weil es keine gab. Die markierten Stellen
-  // muss jemand mit Datenschutz-Sachverstand pruefen, bevor Sonja freigibt.
+  // muss jemand mit Datenschutz-Sachverstand pruefen, bevor der Vorstand freigibt.
 
   function datenschutzBlatt(d, v) {
     return '<div class="vv-akzent"></div><h1 class="vv-anlage">Datenschutzinformation</h1>'

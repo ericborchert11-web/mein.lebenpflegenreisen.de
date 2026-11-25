@@ -180,7 +180,7 @@
 </div>
 </main>
 
-<script src="app.js"></script>
+<script src="app.js?v20261125a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'kunden' });
@@ -344,8 +344,11 @@ function terminBlock(kundeId) {
     const geplant = (t.stunden_geplant && Number(t.stunden_geplant) !== Number(t.hours))
       ? ` <span class="muted">(vereinbart ${String(t.stunden_geplant).replace('.', ',')})</span>` : '';
     const abgesagt = t.status === 'cancelled';
+    // Sitzwache = Privatauftrag mit Einsatzdoku (shift ist dann eine Schicht)
+    const art = t.shift !== 'termin'
+      ? ` · <strong>Sitzwache</strong>${t.station ? ' (' + LPR.escape(t.station) + ')' : ''}` : '';
     return `<li style="${abgesagt ? 'opacity:.5; text-decoration:line-through;' : ''}">
-      <strong>${datum}</strong> · ${zeit} Uhr · ${dauer}${geplant}
+      <strong>${datum}</strong> · ${zeit} Uhr · ${dauer}${geplant}${art}
       · ${LPR.escape(t.person)}
       <span class="termin-status">${TERMIN_STATUS[t.status] || t.status}</span>
       ${t.status === 'planned'
@@ -483,6 +486,13 @@ function terminFormular(k) {
     <div class="terminbox">
       <h3>Termin bei ${LPR.escape(k.name)} · ${LPR.escape(k.bezirk)}</h3>
       <div class="termin-felder">
+        <div style="grid-column: 1 / -1">
+          <label for="t-art">Art</label>
+          <select id="t-art" onchange="document.getElementById('t-sitz').hidden = this.value !== 'sitzwache'">
+            <option value="termin">Termin beim Kunden (ohne Unterschrift)</option>
+            <option value="sitzwache">Sitzwache mit Einsatzdoku – wie in der Klinik, Pflegekraft unterschreibt</option>
+          </select>
+        </div>
         <div>
           <label for="t-datum">Datum</label>
           <input type="date" id="t-datum">
@@ -498,6 +508,16 @@ function terminFormular(k) {
         <div>
           <label for="t-person">Wer übernimmt</label>
           <select id="t-person">${optionen}</select>
+        </div>
+      </div>
+      <div class="termin-felder" id="t-sitz" hidden style="margin-top:12px">
+        <div>
+          <label for="t-ort">Einsatzort (Einrichtung, Wohnbereich)</label>
+          <input type="text" id="t-ort" maxlength="120" placeholder="z. B. Pflegeheim Sonnenhof, WB 2">
+        </div>
+        <div style="grid-column: span 2">
+          <label for="t-hinweis">Anschrift und Hinweise für die Sitzwache</label>
+          <input type="text" id="t-hinweis" maxlength="500" placeholder="Anschrift, Klingel, Ansprechperson – nichts Medizinisches">
         </div>
       </div>
       <div class="formular-fuss">
@@ -525,7 +545,10 @@ async function terminAnlegen(kundeId) {
     volunteer_id: personEl.value,
     datum:        datum,                                        // YYYY-MM-DD
     beginn:       beginn,                                       // HH:MM
-    stunden:      parseFloat(document.getElementById('t-dauer').value)
+    stunden:      parseFloat(document.getElementById('t-dauer').value),
+    art:          document.getElementById('t-art').value,
+    einsatzort:   document.getElementById('t-ort').value,
+    hinweis:      document.getElementById('t-hinweis').value
   });
 
   if (!res.ok) {

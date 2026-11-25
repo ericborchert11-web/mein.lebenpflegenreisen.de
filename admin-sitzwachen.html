@@ -300,7 +300,7 @@ h1 { margin:0 0 4px; }
 </div>
 </main>
 
-<script src="app.js?v20261019a"></script>
+<script src="app.js?v20261125a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -1532,8 +1532,8 @@ async function onBookingAction(btn) {
 
 // Was beim Abschliessen mit der Auszahlung passiert ist (Trigger, Migration AQ)
 async function abschlussMeldung(bookingId, b) {
-  // shift 'termin' <=> Privatkunde (Check bookings_termin_kunde_check)
-  if (b && b.shift === 'termin') return 'Abgeschlossen. Bei Privatkunden legt der Vorstand den Betrag selbst fest.';
+  // Privatkunde: Termin ODER Sitzwache mit Einsatzdoku (kunde_id gesetzt)
+  if (b && (b.shift === 'termin' || b.kunde_id)) return 'Abgeschlossen. Bei Privatkunden legt der Vorstand den Betrag selbst fest.';
   try {
     const { data } = await (await LPR.supabase()).from('claims')
       .select('status, amount').eq('booking_id', bookingId).neq('status', 'rejected').limit(1);

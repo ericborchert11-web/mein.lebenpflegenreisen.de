@@ -742,7 +742,7 @@
    * Der Bezirk wird vom Kunden auf die Buchung kopiert: Eine Terminliste soll
    * ohne Leserecht auf kunden auskommen.
    */
-  async function createTermin({ kunde_id, volunteer_id, datum, beginn, stunden }) {
+  async function createTermin({ kunde_id, volunteer_id, datum, beginn, stunden, art, einsatzort, hinweis }) {
     if (!kunde_id || !volunteer_id || !datum || !beginn) {
       return { ok: false, error: 'Kunde, Person, Datum und Uhrzeit sind Pflicht.' };
     }
@@ -757,7 +757,12 @@
       if (kErr || !kunde) return { ok: false, error: 'Kunde nicht gefunden.' };
       if (!kunde.aktiv)   return { ok: false, error: 'Dieser Kunde ist stillgelegt.' };
 
-      const { data, error } = await client.from('bookings').insert({
+      // art 'sitzwache': Privatauftrag, dokumentiert wie ein Klinikdienst
+      // (einsatz.html, Unterschrift der Pflegekraft vor Ort). Die Schicht ist
+      // 'night', sobald der Dienst ueber Mitternacht laeuft — daran haengt,
+      // dass er nach 0 Uhr sichtbar und startbar bleibt.
+      const sitzwache = art === 'sitzwache';
+      const zeile = {
         kunde_id:     kunde_id,
         volunteer_id: volunteer_id,
         date:         datum,
@@ -767,7 +772,14 @@
         stunden_geplant: dauer,
         bezirk:         kunde.bezirk,
         status:         'planned'
-      }).select('id').single();
+      };
+      if (sitzwache) {
+        const [h, m] = String(beginn).split(':').map(Number);
+        zeile.shift = (h * 60 + (m || 0) + dauer * 60 > 24 * 60) ? 'night' : dienstSchicht(beginn);
+        zeile.station = (einsatzort || '').trim().slice(0, 120) || null;
+        zeile.patient_notes = (hinweis || '').trim().slice(0, 500) || null;
+      }
+      const { data, error } = await client.from('bookings').insert(zeile).select('id').single();
       if (error) return { ok: false, error: error.message };
       return { ok: true, id: data.id };
     } catch(e) {
@@ -793,8 +805,8 @@
       const client = await sb();
       let q = client
         .from('bookings')
-        .select('id, kunde_id, volunteer_id, date, beginn_zeit, hours, stunden_geplant, status')
-        .eq('shift', 'termin')
+        .select('id, kunde_id, volunteer_id, date, shift, beginn_zeit, hours, stunden_geplant, status, station')
+        .not('kunde_id', 'is', null)
         .order('date', { ascending: false })
         .order('beginn_zeit', { ascending: false });
       if (kundeId) q = q.eq('kunde_id', kundeId);
@@ -1810,7 +1822,7 @@
         id: b.id,
         request_id: b.request_id,
         clinic_id: b.clinic_id,
-        clinic_name: b.profiles && b.profiles.full_name || null,
+        clinic_name: b.profiles && b.profiles.full_name || (b.kunde_id ? 'Privatauftrag' : null),
         date: b.date,
         shift: b.shift,
         hours: b.hours,
@@ -2103,7 +2115,7 @@
           .select('id, booking_id, station, fallnummer, fallnummer_quelle, beginn_ts, ende_ts, status, offline_sync')
           .eq('volunteer_id', s.id).eq('status', 'laufend').limit(1),
         client.from('bookings')
-          .select('id, date, shift, status, station, fallnummer, clinic_id, profiles!bookings_clinic_id_fkey(full_name)')
+          .select('id, date, shift, status, station, fallnummer, clinic_id, kunde_id, beginn_zeit, stunden_geplant, profiles!bookings_clinic_id_fkey(full_name)')
           .eq('volunteer_id', s.id)
           .gte('date', tag(-1)).lte('date', tag(1))
           .in('status', ['planned', 'confirmed'])
@@ -2117,7 +2129,7 @@
       let laufendeBuchung = null;
       if (laufend) {
         const { data } = await client.from('bookings')
-          .select('id, date, shift, station, fallnummer, profiles!bookings_clinic_id_fkey(full_name)')
+          .select('id, date, shift, station, fallnummer, kunde_id, beginn_zeit, stunden_geplant, profiles!bookings_clinic_id_fkey(full_name)')
           .eq('id', laufend.booking_id).maybeSingle();
         laufendeBuchung = data || null;
       }
@@ -2125,7 +2137,11 @@
       const map = b => ({
         id: b.id, date: b.date, shift: b.shift, status: b.status,
         station: b.station, fallnummer: b.fallnummer,
-        klinik: (b.profiles && b.profiles.full_name) || 'Klinik'
+        beginn_zeit: b.beginn_zeit || null, stunden_geplant: b.stunden_geplant || null,
+        // Privatauftrag: keine Klinik, keine Fall-Nummer. Der Einsatzort
+        // (Einrichtung, Wohnbereich) steht in station.
+        privat: !!b.kunde_id,
+        klinik: (b.profiles && b.profiles.full_name) || (b.kunde_id ? 'Privatauftrag' : 'Klinik')
       });
 
       return {
@@ -2725,6 +2741,12 @@
       if (bkErr || !booking) return { ok: false, error: 'Buchung nicht gefunden.' };
       if (booking.volunteer_id !== session.id) return { ok: false, error: 'Diese Buchung gehört nicht dir.' };
       if (booking.status !== 'completed') return { ok: false, error: 'Buchung nicht abgeschlossen (Status: ' + booking.status + ').' };
+      // Privatauftrag: Es gibt keinen Satz in der Datenbank, der Vorstand legt
+      // den Betrag je Person fest. Ohne ihn wuerde calculatePay den Klinik-
+      // satz der Schicht einsetzen.
+      if (booking.kunde_id && booking.compensation_eur == null) {
+        return { ok: false, error: 'Bei Privataufträgen legt der Vorstand den Betrag fest. Bitte im Vereinsbüro melden.' };
+      }
       
       const { data: existingClaims } = await client
         .from('claims')
@@ -5697,7 +5719,7 @@
     try {
       const client = await sb();
       let q = client.from('bookings')
-        .select('id, volunteer_id, clinic_id, date, shift, hours, compensation_eur, status, completed_at, late_cancellation, patient_room, patient_flags, patient_notes, patient_count, cancellation_reason, cancelled_at, cancelled_by_user_id, station, benachrichtigen, nachgetragen, beginn_zeit, stunden_geplant')
+        .select('id, volunteer_id, clinic_id, date, shift, hours, compensation_eur, status, completed_at, late_cancellation, patient_room, patient_flags, patient_notes, patient_count, cancellation_reason, cancelled_at, cancelled_by_user_id, station, benachrichtigen, nachgetragen, beginn_zeit, stunden_geplant, kunde_id')
         .order('date', { ascending: false });
       if (fromDate) q = q.gte('date', fromDate);
       if (toDate)   q = q.lte('date', toDate);
@@ -5715,7 +5737,7 @@
       return { ok: true, bookings: rows.map(b => ({
         ...b,
         volunteer_name: volMap[b.volunteer_id] || '—',
-        clinic_name:    cliMap[b.clinic_id]    || '—'
+        clinic_name:    cliMap[b.clinic_id]    || (b.kunde_id ? 'Privatauftrag' : '—')
       })) };
     } catch(e) {
       console.error('[LPR] adminListBookings:', e);

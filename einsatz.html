@@ -437,7 +437,7 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
     <div class="card">
       <div class="c-label">Ihr Einsatz heute</div>
       <div class="c-row"><span class="k">Klinik</span><span class="v" id="i-klinik">—</span></div>
-      <div class="c-row"><span class="k">Station</span><span class="v" id="i-station">—</span></div>
+      <div class="c-row"><span class="k" id="i-station-k">Station</span><span class="v" id="i-station">—</span></div>
       <div class="c-row"><span class="k">Uhrzeit</span><span class="v" id="i-zeit">—</span></div>
       <div class="c-row" id="i-fall-row"><span class="k">Fall-Nr.</span><span class="v" id="i-fall">—</span></div>
     </div>
@@ -721,7 +721,7 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="app.js?v20260808a"></script>
+<script src="app.js?v20261125a"></script>
 <script src="layout.js"></script>
 <script>
 // Nur die A11y-Leiste: keine Navigation, kein Footer, kein Chatbot.
@@ -743,6 +743,23 @@ const SCHICHT = {
   afternoon: { label: 'Spätdienst',  zeit: '14:00 – 22:00 Uhr', start: 14 },
   night:     { label: 'Nachtdienst', zeit: '22:00 – 06:00 Uhr', start: 22 }
 };
+
+/**
+ * Schicht einer Buchung fuer die Anzeige. Eine eigene Dienstzeit
+ * (beginn_zeit + stunden_geplant, z. B. Privatauftrag 19–07 Uhr) geht der
+ * Standardschicht vor — sonst stuende hier 22–06 und die Erinnerung kaeme
+ * drei Stunden zu spaet.
+ */
+function schichtVon(b) {
+  const z = b && LPR.dienstZeit && LPR.dienstZeit(b);
+  if (z) {
+    const [h, m] = z.von.split(':').map(Number);
+    return { label: 'Sitzwache', zeit: z.von + ' – ' + z.bis + ' Uhr', start: h, startMin: m || 0, von: z.von };
+  }
+  const sh = b && SCHICHT[b.shift];
+  if (!sh) return b ? { label: b.shift || 'Sitzwache', zeit: '—' } : null;
+  return Object.assign({ startMin: 0, von: String(sh.start).padStart(2, '0') + ':00' }, sh);
+}
 
 const TAETIGKEIT_LABEL = {
   anwesenheit_sichtkontakt: 'Anwesenheit & Sichtkontakt',
@@ -842,7 +859,7 @@ async function init() {
 
 function zeigeAuswahl(buchungen) {
   $('auswahl-liste').innerHTML = buchungen.map((b, i) => {
-    const sh = SCHICHT[b.shift] || { label: b.shift, zeit: '' };
+    const sh = schichtVon(b);
     const d = new Date(b.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' });
     return `<button class="pick" data-i="${i}">
       <div class="p-top">${LPR.escape(sh.label)} · ${LPR.escape(sh.zeit)}</div>
@@ -857,12 +874,18 @@ function zeigeAuswahl(buchungen) {
 
 function waehleBuchung(b) {
   S.buchung = b;
-  const sh = SCHICHT[b.shift] || { label: b.shift, zeit: '—' };
+  const sh = schichtVon(b);
   $('i-klinik').textContent = b.klinik || '—';
   $('i-station').textContent = b.station || 'nicht angegeben';
   $('i-zeit').textContent = sh.zeit;
+  // Privatauftrag: "Einsatzort" statt "Station", und eine Fall-Nummer gibt
+  // es nicht — die Einrichtung fuehrt keine fuer den Verein.
+  $('i-station-k').textContent = b.privat ? 'Einsatzort' : 'Station';
 
-  if (b.fallnummer) {
+  if (b.privat) {
+    $('i-fall-row').hidden = true;
+    $('fall-eingabe').hidden = true;
+  } else if (b.fallnummer) {
     $('i-fall').textContent = b.fallnummer;
     $('i-fall-row').hidden = false;
     $('fall-eingabe').hidden = true;
@@ -883,11 +906,11 @@ function waehleBuchung(b) {
 function zeigeErinnerung(b, sh) {
   if (typeof sh.start !== 'number') return;
   const beginn = new Date(b.date + 'T00:00:00');
-  beginn.setHours(sh.start, 0, 0, 0);
+  beginn.setHours(sh.start, sh.startMin || 0, 0, 0);
   const minuten = (Date.now() - beginn.getTime()) / 60000;
   if (minuten >= 15 && minuten < 60 * 14) {
     $('erinnerung').textContent =
-      'Ihr Dienst hat um ' + String(sh.start).padStart(2, '0') + ':00 Uhr begonnen. '
+      'Ihr Dienst hat um ' + sh.von + ' Uhr begonnen. '
       + 'Sie können jetzt starten — die Zeit wird ab dem Antippen gezählt.';
     $('erinnerung').hidden = false;
   }
@@ -911,11 +934,11 @@ function pruefeFruehstart() {
   const box = $('start-frueh');
   box.hidden = true;
   const b = S.buchung;
-  const sh = SCHICHT[b && b.shift];
+  const sh = schichtVon(b);
   if (!b || !b.date || !sh || typeof sh.start !== 'number') return;
 
   const geplant = new Date(b.date + 'T00:00:00');
-  geplant.setHours(sh.start, 0, 0, 0);
+  geplant.setHours(sh.start, sh.startMin || 0, 0, 0);
   const minutenZuFrueh = (geplant.getTime() - Date.now()) / 60000;
   if (minutenZuFrueh <= 60) return;
 
@@ -924,7 +947,7 @@ function pruefeFruehstart() {
   const vorlauf = (std > 0 ? std + ' Std.' : '') + (std > 0 && min > 0 ? ' ' : '')
                 + (min > 0 ? min + ' Min.' : '');
   box.innerHTML = 'Ihr Dienst beginnt erst um <strong>'
-    + String(sh.start).padStart(2, '0') + ':00 Uhr</strong> — das ist in '
+    + sh.von + ' Uhr</strong> — das ist in '
     // "Min." traegt seinen Punkt schon — kein zweiter hinterher.
     + vorlauf + '<br>Die Zeit wird ab dem Antippen gezählt. Trotzdem jetzt beginnen?';
   box.hidden = false;
@@ -970,7 +993,7 @@ async function doStart() {
 }
 
 function zeigeLauf() {
-  const sh = SCHICHT[S.buchung && S.buchung.shift] || { label: 'Sitzwache' };
+  const sh = schichtVon(S.buchung) || { label: 'Sitzwache' };
   $('runSub').textContent = 'seit ' + fmtT(S.beginn)
     + (S.buchung && S.buchung.station ? ' · ' + S.buchung.station : '');
   aktualisiereLauf();

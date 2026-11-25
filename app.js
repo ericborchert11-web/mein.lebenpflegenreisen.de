@@ -2216,6 +2216,20 @@
     sonstiges:       'Anderer Grund'
   };
 
+  /**
+   * Kommt nach diesem Dienst ein Vereinsmitglied (Migration CJ)?
+   * Liefert { abloesung, beginn 'HH:MM', selbst, dienstende 'HH:MM' } — keine
+   * Namen. Gleicher Ort = gleiche Klinik bzw. gleicher Kunde und gleiche
+   * Station, Beginn bis 30 Minuten um das eigene Dienstende.
+   */
+  async function meineAbloesung(bookingId) {
+    try {
+      const { data, error } = await (await sb()).rpc('meine_abloesung', { p_booking: bookingId });
+      if (error || !data) return { ok: false };
+      return Object.assign({ ok: true }, data);
+    } catch(e) { return { ok: false }; }
+  }
+
   async function einsatzStarten(bookingId, fallnummer, clientTs) {
     try {
       const { data, error } = await (await sb()).rpc('einsatz_starten', {
@@ -8645,7 +8659,7 @@
     getMyClaims, claimTotals, calculatePay,
     submitTripClaim, submitSitzClaim,
     // Sitzwachen-Einsatzdoku
-    getEinsatzKontext, einsatzStarten, einsatzEreignis, getEinsatzEreignisse,
+    getEinsatzKontext, meineAbloesung, einsatzStarten, einsatzEreignis, getEinsatzEreignisse,
     getEinsatzInfoFuerBuchungen, KEINE_UNTERSCHRIFT_LABEL, TAETIGKEIT_LABEL,
     einsatzStornieren, einsatzReaktivieren, einsatzNacherfassen,
     uploadUnterschrift, einsatzAbschliessen, einsatzNettoMinuten,

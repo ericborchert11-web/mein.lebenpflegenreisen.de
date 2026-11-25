@@ -442,6 +442,8 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
       <div class="c-row" id="i-fall-row"><span class="k">Fall-Nr.</span><span class="v" id="i-fall">—</span></div>
     </div>
 
+    <div class="note" id="abloesung" hidden></div>
+
     <div class="field" id="fall-eingabe" hidden>
       <label for="fall-input">Fall-Nummer (steht auf der Station)</label>
       <input type="text" id="fall-input" maxlength="40" placeholder="z. B. 2026-48213" inputmode="text">
@@ -482,6 +484,7 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
       </div>
     </div>
     <div class="pauseinfo" id="pauseInfo"></div>
+    <div class="note" id="abloesung-lauf" hidden></div>
 
     <button class="btn btn-secondary" id="btnPause" onclick="togglePause()">Pause</button>
     <button class="btn btn-secondary" onclick="openEvent()">Besonderheit an Pflege übergeben</button>
@@ -721,7 +724,7 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="app.js?v20261125a"></script>
+<script src="app.js?v20261125b"></script>
 <script src="layout.js"></script>
 <script>
 // Nur die A11y-Leiste: keine Navigation, kein Footer, kein Chatbot.
@@ -896,7 +899,45 @@ function waehleBuchung(b) {
   }
 
   zeigeErinnerung(b, sh);
+  zeigeAbloesung(b);
   show('scr-home');
+}
+
+/**
+ * Wird man von einem Vereinsmitglied abgeloest? Ehrenamtliche fragen das
+ * immer wieder: ohne Folgedienst duerfen sie zum Dienstende gehen und melden
+ * sich beim Stammpersonal ab. Steht auf dem Start- und auf dem Laufbildschirm.
+ * Kommt keine Antwort (offline), bleibt der Hinweis einfach weg.
+ */
+const ABL = { id: null, text: null, art: null };
+async function zeigeAbloesung(b) {
+  ['abloesung', 'abloesung-lauf'].forEach(id => { $(id).hidden = true; });
+  if (!b || !b.id || S.uebung) return;
+  if (ABL.id !== b.id) {
+    ABL.id = b.id; ABL.text = null;
+    const r = await LPR.meineAbloesung(b.id);
+    if (!r.ok || S.buchung !== b) { if (S.buchung === b) ABL.id = null; return; }
+    const ende = r.dienstende ? ' (' + r.dienstende + ' Uhr)' : '';
+    if (r.abloesung && r.selbst) {
+      ABL.art = 'lime';
+      ABL.text = '<strong>Direkt danach haben Sie selbst den nächsten Dienst.</strong>';
+    } else if (r.abloesung) {
+      ABL.art = 'lime';
+      ABL.text = '<strong>Sie werden abgelöst:</strong> Ein Vereinsmitglied übernimmt um '
+        + r.beginn + ' Uhr. Bitte warten Sie auf die Übergabe.';
+    } else {
+      ABL.art = '';
+      ABL.text = '<strong>Keine Ablösung durch den Verein.</strong> Zum Dienstende'
+        + ende + ' können Sie gehen – bitte melden Sie sich beim Stammpersonal ab.';
+    }
+  }
+  if (!ABL.text) return;
+  ['abloesung', 'abloesung-lauf'].forEach(id => {
+    const el = $(id);
+    el.className = 'note' + (ABL.art ? ' ' + ABL.art : '');
+    el.innerHTML = ABL.text;
+    el.hidden = false;
+  });
 }
 
 /**
@@ -998,6 +1039,7 @@ function zeigeLauf() {
     + (S.buchung && S.buchung.station ? ' · ' + S.buchung.station : '');
   aktualisiereLauf();
   trinkAnzeige();
+  zeigeAbloesung(S.buchung);
   show('scr-run');
 }
 

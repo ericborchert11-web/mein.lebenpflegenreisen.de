@@ -145,11 +145,20 @@
   function muendlich(d) { return !!d && d.abschluss === 'muendlich'; }
 
   var MAIL_RE = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
+  // Erste Nacht mit abweichender Uhrzeit (z. B. kurzfristiger Beginn um 22 statt 19 Uhr).
+  // Nur wenn beide Felder gesetzt sind und sich von der Regelzeit unterscheiden.
+  function erstAbw(d) {
+    if (!d || leer(d.ersteNachtVon) || leer(d.ersteNachtBis) || leer(d.ersteNacht)) return '';
+    if (d.ersteNachtVon === d.von && d.ersteNachtBis === d.bis) return '';
+    return 'Abweichend davon: erste Nacht (' + esc(datum(d.ersteNacht)) + ') von ' + esc(d.ersteNachtVon) + ' Uhr bis ' + esc(d.ersteNachtBis) + ' Uhr.';
+  }
+
   function pflichtfehlt(d, art) {
     var f = [];
     var k = (d && d.kundin) || {}, p = (d && d.person) || {}, e = (d && d.einrichtung) || {};
     if (leer(d.von) || leer(d.bis)) f.push('Uhrzeit von/bis');
     if (leer(d.ersteNacht)) f.push('Erste Nacht');
+    if (leer(d.ersteNachtVon) !== leer(d.ersteNachtBis)) f.push('Uhrzeit der ersten Nacht: Beginn und Ende angeben');
     if (!(Number(d.naechte) > 0)) f.push('Anzahl Nächte bzw. letzte Nacht');
     if (leer(k.vorname) || leer(k.nachname)) f.push('Name der Auftraggeberin / des Auftraggebers');
     if (leer(k.strasse) || leer(k.plzOrt)) f.push('Anschrift der Auftraggeberin / des Auftraggebers');
@@ -249,7 +258,7 @@
     h.push('<p>Eine geschulte Begleitperson des Vereins ist die vereinbarte Zeit durchgehend anwesend. Sie gibt Orientierung und Sicherheit, beruhigt, ist für Gespräche da und holt bei Bedarf das Pflegepersonal der Einrichtung. Pflegerische und medizinische Aufgaben bleiben bei der Einrichtung.</p>');
 
     h.push('<table class="vv-tab"><thead><tr><th>Pos.</th><th>Leistung</th><th>Dauer</th><th class="r">Preis je Nacht</th></tr></thead><tbody>'
-      + '<tr><td>1</td><td>Nachtbegleitung, ' + esc(mA.stunden) + ' Stunden, ' + feld(d.von, 'kurz') + '–' + feld(d.bis, 'kurz') + ' Uhr</td>'
+      + '<tr><td>1</td><td>Nachtbegleitung, ' + esc(mA.stunden) + ' Stunden, ' + feld(d.von, 'kurz') + '–' + feld(d.bis, 'kurz') + ' Uhr' + (erstAbw(d) ? '<br><small>' + erstAbw(d) + '</small>' : '') + '</td>'
       + '<td>' + esc(mA.stunden) + ' Std.</td><td class="r">' + eur(mA.pauschale_cents) + '</td></tr></tbody></table>');
 
     h.push('<p class="vv-umfang"><b>Voraussichtlicher Umfang:</b> ' + feld(r.naechte > 0 ? String(r.naechte) : '', 'kurz')
@@ -346,7 +355,7 @@
       + para(2, 'Die pflegerische und medizinische Verantwortung für die begleitete Person bleibt vollständig bei der Einrichtung. Im Notfall verständigt die Begleitperson das Personal der Einrichtung und, falls erforderlich, den Rettungsdienst.'));
 
     h.push('<div class="vv-block"><h2>§ 4 Einsatzzeiten, Einrichtung</h2>'
-      + para(1, 'Einsatzzeit: <b>' + esc(mA.stunden) + ' Stunden je Nacht</b>, von ' + feld(d.von, 'kurz') + ' Uhr bis ' + feld(d.bis, 'kurz') + ' Uhr.') + '</div>'
+      + para(1, 'Einsatzzeit: <b>' + esc(mA.stunden) + ' Stunden je Nacht</b>, von ' + feld(d.von, 'kurz') + ' Uhr bis ' + feld(d.bis, 'kurz') + ' Uhr.' + (erstAbw(d) ? ' ' + erstAbw(d) : '')) + '</div>'
       + para(2, 'Zeitraum: erste Nacht ' + feld(datum(d.ersteNacht), 'kurz') + ', letzte Nacht ' + feld(datum(letzteNacht(d)), 'kurz')
         + ', insgesamt ' + feld(r.naechte > 0 ? String(r.naechte) : '', 'kurz') + ' Nächte.')
       + para(3, 'Änderungen von Terminen und Umfang sowie eine Verlängerung vereinbaren die Parteien in Textform (E-Mail genügt). Für eine Verlängerung gelten die Bedingungen dieses Vertrags.')

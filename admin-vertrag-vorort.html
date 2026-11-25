@@ -130,6 +130,8 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
           <div class="vv-f"><label for="f-erste">Erste Nacht</label><input id="f-erste" type="date" data-feld="ersteNacht"></div>
           <div class="vv-f"><label for="f-naechte">Anzahl Nächte</label><input id="f-naechte" type="number" min="1" max="366" inputmode="numeric" data-feld="naechte"></div>
           <div class="vv-f"><label for="f-letzte">oder: letzte Nacht</label><input id="f-letzte" type="date" data-feld="letzteNacht"></div>
+          <div class="vv-f"><label for="f-evon">Erste Nacht abweichend: Beginn</label><input id="f-evon" type="time" data-feld="ersteNachtVon"></div>
+          <div class="vv-f"><label for="f-ebis">Erste Nacht abweichend: Ende</label><input id="f-ebis" type="time" data-feld="ersteNachtBis"></div>
         </div>
         <div class="vv-summe" id="summe"></div>
         <div class="vv-warn" id="dauer-warn" hidden></div>
@@ -264,7 +266,7 @@ dialog.vv-dlg h2 { font-family:'Bricolage Grotesque',sans-serif; margin:0 0 10px
 
 <script src="app.js?v20261124c"></script>
 <script src="rechnung-hinweise.js?v20261007b"></script>
-<script src="vertrag-vorort-vorlage.js?v20261124d"></script>
+<script src="vertrag-vorort-vorlage.js?v20261125a"></script>
 <script src="vertrag-vorort-pdf.js?v20261124a"></script>
 <script src="layout.js"></script>
 <script>
@@ -418,7 +420,7 @@ function leererEntwurf(art, abschluss) {
   return {
     art, abschluss: art === 'vertrag' && abschluss === 'muendlich' ? 'muendlich' : 'vorort',
     angelegt: Date.now(), geaendert: Date.now(), vorgang: null, nummern: {},
-    modell: 'A', von: '', bis: '', ersteNacht: '', naechte: '', letzteNacht: '',
+    modell: 'A', von: '', bis: '', ersteNacht: '', ersteNachtVon: '', ersteNachtBis: '', naechte: '', letzteNacht: '',
     kundin: {}, handlung: '', vertretungsgrund: '', person: {}, einrichtung: { ansprech: {} },
     erkl: {}, ort: 'Berlin', datum: d, nameDruck: '', kvGueltigBis: VV.plusTage(d, 14),
     unterschriften: { kundin: null, verein: null }, unterschriftAm: { kundin: null, verein: null }

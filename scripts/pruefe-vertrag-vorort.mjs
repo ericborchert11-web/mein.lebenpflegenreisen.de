@@ -151,6 +151,12 @@ const mm = VV.vertragMail(MU, VEREIN);
 pruefe('mündlich: Betreff wie Vertrag (Edge-Muster)', mm.betreff === m.betreff, mm.betreff);
 pruefe('mündlich: Mail bittet um beide Sätze', mm.text.includes('Ich verlange ausdrücklich') && mm.text.includes('habe ich erhalten'), '');
 pruefe('mündlich: Mail ohne Namen der Person', !mm.text.includes('Gertrud'), '');
+const ABW = { ...MU, ersteNachtVon: '22:00', ersteNachtBis: '07:00' };
+const abwPaket = VV.paketHtml(ABW, WERTE, VEREIN);
+pruefe('erste Nacht abweichend: in § 4 und KV', (abwPaket.match(/Abweichend davon: erste Nacht \(\d\d\.\d\d\.\d{4}\) von 22:00 Uhr bis 07:00 Uhr\./g) || []).length >= 2, '');
+pruefe('erste Nacht abweichend: ohne Angabe kein Satz', !muPaket.includes('Abweichend davon'), '');
+pruefe('erste Nacht abweichend: nur Beginn = Fehler', VV.pflichtfehlt({ ...MU, ersteNachtVon: '22:00' }, 'vertrag').some((t) => /ersten Nacht/.test(t)), '');
+pruefe('erste Nacht abweichend: vollständig = nichts fehlt', VV.pflichtfehlt(ABW, 'vertrag').length === 0, VV.pflichtfehlt(ABW, 'vertrag').join(' | '));
 const BETREFF_RE = /^Ihr (Vertrag mit|Kostenvoranschlag von) Leben Pflegen Reisen e\. V\. – Nachtbegleitung [A-ZÄÖÜ. ]{0,20}$/;
 pruefe('Betreff passt zum Muster der Edge Function', BETREFF_RE.test(mm.betreff) && BETREFF_RE.test(VV.kvMail(FALL, VEREIN).betreff), '');
 

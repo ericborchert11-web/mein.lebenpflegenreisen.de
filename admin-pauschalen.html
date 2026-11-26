@@ -159,7 +159,7 @@
 </div>
 </main>
 
-<script src="app.js?v20260708a"></script>
+<script src="app.js?v20261126a"></script>
 <script src="layout.js"></script>
 <script>
 'use strict';
@@ -227,7 +227,8 @@ async function loadData() {
           map[r.user_id] = {
             claimed: parseFloat(r.claimed) || 0,
             pending: parseFloat(r.pending) || 0,
-            claimedSignupIds: new Set(r.claimed_signup_ids || [])
+            claimedSignupIds: new Set(r.claimed_signup_ids || []),
+            antraege: Array.isArray(r.antraege) ? r.antraege : []
           };
         });
       } else {
@@ -271,8 +272,9 @@ function signupPlannedAmount(s, t) {
 }
 
 function pauschaleInfo(userId, year) {
-  const p = (_pauschByYear[year] || {})[userId] || { claimed: 0, pending: 0, claimedSignupIds: new Set() };
+  const p = (_pauschByYear[year] || {})[userId] || { claimed: 0, pending: 0, claimedSignupIds: new Set(), antraege: [] };
   let planned = 0;
+  const ueberschneidungen = [];
   _trips.forEach(t => {
     if (!t.start_date || t.status === 'cancelled' || t.status === 'draft') return;
     if (Number(t.start_date.slice(0,4)) !== year) return;
@@ -280,11 +282,17 @@ function pauschaleInfo(userId, year) {
       if (s.user_id !== userId || s.status !== 'confirmed') return;
       if (p.claimedSignupIds.has(s.id)) return;
       planned += signupPlannedAmount(s, t);
+      // Nur ein Hinweis (Migration CL): ein Antrag derselben Person ohne
+      // Zuordnung überschneidet sich mit der Reise. Verrechnet wird nichts —
+      // der Vorstand ordnet ihn unter „Auszahlungen“ der Reise zu.
+      if ((p.antraege || []).some(a => !a.signup && a.von && a.bis && a.von <= t.end_date && a.bis >= t.start_date)) {
+        ueberschneidungen.push(t.title);
+      }
     });
   });
   const abgerechnet = p.claimed + p.pending;
   const total = abgerechnet + planned;
-  return { abgerechnet, planned, total, rest: PAUSCHALE_LIMIT - total };
+  return { abgerechnet, planned, total, rest: PAUSCHALE_LIMIT - total, ueberschneidungen };
 }
 
 function renderTable() {
@@ -314,6 +322,7 @@ function renderTable() {
         <td>
           <div class="ap-name">${m.full_name ? escapeHtml(m.full_name) : '<em>Name nicht hinterlegt</em>'}</div>
           <div class="ap-sub">${[m.vereinsnummer ? escapeHtml(m.vereinsnummer) : '', m.email ? escapeHtml(m.email) : ''].filter(Boolean).join(' · ')}</div>
+          ${r.ueberschneidungen && r.ueberschneidungen.length ? '<div class="ap-sub" style="color:#9B5B00">⚠ Zuteilung und Antrag überschneiden sich (' + escapeHtml(r.ueberschneidungen.join(', ')) + ') – falls schon abgerechnet: unter Auszahlungen „Reise zuordnen“.</div>' : ''}
         </td>
         <td class="num">${LPR.formatEUR(r.abgerechnet)}</td>
         <td class="num">${LPR.formatEUR(r.planned)}</td>

@@ -6254,6 +6254,37 @@
    * finanzen@ wie bei jeder Auszahlung; die Belegnummer kommt erst mit
    * „Als ausgezahlt markieren“.
    */
+  /**
+   * VORSTAND (Migration CL): Pauschalen-Antrag nachtraeglich einer
+   * Reise-Zuteilung derselben Person zuordnen. Die Herkunft wird Reise, die
+   * Buchung faellt weg; die Pauschalen-Uebersicht zaehlt die Zuteilung dann
+   * nicht mehr als verplant. Keine Mail.
+   */
+  async function boardAntragReiseZuordnen(claimId, signupId) {
+    try {
+      const { error } = await (await sb()).rpc('board_antrag_reise_zuordnen', { p_claim: claimId, p_signup: signupId });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch(e) { console.error('[LPR] boardAntragReiseZuordnen:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
+  /**
+   * VORSTAND (Migration CL): bereits ueberwiesene Vorauszahlung als
+   * ausgezahlten Vorgang an einer Reise-Zuteilung erfassen. Zaehlt im Jahr der
+   * Auszahlung zum Freibetrag; optional wird die Kontozeile zugeordnet (sie
+   * zaehlt dann im Kassenbuch unter "Auszahlungen an Ehrenamtliche", nicht mehr
+   * als Kostenart). Keine Zahlungsanweisung, kein Belegversand.
+   */
+  async function boardVorauszahlungErfassen({ signup_id, betrag, datum, bank_id }) {
+    try {
+      const { data, error } = await (await sb()).rpc('board_vorauszahlung_erfassen', {
+        p_signup: signup_id, p_betrag: Number(betrag), p_datum: datum, p_bank: bank_id || null
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, id: data };
+    } catch(e) { console.error('[LPR] boardVorauszahlungErfassen:', e); return { ok: false, error: 'Netzwerkfehler.' }; }
+  }
+
   async function adminCreateTaetigkeitClaim(payload) {
     const s = getSession();
     if (!s || s.role !== 'admin') return { ok: false, error: 'Nur für den Vorstand.' };
@@ -8704,6 +8735,7 @@
     steuerFreibetraege, belegFreigaben, steuerFreigabe,
     vertragVorortWerte, vertragVorortReservieren, vertragVorortVerwerfen, vertragVorortStand, vertragVorortFunktion,
     adminCreateTaetigkeitClaim, taetigkeitBelegDaten,
+    boardAntragReiseZuordnen, boardVorauszahlungErfassen,
     meineAuslageEinreichen, meinenAuslageEntwurfEinreichen,
     uploadAuslageBelege, listAuslageBelege, zaehleAuslageBelege, auslageBelegUrl, deleteAuslageBeleg,
     // Fördermittel-Cockpit

@@ -141,6 +141,7 @@ h1 { margin:0 0 4px; }
         </label>
         <button class="as-btn" id="au-oeffnen" title="Auslagenersatz (§ 3 Nr. 50 EStG) für ein Mitglied eintragen">Auslage erfassen</button>
         <button class="as-btn" id="ep-oeffnen" title="Aufwandsentschädigung nach § 3 Nr. 26a EStG für eine Tätigkeit ohne Einsatz">Ehrenamtspauschale erfassen</button>
+        <button class="as-btn" id="vz-oeffnen" title="Bereits überwiesene Vorauszahlung auf die Aufwandsentschädigung einer Reise nacherfassen">Vorauszahlung erfassen</button>
       </div>
       <p class="as-count" id="claim-count"></p>
       <div id="claim-list"></div>
@@ -155,7 +156,7 @@ h1 { margin:0 0 4px; }
 </div>
 </main>
 
-<script src="app.js?v20261117a"></script>
+<script src="app.js?v20261126a"></script>
 <script src="ehrenamtspauschale.js?v20261117a"></script>
 <script src="beleg-vorlage.js?v20261117a"></script>
 <script src="layout.js"></script>
@@ -266,6 +267,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('be-hochladen').onclick = beHochladen;
   document.getElementById('be-overlay').onclick = e => { if (e.target.id === 'be-overlay') beSchliessen(); };
   document.getElementById('ep-oeffnen').onclick = epOeffnen;
+  document.getElementById('vz-oeffnen').onclick = () => rzOeffnen('voraus', null);
+  document.getElementById('rz-abbrechen').onclick = rzSchliessen;
+  document.getElementById('rz-ok').onclick = rzSpeichern;
+  document.getElementById('rz-overlay').onclick = e => { if (e.target.id === 'rz-overlay') rzSchliessen(); };
+  document.getElementById('rz-person').addEventListener('change', rzPersonGewechselt);
+  document.getElementById('rz-betrag').addEventListener('input', rzKontozeilen);
   document.getElementById('ep-abbrechen').onclick = epSchliessen;
   document.getElementById('ep-ok').onclick = epSpeichern;
   document.getElementById('ep-overlay').onclick = e => { if (e.target.id === 'ep-overlay') epSchliessen(); };
@@ -476,6 +483,11 @@ function renderClaims() {
       } else if (c.status === 'paid') {
         actions = '<button class="as-btn" data-act="beleg" data-id="' + c.id + '">Beleg</button>';
       }
+      // Migration CL: Pauschale ohne Reise-Zuteilung (z. B. Sammelantrag als
+      // Sitzwache erfasst) nachtraeglich einer Reise zuordnen.
+      if (c.kind === 'pauschale' && c.source_type === 'sitzwache' && ['submitted','approved','paid'].includes(c.status)) {
+        actions += '<button class="as-btn" data-act="reise-zuordnen" data-id="' + c.id + '" title="Antrag einer Reise-Zuteilung dieser Person zuordnen (Herkunft wird Reise)">Reise zuordnen</button>';
+      }
       if (mailNachversandNoetig(c)) {
         actions += '<button class="as-btn" data-act="resend" data-id="' + c.id + '">Mail erneut senden</button>';
       } else if (c.status === 'approved') {
@@ -509,6 +521,11 @@ async function onClaimAction(btn) {
   if (act === 'belege') {
     const c = _claims.find(x => x.id === id);
     if (c) await beOeffnen(c);
+    return;
+  }
+  if (act === 'reise-zuordnen') {
+    const c = _claims.find(x => x.id === id);
+    if (c) await rzOeffnen('zuordnen', c);
     return;
   }
   if (act === 'vorschau') {
@@ -770,6 +787,114 @@ async function epSpeichern() {
   if (!res.ok) return zeige(res.error || 'Speichern fehlgeschlagen.');
   epSchliessen();
   toast('Ehrenamtspauschale erfasst und freigegeben: ' + eur(betrag / 100) + '. Die Zahlungsanweisung geht an die Finanzen.');
+  await loadClaims();
+}
+
+// ═════════════════ Reise zuordnen / Vorauszahlung erfassen (Migration CL) ═════════════════
+//
+// Ein Dialog für zwei Fälle, beide hängen etwas an eine Reise-Zuteilung:
+//  - zuordnen: ein vorhandener Pauschalen-Antrag (z. B. vom Vorstand als
+//    Sitzwache erfasster Sammelantrag) gilt danach als Abrechnung der Reise.
+//  - voraus:   eine schon überwiesene Vorauszahlung wird ein ausgezahlter
+//    Vorgang. Sie zählt im Jahr der Auszahlung zum Freibetrag; der spätere
+//    Schlussantrag führt sie nur noch als Abzug. Keine Mail.
+let _rz = { modus: null, claim: null, signups: [], trips: [], mitglieder: [], bank: [] };
+
+async function rzOeffnen(modus, claim) {
+  _rz.modus = modus; _rz.claim = claim;
+  const f = document.getElementById('rz-fehler'); f.hidden = true;
+  const voraus = modus === 'voraus';
+  document.getElementById('rz-titel').textContent = voraus ? 'Vorauszahlung erfassen' : 'Antrag einer Reise zuordnen';
+  document.getElementById('rz-sub').innerHTML = voraus
+    ? 'Für eine Vorauszahlung, die <strong>schon überwiesen</strong> ist. Sie wird als ausgezahlter Vorgang mit eigener Belegnummer gespeichert und zählt im Jahr der Überweisung zum Freibetrag. Es geht keine Mail raus, weder an die Finanzen noch an die Person.'
+    : 'Der Antrag über <strong>' + eur(claim.amount) + '</strong> (' + esc(claim.user_name || '') + ') gilt danach als Abrechnung der gewählten Reise-Zuteilung. Die Herkunft wird „Reisebegleitung“, die Verbindung zur Buchung entfällt. Es geht keine Mail raus.';
+  document.getElementById('rz-voraus-felder').hidden = !voraus;
+  document.getElementById('rz-person-wrap').hidden = !voraus;
+  document.getElementById('rz-ok').textContent = voraus ? 'Vorauszahlung erfassen' : 'Zuordnen';
+  document.getElementById('rz-overlay').hidden = false;
+  if (!_rz.trips.length) {
+    const [tr, sr] = await Promise.all([LPR.listAllTripsAdmin(), LPR.getAllTripSignupsAdmin()]);
+    _rz.trips = (tr && tr.ok) ? (tr.trips || []) : [];
+    _rz.signups = ((sr && sr.ok) ? (sr.signups || []) : []).filter(s => s.status !== 'cancelled');
+  }
+  if (voraus) {
+    if (!_rz.mitglieder.length) {
+      const res = await LPR.adminMitgliederFuerAuslage();
+      _rz.mitglieder = (res && res.ok) ? (res.mitglieder || []) : [];
+    }
+    const mitZuteilung = _rz.mitglieder.filter(m => _rz.signups.some(s => s.user_id === m.id));
+    document.getElementById('rz-person').innerHTML = '<option value="">— bitte wählen —</option>'
+      + mitZuteilung.map(m => '<option value="' + esc(m.id) + '">' + esc(m.full_name) + '</option>').join('');
+    document.getElementById('rz-betrag').value = '';
+    document.getElementById('rz-datum').value = auHeute();
+    document.getElementById('rz-datum').max = auHeute();
+    await rzBankLaden();
+    rzZuteilungen('');
+    rzKontozeilen();
+  } else {
+    rzZuteilungen(claim.user_id);
+  }
+}
+
+function rzSchliessen() { document.getElementById('rz-overlay').hidden = true; }
+
+function rzPersonGewechselt() { rzZuteilungen(document.getElementById('rz-person').value); }
+
+function rzZuteilungen(userId) {
+  const tripById = {}; _rz.trips.forEach(t => { tripById[t.id] = t; });
+  const liste = _rz.signups.filter(s => s.user_id === userId && tripById[s.trip_id])
+    .sort((a, b) => (tripById[b.trip_id].start_date || '').localeCompare(tripById[a.trip_id].start_date || ''));
+  const c = _rz.claim;
+  document.getElementById('rz-signup').innerHTML = (liste.length ? '<option value="">— Reise wählen —</option>' : '<option value="">keine Reise-Zuteilung</option>')
+    + liste.map(s => {
+      const t = tripById[s.trip_id];
+      const passt = c && c.period_start && t.start_date && c.period_start <= t.end_date && c.period_end >= t.start_date;
+      return '<option value="' + esc(s.id) + '"' + (passt ? ' selected' : '') + '>' + esc(t.title) + ' · '
+        + fmtDate(t.start_date) + '–' + fmtDate(t.end_date) + (passt ? ' (Zeitraum passt)' : '') + '</option>';
+    }).join('');
+}
+
+async function rzBankLaden() {
+  const c = await LPR.supabase();
+  const { data } = await c.from('bank_buchungen')
+    .select('id, valuta, betrag_cents, verwendungszweck, claim_id, invoice_id')
+    .is('claim_id', null).is('invoice_id', null).lt('betrag_cents', 0)
+    .order('valuta', { ascending: false }).limit(300);
+  _rz.bank = data || [];
+}
+
+function rzKontozeilen() {
+  const v = String(document.getElementById('rz-betrag').value || '').trim().replace(/\./g, '').replace(',', '.');
+  const cents = v ? Math.round(Number(v) * 100) : null;
+  const passend = cents ? _rz.bank.filter(b => b.betrag_cents === -cents) : [];
+  document.getElementById('rz-bank').innerHTML = '<option value="">— keine Kontozeile zuordnen —</option>'
+    + passend.map(b => '<option value="' + esc(b.id) + '">' + fmtDate(b.valuta) + ' · ' + eur(-b.betrag_cents / 100)
+      + ' · ' + esc(String(b.verwendungszweck || '').replace(/DATUM.*$/, '').slice(0, 60)) + '</option>').join('');
+}
+
+async function rzSpeichern() {
+  const f = document.getElementById('rz-fehler');
+  const zeige = t => { f.textContent = t; f.hidden = false; };
+  f.hidden = true;
+  const signup = document.getElementById('rz-signup').value;
+  if (!signup) return zeige('Bitte eine Reise-Zuteilung wählen.');
+  const btn = document.getElementById('rz-ok');
+  btn.disabled = true;
+  let res;
+  if (_rz.modus === 'voraus') {
+    const v = String(document.getElementById('rz-betrag').value || '').trim().replace(/\./g, '').replace(',', '.');
+    const betrag = Number(v);
+    const datum = document.getElementById('rz-datum').value;
+    if (!(betrag > 0)) { btn.disabled = false; return zeige('Bitte einen gültigen Betrag angeben.'); }
+    if (!datum) { btn.disabled = false; return zeige('Bitte das Überweisungsdatum angeben.'); }
+    res = await LPR.boardVorauszahlungErfassen({ signup_id: signup, betrag, datum, bank_id: document.getElementById('rz-bank').value || null });
+  } else {
+    res = await LPR.boardAntragReiseZuordnen(_rz.claim.id, signup);
+  }
+  btn.disabled = false;
+  if (!res.ok) return zeige(res.error || 'Speichern fehlgeschlagen.');
+  rzSchliessen();
+  toast(_rz.modus === 'voraus' ? 'Vorauszahlung erfasst. Sie zählt jetzt zum Freibetrag.' : 'Antrag der Reise zugeordnet.');
   await loadClaims();
 }
 
@@ -1359,6 +1484,33 @@ init();
     <div class="ev-actions">
       <button type="button" class="as-btn" id="ep-abbrechen">Abbrechen</button>
       <button type="button" class="as-btn" id="ep-ok">Erfassen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Reise zuordnen / Vorauszahlung erfassen (Migration CL) ═══ -->
+<div id="rz-overlay" class="ev-overlay" hidden>
+  <div class="ev-dialog breit" role="dialog" aria-labelledby="rz-titel">
+    <h2 id="rz-titel">—</h2>
+    <p class="ev-sub" id="rz-sub"></p>
+    <div id="rz-person-wrap">
+      <label class="ev-label" for="rz-person">Person</label>
+      <select id="rz-person"><option value="">— wird geladen —</option></select>
+    </div>
+    <label class="ev-label" for="rz-signup" style="margin-top:12px">Reise-Zuteilung</label>
+    <select id="rz-signup"><option value="">— wird geladen —</option></select>
+    <div id="rz-voraus-felder">
+      <div class="nf-grid" style="margin-top:12px">
+        <div><label class="ev-label" for="rz-betrag">Betrag (€)</label><input type="text" id="rz-betrag" inputmode="decimal" placeholder="z. B. 150,00"></div>
+        <div><label class="ev-label" for="rz-datum">Überwiesen am</label><input type="date" id="rz-datum"></div>
+      </div>
+      <label class="ev-label" for="rz-bank" style="margin-top:12px">Kontozeile (noch nicht zugeordnet, gleicher Betrag)</label>
+      <select id="rz-bank"><option value="">— keine Kontozeile zuordnen —</option></select>
+    </div>
+    <div class="ev-fehler" id="rz-fehler" hidden></div>
+    <div class="ev-actions">
+      <button type="button" class="as-btn" id="rz-abbrechen">Abbrechen</button>
+      <button type="button" class="as-btn" id="rz-ok">Speichern</button>
     </div>
   </div>
 </div>

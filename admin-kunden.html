@@ -523,6 +523,9 @@ async function familieSperren(id) {
   const fe = document.getElementById('fe-' + id);
   const res = await LPR.kundeFamilienlinkSperren(id);
   familieSperrFrage = null;
+  // Ein gerade erzeugter, jetzt gesperrter Link darf nicht weiter als
+  // "nur jetzt angezeigt" in der Karte stehen.
+  if (familieNeu && familieNeu.id === id) familieNeu = null;
   if (!res.ok) { fe.textContent = res.error; fe.hidden = false; return; }
   await laden();
   zeigeMeldung('Familienlink gesperrt.');

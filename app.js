@@ -662,7 +662,7 @@
     try {
       let q = (await sb())
         .from('kunden')
-        .select('id, name, strasse, plz, ort, bezirk, telefon, email, hinweise, aktiv')
+        .select('id, name, strasse, plz, ort, bezirk, telefon, email, hinweise, aktiv, familie_link_gueltig_bis, familie_link_erstellt_am, familie_ansprechperson')
         .order('aktiv', { ascending: false })
         .order('name');
       if (nurAktive) q = q.eq('aktiv', true);
@@ -672,6 +672,53 @@
     } catch(e) {
       console.error('[LPR] listKunden:', e);
       return { ok: false, error: 'Netzwerkfehler.', kunden: [] };
+    }
+  }
+
+  // ── Familienzugang zum Einsatzbericht (Migration CM, 27.11.2026) ─────────
+  //
+  // Der Schluessel wird nur als Hash gespeichert und von kunde_familienlink_neu
+  // genau EINMAL zurueckgegeben. Er steht im Fragment der Adresse
+  // (familie.html#k=…), damit er nie an einen Server, in Logs oder als
+  // Referrer geht. Was die Familie sieht, filtert familie_bericht in der
+  // Datenbank (keine Gesundheitsgruende, kein Freitext) — nicht diese Datei.
+
+  /** Vorstand: neuen Familienlink erzeugen. Gibt die fertige Adresse zurueck. */
+  async function kundeFamilienlinkNeu(kundeId, ansprechperson, tage) {
+    const wer = String(ansprechperson || '').trim();
+    if (wer.length < 2) return { ok: false, error: 'Bitte angeben, wer gebucht hat.' };
+    try {
+      const { data, error } = await (await sb()).rpc('kunde_familienlink_neu', {
+        p_kunde: kundeId, p_ansprechperson: wer, p_tage: tage || 90
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, link: location.origin + '/familie.html#k=' + data };
+    } catch (e) {
+      console.error('[LPR] kundeFamilienlinkNeu:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /** Vorstand: Familienlink sofort ungueltig machen. */
+  async function kundeFamilienlinkSperren(kundeId) {
+    try {
+      const { error } = await (await sb()).rpc('kunde_familienlink_sperren', { p_kunde: kundeId });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch (e) {
+      console.error('[LPR] kundeFamilienlinkSperren:', e);
+      return { ok: false, error: 'Netzwerkfehler.' };
+    }
+  }
+
+  /** Familie (ohne Login): Bericht zum Schluessel. */
+  async function familieBericht(schluessel) {
+    try {
+      const { data, error } = await (await sb()).rpc('familie_bericht', { p_schluessel: schluessel });
+      if (error) return { ok: false, grund: 'fehler' };
+      return data && data.ok ? { ok: true, bericht: data } : { ok: false, grund: (data && data.grund) || 'ungueltig' };
+    } catch (e) {
+      return { ok: false, grund: 'netz' };
     }
   }
 
@@ -8659,6 +8706,7 @@
     requestPasswordReset, setNewPassword, requestMagicLink, hatPasswort, setzePasswort,
     listUsersByStatus, approveUser, rejectUser, zurueckInsOnboarding, deleteRegistration,
     listKunden, saveKunde, setKundeAktiv, createTermin, finishTermin,
+    kundeFamilienlinkNeu, kundeFamilienlinkSperren, familieBericht,
     listTermine, cancelTermin,
     getMyCompliance, getComplianceForUser, setComplianceStatus, isComplianceComplete,
     // Block C

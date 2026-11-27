@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bericht für die Familie · Leben Pflegen Reisen e.V.</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#2D4A3A">
+<meta name="robots" content="noindex, nofollow">
+<!-- Der Schluessel steht im Fragment (#k=…) und geht damit nie an einen Server.
+     no-referrer zusaetzlich, falls jemand von hier aus einen Link anklickt. -->
+<meta name="referrer" content="no-referrer">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="stylesheet" href="shared.css">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Eine Seite, eine Aufgabe: lesen, wie die Nacht war. Kein Menue, keine
+   Zaehlung. Grosszuegig gesetzt — Angehoerige lesen das morgens auf dem
+   Telefon, oft mit vergroesserter Systemschrift. */
+body { background:#F5F5F0; }
+.fa-kopf { background:#1A3A2A; color:#fff; border-radius:16px 16px 0 0;
+           margin:32px auto -16px; max-width:600px; padding:16px 24px; }
+.fa-kopf .marke { font-weight:800; font-size:17px; }
+.fa-kopf .unter { color:#C8F135; font-weight:600; font-size:14px; }
+.fa-karte { max-width:600px; margin:32px auto 24px; background:#fff; border:1px solid #E4E2DC;
+            border-radius:16px; padding:28px 24px 24px; }
+.fa-titel { font-family:'Bricolage Grotesque', Georgia, serif; font-size:1.6rem; color:#1A3A2A; margin:4px 0 10px; line-height:1.2; }
+.fa-text { font-size:1.1rem; line-height:1.6; color:#2A2F2C; margin:8px 0; }
+.fa-mini { font-size:1rem; line-height:1.5; color:#4F5A54; }
+.fa-nacht { border:1px solid #E4E2DC; border-radius:14px; padding:18px 18px 14px; margin:18px 0; background:#FBFAF6; }
+.fa-nacht h2 { font-size:1.2rem; color:#1A3A2A; margin:0 0 4px; }
+.fa-zeit { font-size:1.1rem; font-weight:700; color:#2D5940; margin:0 0 12px; }
+.fa-abschnitt { font-size:1rem; font-weight:700; color:#1A3A2A; margin:12px 0 4px; }
+.fa-liste { margin:0; padding-left:1.2em; font-size:1.1rem; line-height:1.6; }
+.fa-ruhig { background:#E7F3E9; color:#245c2c; border-radius:10px; padding:10px 14px; font-size:1.05rem; font-weight:600; margin-top:10px; }
+.fa-hinweis { background:#F1EFE7; border-radius:12px; padding:14px 16px; margin:20px 0 6px; font-size:1rem; line-height:1.5; color:#2A2F2C; }
+.fa-hinweis a { color:#1A3A2A; font-weight:700; }
+.fa-fehler { background:#FBE9E9; color:#8d2626; border-radius:12px; padding:14px 16px; font-size:1.05rem; font-weight:600; }
+</style>
+</head>
+<body>
+
+<div class="fa-kopf">
+  <div class="marke">Leben Pflegen Reisen e.V.</div>
+  <div class="unter">Bericht für die Familie</div>
+</div>
+
+<main class="fa-karte" id="main">
+  <div id="fa-inhalt"><p class="fa-text">Einen Moment…</p></div>
+</main>
+
+<script src="app.js?v20261127a"></script>
+<script src="layout.js"></script>
+<script>
+'use strict';
+// Nur die A11y-Leiste: kein Menue, kein Footer, kein Chatbot.
+LPR_Layout.init({ header: false, footer: false, chatbot: false });
+
+function esc(x) {
+  return String(x == null ? '' : x)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+const TZ = 'Europe/Berlin';
+const KONTAKT = '<a href="tel:+491743409116">0174 3409116</a>';
+
+// Gruende, die familie_bericht ueberhaupt durchlaesst. Alles andere kommt als
+// null an und wird nur als "Pflegepersonal hinzugezogen" angezeigt.
+const GRUND = {
+  unruhe: 'war unruhig',
+  aufstehen_sturzgefahr: 'wollte aufstehen',
+  patientenwunsch: 'hatte einen Wunsch'
+};
+
+function tagText(d) {
+  return d.toLocaleDateString('de-DE', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' });
+}
+function tagKurz(d) {
+  return d.toLocaleDateString('de-DE', { timeZone: TZ, day: 'numeric', month: 'long' });
+}
+function tagNr(d) {
+  return d.toLocaleDateString('de-DE', { timeZone: TZ, day: 'numeric' }).replace(/\.$/, '') + '.';
+}
+function uhr(d) {
+  return d.toLocaleTimeString('de-DE', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+}
+function gleicherTag(a, b) {
+  const f = x => x.toLocaleDateString('sv-SE', { timeZone: TZ });
+  return f(a) === f(b);
+}
+function dauer(a, b) {
+  const min = Math.max(0, Math.round((b - a) / 60000));
+  const h = Math.floor(min / 60), m = min % 60;
+  return h + ' Std.' + (m ? ' ' + m + ' Min.' : '');
+}
+
+function nachtKarte(e) {
+  const b = new Date(e.beginn), en = new Date(e.ende);
+  const titel = gleicherTag(b, en)
+    ? tagText(b)
+    : 'Nacht vom ' + tagNr(b) + ' auf ' + tagKurz(en);
+  const labels = (window.LPR && LPR.TAETIGKEIT_LABEL) || {};
+  const taet = (e.taetigkeiten || []).map(t => labels[t]).filter(Boolean);
+  const hinzu = e.hinzugezogen || [];
+
+  let html = '<section class="fa-nacht">' +
+    '<h2>' + esc(titel) + '</h2>' +
+    '<p class="fa-zeit">' + esc(uhr(b)) + ' bis ' + esc(uhr(en)) + ' · ' + esc(dauer(b, en)) + '</p>';
+
+  html += '<p class="fa-abschnitt">Was die Begleitung getan hat</p>';
+  html += taet.length
+    ? '<ul class="fa-liste">' + taet.map(t => '<li>' + esc(t) + '</li>').join('') + '</ul>'
+    : '<p class="fa-text">Die Begleitung war die ganze Zeit da.</p>';
+
+  if (hinzu.length) {
+    html += '<p class="fa-abschnitt">Pflegepersonal hinzugezogen</p><ul class="fa-liste">' +
+      hinzu.map(h => {
+        const g = GRUND[h.grund];
+        return '<li>' + esc(uhr(new Date(h.zeit))) + (g ? ' – ' + esc(g) : '') + '</li>';
+      }).join('') + '</ul>';
+  } else {
+    html += '<div class="fa-ruhig">Das Pflegepersonal musste in diesem Dienst nicht gerufen werden.</div>';
+  }
+  return html + '</section>';
+}
+
+function fehler(titel, text) {
+  document.getElementById('fa-inhalt').innerHTML =
+    '<h1 class="fa-titel">' + esc(titel) + '</h1>' +
+    '<div class="fa-fehler">' + esc(text) + '</div>' +
+    '<p class="fa-text" style="margin-top:16px;">Rufen Sie uns an, dann schicken wir Ihnen einen neuen Link: ' + KONTAKT + '</p>';
+}
+
+async function start() {
+  const m = /[#&]k=([0-9a-f]{48})/.exec(location.hash || '');
+  if (!m) {
+    fehler('Link unvollständig', 'Dieser Link ist nicht vollständig. Bitte öffnen Sie ihn genau so, wie Sie ihn von uns bekommen haben.');
+    return;
+  }
+  const r = await LPR.familieBericht(m[1]);
+  if (!r.ok) {
+    if (r.grund === 'abgelaufen') fehler('Link abgelaufen', 'Dieser Link ist abgelaufen.');
+    else if (r.grund === 'netz' || r.grund === 'fehler') fehler('Gerade nicht erreichbar', 'Der Bericht lässt sich gerade nicht laden. Bitte versuchen Sie es in ein paar Minuten noch einmal.');
+    else fehler('Link nicht gültig', 'Diesen Link kennen wir nicht, oder er wurde gesperrt.');
+    return;
+  }
+  const d = r.bericht;
+  const liste = Array.isArray(d.einsaetze) ? d.einsaetze : [];
+  const bis = d.gueltig_bis ? new Date(d.gueltig_bis).toLocaleDateString('de-DE', { timeZone: TZ, day: 'numeric', month: 'long', year: 'numeric' }) : '';
+
+  document.getElementById('fa-inhalt').innerHTML =
+    '<p class="fa-mini">Bericht für</p>' +
+    '<h1 class="fa-titel">' + esc(d.name) + '</h1>' +
+    '<p class="fa-text">Hier sehen Sie nach jedem Dienst, wie die Nacht war. Der Bericht erscheint, sobald der Dienst beendet ist.</p>' +
+    (liste.length
+      ? liste.map(nachtKarte).join('')
+      : '<div class="fa-hinweis">Noch kein abgeschlossener Dienst. Schauen Sie nach dem ersten Dienst wieder hier vorbei.</div>') +
+    '<div class="fa-hinweis">Medizinische Angaben stehen hier bewusst nicht. Wenn das Pflegepersonal gerufen wurde, erfahren Sie die Einzelheiten von der Einrichtung. ' +
+      'Fragen an uns: ' + KONTAKT + '</div>' +
+    (bis ? '<p class="fa-mini">Dieser Link gilt bis ' + esc(bis) + '. Bitte geben Sie ihn nicht weiter.</p>' : '');
+}
+
+start();
+</script>
+</body>
+</html>

@@ -101,6 +101,15 @@
   background: rgba(26,58,42,.08); border: 1px solid var(--green);
   color: var(--green-deep); font-size: 14px; font-weight: 600;
 }
+/* Familienzugang (Migration CM): Link wird genau einmal gezeigt. */
+.familie-block { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 14.5px; color: var(--green-deep); }
+.familie-block .familie-status { line-height: 1.7; }
+.familie-box { margin-top: 10px; padding: 14px; border-radius: var(--radius-sm); background: #F4F8F1; border: 1px solid var(--border); }
+.familie-box label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.familie-box input, .familie-box select { width: 100%; font-family: inherit; font-size: 15px; padding: 9px 11px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); box-sizing: border-box; background: #fff; color: var(--green-deep); }
+.familie-felder { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.familie-link { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+.familie-einmal { margin-top: 8px; font-size: 13.5px; font-weight: 700; color: var(--warn); }
 .termin-block { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 .termin-titel { font-size: 12px; font-weight: 700; letter-spacing: .1em;
   text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
@@ -180,7 +189,7 @@
 </div>
 </main>
 
-<script src="app.js?v20261125a"></script>
+<script src="app.js?v20261127a"></script>
 <script src="layout.js"></script>
 <script>
 LPR_Layout.init({ page: 'kunden' });
@@ -195,6 +204,9 @@ let personen = [];
    gleichzeitig haetten doppelte IDs und wuerden auf dieselben Felder greifen. */
 let offenerTermin = null;
 let stillFrage = null;
+let familieOffen = null;    // Kunde, fuer den das Formular "Familienlink" offen ist
+let familieNeu = null;      // { id, link } — nur bis zum naechsten Neuzeichnen sichtbar
+let familieSperrFrage = null;
 
 start();
 
@@ -402,6 +414,8 @@ function zeichneListe() {
 
       ${terminBlock(k.id)}
 
+      ${familieBlock(k)}
+
       <div class="aktionen">
         ${k.aktiv ? `
           <button type="button" class="btn-klein" onclick="terminOeffnen('${k.id}')">Termin anlegen</button>
@@ -415,6 +429,103 @@ function zeichneListe() {
       ${offenerTermin === k.id ? terminFormular(k) : ''}
     </div>`;
   }).join('');
+}
+
+// ── Familienzugang ─────────────────────────────────────────────────────────
+function familieAktiv(k) {
+  return k.familie_link_gueltig_bis && new Date(k.familie_link_gueltig_bis) > new Date();
+}
+
+function familieBlock(k) {
+  if (!k.aktiv) return '';
+  const datum = d => new Date(d).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+  let status;
+  if (familieAktiv(k)) {
+    status = 'Familienlink aktiv für <strong>' + LPR.escape(k.familie_ansprechperson || '') + '</strong>, gültig bis ' + datum(k.familie_link_gueltig_bis) + '.';
+  } else if (k.familie_link_gueltig_bis) {
+    status = 'Familienlink abgelaufen am ' + datum(k.familie_link_gueltig_bis) + '.';
+  } else {
+    status = 'Noch kein Familienlink. Damit sieht die Person, die gebucht hat, nach jedem Dienst einen kurzen Bericht – ohne medizinische Angaben.';
+  }
+
+  let knoepfe = `<button type="button" class="btn-klein" onclick="familieOeffnen('${k.id}')">${familieAktiv(k) ? 'Neuen Link erzeugen' : 'Familienlink erstellen'}</button>`;
+  if (familieAktiv(k)) {
+    knoepfe += familieSperrFrage === k.id
+      ? ` <span class="stillfrage">Link sperren? Die Familie sieht den Bericht dann nicht mehr.</span>` +
+        `<button type="button" class="btn-klein btn-still-ja" onclick="familieSperren('${k.id}')">Ja, sperren</button>` +
+        `<button type="button" class="btn-klein" onclick="familieSperrFrage=null;zeichneListe()">Abbrechen</button>`
+      : ` <button type="button" class="btn-klein btn-still" onclick="familieSperrFrage='${k.id}';zeichneListe()">Sperren</button>`;
+  }
+
+  let box = '';
+  if (familieNeu && familieNeu.id === k.id) {
+    const betreff = encodeURIComponent('Bericht zu den Nächten – Leben Pflegen Reisen e.V.');
+    const text = encodeURIComponent('Guten Tag,\n\nunter diesem Link sehen Sie nach jedem Dienst, wie die Nacht war:\n' + familieNeu.link +
+      '\n\nBitte geben Sie den Link nicht weiter.\n\nHerzliche Grüße\nLeben Pflegen Reisen e.V.');
+    box = `<div class="familie-box">
+      <label for="fl-${k.id}">Familienlink</label>
+      <input id="fl-${k.id}" class="familie-link" type="text" readonly value="${LPR.escape(familieNeu.link)}" onclick="this.select()">
+      <div class="familie-einmal">Dieser Link wird nur jetzt angezeigt. Bitte gleich an ${LPR.escape(familieNeu.wer)} schicken.</div>
+      <div class="aktionen">
+        <button type="button" class="btn-klein" onclick="familieKopieren('${k.id}')">Kopieren</button>
+        <a class="btn-klein" href="mailto:${LPR.escape(k.email || '')}?subject=${betreff}&body=${text}">Per E-Mail senden</a>
+        <button type="button" class="btn-klein" onclick="familieNeu=null;zeichneListe()">Fertig</button>
+      </div>
+    </div>`;
+  } else if (familieOffen === k.id) {
+    box = `<div class="familie-box">
+      <div class="familie-felder">
+        <div><label for="fw-${k.id}">Wer hat gebucht?</label>
+          <input id="fw-${k.id}" type="text" maxlength="120" value="${LPR.escape(k.familie_ansprechperson || '')}" placeholder="z. B. Tochter Maria Muster"></div>
+        <div><label for="fg-${k.id}">Gültig</label>
+          <select id="fg-${k.id}"><option value="30">30 Tage</option><option value="90" selected>90 Tage</option><option value="180">180 Tage</option></select></div>
+      </div>
+      ${familieAktiv(k) ? '<div class="familie-einmal">Der bisherige Link wird dadurch ungültig.</div>' : ''}
+      <div class="aktionen">
+        <button type="button" class="btn-klein" style="font-weight:700" onclick="familieErzeugen('${k.id}')">Link erzeugen</button>
+        <button type="button" class="btn-klein" onclick="familieOffen=null;zeichneListe()">Abbrechen</button>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="familie-block">
+    <div class="termin-titel">Familienzugang</div>
+    <div class="familie-status">${status}</div>
+    <div class="aktionen" style="margin-top:8px">${knoepfe}</div>
+    ${box}
+  </div>`;
+}
+
+function familieOeffnen(id) {
+  familieOffen = id; familieNeu = null; familieSperrFrage = null;
+  zeichneListe();
+}
+
+async function familieErzeugen(id) {
+  const wer = (document.getElementById('fw-' + id).value || '').trim();
+  const tage = parseInt(document.getElementById('fg-' + id).value, 10) || 90;
+  const fe = document.getElementById('fe-' + id);
+  const res = await LPR.kundeFamilienlinkNeu(id, wer, tage);
+  if (!res.ok) { fe.textContent = res.error; fe.hidden = false; return; }
+  familieOffen = null;
+  await laden();
+  familieNeu = { id, link: res.link, wer };
+  zeichneListe();
+}
+
+async function familieKopieren(id) {
+  const feld = document.getElementById('fl-' + id);
+  try { await navigator.clipboard.writeText(feld.value); zeigeMeldung('Link kopiert.'); }
+  catch (e) { feld.select(); zeigeMeldung('Bitte den markierten Link mit Strg/Cmd+C kopieren.'); }
+}
+
+async function familieSperren(id) {
+  const fe = document.getElementById('fe-' + id);
+  const res = await LPR.kundeFamilienlinkSperren(id);
+  familieSperrFrage = null;
+  if (!res.ok) { fe.textContent = res.error; fe.hidden = false; return; }
+  await laden();
+  zeigeMeldung('Familienlink gesperrt.');
 }
 
 function stillKnopf(k) {

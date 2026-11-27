@@ -106,7 +106,9 @@ function nachtKarte(e) {
 
   let html = '<section class="fa-nacht">' +
     '<h2>' + esc(titel) + '</h2>' +
-    '<p class="fa-zeit">' + esc(uhr(b)) + ' bis ' + esc(uhr(en)) + ' · ' + esc(dauer(b, en)) + '</p>';
+    '<p class="fa-zeit">' + esc(uhr(b)) + ' bis ' + esc(uhr(en)) + ' · ' + esc(dauer(b, en)) + '</p>' +
+    // Nur der Vorname (familie_bericht liefert nie mehr) — Eric, 27.11.2026.
+    (e.begleitung ? '<p class="fa-text" style="margin-top:-6px;">Begleitet von <strong>' + esc(e.begleitung) + '</strong></p>' : '');
 
   html += '<p class="fa-abschnitt">Was die Begleitung getan hat</p>';
   html += taet.length

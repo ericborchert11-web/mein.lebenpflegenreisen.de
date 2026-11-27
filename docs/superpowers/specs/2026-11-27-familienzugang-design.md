@@ -42,7 +42,7 @@ erscheinen nur als „Pflegepersonal hinzugezogen“ ohne Grund. Wer mehr wissen
 das Heim — dort liegt die Pflegedokumentation.
 
 **Nie sichtbar:** `stichwort` (Freitext), Unterschrift, Name der Pflegekraft, Pausen,
-Station/Fallnummer, Abrechnungsdaten, Name der Begleitperson (offen, siehe unten).
+Station/Fallnummer, Abrechnungsdaten, Nachname der Begleitperson (Vorname wird angezeigt, siehe unten).
 
 ## Zugang
 
@@ -73,7 +73,8 @@ Später, nicht Teil dieser Etappen: Mail an die Familie, sobald ein Bericht fert
 
 ## Offen
 
-- **Name der Begleitperson anzeigen?** Vorschlag: nur der Vorname, und nur wenn die
-  Ehrenamtliche zugestimmt hat. Bis zur Entscheidung kein Name.
+- ~~Name der Begleitperson~~ — **entschieden 27.11.2026 (Eric): Vorname ja** (Migration CO,
+  erster Teil von `profiles.full_name`, nie der Nachname). Hinweis für Mitwirkende in der
+  Datenschutzerklärung.
 - Steuerliche Einordnung privat bezahlter Einsätze (§ 4 Nr. 18 UStG / § 66 AO) bleibt wie
   im Design 26.08.2026 vermerkt; der Familienzugang ändert daran nichts.

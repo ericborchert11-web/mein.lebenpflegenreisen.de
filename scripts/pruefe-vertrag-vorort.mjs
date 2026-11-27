@@ -78,7 +78,7 @@ for (const [name, html] of [['Paket', VV.paketHtml(FALL, WERTE, VEREIN)], ['KV',
     pruefe(`${name}: kein "${weg}"`, !html.includes(weg), '');
   }
 }
-pruefe('Fassung 2026-11-24-3', VV.FASSUNG === '2026-11-24-3', VV.FASSUNG);
+pruefe('Fassung 2026-11-27-1', VV.FASSUNG === '2026-11-27-1', VV.FASSUNG);
 // Quelltext selbst: kein Eurobetrag
 const ohneKommentare = quelle.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 pruefe('Quelltext ohne Eurobetrag', !/\d+,\d{2}\s*(€|EUR)/.test(ohneKommentare), (ohneKommentare.match(/\d+,\d{2}\s*(€|EUR)/) || [''])[0]);
@@ -106,7 +106,11 @@ pruefe('Paket: drei Seitenumbrüche + einer', (voll.match(/class="vv-umbruch"/g)
 
 // 4b — Datenschutzinformation fertig (seit 24.11.2026, Fassung 2026-11-24-2)
 pruefe('Datenschutz: keine Pruefvermerke', !voll.includes('[prüfen') && !voll.includes('vv-pruef') && !/Frist festlegen/.test(voll), '');
-pruefe('Datenschutz: eigene Fassung', VV.FASSUNG_DATENSCHUTZ === '2026-11-24-2', VV.FASSUNG_DATENSCHUTZ);
+pruefe('Datenschutz: eigene Fassung', VV.FASSUNG_DATENSCHUTZ === '2026-11-27-1', VV.FASSUNG_DATENSCHUTZ);
+// 4c — Familienbericht (27.11.2026, Familienzugang)
+pruefe('Vertrag: § 10 Abs. 3 Familienbericht', voll.includes('persönlichen Link, über den nach jedem abgeschlossenen Dienst') && voll.includes('gibt den Link nicht an Dritte weiter'), '');
+pruefe('Datenschutz: Abschnitt 4a Familienbericht', voll.includes('4a. Familienbericht (auf Wunsch)') && voll.includes('nicht umkehrbaren Prüfwert'), '');
+pruefe('Datenschutz: Portal-Satz ehrlich', voll.includes('legen wir die begleitete Person zusätzlich mit Name und Anschrift in unserem Portal an'), '');
 pruefe('Datenschutz: Notfall-Grundlage', voll.includes('Art. 9 Abs. 2 Buchst. c DSGVO'), '');
 pruefe('Datenschutz: USA-Grundlage', voll.includes('Data Privacy Framework') && voll.includes('Art. 46 Abs. 2 Buchst. c DSGVO'), '');
 pruefe('Datenschutz: Löschfrist drei Monate', voll.includes('spätestens drei Monate nach dem Ende des Einsatzes'), '');

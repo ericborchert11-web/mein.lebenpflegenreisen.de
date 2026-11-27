@@ -25,11 +25,13 @@
 
   // 2026-11-24-3: ein Modell (12 h), Ausfallpauschale und Storno raus, Variante
   // "muendlich geschlossen, Bestaetigung per Mail" (Eric, 24.11.2026 nach dem Termin).
-  var FASSUNG = '2026-11-24-3';
+  // 2026-11-27-1: § 10 Abs. 3 Familienbericht (Familienzugang, Migration CM/CN).
+  var FASSUNG = '2026-11-27-1';
   // Eigene Fassung, seit die Datenschutzinformation am 24.11.2026 fertig
   // geschrieben wurde (Pruefvermerke aufgeloest). Muss zu vertrag_werte
   // (fassung_datenschutz) und vertrag_vorort_gate() passen.
-  var FASSUNG_DATENSCHUTZ = '2026-11-24-2';
+  // 2026-11-27-1: Abschnitt 4a Familienbericht, Abschnitt 2 und 4 ergaenzt.
+  var FASSUNG_DATENSCHUTZ = '2026-11-27-1';
   var VARIANTEN = {
     vertrag:     'vertrag-nachtbegleitung',
     kv:          'kv-nachtbegleitung',
@@ -396,7 +398,8 @@
     h.push('<div class="vv-block"><h2>§ 10 Datenschutz</h2>'
       + para(1, 'Der Verein verarbeitet personenbezogene Daten der Vertragsparteien und der begleiteten Person ausschließlich zur Durchführung dieses Vertrags nach Maßgabe der DSGVO. Angaben zur Gesundheit werden nur erhoben, soweit sie für die Begleitung erforderlich sind.') + '</div>'
       + para(2, 'Die Einsatzdokumentation des Vereins wird unter einer Fallnummer geführt.')
-      + para(3, mu ? 'Einzelheiten ergeben sich aus der Datenschutzinformation des Vereins, die dieser Vertragsbestätigung beiliegt.'
+      + para(3, 'Auf Wunsch erhält die Auftraggeberin / der Auftraggeber einen persönlichen Link, über den nach jedem abgeschlossenen Dienst ein kurzer Bericht abrufbar ist: Dienstzeit, Tätigkeiten der Begleitung und die Uhrzeiten, zu denen das Pflegepersonal hinzugezogen wurde. Der Bericht enthält keine Angaben zur Gesundheit. Die Auftraggeberin / der Auftraggeber versichert, zum Empfang dieser Angaben über die begleitete Person berechtigt zu sein, und gibt den Link nicht an Dritte weiter.')
+      + para(4, mu ? 'Einzelheiten ergeben sich aus der Datenschutzinformation des Vereins, die dieser Vertragsbestätigung beiliegt.'
         : 'Einzelheiten ergeben sich aus der Datenschutzinformation des Vereins, die die Auftraggeberin / der Auftraggeber erhalten hat.'));
 
     h.push('<div class="vv-block"><h2>§ 11 Widerrufsrecht, Beginn der Leistung, Übermittlung</h2>'
@@ -490,7 +493,7 @@
       + '. Fragen zum Datenschutz richten Sie bitte an datenschutz@lebenpflegenreisen.de oder an die genannte Anschrift.</p>'
       + '<h2>2. Welche Daten wir verarbeiten</h2>'
       + '<ul class="vv-strich">'
-      + '<li>Von Ihnen: Name, Anschrift, Telefon, E-Mail-Adresse, die Handlungsform (eigener Name oder Vertretung), Ihre Unterschrift und die Angaben aus der Abrechnung.</li>'
+      + '<li>Von Ihnen: Name, Anschrift, Telefon, E-Mail-Adresse, die Handlungsform (eigener Name oder Vertretung), Ihre Unterschrift, die Angaben aus der Abrechnung und, wenn Sie den Familienbericht nutzen, Ihren Namen als berechtigte Person.</li>'
       + '<li>Von der begleiteten Person: Name, Einrichtung, Wohnbereich oder Apartment sowie Angaben zu Gewohnheiten und zum Verhalten in der Nacht, soweit Sie oder die Einrichtung sie uns für die Begleitung mitteilen. Darunter können Angaben zur Gesundheit sein, zum Beispiel eine Sturzgefahr.</li>'
       + '<li>Von der Einrichtung: Name, Funktion und Telefon der Ansprechperson.</li>'
       + '</ul>'
@@ -503,7 +506,9 @@
       + '<li>Aufbewahrung nach Steuerrecht: Art. 6 Abs. 1 Buchst. c DSGVO in Verbindung mit § 147 der Abgabenordnung.</li>'
       + '</ul>'
       + '<h2>4. Wie wir die Daten ablegen</h2>'
-      + '<p>Vertrag, Kostenvoranschlag und Anlagen entstehen beim Termin auf einem Tablet des Vereins. Sie erhalten sie per E-Mail, eine Kopie geht an das Vorstandspostfach des Vereins und wird dort für die Dauer der Aufbewahrungspflicht aufbewahrt. In unserem Portal stehen nur Vertragsnummer, Fallnummer, Zeitraum, Anzahl der Nächte, Betrag und Bearbeitungsstand, keine Namen. Die Einsatzdokumentation führen wir unter der Fallnummer. Auf dem Tablet werden Ihre Eingaben nach dem Versand gelöscht.</p>'
+      + '<p>Vertrag, Kostenvoranschlag und Anlagen entstehen beim Termin auf einem Tablet des Vereins. Sie erhalten sie per E-Mail, eine Kopie geht an das Vorstandspostfach des Vereins und wird dort für die Dauer der Aufbewahrungspflicht aufbewahrt. In unserem Portal stehen nur Vertragsnummer, Fallnummer, Zeitraum, Anzahl der Nächte, Betrag und Bearbeitungsstand, keine Namen. Nutzen Sie den Familienbericht (Abschnitt 4a), legen wir die begleitete Person zusätzlich mit Name und Anschrift in unserem Portal an. Die Einsatzdokumentation führen wir unter der Fallnummer. Auf dem Tablet werden Ihre Eingaben nach dem Versand gelöscht.</p>'
+      + '<h2>4a. Familienbericht (auf Wunsch)</h2>'
+      + '<p>Wenn Sie es wünschen, schicken wir Ihnen einen persönlichen Link. Darüber sehen Sie nach jedem abgeschlossenen Dienst der letzten 60 Tage: Datum und Dauer, was die Begleitung getan hat (etwa Gespräch, Vorlesen, Beruhigen) und zu welchen Uhrzeiten das Pflegepersonal hinzugezogen wurde – als Grund erscheint höchstens „war unruhig“, „wollte aufstehen“ oder „hatte einen Wunsch“. Angaben zur Gesundheit, Notizen der Begleitung und Namen von Pflegekräften erscheinen dort nicht. Den Link speichern wir nur als nicht umkehrbaren Prüfwert; er gilt höchstens 180 Tage, und wir können ihn jederzeit sperren. Rechtsgrundlage ist der Vertrag mit Ihnen (Art. 6 Abs. 1 Buchst. b DSGVO); soweit Sie die begleitete Person gesetzlich vertreten oder von ihr bevollmächtigt sind, erhalten Sie die Angaben in dieser Eigenschaft.</p>'
       + '<h2>5. Wer die Daten erhält</h2>'
       + '<ul class="vv-strich">'
       + '<li>die eingesetzten Begleitpersonen, und nur das, was sie für die Nacht brauchen,</li>'

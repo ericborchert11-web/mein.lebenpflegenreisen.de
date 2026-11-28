@@ -77,8 +77,13 @@ body.einsatz { overflow-x: hidden; }
   font-family: 'Bricolage Grotesque', sans-serif;
   font-weight: 800; font-size: 1.1rem; letter-spacing: -.01em;
 }
-.top .t-badge {
+.top .t-hilfe {
   margin-left: auto;
+  color: #fff; text-decoration: none; font-size: .85rem; font-weight: 600;
+  border: 1px solid rgba(255,255,255,.4); border-radius: 99px; padding: .3rem .75rem;
+}
+.top .t-badge {
+  margin-left: .4rem;
   background: var(--lime, #C8F135); color: var(--green, #2D4A3A);
   font-size: .68rem; font-weight: 700; letter-spacing: .1em;
   padding: .25rem .55rem; border-radius: 99px;
@@ -146,6 +151,7 @@ p.lead { font-size: 1.15rem; line-height: 1.5; color: var(--text, #182420); marg
   min-height: 3.2rem; font-size: 1.05rem; font-weight: 600;
 }
 .btn .chev { flex-shrink: 0; }
+a.btn { text-decoration: none; text-align: center; }
 
 /* ── Laufender Einsatz ── */
 .run-card {
@@ -400,6 +406,8 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
       </g>
     </svg>
     <span class="t-name">Sitzwachen</span>
+    <!-- Handbuch zum Nachschlagen, im neuen Tab, damit der laufende Einsatz offen bleibt -->
+    <a class="t-hilfe" href="https://lernen.lebenpflegenreisen.de/handbuch/" target="_blank" rel="noopener">Handbuch</a>
     <span class="t-badge" id="modus-badge" hidden>ÜBUNG</span>
   </header>
 
@@ -488,6 +496,7 @@ body.contrast .check, body.contrast .pick { border: 2px solid #000; }
 
     <button class="btn btn-secondary" id="btnPause" onclick="togglePause()">Pause</button>
     <button class="btn btn-secondary" onclick="openEvent()">Besonderheit an Pflege übergeben</button>
+    <a class="btn btn-quiet" href="https://lernen.lebenpflegenreisen.de/handbuch/#was-tun" target="_blank" rel="noopener">Unsicher? Im Handbuch nachschlagen</a>
 
     <!-- Trinkmenge: reine Gedaechtnisstuetze, verlaesst den Browser nie.
          Siehe trink*-Funktionen unten. -->
